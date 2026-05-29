@@ -8,22 +8,27 @@
   let tauriConnected = $state(false);
   let activeTab = $state("dashboard");
 
-  // Check Tauri connectivity and query version
+  // Check Tauri connectivity and restore theme
   onMount(async () => {
-    // Restore theme from localStorage
+    // Stage 1: Load instantly from localStorage for seamless boot
     const saved = localStorage.getItem("deep-cuts-theme") || "system";
-    setTheme(saved);
+    await setTheme(saved, false);
 
+    // Stage 2: Query database via Tauri if online
     try {
-      // Basic ping test to confirm Tauri shell connection
+      // Query saved theme from Tauri SQLite database
+      const dbTheme = await invoke<string>("get_theme");
       tauriConnected = true;
+      if (dbTheme && dbTheme !== saved) {
+        await setTheme(dbTheme, false);
+      }
     } catch (e) {
-      console.warn("Tauri shell connection offline (likely running in standard browser context).");
+      console.warn("Tauri shell connection offline (running in browser context) or database loading.");
     }
   });
 
-  // Apply theme dynamically to HTML element
-  function setTheme(theme: string) {
+  // Apply theme dynamically to HTML element and persist to storage
+  async function setTheme(theme: string, saveToDb = true) {
     currentTheme = theme;
     localStorage.setItem("deep-cuts-theme", theme);
 
@@ -34,6 +39,14 @@
     } else {
       resolvedTheme = theme;
       document.documentElement.setAttribute("data-theme", theme);
+    }
+
+    if (saveToDb && tauriConnected) {
+      try {
+        await invoke("save_theme", { theme });
+      } catch (e) {
+        console.error("Failed to save theme in Tauri database:", e);
+      }
     }
   }
 
