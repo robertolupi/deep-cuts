@@ -888,7 +888,7 @@
                 <div class="rec-card">
                   <span class="rec-rank font-xs font-bold">#{i + 1}</span>
                   <div class="rec-meta">
-                    <span class="rec-title font-sm font-semibold">{track.title || 'Unknown Title'}</span>
+                    <span class="rec-title font-sm font-semibold">{track.title || allScannedTracks.find(t => t.id === track.id)?.filename || 'Unknown Title'}</span>
                     <span class="rec-artist font-xs text-muted">{track.artist || 'Unknown Artist'}</span>
                   </div>
                   
