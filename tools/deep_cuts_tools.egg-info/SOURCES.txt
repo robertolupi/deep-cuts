@@ -1,0 +1,6 @@
+pyproject.toml
+deep_cuts_tools.egg-info/PKG-INFO
+deep_cuts_tools.egg-info/SOURCES.txt
+deep_cuts_tools.egg-info/dependency_links.txt
+deep_cuts_tools.egg-info/requires.txt
+deep_cuts_tools.egg-info/top_level.txt

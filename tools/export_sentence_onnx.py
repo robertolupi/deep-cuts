@@ -16,7 +16,11 @@ Output files (written to models/):
 
 import shutil
 import tempfile
+import warnings
 from pathlib import Path
+
+# Suppress torch dynamo cosmetic warning about shared dynamic dimension names
+warnings.filterwarnings("ignore", message=".*axis name.*will not be used.*shares the same shape constraints.*")
 
 import torch
 import torch.nn.functional as F
@@ -67,19 +71,19 @@ def main() -> None:
 
     onnx_path = OUT_DIR / "all-minilm-l6-v2.onnx"
     print(f"Exporting ONNX model → {onnx_path} …")
+    seq_dim = torch.export.Dim("seq", min=1, max=512)
     torch.onnx.export(
         wrapper,
         (dummy_ids, dummy_mask, dummy_type),
         str(onnx_path),
         input_names=["input_ids", "attention_mask", "token_type_ids"],
         output_names=["sentence_embedding"],
-        dynamic_axes={
-            "input_ids":          {0: "batch", 1: "seq"},
-            "attention_mask":     {0: "batch", 1: "seq"},
-            "token_type_ids":     {0: "batch", 1: "seq"},
-            "sentence_embedding": {0: "batch"},
+        dynamic_shapes={
+            "input_ids":      {1: seq_dim},
+            "attention_mask": {1: seq_dim},
+            "token_type_ids": {1: seq_dim},
         },
-        opset_version=14,
+        opset_version=18,
         do_constant_folding=True,
     )
     print(f"  Saved ({onnx_path.stat().st_size / 1e6:.1f} MB header)")

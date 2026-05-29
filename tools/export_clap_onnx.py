@@ -23,7 +23,11 @@ so the Rust inference code receives unit-norm 512-d embeddings directly.
 import shutil
 import struct
 import tempfile
+import warnings
 from pathlib import Path
+
+# Suppress torch dynamo cosmetic warning about shared dynamic dimension names
+warnings.filterwarnings("ignore", message=".*axis name.*will not be used.*shares the same shape constraints.*")
 
 import numpy as np
 import torch
@@ -145,8 +149,7 @@ def main() -> None:
         audio_enc, dummy, str(audio_path),
         input_names=["input_features"],
         output_names=["audio_embedding"],
-        dynamic_axes={"audio_embedding": {0: "batch"}},
-        opset_version=14,
+        opset_version=18,
         do_constant_folding=True,
     )
     print(f"  Saved ({audio_path.stat().st_size / 1e6:.1f} MB header)")
@@ -159,16 +162,16 @@ def main() -> None:
     dummy_mask = torch.ones(1, seq, dtype=torch.long)
     text_path = OUT_DIR / "clap_text_encoder.onnx"
     print(f"Exporting text encoder → {text_path} …")
+    seq_dim = torch.export.Dim("seq", min=1, max=77)
     torch.onnx.export(
         text_enc, (dummy_ids, dummy_mask), str(text_path),
         input_names=["input_ids", "attention_mask"],
         output_names=["text_embedding"],
-        dynamic_axes={
-            "input_ids":      {0: "batch", 1: "seq"},
-            "attention_mask": {0: "batch", 1: "seq"},
-            "text_embedding": {0: "batch"},
+        dynamic_shapes={
+            "input_ids":      {1: seq_dim},
+            "attention_mask": {1: seq_dim},
         },
-        opset_version=14,
+        opset_version=18,
         do_constant_folding=True,
     )
     print(f"  Saved ({text_path.stat().st_size / 1e6:.1f} MB header)")
