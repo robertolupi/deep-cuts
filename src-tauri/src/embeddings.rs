@@ -257,17 +257,20 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/// Seek-decodes a 10 s window starting at `(duration * pct) − 5 s` and returns mel features.
+/// Decodes the full file, resamples to 48 kHz, then extracts a 10 s window centred at `pct`.
 pub fn preprocess_window_at_pct(
     path: &str,
     pct: f64,
     app: Option<&tauri::AppHandle>,
 ) -> Result<Vec<f32>, String> {
-    let (audio, sample_rate) = crate::dsp::decode_audio_at_percentage_with_seeking(path, pct)?;
+    let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(path)?;
     let audio_48k = resample_audio(&audio, sample_rate, CLAP_SR)?;
 
-    let end = CLAP_10S_SAMPLES.min(audio_48k.len());
-    let mut window = audio_48k[..end].to_vec();
+    let center = (audio_48k.len() as f64 * pct) as usize;
+    let half = CLAP_10S_SAMPLES / 2;
+    let start = center.saturating_sub(half);
+    let end = (start + CLAP_10S_SAMPLES).min(audio_48k.len());
+    let mut window = audio_48k[start..end].to_vec();
 
     if window.len() < CLAP_10S_SAMPLES && !window.is_empty() {
         let original = window.clone();

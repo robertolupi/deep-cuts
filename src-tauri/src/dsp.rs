@@ -149,6 +149,47 @@ fn extract_samples_as_f32(decoded: &AudioBufferRef) -> Option<(Vec<f32>, Vec<f32
     Some((stereo, mono, frames))
 }
 
+/// Decodes an audio file to a mono f32 sample vector, returning (samples, sample_rate).
+pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
+    let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let mut probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let track = probed.format.default_track().ok_or("No default track")?;
+    let track_id = track.id;
+    let codec_params = track.codec_params.clone();
+    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&codec_params, &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let mut mono_samples: Vec<f32> = Vec::new();
+
+    while let Ok(packet) = probed.format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+        if let Some((_, mono, _)) = extract_samples_as_f32(&decoded) {
+            mono_samples.extend(mono);
+        }
+    }
+
+    Ok((mono_samples, sample_rate))
+}
+
 /// Seeks to `(duration * pct) − 5 s` before decoding, returning audio from that point onward.
 /// `pct` must be in [0.0, 1.0]. Used for multi-window CLAP extraction (25 %, 50 %, 75 %).
 pub fn decode_audio_at_percentage_with_seeking(path: &str, pct: f64) -> Result<(Vec<f32>, u32), String> {
