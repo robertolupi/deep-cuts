@@ -29,6 +29,28 @@
   let errorMessage = $state("");
   let unlisteners: Array<() => void> = [];
 
+  // Derived state to compute total remaining ETA across all active/pending passes
+  let estimatedTimeRemaining = $derived.by(() => {
+    let totalMs = 0;
+    for (const pass of stats) {
+      const remaining = pass.pending + pass.in_progress;
+      if (remaining > 0 && pass.avg_duration_ms) {
+        totalMs += remaining * pass.avg_duration_ms;
+      }
+    }
+    return totalMs;
+  });
+
+  function formatEta(ms: number | null): string {
+    if (ms === null || ms <= 0) return "";
+    const seconds = Math.ceil(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (secs === 0) return `${mins}m`;
+    return `${mins}m ${secs}s`;
+  }
+
   async function loadStats() {
     try {
       stats = await invoke<PassStats[]>("get_pass_stats");
@@ -94,8 +116,13 @@
       <h2 class="panel-title">Audio Analysis</h2>
       <p class="panel-subtitle">Compute BPM, key, loudness, waveforms, and neural embeddings for your library.</p>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" style="display: flex; align-items: center; gap: 0.75rem;">
       {#if isRunning}
+        {#if estimatedTimeRemaining > 0}
+          <span class="eta-global" style="font-size: 0.8rem; color: var(--text-secondary); font-family: var(--font-mono, monospace);">
+            ⏱️ {formatEta(estimatedTimeRemaining)} remaining
+          </span>
+        {/if}
         <span class="badge badge-cyan pulse-glow-cyan">Running…</span>
       {:else}
         <button class="btn-primary" onclick={startAnalysis}>
@@ -130,6 +157,11 @@
               {#if pass.failed > 0}<span class="count-failed"> · {pass.failed} failed</span>{/if}
               {#if pass.pending > 0}<span class="count-pending"> · {pass.pending} pending</span>{/if}
               <span class="count-total"> / {pass.total}</span>
+              {#if isRunning && (pass.pending > 0 || pass.in_progress > 0) && pass.avg_duration_ms}
+                <span class="count-eta" style="color: var(--accent-cyan); font-weight: 500;">
+                  · {formatEta((pass.pending + pass.in_progress) * pass.avg_duration_ms)} remaining
+                </span>
+              {/if}
             </span>
             {#if pass.avg_duration_ms !== null}
               <span class="avg-duration">avg {formatMs(pass.avg_duration_ms)}</span>

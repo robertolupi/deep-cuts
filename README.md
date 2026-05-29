@@ -29,6 +29,8 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
     *   **Dark Mode**: Cyber-cyan, studio-pink, and deep-indigo glow interface.
     *   **Light Mode**: Clean, professional bright slate/indigo studio theme.
     *   **Accessible Mode**: High-contrast black-and-white theme with stark borders and zero panel blurs.
+*   **Decoupled & Testable Architecture**: Self-contained Rust backend with fully modular Tauri command modules, database models utilizing the Repository CRUD pattern, separate services (`PipelineManager` and `LibraryScanner`), custom serializable `AppError` handling, and an RAII `SleepPreventer` system. Verified by **29 unit and integration tests** covering DSP, database transactions, UMAP coordinates, and schema migrations.
+*   **Performance & Scale Optimization**: Svelte 5 frontend with a single-source-of-truth global cache (`LibraryStore`). Employs on-demand DOM pagination (rendering capped at 150 items with reactive `$effect` filter resets) to eliminate browser rendering bottlenecks, ensuring instantaneous search, scroll, and filter speeds even with libraries containing thousands of local tracks.
 
 ### Planned
 
