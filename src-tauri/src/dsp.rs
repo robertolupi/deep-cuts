@@ -1,8 +1,10 @@
 use std::fs::File;
 use std::path::Path;
 use symphonia::core::audio::{AudioBufferRef, Signal};
+use symphonia::core::formats::{SeekMode, SeekTo};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
+use symphonia::core::units::Time;
 use rustfft::{FftPlanner, num_complex::Complex};
 
 // Krumhansl-Schmuckler key profiles (root = index 0)
@@ -182,6 +184,62 @@ pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
             Err(_) => continue,
         };
 
+        if let Some((_, mono, _)) = extract_samples_as_f32(&decoded) {
+            mono_samples.extend(mono);
+        }
+    }
+
+    Ok((mono_samples, sample_rate))
+}
+
+/// Seeks to (midpoint − 5 s) before decoding, skipping the first half of the file.
+/// Returns (samples, sample_rate) from the seek point onward — enough to cover a 10 s window.
+pub fn decode_audio_to_mono_with_seeking(path: &str) -> Result<(Vec<f32>, u32), String> {
+    let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let mut probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let track = probed.format.default_track().ok_or("No default track")?;
+    let track_id = track.id;
+    let codec_params = track.codec_params.clone();
+    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+
+    // Seek to midpoint − 5 s so we only decode the second half of the file
+    if let (Some(tb), Some(n_frames)) = (codec_params.time_base, codec_params.n_frames) {
+        let t = tb.calc_time(n_frames);
+        let duration_secs = t.seconds as f64 + t.frac;
+        let seek_secs = ((duration_secs / 2.0) - 5.0).max(0.0);
+        let seek_target = SeekTo::Time {
+            time: Time { seconds: seek_secs as u64, frac: seek_secs.fract() },
+            track_id: None,
+        };
+        if let Err(e) = probed.format.seek(SeekMode::Coarse, seek_target) {
+            log::warn!("[seek] Seek failed ({}), falling back to sequential decode", e);
+        }
+    }
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&codec_params, &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let mut mono_samples: Vec<f32> = Vec::new();
+
+    while let Ok(packet) = probed.format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
         if let Some((_, mono, _)) = extract_samples_as_f32(&decoded) {
             mono_samples.extend(mono);
         }

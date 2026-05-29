@@ -237,7 +237,15 @@ impl PipelineManager {
             }
             let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "audio_analysis" }));
 
-            // ── Phase 2: clap (single thread, model loaded once via OnceLock) ─
+            // ── Phase 2: CLAP — producer-consumer with seek-aware parallel preprocessing ──
+            let config = crate::hardware::PipelineConfig::auto_tune();
+
+            if let Err(e) = embeddings::configure_session(config.use_coreml, config.intra_threads, Some(&app)) {
+                eprintln!("[clap] Failed to configure ONNX session: {}", e);
+                let _ = app.emit("analysis-complete", ());
+                return;
+            }
+
             let clap_pending: Vec<SpoolJob> = {
                 let conn = conn_arc.lock().unwrap();
                 let mut stmt = match conn.prepare(
@@ -250,6 +258,7 @@ impl PipelineManager {
                     Ok(s) => s,
                     Err(e) => {
                         eprintln!("[clap] Failed to prepare clap query: {}", e);
+                        let _ = app.emit("analysis-complete", ());
                         return;
                     }
                 };
@@ -272,27 +281,69 @@ impl PipelineManager {
                 rows
             };
 
-            for job in clap_pending {
+            struct PreppedSpectrogram {
+                pass_id: i64,
+                track_id: i64,
+                mel_features: Vec<f32>,
+            }
+
+            let (tx, rx) = std::sync::mpsc::sync_channel::<PreppedSpectrogram>(config.decode_threads * 2);
+            let clap_jobs_queue = Arc::new(Mutex::new(VecDeque::from(clap_pending)));
+
+            let mut prep_workers = Vec::new();
+            for _ in 0..config.decode_threads {
+                let queue_clone = Arc::clone(&clap_jobs_queue);
+                let tx_clone = tx.clone();
+                let app_clone = app.clone();
+
+                prep_workers.push(std::thread::spawn(move || {
+                    loop {
+                        let job = {
+                            let mut q = queue_clone.lock().unwrap();
+                            q.pop_front()
+                        };
+                        let job = match job {
+                            Some(j) => j,
+                            None => break,
+                        };
+
+                        match embeddings::preprocess_track_to_mel(&job.path, Some(&app_clone)) {
+                            Ok(mel_features) => {
+                                let _ = tx_clone.send(PreppedSpectrogram {
+                                    pass_id: job.pass_id,
+                                    track_id: job.track_id,
+                                    mel_features,
+                                });
+                            }
+                            Err(e) => {
+                                log::error!("[clap] Preprocessing failed for track {}: {}", job.track_id, e);
+                            }
+                        }
+                    }
+                }));
+            }
+            drop(tx);
+
+            for prepped in rx {
                 let start = std::time::Instant::now();
-                let result = embeddings::run_clap_audio_embed(&job.path, Some(&app));
+                let result = embeddings::run_clap_inference_only(prepped.mel_features);
                 let elapsed_ms = start.elapsed().as_millis() as i64;
 
                 let conn = conn_arc.lock().unwrap();
                 match result {
                     Ok(embedding) => {
-                        // Serialise 512 floats as little-endian bytes for sqlite-vec
                         let blob: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
                         let _ = conn.execute(
                             "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
-                            rusqlite::params![job.track_id, blob],
+                            rusqlite::params![prepped.track_id, blob],
                         );
                         let _ = conn.execute(
                             "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                              last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                            rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                            rusqlite::params![pass_status::DONE, elapsed_ms, prepped.pass_id],
                         );
                         let _ = app.emit("analysis-progress", serde_json::json!({
-                            "track_id": job.track_id,
+                            "track_id": prepped.track_id,
                             "pass_name": "clap",
                             "status": pass_status::DONE,
                         }));
@@ -301,15 +352,19 @@ impl PipelineManager {
                         let _ = conn.execute(
                             "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
                              last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                            rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                            rusqlite::params![pass_status::FAILED, e, elapsed_ms, prepped.pass_id],
                         );
                         let _ = app.emit("analysis-progress", serde_json::json!({
-                            "track_id": job.track_id,
+                            "track_id": prepped.track_id,
                             "pass_name": "clap",
                             "status": pass_status::FAILED,
                         }));
                     }
                 }
+            }
+
+            for h in prep_workers {
+                let _ = h.join();
             }
 
             let _ = app.emit("analysis-complete", ());

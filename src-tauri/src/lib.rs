@@ -7,6 +7,7 @@ mod scanner;
 mod analysis;
 mod commands;
 pub mod error;
+pub mod hardware;
 
 use database::DbManager;
 use std::sync::Mutex;

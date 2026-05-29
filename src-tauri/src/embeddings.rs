@@ -17,9 +17,9 @@ const CLAP_SR: u32 = 48_000;
 const CLAP_MAX_FRAMES: usize = 1000; // floor(10 s × 48000 / 480) = 1000
 const CLAP_10S_SAMPLES: usize = 480_000; // 10 × 48000
 
-// ── Lazy-loaded ONNX session ──────────────────────────────────────────────────
+// ── Thread-safe ONNX session ──────────────────────────────────────────────────
 
-static SESSION_CLAP_AUDIO: OnceLock<Result<Mutex<Session>, String>> = OnceLock::new();
+static SESSION_CLAP_AUDIO: Mutex<Option<Session>> = Mutex::new(None);
 
 // ── CLAP mel filterbank (64 × 513 float32, loaded from clap_mel_weights.bin) ─
 
@@ -61,9 +61,15 @@ pub fn get_model_path(model_filename: &str, app: Option<&tauri::AppHandle>) -> P
     PathBuf::from(model_filename)
 }
 
-// ── Session helpers ───────────────────────────────────────────────────────────
+// ── Session management ────────────────────────────────────────────────────────
 
-fn load_clap_audio_session(app: Option<&tauri::AppHandle>) -> Result<Mutex<Session>, String> {
+/// Configures (or reconfigures) the CLAP ONNX session with the given threading parameters.
+/// Called once at the start of each analysis pipeline run.
+pub fn configure_session(
+    _use_coreml: bool,
+    intra_threads: usize,
+    app: Option<&tauri::AppHandle>,
+) -> Result<(), String> {
     let path = get_model_path("clap_audio_encoder.onnx", app);
     if !path.exists() {
         return Err(format!(
@@ -71,23 +77,20 @@ fn load_clap_audio_session(app: Option<&tauri::AppHandle>) -> Result<Mutex<Sessi
             path
         ));
     }
-    let mut builder = Session::builder()
+
+    let session = Session::builder()
         .map_err(|e| format!("ORT builder error: {}", e))?
-        .with_intra_threads(1)
+        .with_intra_threads(intra_threads)
         .and_then(|b| b.with_inter_threads(1))
-        .map_err(|e| format!("Failed to configure CLAP threading: {}", e))?;
-
-    builder
+        .map_err(|e| format!("Failed to configure CLAP threading: {}", e))?
         .commit_from_file(&path)
-        .map(Mutex::new)
-        .map_err(|e| format!("Failed to load clap_audio_encoder.onnx: {}", e))
-}
+        .map_err(|e| format!("Failed to load clap_audio_encoder.onnx: {}", e))?;
 
-fn get_clap_audio_session(app: Option<&tauri::AppHandle>) -> Result<&'static Mutex<Session>, String> {
-    match SESSION_CLAP_AUDIO.get_or_init(|| load_clap_audio_session(app)) {
-        Ok(s) => Ok(s),
-        Err(e) => Err(e.clone()),
-    }
+    let mut guard = SESSION_CLAP_AUDIO
+        .lock()
+        .map_err(|e| format!("Failed to acquire session lock: {}", e))?;
+    *guard = Some(session);
+    Ok(())
 }
 
 // ── CLAP mel filterbank ───────────────────────────────────────────────────────
@@ -254,27 +257,22 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/// Generates a 512-d L2-normalised CLAP audio embedding for a music file.
-///
-/// Decodes the file, resamples to 48 kHz, extracts a 10-second centre window,
-/// computes the CLAP log-mel spectrogram, and runs the ONNX audio encoder.
-///
-/// Requires `models/clap_audio_encoder.onnx` and `models/clap_mel_weights.bin`
-/// (generate with `tools/export_clap_onnx.py`).
-pub fn run_clap_audio_embed(
+/// Pre-computes log-mel spectrogram features for a track (CPU-bound decode + resample).
+/// Uses seek-aware decoding to skip the first half of the file, then extracts a 10 s window.
+pub fn preprocess_track_to_mel(
     path: &str,
     app: Option<&tauri::AppHandle>,
 ) -> Result<Vec<f32>, String> {
-    // 1. Decode and resample to 48 kHz
-    let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(path)?;
+    // Seek-decode starts at midpoint−5 s; returned audio begins there
+    let (audio, sample_rate) = crate::dsp::decode_audio_to_mono_with_seeking(path)?;
     let audio_48k = resample_audio(&audio, sample_rate, CLAP_SR)?;
 
-    // 2. Extract 10-second window centred on the track midpoint
-    let mid = audio_48k.len() / 2;
-    let half = CLAP_10S_SAMPLES / 2;
-    let start = mid.saturating_sub(half);
-    let end = (start + CLAP_10S_SAMPLES).min(audio_48k.len());
-    let mut window = audio_48k[start..end].to_vec();
+    // Take a CLAP_10S_SAMPLES window from the start of the decoded region
+    let mut window: Vec<f32> = if audio_48k.len() >= CLAP_10S_SAMPLES {
+        audio_48k[..CLAP_10S_SAMPLES].to_vec()
+    } else {
+        audio_48k
+    };
 
     // Tile-pad short clips rather than zero-pad, to avoid DC bias
     if window.len() < CLAP_10S_SAMPLES && !window.is_empty() {
@@ -288,20 +286,25 @@ pub fn run_clap_audio_embed(
         window.resize(CLAP_10S_SAMPLES, 0.0);
     }
 
-    // 3. CLAP log-mel spectrogram → flat (CLAP_MAX_FRAMES × CLAP_N_MELS)
     let mel_filterbank = get_clap_mel_filterbank(app)?;
-    let mel_flat = compute_clap_log_mel(&window, mel_filterbank)?;
+    compute_clap_log_mel(&window, mel_filterbank)
+}
 
-    // 4. Wrap into tensor [1, 1, CLAP_MAX_FRAMES, CLAP_N_MELS] and run ONNX encoder
+/// Runs ONNX inference on pre-computed mel features (thread-safe, concurrent reads).
+/// Requires `configure_session` to have been called first.
+pub fn run_clap_inference_only(mel_flat: Vec<f32>) -> Result<Vec<f32>, String> {
     let input_t = Tensor::from_array(
         ([1usize, 1, CLAP_MAX_FRAMES, CLAP_N_MELS], mel_flat),
     )
     .map_err(|e| e.to_string())?;
 
-    let session_mutex = get_clap_audio_session(app)?;
-    let mut session = session_mutex
+    let mut guard = SESSION_CLAP_AUDIO
         .lock()
-        .map_err(|e| format!("Failed to lock CLAP audio session: {}", e))?;
+        .map_err(|e| format!("Failed to acquire session lock: {}", e))?;
+
+    let session = guard
+        .as_mut()
+        .ok_or("CLAP session not configured. Call configure_session first.")?;
 
     let outputs = session
         .run(inputs!["input_features" => input_t])
@@ -313,9 +316,28 @@ pub fn run_clap_audio_embed(
 
     let (_, data) = out
         .try_extract_tensor::<f32>()
-        .map_err(|e| format!("Failed to extract CLAP audio output: {}", e))?;
+        .map_err(|e| format!("Failed to extract output: {}", e))?;
 
     Ok(data.iter().copied().take(512).collect())
+}
+
+/// Convenience wrapper: full pipeline for a single track (used by tests and one-shot callers).
+pub fn run_clap_audio_embed(
+    path: &str,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Vec<f32>, String> {
+    // Ensure a session exists (lazy-init with 1 intra-thread for single-track use)
+    {
+        let guard = SESSION_CLAP_AUDIO
+            .lock()
+            .map_err(|e| format!("Failed to acquire session lock: {}", e))?;
+        if guard.is_none() {
+            drop(guard);
+            configure_session(false, 1, app)?;
+        }
+    }
+    let mel = preprocess_track_to_mel(path, app)?;
+    run_clap_inference_only(mel)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
