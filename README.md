@@ -6,15 +6,33 @@ Deep Cuts is a premium, offline-first studio audio analysis application and refe
 
 ---
 
-## ✨ Features (planned)
+## ✨ Features
 
-*   **Integrated DSP Analytics**: Performs precise EBU R128 loudness checks, Camelot key wheel mapping, and spectral onset BPM extraction.
-*   **Offline Semantic Search**: Uses locally run ONNX-based semantic embedding models (e.g., CLAP) to index and query your library by mood, vibe, and acoustic characteristics.
-*   **The Music Map**: Projects your entire music collection in a high-fidelity 2D visual space using UMAP dimensionality reduction on embeddings.
+### Implemented
+
+*   **Library Indexing**: Recursively scans watched directories for audio files (MP3, FLAC, WAV, AIFF, M4A, and more). Reads embedded metadata tags (title, artist, album, BPM, key, year, lyrics, etc.) via `lofty`. Gracefully re-indexes changed files and skips unreadable ones.
+*   **Sidecar Persistence** (`.dc.json`): Writes a JSON sidecar file next to each audio file containing all computed analysis results. Sidecars are restored automatically on re-index, so analysis work survives library moves and re-imports. The Export Sidecars command bulk-writes all tracks at once.
+*   **Audio Analysis Pipeline**: A concurrent, spool-based analysis engine that processes the library in parallel using `num_cpus / 2` worker threads. A single Symphonia decode pass per file computes:
+    *   **BPM** — spectral-flux onset envelope with autocorrelation and parabolic sub-sample refinement (40–210 BPM range, 80–160 BPM preference).
+    *   **Key & Scale** — chromagram built via FFT, HPCP-style harmonic suppression, and Krumhansl-Schmuckler profile correlation.
+    *   **Loudness** — integrated loudness (LUFS) and loudness range (LRA) via EBU R128 using `ebur128`.
+    *   **Waveform** — 128-point RMS energy profile for fast visual rendering.
+    *   **Duration** — derived from container metadata with a sample-count fallback.
+*   **Analysis UI**: Dedicated Analysis tab with per-pass progress bars, average timing, failed-track error log, and per-pass / full-library reset controls.
+*   **Dashboard**: Split-pane layout with a resizable divider. Top pane shows the audio player; bottom pane shows the searchable, filterable track list with BPM and key columns.
+*   **Audio Player**: WaveSurfer.js waveform and spectrogram visualisation, play/pause/prev/next controls, and an expandable metadata details panel showing technical specs, key, loudness, lyrics, and comments.
+*   **Search & Filter**: Real-time full-text search across title, artist, album, and filename. Genre filter derived dynamically from library tags.
+*   **Reveal in Finder / Explorer**: Opens the system file manager with the track's file selected. macOS, Windows, and Linux are all handled.
 *   **Premium Visual Themes**:
-    *   **Dark Mode**: A beautiful, cyber-cyan, studio-pink, and deep-indigo glow interface.
-    *   **Light Mode**: A clean, highly professional, bright slate/indigo studio theme.
-    *   **Accessible Mode**: A high-readability, high-contrast, black-and-white theme utilizing stark borders and zero panel blurs for enhanced readability.
+    *   **Dark Mode**: Cyber-cyan, studio-pink, and deep-indigo glow interface.
+    *   **Light Mode**: Clean, professional bright slate/indigo studio theme.
+    *   **Accessible Mode**: High-contrast black-and-white theme with stark borders and zero panel blurs.
+
+### Planned
+
+*   **Offline Semantic Search**: Locally run ONNX-based CLAP audio embeddings for mood, vibe, and acoustic similarity queries.
+*   **The Music Map**: 2D visual projection of the entire collection via UMAP dimensionality reduction on CLAP embeddings.
+*   **Genre & Mood Classification**: Discogs-Effnet ONNX classifier for genre, vocal/instrumental detection, and seven mood axes.
 
 ---
 
