@@ -106,6 +106,8 @@
               <th>Artist</th>
               <th>Album</th>
               <th>Duration</th>
+              <th style="width: 60px;">BPM</th>
+              <th style="width: 80px;">Key</th>
               <th style="width: 100px;">Format</th>
             </tr>
           </thead>
@@ -140,6 +142,14 @@
                 </td>
                 <td style="color: var(--text-secondary); font-size: 0.88rem;">
                   {formatDuration(track.duration_seconds)}
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.82rem; text-align: right; padding-right: 0.75rem;">
+                  {#if track.bpm}{Math.round(track.bpm)}{:else}—{/if}
+                </td>
+                <td style="font-size: 0.82rem;">
+                  {#if track.key && track.scale}
+                    <span class="key-badge">{track.key} <span style="opacity: 0.6; font-size: 0.72rem;">{track.scale}</span></span>
+                  {:else}—{/if}
                 </td>
                 <td>
                   <span class="format-mini-badge">{track.path.split('.').pop()?.toUpperCase()}</span>
@@ -178,3 +188,10 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .key-badge {
+    font-family: var(--font-mono, monospace);
+    color: var(--text-primary);
+  }
+</style>
