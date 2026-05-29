@@ -223,13 +223,13 @@
           {#if selectedTrack.lyrics}
             <div class="metadata-card">
               <span class="metadata-label">Lyrics</span>
-              <p style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary); max-height: 70px; overflow-y: auto; white-space: pre-line; margin: 0.15rem 0 0 0;">{selectedTrack.lyrics}</p>
+              <p style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary); white-space: pre-line; margin: 0.15rem 0 0 0;">{selectedTrack.lyrics}</p>
             </div>
           {/if}
           {#if selectedTrack.comment}
             <div class="metadata-card">
               <span class="metadata-label">Comments</span>
-              <p style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary); max-height: 70px; overflow-y: auto; margin: 0.15rem 0 0 0;">{selectedTrack.comment}</p>
+              <p style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary); margin: 0.15rem 0 0 0;">{selectedTrack.comment}</p>
             </div>
           {/if}
         </div>
