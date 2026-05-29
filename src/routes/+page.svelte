@@ -2,11 +2,102 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
 
+  interface WatchedDirectory {
+    id: number;
+    name: string;
+    path: string;
+  }
+
   // State managers using Svelte 5 runes
   let currentTheme = $state("system");
   let resolvedTheme = $state("dark");
   let tauriConnected = $state(false);
   let activeTab = $state("dashboard");
+
+  // Watched directories state
+  let directories = $state<WatchedDirectory[]>([]);
+  let name = $state("");
+  let path = $state("");
+  let errorMessage = $state("");
+  let successMessage = $state("");
+  let isAddLoading = $state(false);
+
+  // Retrieve directories list from SQLite
+  async function fetchDirectories() {
+    try {
+      directories = await invoke<WatchedDirectory[]>("get_watched_directories");
+    } catch (err: any) {
+      showToast(err.toString(), "error");
+    }
+  }
+
+  // Trigger native RFD directory selector in Rust
+  async function choosePath() {
+    try {
+      const selected = await invoke<string | null>("select_directory");
+      if (selected) {
+        path = selected;
+        // Autofill a friendly collection name from the folder basename
+        if (!name) {
+          const parts = selected.split(/[/\\]/);
+          const baseName = parts[parts.length - 1] || parts[parts.length - 2] || "Music Library";
+          name = baseName;
+        }
+        showToast("Path selected successfully.", "success");
+      }
+    } catch (err: any) {
+      showToast(err.toString(), "error");
+    }
+  }
+
+  // Submit and save new directory configuration
+  async function addDirectory() {
+    if (!name.trim() || !path.trim()) {
+      showToast("Collection Name and Directory Path are required.", "error");
+      return;
+    }
+
+    isAddLoading = true;
+    try {
+      await invoke("add_watched_directory", { name, path });
+      showToast(`Added folder "${name}" to watched lists.`, "success");
+      name = "";
+      path = "";
+      await fetchDirectories();
+    } catch (err: any) {
+      showToast(err.toString(), "error");
+    } finally {
+      isAddLoading = false;
+    }
+  }
+
+  // Executes directory removal
+  async function removeDirectory(id: number, folderName: string) {
+    try {
+      await invoke("remove_watched_directory", { id });
+      showToast(`Stopped watching "${folderName}".`, "success");
+      await fetchDirectories();
+    } catch (err: any) {
+      showToast(err.toString(), "error");
+    }
+  }
+
+  // Toast notifier helper
+  let toastTimeout: any;
+  function showToast(msg: string, type: "success" | "error") {
+    clearTimeout(toastTimeout);
+    if (type === "error") {
+      errorMessage = msg;
+      successMessage = "";
+    } else {
+      successMessage = msg;
+      errorMessage = "";
+    }
+    toastTimeout = setTimeout(() => {
+      errorMessage = "";
+      successMessage = "";
+    }, 4500);
+  }
 
   // Check Tauri connectivity and restore theme
   onMount(async () => {
@@ -22,6 +113,9 @@
       if (dbTheme && dbTheme !== saved) {
         await setTheme(dbTheme, false);
       }
+
+      // Fetch directories
+      await fetchDirectories();
     } catch (e) {
       console.warn("Tauri shell connection offline (running in browser context) or database loading.");
     }
@@ -154,20 +248,7 @@
         </div>
       </section>
 
-      <!-- Grid Cards -->
-      <section class="dashboard-grid">
-        <div class="stat-card glass-panel">
-          <h3>Collection Stats</h3>
-          <p class="stat-value">0</p>
-          <p class="stat-label">Tracks Analyzed</p>
-        </div>
 
-        <div class="stat-card glass-panel">
-          <h3>Local Storage</h3>
-          <p class="db-path">~/Library/Application Support/com.rlupi.deep-cuts/</p>
-          <p class="db-desc">Your database and logs reside locally in standard macOS sandbox folders.</p>
-        </div>
-      </section>
     {:else if activeTab === 'music-map'}
       <!-- Mock Music Map Panel -->
       <section class="map-panel glass-panel">
@@ -191,29 +272,136 @@
         </div>
       </section>
     {:else if activeTab === 'settings'}
-      <!-- Mock Settings Panel -->
-      <section class="settings-panel glass-panel">
-        <h2>Settings</h2>
-        <p class="settings-desc">Manage collection directories and processing parameters.</p>
-
-        <div class="settings-form">
-          <div class="form-group">
-            <label for="watched-folders">Watched Directories</label>
-            <div class="folder-list">
-              <div class="empty-folders">No watched directories configured yet.</div>
+      <div class="settings-panel-layout">
+        <div class="settings-left-col">
+          <!-- Left Side: Folder Registration -->
+          <div class="glass-panel registration-card">
+            <h4>Add Music Library Path</h4>
+            <p class="desc">Register folders containing your MP3, WAV, FLAC, M4A, AIFF, OGG, or OPUS libraries to be monitored and indexed by our acoustic intelligence processors.</p>
+            
+            <div class="form-group">
+              <label for="dir-path">Directory Path</label>
+              <input 
+                id="dir-path"
+                type="text" 
+                value={path} 
+                placeholder="Select a folder to browse..." 
+                readonly 
+              />
+              <button class="btn-secondary picker-btn" onclick={choosePath}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                Select Folder
+              </button>
             </div>
-            <button class="btn-primary" onclick={() => alert("Directory pickers will load via RFD in the next phase!")}>
-              Add Directory
+
+            <div class="form-group">
+              <label for="col-name">Collection Name</label>
+              <input 
+                id="col-name"
+                type="text" 
+                bind:value={name} 
+                placeholder="e.g., Hi-Res Masters, Chillout Beats" 
+              />
+            </div>
+
+            {#if errorMessage}
+              <div class="alert-box error-alert">
+                <span class="alert-icon">⚠️</span>
+                <span class="alert-text">{errorMessage}</span>
+              </div>
+            {/if}
+
+            {#if successMessage}
+              <div class="alert-box success-alert">
+                <span class="alert-icon">✓</span>
+                <span class="alert-text">{successMessage}</span>
+              </div>
+            {/if}
+
+            <button 
+              class="btn-primary submit-btn" 
+              onclick={addDirectory} 
+              disabled={isAddLoading || !path}
+            >
+              {#if isAddLoading}
+                Registering Folder...
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Register Library Folder
+              {/if}
             </button>
           </div>
-          
-          <div class="form-group">
-            <label for="concurrency">Analysis Concurrency</label>
-            <input type="number" value="4" min="1" max="16" class="theme-select" style="width: 80px;" disabled />
-            <p class="help-text">Number of worker threads running DSP and ONNX models concurrently.</p>
+
+          <!-- Collection Stats Card -->
+          <div class="stat-card glass-panel">
+            <h3>Collection Stats</h3>
+            <p class="stat-value">{directories.length}</p>
+            <p class="stat-label">Folders Monitored</p>
           </div>
         </div>
-      </section>
+
+        <!-- Right Side: Watched Folders Table -->
+        <div class="glass-panel list-card">
+          <h4>Monitored Music Folders</h4>
+          <p class="desc">Active music library folders monitored by Deep Cuts.</p>
+
+          {#if directories.length > 0}
+            <div class="dir-table-container">
+              <table class="dir-table">
+                <thead>
+                  <tr>
+                    <th>Collection</th>
+                    <th>Absolute Directory Path</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each directories as dir (dir.id)}
+                    <tr class="dir-row">
+                      <td class="dir-name">
+                        <span class="badge badge-cyan">{dir.name}</span>
+                      </td>
+                      <td class="dir-path" title={dir.path}>
+                        <code>{dir.path}</code>
+                      </td>
+                      <td class="dir-actions">
+                        <button
+                          class="btn-delete"
+                          title="Remove Watched Folder"
+                          onclick={() => removeDirectory(dir.id, dir.name)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {:else}
+            <div class="empty-dirs">
+              <div class="empty-icon-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 8v8M8 12h8"/>
+                </svg>
+              </div>
+              <h5>No Registered Libraries</h5>
+              <p>Your library is empty. Select a music directory folder on the left to activate scanning features.</p>
+            </div>
+          {/if}
+        </div>
+      </div>
     {/if}
   </main>
 </div>
@@ -549,46 +737,210 @@
   }
 
   /* Settings Form Styles */
-  .settings-form {
+  .settings-panel-layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+    width: 100%;
+  }
+
+  .settings-left-col {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
-    max-width: 600px;
+    gap: 1.5rem;
+    width: 100%;
+  }
+
+  .registration-card, .list-card {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .desc {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.5;
   }
 
   .form-group {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    width: 100%;
   }
 
   .form-group label {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    font-size: 1.1rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
   }
 
-  .folder-list {
-    background: rgba(0,0,0,0.15);
+
+
+  input[type="text"] {
+    background: rgba(0, 0, 0, 0.2);
     border: 2px solid var(--border-color);
+    padding: 0.75rem 1rem;
     border-radius: var(--radius-md);
-    padding: 1.5rem;
-    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: var(--transition-fast);
   }
 
-  html[data-theme="accessible"] .folder-list {
+  input[type="text"]:focus {
+    border-color: var(--color-primary);
+  }
+
+  html[data-theme="accessible"] input[type="text"] {
+    border-radius: 0;
     border: 2px solid #fff;
     background: #000;
+    color: #fff;
   }
 
-  .empty-folders {
-    font-size: 0.95rem;
-    color: var(--text-muted);
-    text-align: center;
+  .picker-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    width: 100%;
   }
 
-  .help-text {
+  .submit-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+
+  .alert-box {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
     font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  .error-alert {
+    background: rgba(255, 0, 127, 0.1);
+    border: 1.5px solid rgba(255, 0, 127, 0.3);
+    color: var(--color-accent-magenta);
+  }
+
+  .success-alert {
+    background: rgba(0, 242, 254, 0.1);
+    border: 1.5px solid rgba(0, 242, 254, 0.3);
+    color: var(--color-accent-cyan);
+  }
+
+  html[data-theme="accessible"] .error-alert, html[data-theme="accessible"] .success-alert {
+    border: 2px solid #fff;
+    background: #000;
+    color: #fff;
+    border-radius: 0;
+  }
+
+  /* Monitored Folders List */
+  .dir-table-container {
+    overflow-x: auto;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .dir-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  .dir-table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 700;
     color: var(--text-muted);
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--border-color);
+  }
+
+  .dir-row {
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition-fast);
+  }
+
+  .dir-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  html[data-theme="accessible"] .dir-row:hover {
+    background: #121212;
+  }
+
+  .dir-table td {
+    padding: 1rem;
+    font-size: 0.9rem;
+    vertical-align: middle;
+  }
+
+  .dir-name {
+    font-weight: 600;
+  }
+
+  .dir-path {
+    max-width: 380px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dir-path code {
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  .btn-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-delete:hover {
+    color: var(--color-accent-magenta);
+    background: rgba(255, 0, 127, 0.1);
+  }
+
+  html[data-theme="accessible"] .btn-delete:hover {
+    background: #fff;
+    color: #000;
+    border-radius: 0;
+  }
+
+  .empty-dirs {
+    text-align: center;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .empty-icon-box {
+    opacity: 0.5;
   }
 </style>

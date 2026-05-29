@@ -4,6 +4,13 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct WatchedDirectory {
+    pub id: i64,
+    pub name: String,
+    pub path: String,
+}
+
 pub struct DbManager {
     db_path: PathBuf,
 }
@@ -51,6 +58,13 @@ pub fn get_migrations() -> Migrations<'static> {
             );
             INSERT OR IGNORE INTO app_settings (key, value) VALUES ('theme', 'system');"
         ),
+        M::up(
+            "CREATE TABLE IF NOT EXISTS watched_directories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                path TEXT NOT NULL UNIQUE
+            );"
+        ),
     ])
 }
 
@@ -84,6 +98,7 @@ mod tests {
             .collect();
 
         assert!(table_names.contains(&"app_settings".to_string()));
+        assert!(table_names.contains(&"watched_directories".to_string()));
 
         // Migrations must seed default theme setting
         let theme: String = conn.query_row(
@@ -92,5 +107,25 @@ mod tests {
             |row| row.get(0),
         ).expect("theme setting missing after migrations");
         assert_eq!(theme, "system");
+
+        // Verify CRUD on watched_directories
+        conn.execute(
+            "INSERT INTO watched_directories (name, path) VALUES ('My Music', '/Users/rlupi/Music')",
+            [],
+        ).unwrap();
+
+        let dir: WatchedDirectory = conn.query_row(
+            "SELECT id, name, path FROM watched_directories WHERE name = 'My Music'",
+            [],
+            |row| {
+                Ok(WatchedDirectory {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    path: row.get(2)?,
+                })
+            },
+        ).unwrap();
+        assert_eq!(dir.name, "My Music");
+        assert_eq!(dir.path, "/Users/rlupi/Music");
     }
 }
