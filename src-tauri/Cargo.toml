@@ -30,6 +30,7 @@ sqlite-vec = "0.1"
 rfd = "0.14"
 lofty = "0.21.1"
 walkdir = "2.5.0"
+rayon = "1.10"
 chrono = { version = "0.4", features = ["serde"] }
 ureq = { version = "2", features = ["json"] }
 symphonia = { version = "0.5.4", features = ["all"] }

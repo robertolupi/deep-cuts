@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
 
   interface WatchedDirectory {
     id: number;
@@ -21,6 +22,24 @@
   let errorMessage = $state("");
   let successMessage = $state("");
   let isAddLoading = $state(false);
+
+  // Scanning States
+  let isScanning = $state(false);
+  let scanProgress = $state(0);
+  let scanCurrentFile = $state("Idle");
+  let scanProcessedCount = $state(0);
+  let scanTotalCount = $state(0);
+
+  let trackCount = $state(0);
+
+  // Retrieve track count from SQLite
+  async function fetchTrackCount() {
+    try {
+      trackCount = await invoke<number>("get_track_count");
+    } catch (err: any) {
+      console.error("Failed to fetch track count:", err);
+    }
+  }
 
   // Retrieve directories list from SQLite
   async function fetchDirectories() {
@@ -77,6 +96,7 @@
       await invoke("remove_watched_directory", { id });
       showToast(`Stopped watching "${folderName}".`, "success");
       await fetchDirectories();
+      await fetchTrackCount();
     } catch (err: any) {
       showToast(err.toString(), "error");
     }
@@ -99,11 +119,33 @@
     }, 4500);
   }
 
+  // Trigger all library monitoring index scan
+  async function triggerScan() {
+    if (isScanning) return;
+    if (directories.length === 0) {
+      showToast("Register at least one monitored library directory first.", "error");
+      return;
+    }
+
+    try {
+      isScanning = true;
+      scanProgress = 0;
+      scanCurrentFile = "Starting library scan...";
+      await invoke("scan_all_libraries");
+      showToast("Library scanning initiated in background.", "success");
+    } catch (err: any) {
+      isScanning = false;
+      showToast(err.toString(), "error");
+    }
+  }
+
   // Check Tauri connectivity and restore theme
   onMount(async () => {
     // Stage 1: Load instantly from localStorage for seamless boot
     const saved = localStorage.getItem("deep-cuts-theme") || "system";
     await setTheme(saved, false);
+
+    let unlistenProgress: () => void;
 
     // Stage 2: Query database via Tauri if online
     try {
@@ -116,9 +158,32 @@
 
       // Fetch directories
       await fetchDirectories();
+      // Fetch initial track count
+      await fetchTrackCount();
+
+      // Listen for progress updates emitted by the parallel scanner
+      unlistenProgress = await listen<any>("scan:progress", (event) => {
+        const payload = event.payload;
+        isScanning = payload.is_scanning;
+        scanProgress = payload.progress;
+        scanCurrentFile = payload.current_file;
+        scanProcessedCount = payload.processed_count;
+        scanTotalCount = payload.total_count;
+
+        if (!payload.is_scanning && payload.progress === 100) {
+          showToast(payload.current_file, "success");
+          fetchTrackCount();
+        }
+      });
     } catch (e) {
       console.warn("Tauri shell connection offline (running in browser context) or database loading.");
     }
+
+    return () => {
+      if (unlistenProgress) {
+        unlistenProgress();
+      }
+    };
   });
 
   // Apply theme dynamically to HTML element and persist to storage
@@ -340,15 +405,63 @@
           <!-- Collection Stats Card -->
           <div class="stat-card glass-panel">
             <h3>Collection Stats</h3>
-            <p class="stat-value">{directories.length}</p>
-            <p class="stat-label">Folders Monitored</p>
+            <div style="display: flex; gap: 1.5rem; align-items: center; margin-top: 0.5rem;">
+              <div>
+                <p class="stat-value" style="font-size: 2.8rem;">{directories.length}</p>
+                <p class="stat-label">Folders Monitored</p>
+              </div>
+              <div style="width: 1px; height: 45px; background: var(--border-color); opacity: 0.6;"></div>
+              <div>
+                <p class="stat-value" style="font-size: 2.8rem; color: var(--color-accent-cyan);">{trackCount}</p>
+                <p class="stat-label">Tracks Indexed</p>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Right Side: Watched Folders Table -->
         <div class="glass-panel list-card">
-          <h4>Monitored Music Folders</h4>
-          <p class="desc">Active music library folders monitored by Deep Cuts.</p>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+            <div>
+              <h4 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Monitored Music Folders</h4>
+              <p class="desc" style="margin: 0.25rem 0 0 0; font-size: 0.82rem;">Active music library folders monitored by Deep Cuts.</p>
+            </div>
+            
+            {#if directories.length > 0}
+              <div class="header-scan-action" style="min-width: 200px; display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+                {#if isScanning}
+                  <div class="scanning-status-container" style="padding: 0; gap: 0.4rem; width: 100%;">
+                    <div class="scanning-spinner-row" style="justify-content: flex-end; gap: 0.5rem;">
+                      <div class="vinyl-spinner-mini active" style="width: 18px; height: 18px;"></div>
+                      <div class="scanning-details" style="text-align: right;">
+                        <span class="scanning-title" style="font-size: 0.8rem;">Scanning ({Math.round(scanProgress)}%)</span>
+                        <span class="scanning-subtitle" style="font-size: 0.65rem;">{scanProcessedCount} / {scanTotalCount}</span>
+                      </div>
+                    </div>
+                    <div class="progress-bar-container" style="height: 4px; margin-top: 0.1rem;">
+                      <div class="progress-bar-fill" style="width: {scanProgress}%"></div>
+                    </div>
+                    <!-- Scrolling ticker basename -->
+                    <span style="font-size: 0.68rem; color: var(--color-accent-cyan); font-family: monospace; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; text-align: right;" title={scanCurrentFile}>
+                      {scanCurrentFile.split(/[/\\]/).pop() || ""}
+                    </span>
+                  </div>
+                {:else}
+                  <button 
+                    class="btn-primary" 
+                    onclick={triggerScan}
+                    style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent-cyan)); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: var(--radius-sm); width: auto;"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem; vertical-align: middle;">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span style="vertical-align: middle;">Scan Library</span>
+                  </button>
+                {/if}
+              </div>
+            {/if}
+          </div>
 
           {#if directories.length > 0}
             <div class="dir-table-container">
@@ -942,5 +1055,117 @@
 
   .empty-icon-box {
     opacity: 0.5;
+  }
+
+  /* Library Utilities & Active Scanning styles */
+  .scanning-status-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    width: 100%;
+  }
+
+  .scanning-spinner-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .vinyl-spinner-mini {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--text-primary);
+    position: relative;
+  }
+
+  .vinyl-spinner-mini::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: var(--bg-main);
+    top: 50%;
+    transform: translateY(-50%) rotate(23deg);
+  }
+
+  .vinyl-spinner-mini.active {
+    animation: rotate-spinner 2s linear infinite;
+  }
+
+  @keyframes rotate-spinner {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .scanning-details {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scanning-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .scanning-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border-color);
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent-cyan));
+    border-radius: 3px;
+    transition: width 0.3s ease-out;
+  }
+
+  .current-file-ticker {
+    font-size: 0.78rem;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .current-file-ticker code {
+    color: var(--color-accent-cyan);
+    font-family: monospace;
+  }
+
+  html[data-theme="accessible"] .vinyl-spinner-mini {
+    border: 1px solid #fff;
+    background: #000;
+    animation: none;
+    border-radius: 0;
+  }
+  html[data-theme="accessible"] .progress-bar-container {
+    border: 1px solid #fff;
+    background: #000;
+    border-radius: 0;
+  }
+  html[data-theme="accessible"] .progress-bar-fill {
+    background: #fff;
+    border-radius: 0;
+  }
+  html[data-theme="accessible"] .current-file-ticker {
+    border: 1px solid #fff;
+    background: #000;
+    border-radius: 0;
   }
 </style>

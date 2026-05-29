@@ -1,6 +1,7 @@
 #![recursion_limit = "512"]
 
 mod database;
+mod scanner;
 
 use database::{DbManager, WatchedDirectory};
 use rusqlite::Connection;
@@ -119,6 +120,18 @@ fn remove_watched_directory(
     Ok(())
 }
 
+/// Queries the total number of track records in the database.
+#[tauri::command]
+fn get_track_count(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<i64, String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Dynamically load the C-based sqlite-vec extension globally before booting any database
@@ -152,7 +165,9 @@ pub fn run() {
             select_directory,
             get_watched_directories,
             add_watched_directory,
-            remove_watched_directory
+            remove_watched_directory,
+            get_track_count,
+            scanner::scan_all_libraries
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

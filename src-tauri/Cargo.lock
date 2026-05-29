@@ -1117,6 +1117,7 @@ dependencies = [
  "ndarray 0.15.6",
  "ort",
  "rag-umap",
+ "rayon",
  "rfd",
  "rubato",
  "rusqlite",

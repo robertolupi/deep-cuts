@@ -11,6 +11,39 @@ pub struct WatchedDirectory {
     pub path: String,
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct Track {
+    pub id: i64,
+    pub watched_directory_id: i64,
+    pub path: String,
+    pub filename: String,
+    pub size_bytes: i64,
+    pub last_modified: i64, // Unix epoch integer
+
+    // Audio properties
+    pub duration_seconds: i64,
+    pub sample_rate: Option<i64>,
+    pub bitrate: Option<i64>,
+    pub channels: Option<i64>,
+    pub bit_depth: Option<i64>,
+
+    // Metadata tags
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub year: Option<i64>,
+    pub track_number: Option<i64>,
+    pub track_total: Option<i64>,
+    pub disc_number: Option<i64>,
+    pub disc_total: Option<i64>,
+    pub album_artist: Option<String>,
+    pub composer: Option<String>,
+    pub comment: Option<String>,
+    pub bpm: Option<i64>,
+    pub lyrics: Option<String>,
+}
+
 pub struct DbManager {
     db_path: PathBuf,
 }
@@ -65,6 +98,38 @@ pub fn get_migrations() -> Migrations<'static> {
                 path TEXT NOT NULL UNIQUE
             );"
         ),
+        M::up(
+            "CREATE TABLE IF NOT EXISTS tracks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                watched_directory_id INTEGER NOT NULL,
+                path TEXT NOT NULL UNIQUE,
+                filename TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                last_modified INTEGER NOT NULL,
+                duration_seconds INTEGER NOT NULL,
+                sample_rate INTEGER,
+                bitrate INTEGER,
+                channels INTEGER,
+                bit_depth INTEGER,
+                title TEXT,
+                artist TEXT,
+                album TEXT,
+                genre TEXT,
+                year INTEGER,
+                track_number INTEGER,
+                track_total INTEGER,
+                disc_number INTEGER,
+                disc_total INTEGER,
+                album_artist TEXT,
+                composer TEXT,
+                comment TEXT,
+                bpm INTEGER,
+                lyrics TEXT,
+                FOREIGN KEY(watched_directory_id) REFERENCES watched_directories(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
+            CREATE INDEX IF NOT EXISTS idx_tracks_directory ON tracks(watched_directory_id);"
+        ),
     ])
 }
 
@@ -99,6 +164,7 @@ mod tests {
 
         assert!(table_names.contains(&"app_settings".to_string()));
         assert!(table_names.contains(&"watched_directories".to_string()));
+        assert!(table_names.contains(&"tracks".to_string()));
 
         // Migrations must seed default theme setting
         let theme: String = conn.query_row(
@@ -127,5 +193,76 @@ mod tests {
         ).unwrap();
         assert_eq!(dir.name, "My Music");
         assert_eq!(dir.path, "/Users/rlupi/Music");
+
+        // Verify CRUD on tracks
+        conn.execute(
+            "INSERT INTO tracks (
+                watched_directory_id, path, filename, size_bytes, last_modified,
+                duration_seconds, sample_rate, bitrate, channels, bit_depth,
+                title, artist, album, genre, year, track_number
+            ) VALUES (
+                ?1, '/Users/rlupi/Music/song.mp3', 'song.mp3', 5000000, 1780000000,
+                180, 44100, 320, 2, 16,
+                'My Song', 'My Artist', 'My Album', 'Rock', 2026, 3
+            )",
+            rusqlite::params![dir.id],
+        ).unwrap();
+
+        let track: Track = conn.query_row(
+            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
+                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
+                    title, artist, album, genre, year, track_number, track_total,
+                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics
+             FROM tracks WHERE title = 'My Song'",
+            [],
+            |row| {
+                Ok(Track {
+                    id: row.get(0)?,
+                    watched_directory_id: row.get(1)?,
+                    path: row.get(2)?,
+                    filename: row.get(3)?,
+                    size_bytes: row.get(4)?,
+                    last_modified: row.get(5)?,
+                    duration_seconds: row.get(6)?,
+                    sample_rate: row.get(7)?,
+                    bitrate: row.get(8)?,
+                    channels: row.get(9)?,
+                    bit_depth: row.get(10)?,
+                    title: row.get(11)?,
+                    artist: row.get(12)?,
+                    album: row.get(13)?,
+                    genre: row.get(14)?,
+                    year: row.get(15)?,
+                    track_number: row.get(16)?,
+                    track_total: row.get(17)?,
+                    disc_number: row.get(18)?,
+                    disc_total: row.get(19)?,
+                    album_artist: row.get(20)?,
+                    composer: row.get(21)?,
+                    comment: row.get(22)?,
+                    bpm: row.get(23)?,
+                    lyrics: row.get(24)?,
+                })
+            },
+        ).unwrap();
+
+        assert_eq!(track.watched_directory_id, dir.id);
+        assert_eq!(track.path, "/Users/rlupi/Music/song.mp3");
+        assert_eq!(track.filename, "song.mp3");
+        assert_eq!(track.size_bytes, 5000000);
+        assert_eq!(track.last_modified, 1780000000);
+        assert_eq!(track.duration_seconds, 180);
+        assert_eq!(track.sample_rate, Some(44100));
+        assert_eq!(track.bitrate, Some(320));
+        assert_eq!(track.channels, Some(2));
+        assert_eq!(track.bit_depth, Some(16));
+        assert_eq!(track.title, Some("My Song".to_string()));
+        assert_eq!(track.artist, Some("My Artist".to_string()));
+        assert_eq!(track.album, Some("My Album".to_string()));
+        assert_eq!(track.genre, Some("Rock".to_string()));
+        assert_eq!(track.year, Some(2026));
+        assert_eq!(track.track_number, Some(3));
+        assert_eq!(track.track_total, None);
+        assert_eq!(track.lyrics, None);
     }
 }
