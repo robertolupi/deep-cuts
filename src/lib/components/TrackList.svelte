@@ -103,6 +103,7 @@
             <tr>
               <th style="width: 40px; text-align: center;">#</th>
               <th>Title / Filename</th>
+              <th style="width: 140px;">Waveform</th>
               <th>Artist</th>
               <th>Album</th>
               <th>Duration</th>
@@ -132,6 +133,23 @@
                   <span class="track-primary-title">{track.title || track.filename}</span>
                   {#if !track.title}
                     <span class="file-tag">file</span>
+                  {/if}
+                </td>
+                <td class="col-waveform">
+                  {#if track.waveform_data}
+                    {@const bars = (JSON.parse(track.waveform_data) as number[]).filter((_, i) => i % 3 === 0)}
+                    {@const peak = Math.max(...bars, 1e-6)}
+                    <div class="mini-waveform">
+                      {#each bars as energy}
+                        {@const norm = energy / peak}
+                        <div
+                          class="waveform-bar"
+                          style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
+                        ></div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="mini-waveform-skeleton shimmer"></div>
                   {/if}
                 </td>
                 <td class="track-text-cell" title={track.artist || "Unknown"}>
@@ -193,5 +211,56 @@
   .key-badge {
     font-family: var(--font-mono, monospace);
     color: var(--text-primary);
+  }
+
+  .col-waveform {
+    padding: 0.6rem 1rem;
+    vertical-align: middle;
+  }
+
+  .mini-waveform {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 22px;
+    width: 120px;
+  }
+
+  .waveform-bar {
+    flex: 1;
+    border-radius: 1px;
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-cyan, #00f2fe) 0%,
+      var(--color-primary, #8a2be2) 100%
+    );
+    transition: opacity 0.15s ease;
+  }
+
+  .mini-waveform-skeleton {
+    height: 8px;
+    width: 108px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.08),
+      transparent
+    );
+    animation: shimmer-sweep 1.6s infinite;
+  }
+
+  @keyframes shimmer-sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
 </style>
