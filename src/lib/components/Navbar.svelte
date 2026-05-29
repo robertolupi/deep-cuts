@@ -32,8 +32,14 @@
     >
       Music Map
     </button>
-    <button 
-      class="nav-tab {activeTab === 'settings' ? 'active' : ''}" 
+    <button
+      class="nav-tab {activeTab === 'analysis' ? 'active' : ''}"
+      onclick={() => activeTab = 'analysis'}
+    >
+      Analysis
+    </button>
+    <button
+      class="nav-tab {activeTab === 'settings' ? 'active' : ''}"
       onclick={() => activeTab = 'settings'}
     >
       Settings

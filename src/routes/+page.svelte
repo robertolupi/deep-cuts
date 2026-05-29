@@ -12,6 +12,7 @@
   import TrackList from "$lib/components/TrackList.svelte";
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
+  import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
   import type { WatchedDirectory, Track } from "$lib/types";
 
   // State managers using Svelte 5 runes
@@ -531,6 +532,9 @@
           bind:activeTab
         />
       </div>
+
+    {:else if activeTab === 'analysis'}
+      <AnalysisPanel />
 
     {:else if activeTab === 'music-map'}
       <MusicMap />

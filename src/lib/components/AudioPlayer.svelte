@@ -219,7 +219,17 @@
             <span class="metadata-label">Year / BPM</span>
             <span class="metadata-value">
               {selectedTrack.year || '—'}
-              {#if selectedTrack.bpm} • <code>{selectedTrack.bpm} BPM</code>{/if}
+              {#if selectedTrack.bpm} • <code>{Math.round(selectedTrack.bpm)} BPM</code>{/if}
+            </span>
+          </div>
+          <div class="metadata-card" style="margin-top: 0.75rem;">
+            <span class="metadata-label">Key / Loudness</span>
+            <span class="metadata-value">
+              {#if selectedTrack.key && selectedTrack.scale}
+                <code>{selectedTrack.key} {selectedTrack.scale}</code>
+                {#if selectedTrack.key_strength} <span style="color: var(--text-secondary); font-size: 0.72rem;">({(selectedTrack.key_strength * 100).toFixed(0)}%)</span>{/if}
+              {:else}—{/if}
+              {#if selectedTrack.loudness_lufs} • <code>{selectedTrack.loudness_lufs} LUFS</code>{/if}
             </span>
           </div>
         </div>

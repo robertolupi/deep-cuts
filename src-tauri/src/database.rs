@@ -40,8 +40,23 @@ pub struct Track {
     pub album_artist: Option<String>,
     pub composer: Option<String>,
     pub comment: Option<String>,
-    pub bpm: Option<i64>,
+    pub bpm: Option<f64>,
     pub lyrics: Option<String>,
+
+    // Analysis results (written by the audio_analysis pass)
+    pub waveform_data: Option<String>,
+    pub key: Option<String>,
+    pub scale: Option<String>,
+    pub key_strength: Option<f64>,
+    pub loudness_lufs: Option<f64>,
+    pub loudness_range: Option<f64>,
+}
+
+pub mod pass_status {
+    pub const PENDING: i64 = 0;
+    pub const IN_PROGRESS: i64 = 1;
+    pub const DONE: i64 = 2;
+    pub const FAILED: i64 = 3;
 }
 
 pub struct DbManager {
@@ -130,6 +145,29 @@ pub fn get_migrations() -> Migrations<'static> {
             CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
             CREATE INDEX IF NOT EXISTS idx_tracks_directory ON tracks(watched_directory_id);"
         ),
+        M::up(
+            "ALTER TABLE tracks ADD COLUMN waveform_data TEXT;
+            ALTER TABLE tracks ADD COLUMN key TEXT;
+            ALTER TABLE tracks ADD COLUMN scale TEXT;
+            ALTER TABLE tracks ADD COLUMN key_strength REAL;
+            ALTER TABLE tracks ADD COLUMN loudness_lufs REAL;
+            ALTER TABLE tracks ADD COLUMN loudness_range REAL;
+            CREATE TABLE IF NOT EXISTS track_passes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL,
+                pass_name TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 0,
+                status INTEGER NOT NULL DEFAULT 0,
+                log TEXT,
+                result TEXT,
+                duration_ms INTEGER,
+                last_run_at TEXT,
+                FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                UNIQUE(track_id, pass_name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_track_passes_status ON track_passes(status);
+            CREATE INDEX IF NOT EXISTS idx_track_passes_track ON track_passes(track_id);"
+        ),
     ])
 }
 
@@ -165,6 +203,7 @@ mod tests {
         assert!(table_names.contains(&"app_settings".to_string()));
         assert!(table_names.contains(&"watched_directories".to_string()));
         assert!(table_names.contains(&"tracks".to_string()));
+        assert!(table_names.contains(&"track_passes".to_string()));
 
         // Migrations must seed default theme setting
         let theme: String = conn.query_row(
@@ -212,7 +251,8 @@ mod tests {
             "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
                     duration_seconds, sample_rate, bitrate, channels, bit_depth,
                     title, artist, album, genre, year, track_number, track_total,
-                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics
+                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
+                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range
              FROM tracks WHERE title = 'My Song'",
             [],
             |row| {
@@ -242,6 +282,12 @@ mod tests {
                     comment: row.get(22)?,
                     bpm: row.get(23)?,
                     lyrics: row.get(24)?,
+                    waveform_data: row.get(25)?,
+                    key: row.get(26)?,
+                    scale: row.get(27)?,
+                    key_strength: row.get(28)?,
+                    loudness_lufs: row.get(29)?,
+                    loudness_range: row.get(30)?,
                 })
             },
         ).unwrap();
@@ -264,5 +310,11 @@ mod tests {
         assert_eq!(track.track_number, Some(3));
         assert_eq!(track.track_total, None);
         assert_eq!(track.lyrics, None);
+        assert_eq!(track.waveform_data, None);
+        assert_eq!(track.key, None);
+        assert_eq!(track.scale, None);
+        assert_eq!(track.key_strength, None);
+        assert_eq!(track.loudness_lufs, None);
+        assert_eq!(track.loudness_range, None);
     }
 }

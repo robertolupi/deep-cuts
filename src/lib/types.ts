@@ -30,4 +30,12 @@ export interface Track {
   comment: string | null;
   bpm: number | null;
   lyrics: string | null;
+
+  // Analysis results
+  waveform_data: string | null;
+  key: string | null;
+  scale: string | null;
+  key_strength: number | null;
+  loudness_lufs: number | null;
+  loudness_range: number | null;
 }
