@@ -248,6 +248,61 @@ pub fn decode_audio_to_mono_with_seeking(path: &str) -> Result<(Vec<f32>, u32), 
     Ok((mono_samples, sample_rate))
 }
 
+/// Seeks to `(duration * pct) − 5 s` before decoding, returning audio from that point onward.
+/// `pct` must be in [0.0, 1.0]. Used for multi-window CLAP extraction (25 %, 50 %, 75 %).
+pub fn decode_audio_at_percentage_with_seeking(path: &str, pct: f64) -> Result<(Vec<f32>, u32), String> {
+    let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let mut probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let track = probed.format.default_track().ok_or("No default track")?;
+    let track_id = track.id;
+    let codec_params = track.codec_params.clone();
+    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+
+    if let (Some(tb), Some(n_frames)) = (codec_params.time_base, codec_params.n_frames) {
+        let t = tb.calc_time(n_frames);
+        let duration_secs = t.seconds as f64 + t.frac;
+        let seek_secs = ((duration_secs * pct) - 5.0).max(0.0);
+        let seek_target = SeekTo::Time {
+            time: Time { seconds: seek_secs as u64, frac: seek_secs.fract() },
+            track_id: None,
+        };
+        if let Err(e) = probed.format.seek(SeekMode::Coarse, seek_target) {
+            log::warn!("[seek] Seek to {:.0}% failed ({}), falling back to sequential decode", pct * 100.0, e);
+        }
+    }
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&codec_params, &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let mut mono_samples: Vec<f32> = Vec::new();
+
+    while let Ok(packet) = probed.format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+        if let Some((_, mono, _)) = extract_samples_as_f32(&decoded) {
+            mono_samples.extend(mono);
+        }
+    }
+
+    Ok((mono_samples, sample_rate))
+}
+
 /// Single-pass decode: computes duration, waveform, BPM, key, loudness from one file read.
 pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
     let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;

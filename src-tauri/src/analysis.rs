@@ -284,7 +284,7 @@ impl PipelineManager {
             struct PreppedSpectrogram {
                 pass_id: i64,
                 track_id: i64,
-                mel_features: Vec<f32>,
+                mel_windows: [Vec<f32>; 3],
             }
 
             let (tx, rx) = std::sync::mpsc::sync_channel::<PreppedSpectrogram>(config.decode_threads * 2);
@@ -307,12 +307,20 @@ impl PipelineManager {
                             None => break,
                         };
 
-                        match embeddings::preprocess_track_to_mel(&job.path, Some(&app_clone)) {
-                            Ok(mel_features) => {
+                        let result = (|| -> Result<[Vec<f32>; 3], String> {
+                            Ok([
+                                embeddings::preprocess_window_at_pct(&job.path, 0.25, Some(&app_clone))?,
+                                embeddings::preprocess_window_at_pct(&job.path, 0.50, Some(&app_clone))?,
+                                embeddings::preprocess_window_at_pct(&job.path, 0.75, Some(&app_clone))?,
+                            ])
+                        })();
+
+                        match result {
+                            Ok(mel_windows) => {
                                 let _ = tx_clone.send(PreppedSpectrogram {
                                     pass_id: job.pass_id,
                                     track_id: job.track_id,
-                                    mel_features,
+                                    mel_windows,
                                 });
                             }
                             Err(e) => {
@@ -326,7 +334,7 @@ impl PipelineManager {
 
             for prepped in rx {
                 let start = std::time::Instant::now();
-                let result = embeddings::run_clap_inference_only(prepped.mel_features);
+                let result = embeddings::run_clap_inference_pooled(prepped.mel_windows);
                 let elapsed_ms = start.elapsed().as_millis() as i64;
 
                 let conn = conn_arc.lock().unwrap();

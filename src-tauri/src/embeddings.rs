@@ -290,6 +290,33 @@ pub fn preprocess_track_to_mel(
     compute_clap_log_mel(&window, mel_filterbank)
 }
 
+/// Seek-decodes a 10 s window starting at `(duration * pct) − 5 s` and returns mel features.
+pub fn preprocess_window_at_pct(
+    path: &str,
+    pct: f64,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Vec<f32>, String> {
+    let (audio, sample_rate) = crate::dsp::decode_audio_at_percentage_with_seeking(path, pct)?;
+    let audio_48k = resample_audio(&audio, sample_rate, CLAP_SR)?;
+
+    let end = CLAP_10S_SAMPLES.min(audio_48k.len());
+    let mut window = audio_48k[..end].to_vec();
+
+    if window.len() < CLAP_10S_SAMPLES && !window.is_empty() {
+        let original = window.clone();
+        while window.len() < CLAP_10S_SAMPLES {
+            let needed = CLAP_10S_SAMPLES - window.len();
+            let to_add = needed.min(original.len());
+            window.extend_from_slice(&original[..to_add]);
+        }
+    } else {
+        window.resize(CLAP_10S_SAMPLES, 0.0);
+    }
+
+    let mel_filterbank = get_clap_mel_filterbank(app)?;
+    compute_clap_log_mel(&window, mel_filterbank)
+}
+
 /// Runs ONNX inference on pre-computed mel features (thread-safe, concurrent reads).
 /// Requires `configure_session` to have been called first.
 pub fn run_clap_inference_only(mel_flat: Vec<f32>) -> Result<Vec<f32>, String> {
@@ -321,6 +348,26 @@ pub fn run_clap_inference_only(mel_flat: Vec<f32>) -> Result<Vec<f32>, String> {
     Ok(data.iter().copied().take(512).collect())
 }
 
+/// Runs 3 ONNX inferences on pre-computed mel windows and returns the L2-normalised mean embedding.
+pub fn run_clap_inference_pooled(mels: [Vec<f32>; 3]) -> Result<Vec<f32>, String> {
+    let [mel_25, mel_50, mel_75] = mels;
+    let v1 = run_clap_inference_only(mel_25)?;
+    let v2 = run_clap_inference_only(mel_50)?;
+    let v3 = run_clap_inference_only(mel_75)?;
+
+    let mut v_mean = vec![0.0f32; 512];
+    for i in 0..512 {
+        v_mean[i] = (v1[i] + v2[i] + v3[i]) / 3.0;
+    }
+
+    let l2_norm = v_mean.iter().map(|&x| x * x).sum::<f32>().sqrt();
+    if l2_norm > 1e-8 {
+        Ok(v_mean.iter().map(|&x| x / l2_norm).collect())
+    } else {
+        Ok(v_mean)
+    }
+}
+
 /// Convenience wrapper: full pipeline for a single track (used by tests and one-shot callers).
 pub fn run_clap_audio_embed(
     path: &str,
@@ -336,8 +383,12 @@ pub fn run_clap_audio_embed(
             configure_session(false, 1, app)?;
         }
     }
-    let mel = preprocess_track_to_mel(path, app)?;
-    run_clap_inference_only(mel)
+    let mels = [
+        preprocess_window_at_pct(path, 0.25, app)?,
+        preprocess_window_at_pct(path, 0.50, app)?,
+        preprocess_window_at_pct(path, 0.75, app)?,
+    ];
+    run_clap_inference_pooled(mels)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
