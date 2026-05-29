@@ -187,6 +187,37 @@ fn get_tracks(
     Ok(list)
 }
 
+/// Opens the system file manager and selects the given file.
+/// macOS: open -R <path>  |  Windows: explorer /select,<path>  |  Linux: xdg-open <parent dir>
+#[tauri::command]
+fn reveal_in_finder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(format!("/select,{}", path))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let parent = std::path::Path::new(&path)
+            .parent()
+            .ok_or_else(|| "Could not determine parent directory".to_string())?;
+        std::process::Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Dynamically load the C-based sqlite-vec extension globally before booting any database
@@ -223,6 +254,7 @@ pub fn run() {
             remove_watched_directory,
             get_track_count,
             get_tracks,
+            reveal_in_finder,
             scanner::scan_all_libraries
         ])
         .run(tauri::generate_context!())

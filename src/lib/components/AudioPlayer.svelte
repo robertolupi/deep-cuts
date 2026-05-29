@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
   import type { Track } from '../types';
 
   let {
@@ -30,6 +31,25 @@
     handlePrevTrack: () => void;
     handleNextTrack: () => void;
   } = $props();
+
+  function getRevealLabel(): string {
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('mac')) return 'Reveal in Finder';
+      if (ua.includes('win')) return 'Show in Explorer';
+    }
+    return 'Show in Files';
+  }
+
+  const revealLabel = getRevealLabel();
+
+  async function handleReveal() {
+    try {
+      await invoke("reveal_in_finder", { path: selectedTrack.path });
+    } catch (e: any) {
+      console.error("Failed to reveal file in system explorer:", e);
+    }
+  }
 </script>
 
 <div class="audio-player-pane {showDetails ? 'expanded' : ''}">
@@ -110,6 +130,19 @@
         </div>
 
         <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <!-- Reveal in system file explorer -->
+          <button 
+            class="btn-secondary" 
+            onclick={handleReveal} 
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
+            title={revealLabel}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span style="vertical-align: middle;">{revealLabel}</span>
+          </button>
+
           <!-- Details Toggle button -->
           <button 
             class="btn-secondary {showDetails ? 'pulse-glow-cyan' : ''}" 
