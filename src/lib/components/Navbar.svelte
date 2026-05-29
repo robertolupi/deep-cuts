@@ -26,12 +26,14 @@
     >
       Dashboard
     </button>
-    <button 
-      class="nav-tab {activeTab === 'music-map' ? 'active' : ''}" 
+    <!-- Music Map tab hidden until CLAP embeddings + UMAP are implemented
+    <button
+      class="nav-tab {activeTab === 'music-map' ? 'active' : ''}"
       onclick={() => activeTab = 'music-map'}
     >
       Music Map
     </button>
+    -->
     <button
       class="nav-tab {activeTab === 'analysis' ? 'active' : ''}"
       onclick={() => activeTab = 'analysis'}
