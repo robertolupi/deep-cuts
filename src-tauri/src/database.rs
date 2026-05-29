@@ -168,6 +168,12 @@ pub fn get_migrations() -> Migrations<'static> {
             CREATE INDEX IF NOT EXISTS idx_track_passes_status ON track_passes(status);
             CREATE INDEX IF NOT EXISTS idx_track_passes_track ON track_passes(track_id);"
         ),
+        M::up(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS audio_embeddings USING vec0(
+                track_id INTEGER PRIMARY KEY,
+                embedding float[512]
+            );"
+        ),
     ])
 }
 

@@ -141,5 +141,14 @@ pub fn reconcile_deleted_tracks(
     }
 
     tx.commit()?;
+
+    // Clean up any audio_embeddings rows whose track has been deleted.
+    // vec0 tables don't support FK cascades, so we do a bulk sweep here.
+    // This also catches orphans left by other deletion paths (e.g. remove_watched_directory).
+    let _ = conn.execute(
+        "DELETE FROM audio_embeddings WHERE track_id NOT IN (SELECT id FROM tracks)",
+        [],
+    );
+
     Ok(deleted_count)
 }

@@ -21,6 +21,118 @@ pub struct AudioAnalysisResult {
     pub loudness_range: f64,
 }
 
+/// Decodes an audio file to a mono f32 sample vector, returning (samples, sample_rate).
+/// Handles multi-channel files by averaging to mono.
+pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
+    let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let mut probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let track = probed.format.default_track().ok_or("No default track")?;
+    let track_id = track.id;
+    let codec_params = track.codec_params.clone();
+    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&codec_params, &Default::default())
+        .map_err(|e| e.to_string())?;
+
+    let mut mono_samples: Vec<f32> = Vec::new();
+
+    while let Ok(packet) = probed.format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+
+        match decoded {
+            AudioBufferRef::F32(buf) => {
+                let channels = buf.spec().channels.count();
+                let frames = buf.frames();
+                let c0 = buf.chan(0);
+                if channels == 1 {
+                    mono_samples.extend_from_slice(c0);
+                } else {
+                    let c1 = buf.chan(1);
+                    for i in 0..frames {
+                        mono_samples.push((c0[i] + c1[i]) * 0.5);
+                    }
+                }
+            }
+            AudioBufferRef::F64(buf) => {
+                let channels = buf.spec().channels.count();
+                let frames = buf.frames();
+                let c0 = buf.chan(0);
+                if channels == 1 {
+                    for &s in c0 { mono_samples.push(s as f32); }
+                } else {
+                    let c1 = buf.chan(1);
+                    for i in 0..frames {
+                        mono_samples.push(((c0[i] + c1[i]) * 0.5) as f32);
+                    }
+                }
+            }
+            AudioBufferRef::S16(buf) => {
+                let norm = i16::MAX as f32;
+                let channels = buf.spec().channels.count();
+                let frames = buf.frames();
+                let c0 = buf.chan(0);
+                if channels == 1 {
+                    for &s in c0 { mono_samples.push(s as f32 / norm); }
+                } else {
+                    let c1 = buf.chan(1);
+                    for i in 0..frames {
+                        mono_samples.push((c0[i] as f32 / norm + c1[i] as f32 / norm) * 0.5);
+                    }
+                }
+            }
+            AudioBufferRef::S32(buf) => {
+                let norm = i32::MAX as f32;
+                let channels = buf.spec().channels.count();
+                let frames = buf.frames();
+                let c0 = buf.chan(0);
+                if channels == 1 {
+                    for &s in c0 { mono_samples.push(s as f32 / norm); }
+                } else {
+                    let c1 = buf.chan(1);
+                    for i in 0..frames {
+                        mono_samples.push((c0[i] as f32 / norm + c1[i] as f32 / norm) * 0.5);
+                    }
+                }
+            }
+            AudioBufferRef::U8(buf) => {
+                let channels = buf.spec().channels.count();
+                let frames = buf.frames();
+                let c0 = buf.chan(0);
+                if channels == 1 {
+                    for &s in c0 { mono_samples.push((s as f32 - 128.0) / 128.0); }
+                } else {
+                    let c1 = buf.chan(1);
+                    for i in 0..frames {
+                        let l = (c0[i] as f32 - 128.0) / 128.0;
+                        let r = (c1[i] as f32 - 128.0) / 128.0;
+                        mono_samples.push((l + r) * 0.5);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok((mono_samples, sample_rate))
+}
+
 /// Single-pass decode: computes duration, waveform, BPM, key, loudness from one file read.
 pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
     let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;

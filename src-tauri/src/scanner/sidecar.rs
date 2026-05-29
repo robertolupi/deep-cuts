@@ -23,6 +23,9 @@ pub struct SidecarMlMetadata {
     pub loudness_range: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub waveform_data: Option<String>,
+    /// 512-d L2-normalised CLAP audio embedding. Persisted to avoid expensive ONNX re-inference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clap_embedding: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,7 +54,7 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         |row| row.get(0),
     )?;
 
-    let ml_metadata: SidecarMlMetadata = conn.query_row(
+    let mut ml_metadata: SidecarMlMetadata = conn.query_row(
         "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data
          FROM tracks WHERE id = ?1",
         [track_id],
@@ -63,8 +66,27 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
             loudness_lufs: row.get(4)?,
             loudness_range: row.get(5)?,
             waveform_data: row.get(6)?,
+            clap_embedding: None,
         }),
     )?;
+
+    // Read CLAP embedding blob from audio_embeddings and deserialise to Vec<f32>
+    let clap_blob: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT embedding FROM audio_embeddings WHERE track_id = ?1",
+            [track_id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(blob) = clap_blob {
+        let floats: Vec<f32> = blob
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .collect();
+        if !floats.is_empty() {
+            ml_metadata.clap_embedding = Some(floats);
+        }
+    }
 
     let sidecar = SidecarData { version: 1, ml_metadata };
     let json = serde_json::to_string_pretty(&sidecar)?;
@@ -73,8 +95,8 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
 }
 
 /// Reads the sidecar for `track_path` and restores its ML fields into the tracks table.
-/// Currently a no-op because SidecarMlMetadata has no fields yet; the scaffold is in place
-/// so that adding a field to SidecarMlMetadata + the UPDATE below is all that's needed.
+/// Also re-inserts the CLAP embedding into `audio_embeddings` and marks the `clap` pass
+/// as DONE in `track_passes` so the pipeline skips re-running the ONNX encoder.
 pub fn restore(
     conn: &Connection,
     track_id: i64,
@@ -101,6 +123,24 @@ pub fn restore(
             track_id,
         ],
     )?;
+
+    // Restore CLAP embedding into audio_embeddings and mark the pass done to avoid re-processing
+    if let Some(floats) = &m.clap_embedding {
+        if !floats.is_empty() {
+            let blob: Vec<u8> = floats.iter().flat_map(|&f| f.to_le_bytes()).collect();
+            conn.execute(
+                "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                rusqlite::params![track_id, blob],
+            )?;
+            // Mark the clap pass as DONE so run_analysis_pipeline skips this track
+            conn.execute(
+                "UPDATE track_passes SET status = 2, last_run_at = CURRENT_TIMESTAMP
+                 WHERE track_id = ?1 AND pass_name = 'clap'",
+                [track_id],
+            )?;
+        }
+    }
+
     Ok(())
 }
 

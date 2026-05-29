@@ -2,6 +2,7 @@
 
 mod database;
 mod dsp;
+mod embeddings;
 mod scanner;
 
 use database::{pass_status, DbManager, WatchedDirectory};
@@ -284,6 +285,13 @@ fn run_analysis_pipeline(
             [pass_status::PENDING],
         ).map_err(|e| e.to_string())?;
 
+        // Backfill clap pass (priority 20 — runs after audio_analysis)
+        conn.execute(
+            "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+             SELECT id, 'clap', 20, ?1 FROM tracks",
+            [pass_status::PENDING],
+        ).map_err(|e| e.to_string())?;
+
         let mut stmt = conn
             .prepare(
                 "SELECT tp.id, tp.track_id, t.path
@@ -406,13 +414,93 @@ fn run_analysis_pipeline(
         }));
     }
 
-    // Wait for workers on a background thread so the IPC call returns immediately.
-    // Moving _guard into the thread keeps ANALYSIS_ACTIVE=true until all workers finish.
+    // Wait for audio_analysis workers on a background thread so the IPC call returns immediately.
+    // Then immediately run the clap pass sequentially (1 thread — model is memory-heavy).
+    // Moving _guard into the thread keeps ANALYSIS_ACTIVE=true until all passes finish.
     std::thread::spawn(move || {
         let _guard = _guard;
+
+        // ── Phase 1: audio_analysis (parallel) ────────────────────────────
         for h in handles {
             let _ = h.join();
         }
+        let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "audio_analysis" }));
+
+        // ── Phase 2: clap (single thread, model loaded once via OnceLock) ─
+        let clap_pending: Vec<SpoolJob> = {
+            let conn = conn_arc.lock().unwrap();
+            let mut stmt = match conn.prepare(
+                "SELECT tp.id, tp.track_id, t.path
+                 FROM track_passes tp
+                 JOIN tracks t ON t.id = tp.track_id
+                 WHERE tp.status = ?1 AND tp.pass_name = 'clap'
+                 ORDER BY tp.id ASC",
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("[clap] Failed to prepare clap query: {}", e);
+                    return;
+                }
+            };
+            let rows: Vec<SpoolJob> = match stmt.query_map([pass_status::PENDING], |row| {
+                Ok(SpoolJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    path: row.get(2)?,
+                })
+            }) {
+                Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+                Err(_) => Vec::new(),
+            };
+            for job in &rows {
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                    rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+                );
+            }
+            rows
+        };
+
+        for job in clap_pending {
+            let start = std::time::Instant::now();
+            let result = embeddings::run_clap_audio_embed(&job.path, Some(&app));
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+
+            let conn = conn_arc.lock().unwrap();
+            match result {
+                Ok(embedding) => {
+                    // Serialise 512 floats as little-endian bytes for sqlite-vec
+                    let blob: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
+                    let _ = conn.execute(
+                        "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                        rusqlite::params![job.track_id, blob],
+                    );
+                    let _ = conn.execute(
+                        "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                         last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                        rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                    );
+                    let _ = app.emit("analysis-progress", serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "clap",
+                        "status": pass_status::DONE,
+                    }));
+                }
+                Err(e) => {
+                    let _ = conn.execute(
+                        "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                         last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                        rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                    );
+                    let _ = app.emit("analysis-progress", serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "clap",
+                        "status": pass_status::FAILED,
+                    }));
+                }
+            }
+        }
+
         let _ = app.emit("analysis-complete", ());
     });
 
