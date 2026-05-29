@@ -826,7 +826,7 @@
                   
                   <div class="rec-badges">
                     <span class="badge badge-similarity">
-                      {Math.round(Math.max(0, 1 - (track.distance || 0.0) / 1.4) * 100)}% Match
+                      {Math.round(Math.max(0, 1 - (track.distance || 0.0) / 2) * 100)}% Match
                     </span>
                     <span class="badge badge-bpm font-xxs">
                       {Math.round(track.bpm || 120)} BPM

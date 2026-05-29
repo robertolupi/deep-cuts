@@ -226,21 +226,14 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
     }
 
     // power_to_db: 10 * log10(max(1e-10, power)), then clip to max − 80 dB
+    // No per-clip normalisation — the model expects raw dB values as produced
+    // by the HuggingFace ClapFeatureExtractor (mean ≈ -10, std ≈ 10).
     for v in mel_spec.iter_mut() {
         *v = 10.0 * v.max(1e-10f32).log10();
     }
     let max_db = mel_spec.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     for v in mel_spec.iter_mut() {
         *v = v.max(max_db - 80.0);
-    }
-
-    // Per-clip normalisation: (x − μ) / (σ + 1e-6)
-    let mean = mel_spec.iter().sum::<f32>() / mel_spec.len() as f32;
-    let var = mel_spec.iter().map(|&x| (x - mean) * (x - mean)).sum::<f32>()
-        / mel_spec.len() as f32;
-    let std_dev = var.sqrt();
-    for v in mel_spec.iter_mut() {
-        *v = (*v - mean) / (std_dev + 1e-6);
     }
 
     // Truncate to CLAP_MAX_FRAMES and pack into output buffer
