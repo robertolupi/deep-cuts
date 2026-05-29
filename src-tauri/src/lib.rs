@@ -132,6 +132,61 @@ fn get_track_count(
     Ok(count)
 }
 
+/// Retrieve all indexed tracks from the database.
+#[tauri::command]
+fn get_tracks(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<database::Track>, String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
+                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
+                    title, artist, album, genre, year, track_number, track_total,
+                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics
+             FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(database::Track {
+                id: row.get(0)?,
+                watched_directory_id: row.get(1)?,
+                path: row.get(2)?,
+                filename: row.get(3)?,
+                size_bytes: row.get(4)?,
+                last_modified: row.get(5)?,
+                duration_seconds: row.get(6)?,
+                sample_rate: row.get(7)?,
+                bitrate: row.get(8)?,
+                channels: row.get(9)?,
+                bit_depth: row.get(10)?,
+                title: row.get(11)?,
+                artist: row.get(12)?,
+                album: row.get(13)?,
+                genre: row.get(14)?,
+                year: row.get(15)?,
+                track_number: row.get(16)?,
+                track_total: row.get(17)?,
+                disc_number: row.get(18)?,
+                disc_total: row.get(19)?,
+                album_artist: row.get(20)?,
+                composer: row.get(21)?,
+                comment: row.get(22)?,
+                bpm: row.get(23)?,
+                lyrics: row.get(24)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut list = Vec::new();
+    for row in rows {
+        list.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(list)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Dynamically load the C-based sqlite-vec extension globally before booting any database
@@ -167,6 +222,7 @@ pub fn run() {
             add_watched_directory,
             remove_watched_directory,
             get_track_count,
+            get_tracks,
             scanner::scan_all_libraries
         ])
         .run(tauri::generate_context!())
