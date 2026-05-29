@@ -97,6 +97,20 @@
     });
   });
 
+  let displayLimit = $state(150);
+
+  $effect(() => {
+    // Reactively reset limit to 150 when filters or search query change
+    searchQuery;
+    selectedGenre;
+    selectedKey;
+    minBpm;
+    maxBpm;
+    displayLimit = 150;
+  });
+
+  let displayedTracks = $derived(filteredTracks.slice(0, displayLimit));
+
   function setBpmPreset(minVal: number, maxVal: number) {
     minBpm = minVal;
     maxBpm = maxVal;
@@ -211,7 +225,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each filteredTracks as track, index (track.id)}
+            {#each displayedTracks as track, index (track.id)}
               <tr 
                 class="track-row {selectedTrack?.id === track.id ? 'active-pulse' : ''}" 
                 onclick={() => onTrackSelect(track)}
@@ -241,8 +255,8 @@
                       {#each bars as energy}
                         {@const norm = energy / peak}
                         <div
-                          class="waveform-bar"
-                          style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
+                           class="waveform-bar"
+                           style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
                         ></div>
                       {/each}
                     </div>
@@ -277,6 +291,21 @@
             {/each}
           </tbody>
         </table>
+
+        {#if filteredTracks.length > displayLimit}
+          <div class="load-more-container">
+            <button 
+              class="load-more-btn" 
+              onclick={() => displayLimit += 150}
+              type="button"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="load-more-icon">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+              Load More Tracks ({filteredTracks.length - displayLimit} remaining)
+            </button>
+          </div>
+        {/if}
       </div>
     {:else}
       <div class="empty-search-state">
@@ -483,5 +512,49 @@
   .preset-btn-full {
     grid-column: span 4;
     margin-top: 0.15rem;
+  }
+
+  .load-more-container {
+    display: flex;
+    justify-content: center;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    background: linear-gradient(180deg, transparent 0%, rgba(10, 11, 16, 0.2) 100%);
+  }
+
+  .load-more-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.6rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    backdrop-filter: blur(8px);
+  }
+
+  .load-more-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--color-accent-cyan, #00f2fe);
+    color: var(--color-accent-cyan, #00f2fe);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan, #00f2fe) 15%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .load-more-btn:active {
+    transform: translateY(0);
+  }
+
+  .load-more-icon {
+    transition: transform 0.2s ease;
+  }
+
+  .load-more-btn:hover .load-more-icon {
+    transform: translateY(1px);
   }
 </style>
