@@ -21,6 +21,33 @@ impl Drop for ActiveGuard {
     }
 }
 
+struct SleepPreventer {
+    _handle: Option<keepawake::AwakeHandle>,
+}
+
+impl SleepPreventer {
+    fn new() -> Self {
+        let handle = keepawake::Builder::new()
+            .display(false)
+            .idle(true)
+            .sleep(true)
+            .reason("Deep Cuts Backend Analysis")
+            .create();
+        
+        match handle {
+            Ok(h) => {
+                log::info!("[sleep-preventer] Sleep prevention active across all platforms!");
+                Self { _handle: Some(h) }
+            }
+            Err(e) => {
+                log::warn!("[sleep-preventer] Failed to enable sleep prevention: {}", e);
+                Self { _handle: None }
+            }
+        }
+    }
+}
+
+
 #[derive(serde::Serialize)]
 struct PassError {
     path: String,
@@ -267,6 +294,7 @@ fn run_analysis_pipeline(
         return Err("Analysis is already running".to_string());
     }
     let _guard = ActiveGuard;
+    let sleep_preventer = SleepPreventer::new();
 
     let pending: Vec<SpoolJob> = {
         let conn = conn_state.lock().map_err(|e| e.to_string())?;
@@ -325,7 +353,18 @@ fn run_analysis_pipeline(
     };
 
     let total = pending.len();
-    if total == 0 {
+
+    // Check if there are any pending CLAP passes
+    let has_clap = {
+        let conn = conn_state.lock().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM track_passes WHERE status = ?1 AND pass_name = 'clap')",
+            [pass_status::PENDING],
+            |row| row.get(0),
+        ).unwrap_or(false)
+    };
+
+    if total == 0 && !has_clap {
         return Ok(());
     }
 
@@ -342,76 +381,78 @@ fn run_analysis_pipeline(
     }));
 
     let mut handles = Vec::new();
-    for _ in 0..concurrency {
-        let queue_clone = Arc::clone(&queue);
-        let conn_clone = Arc::clone(&conn_arc);
-        let app_clone = app.clone();
+    if total > 0 {
+        for _ in 0..concurrency {
+            let queue_clone = Arc::clone(&queue);
+            let conn_clone = Arc::clone(&conn_arc);
+            let app_clone = app.clone();
 
-        handles.push(std::thread::spawn(move || {
-            loop {
-                let job = {
-                    let mut q = queue_clone.lock().unwrap();
-                    q.pop_front()
-                };
-                let job = match job {
-                    Some(j) => j,
-                    None => break,
-                };
+            handles.push(std::thread::spawn(move || {
+                loop {
+                    let job = {
+                        let mut q = queue_clone.lock().unwrap();
+                        q.pop_front()
+                    };
+                    let job = match job {
+                        Some(j) => j,
+                        None => break,
+                    };
 
-                let start = std::time::Instant::now();
-                let result = dsp::run_audio_analysis(&job.path);
-                let elapsed_ms = start.elapsed().as_millis() as i64;
+                    let start = std::time::Instant::now();
+                    let result = dsp::run_audio_analysis(&job.path);
+                    let elapsed_ms = start.elapsed().as_millis() as i64;
 
-                let conn = conn_clone.lock().unwrap();
-                match result {
-                    Ok(analysis) => {
-                        let _ = conn.execute(
-                            "UPDATE tracks SET
-                                duration_seconds = ?1,
-                                waveform_data = ?2,
-                                bpm = ?3,
-                                key = ?4,
-                                scale = ?5,
-                                key_strength = ?6,
-                                loudness_lufs = ?7,
-                                loudness_range = ?8
-                             WHERE id = ?9",
-                            rusqlite::params![
-                                analysis.duration_seconds as i64,
-                                analysis.waveform_data,
-                                analysis.bpm,
-                                analysis.key,
-                                analysis.scale,
-                                analysis.key_strength,
-                                analysis.loudness_lufs,
-                                analysis.loudness_range,
-                                job.track_id,
-                            ],
-                        );
-                        let _ = conn.execute(
-                            "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                             last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                            rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
-                        );
-                        let _ = app_clone.emit("analysis-progress", serde_json::json!({
-                            "track_id": job.track_id,
-                            "status": pass_status::DONE,
-                        }));
-                    }
-                    Err(e) => {
-                        let _ = conn.execute(
-                            "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
-                             last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                            rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
-                        );
-                        let _ = app_clone.emit("analysis-progress", serde_json::json!({
-                            "track_id": job.track_id,
-                            "status": pass_status::FAILED,
-                        }));
+                    let conn = conn_clone.lock().unwrap();
+                    match result {
+                        Ok(analysis) => {
+                            let _ = conn.execute(
+                                "UPDATE tracks SET
+                                    duration_seconds = ?1,
+                                    waveform_data = ?2,
+                                    bpm = ?3,
+                                    key = ?4,
+                                    scale = ?5,
+                                    key_strength = ?6,
+                                    loudness_lufs = ?7,
+                                    loudness_range = ?8
+                                 WHERE id = ?9",
+                                rusqlite::params![
+                                    analysis.duration_seconds as i64,
+                                    analysis.waveform_data,
+                                    analysis.bpm,
+                                    analysis.key,
+                                    analysis.scale,
+                                    analysis.key_strength,
+                                    analysis.loudness_lufs,
+                                    analysis.loudness_range,
+                                    job.track_id,
+                                ],
+                            );
+                            let _ = conn.execute(
+                                "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                                 last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                                rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                            );
+                            let _ = app_clone.emit("analysis-progress", serde_json::json!({
+                                "track_id": job.track_id,
+                                "status": pass_status::DONE,
+                            }));
+                        }
+                        Err(e) => {
+                            let _ = conn.execute(
+                                "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                                 last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                                rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                            );
+                            let _ = app_clone.emit("analysis-progress", serde_json::json!({
+                                "track_id": job.track_id,
+                                "status": pass_status::FAILED,
+                            }));
+                        }
                     }
                 }
-            }
-        }));
+            }));
+        }
     }
 
     // Wait for audio_analysis workers on a background thread so the IPC call returns immediately.
@@ -419,6 +460,7 @@ fn run_analysis_pipeline(
     // Moving _guard into the thread keeps ANALYSIS_ACTIVE=true until all passes finish.
     std::thread::spawn(move || {
         let _guard = _guard;
+        let _preventer_guard = sleep_preventer;
 
         // ── Phase 1: audio_analysis (parallel) ────────────────────────────
         for h in handles {
