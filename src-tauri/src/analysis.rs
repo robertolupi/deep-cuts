@@ -137,11 +137,7 @@ impl PipelineManager {
             return Ok(());
         }
 
-        let concurrency = (std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(2)
-            / 2)
-            .max(1);
+        let concurrency = crate::hardware::PipelineConfig::auto_tune().decode_threads;
 
         let queue = Arc::new(Mutex::new(VecDeque::from(pending)));
         let conn_arc = Arc::new(Mutex::new({
