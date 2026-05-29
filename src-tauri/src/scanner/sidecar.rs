@@ -8,7 +8,22 @@ pub const SUFFIX: &str = ".dc.json";
 ///   - save()    — add to the SELECT query and struct construction
 ///   - restore() — add to the UPDATE statement
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct SidecarMlMetadata {}
+pub struct SidecarMlMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bpm: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scale: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_strength: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loudness_lufs: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loudness_range: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waveform_data: Option<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SidecarData {
@@ -36,8 +51,20 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         |row| row.get(0),
     )?;
 
-    // SELECT ml columns here as they are added (see SidecarMlMetadata above).
-    let ml_metadata = SidecarMlMetadata {};
+    let ml_metadata: SidecarMlMetadata = conn.query_row(
+        "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data
+         FROM tracks WHERE id = ?1",
+        [track_id],
+        |row| Ok(SidecarMlMetadata {
+            bpm: row.get(0)?,
+            key: row.get(1)?,
+            scale: row.get(2)?,
+            key_strength: row.get(3)?,
+            loudness_lufs: row.get(4)?,
+            loudness_range: row.get(5)?,
+            waveform_data: row.get(6)?,
+        }),
+    )?;
 
     let sidecar = SidecarData { version: 1, ml_metadata };
     let json = serde_json::to_string_pretty(&sidecar)?;
@@ -53,13 +80,27 @@ pub fn restore(
     track_id: i64,
     track_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(_sidecar) = load(track_path) else {
+    let Some(sidecar) = load(track_path) else {
         return Ok(());
     };
 
-    // UPDATE tracks SET <new_col> = ?1 WHERE id = ?2
-    // Add columns here as they are added to SidecarMlMetadata.
-    let _ = (conn, track_id);
+    let m = &sidecar.ml_metadata;
+    conn.execute(
+        "UPDATE tracks SET
+            bpm = COALESCE(?1, bpm),
+            key = COALESCE(?2, key),
+            scale = COALESCE(?3, scale),
+            key_strength = COALESCE(?4, key_strength),
+            loudness_lufs = COALESCE(?5, loudness_lufs),
+            loudness_range = COALESCE(?6, loudness_range),
+            waveform_data = COALESCE(?7, waveform_data)
+         WHERE id = ?8",
+        rusqlite::params![
+            m.bpm, m.key, m.scale, m.key_strength,
+            m.loudness_lufs, m.loudness_range, m.waveform_data,
+            track_id,
+        ],
+    )?;
     Ok(())
 }
 
@@ -142,8 +183,9 @@ mod tests {
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
-             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 0)",
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
+                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 128.5, 'G', 'minor', 0.87, -14.2, 6.1, '[0.1,0.2]')",
             [&track_path],
         )
         .unwrap();
@@ -151,6 +193,51 @@ mod tests {
         save(&conn, 1).unwrap();
         let loaded = load(&track_path).expect("sidecar should be loadable after save");
         assert_eq!(loaded.version, 1);
+        let m = &loaded.ml_metadata;
+        assert_eq!(m.bpm, Some(128.5));
+        assert_eq!(m.key.as_deref(), Some("G"));
+        assert_eq!(m.scale.as_deref(), Some("minor"));
+        assert_eq!(m.key_strength, Some(0.87));
+        assert_eq!(m.loudness_lufs, Some(-14.2));
+        assert_eq!(m.loudness_range, Some(6.1));
+        assert_eq!(m.waveform_data.as_deref(), Some("[0.1,0.2]"));
+
+        cleanup(&dir, &track_path);
+    }
+
+    #[test]
+    fn test_restore_writes_ml_fields_back() {
+        let (dir, track_path) = temp_track("restore_fields");
+        let conn = setup_test_db();
+
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+            [dir.to_string_lossy().as_ref()],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
+                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 120.0, 'C', 'major', 0.9, -12.0, 5.0, '[0.5]')",
+            [&track_path],
+        )
+        .unwrap();
+
+        // Save to disk, then clear the DB row, then restore from disk
+        save(&conn, 1).unwrap();
+        conn.execute(
+            "UPDATE tracks SET bpm = NULL, key = NULL, scale = NULL, key_strength = NULL,
+             loudness_lufs = NULL, loudness_range = NULL, waveform_data = NULL WHERE id = 1",
+            [],
+        ).unwrap();
+        restore(&conn, 1, &track_path).unwrap();
+
+        let (bpm, key, scale): (Option<f64>, Option<String>, Option<String>) = conn.query_row(
+            "SELECT bpm, key, scale FROM tracks WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        ).unwrap();
+        assert_eq!(bpm, Some(120.0));
+        assert_eq!(key.as_deref(), Some("C"));
+        assert_eq!(scale.as_deref(), Some("major"));
 
         cleanup(&dir, &track_path);
     }
