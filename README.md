@@ -1,6 +1,6 @@
 # Deep Cuts (com.rlupi.deep-cuts)
 
-Deep Cuts is a premium, offline-first studio audio analysis application and reference library. It cuts through thousands of tracks in your local collection to reveal their underlying musical and sonic structure using local digital signal processing (DSP) and offline machine-learning indexing.
+Deep Cuts is an offline-first studio audio analysis application and reference library. It cuts through thousands of tracks in your local collection to reveal their underlying musical and sonic structure using local digital signal processing (DSP) and offline machine-learning indexing.
 
 100% offline, private, and designed to run sandboxed on macOS.
 
@@ -21,17 +21,18 @@ Deep Cuts is a premium, offline-first studio audio analysis application and refe
 *   **Analysis UI**: Dedicated Analysis tab with per-pass progress bars, average timing, failed-track error log, and per-pass / full-library reset controls.
 *   **Dashboard**: Split-pane layout with a resizable divider. Top pane shows the audio player; bottom pane shows the searchable, filterable track list with BPM and key columns.
 *   **Audio Player**: WaveSurfer.js waveform and spectrogram visualisation, play/pause/prev/next controls, and an expandable metadata details panel showing technical specs, key, loudness, lyrics, and comments.
-*   **Search & Filter**: Real-time full-text search across title, artist, album, and filename. Genre filter derived dynamically from library tags.
+*   **Search & Filter**: Real-time full-text search across title, artist, album, and filename. Features dynamically populated Genre and musical Key filters, and a popover-based BPM range selector (RangeSlider) with quick-presets and click-outside closure.
+*   **The Music Map (UMAP Projection)**: 2D visual projection of the entire audio collection using CLAP embeddings and Rust-native UMAP dimensionality reduction. Rendered dynamically via a theme-adaptive Svelte 5 canvas element supporting D3 zoom/pan, hover metadata tooltips, and a dynamic top-10 primary genre scanning system.
+*   **Acoustic Similarity Search (K-Nearest Neighbors)**: Index-based KNN similarity queries using virtual `audio_embeddings` tables via `sqlite-vec` to instantly find matching audio profiles on the Music Map's inspection pane, with native audio playback and progress scrubbing controls.
 *   **Reveal in Finder / Explorer**: Opens the system file manager with the track's file selected. macOS, Windows, and Linux are all handled.
-*   **Premium Visual Themes**:
+*   **Visual Themes**:
     *   **Dark Mode**: Cyber-cyan, studio-pink, and deep-indigo glow interface.
     *   **Light Mode**: Clean, professional bright slate/indigo studio theme.
     *   **Accessible Mode**: High-contrast black-and-white theme with stark borders and zero panel blurs.
 
 ### Planned
 
-*   **Offline Semantic Search**: Locally run ONNX-based CLAP audio embeddings for mood, vibe, and acoustic similarity queries.
-*   **The Music Map**: 2D visual projection of the entire collection via UMAP dimensionality reduction on CLAP embeddings.
+*   **Offline Semantic Text Search**: Locally run ONNX-based CLAP text query encoding (e.g. searching "ambient synths" or "heavy bassline") to retrieve matching audio files.
 *   **Genre & Mood Classification**: Discogs-Effnet ONNX classifier for genre, vocal/instrumental detection, and seven mood axes.
 
 ---
