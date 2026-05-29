@@ -69,8 +69,11 @@
   let selectedTrack = $state<Track | null>(null);
   let searchQuery = $state("");
   let selectedGenre = $state("All");
+  let minBpm = $state(20);
+  let maxBpm = $state(250);
+  let selectedKey = $state("All");
 
-  // Derived list of filtered tracks reactively matching search box and genre selections
+  // Derived list of filtered tracks reactively matching search box, genre, key, and BPM selections
   // Needed for previous/next track traversal in root page context
   let filteredTracks = $derived.by(() => {
     return tracks.filter(t => {
@@ -81,7 +84,22 @@
         }
       }
       
-      // 2. Search text filter
+      // 2. Key filter
+      if (selectedKey !== "All") {
+        if (!t.key || !t.scale) return false;
+        const keyLabel = `${t.key} ${t.scale.toLowerCase()}`;
+        if (keyLabel.toLowerCase() !== selectedKey.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 3. BPM filter
+      if (minBpm > 20 || maxBpm < 250) {
+        if (t.bpm === null || t.bpm === undefined) return false;
+        if (t.bpm < minBpm || t.bpm > maxBpm) return false;
+      }
+
+      // 4. Search text filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesTitle = t.title?.toLowerCase().includes(query) ?? false;
@@ -531,6 +549,9 @@
           {isPlaying}
           bind:searchQuery
           bind:selectedGenre
+          bind:minBpm
+          bind:maxBpm
+          bind:selectedKey
           onTrackSelect={playTrack}
           {formatDuration}
           bind:activeTab
