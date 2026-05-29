@@ -389,47 +389,51 @@
   }
 
   // Check Tauri connectivity and restore theme
-  onMount(async () => {
+  onMount(() => {
     // Stage 1: Load instantly from localStorage for seamless boot
     const saved = localStorage.getItem("deep-cuts-theme") || "system";
-    await setTheme(saved, false);
+    setTheme(saved, false);
 
-    let unlistenProgress: () => void;
+    let unlistenProgress: (() => void) | undefined;
 
-    // Stage 2: Query database via Tauri if online
-    try {
-      // Query saved theme from Tauri SQLite database
-      const dbTheme = await invoke<string>("get_theme");
-      tauriConnected = true;
-      if (dbTheme && dbTheme !== saved) {
-        await setTheme(dbTheme, false);
-      }
-
-      // Fetch directories
-      await fetchDirectories();
-      // Fetch initial track count
-      await fetchTrackCount();
-      // Fetch initial track list
-      await fetchTracks();
-
-      // Listen for progress updates emitted by the parallel scanner
-      unlistenProgress = await listen<any>("scan:progress", (event) => {
-        const payload = event.payload;
-        isScanning = payload.is_scanning;
-        scanProgress = payload.progress;
-        scanCurrentFile = payload.current_file;
-        scanProcessedCount = payload.processed_count;
-        scanTotalCount = payload.total_count;
-
-        if (!payload.is_scanning && payload.progress === 100) {
-          showToast(payload.current_file, "success");
-          fetchTrackCount();
-          fetchTracks();
+    async function init() {
+      // Stage 2: Query database via Tauri if online
+      try {
+        // Query saved theme from Tauri SQLite database
+        const dbTheme = await invoke<string>("get_theme");
+        tauriConnected = true;
+        if (dbTheme && dbTheme !== saved) {
+          await setTheme(dbTheme, false);
         }
-      });
-    } catch (e) {
-      console.warn("Tauri shell connection offline (running in browser context) or database loading.");
+
+        // Fetch directories
+        await fetchDirectories();
+        // Fetch initial track count
+        await fetchTrackCount();
+        // Fetch initial track list
+        await fetchTracks();
+
+        // Listen for progress updates emitted by the parallel scanner
+        unlistenProgress = await listen<any>("scan:progress", (event) => {
+          const payload = event.payload;
+          isScanning = payload.is_scanning;
+          scanProgress = payload.progress;
+          scanCurrentFile = payload.current_file;
+          scanProcessedCount = payload.processed_count;
+          scanTotalCount = payload.total_count;
+
+          if (!payload.is_scanning && payload.progress === 100) {
+            showToast(payload.current_file, "success");
+            fetchTrackCount();
+            fetchTracks();
+          }
+        });
+      } catch (e) {
+        console.warn("Tauri shell connection offline (running in browser context) or database loading.");
+      }
     }
+
+    init();
 
     return () => {
       if (unlistenProgress) {
