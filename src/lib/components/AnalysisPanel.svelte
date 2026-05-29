@@ -29,14 +29,51 @@
   let errorMessage = $state("");
   let unlisteners: Array<() => void> = [];
 
+  // Per-pass throughput tracking: records the done count and wall-clock time at the moment
+  // a pass first starts completing tracks, so we can compute actual completions/ms.
+  interface ThroughputSample { time: number; done: number; }
+  let throughputBaseline = new Map<string, ThroughputSample>();
+
+  function updateThroughput(newStats: PassStats[]) {
+    const now = Date.now();
+    for (const pass of newStats) {
+      const existing = throughputBaseline.get(pass.pass_name);
+      if (pass.done > 0 && pass.in_progress > 0) {
+        // Pass is actively running — seed baseline on first completion
+        if (!existing) {
+          throughputBaseline.set(pass.pass_name, { time: now, done: pass.done });
+        }
+      } else if (pass.in_progress === 0) {
+        // Pass finished or not started — clear baseline so it reseeds next run
+        throughputBaseline.delete(pass.pass_name);
+      }
+    }
+  }
+
+  function etaForPass(pass: PassStats): number {
+    const remaining = pass.pending + pass.in_progress;
+    if (remaining <= 0) return 0;
+
+    const baseline = throughputBaseline.get(pass.pass_name);
+    if (baseline) {
+      const elapsedMs = Date.now() - baseline.time;
+      const completed = pass.done - baseline.done;
+      if (completed > 0 && elapsedMs > 0) {
+        const throughputPerMs = completed / elapsedMs;
+        return remaining / throughputPerMs;
+      }
+    }
+
+    // Fallback to avg_duration_ms before any completions arrive
+    if (pass.avg_duration_ms) return remaining * pass.avg_duration_ms;
+    return 0;
+  }
+
   // Derived state to compute total remaining ETA across all active/pending passes
   let estimatedTimeRemaining = $derived.by(() => {
     let totalMs = 0;
     for (const pass of stats) {
-      const remaining = pass.pending + pass.in_progress;
-      if (remaining > 0 && pass.avg_duration_ms) {
-        totalMs += remaining * pass.avg_duration_ms;
-      }
+      totalMs += etaForPass(pass);
     }
     return totalMs;
   });
@@ -53,7 +90,9 @@
 
   async function loadStats() {
     try {
-      stats = await invoke<PassStats[]>("get_pass_stats");
+      const newStats = await invoke<PassStats[]>("get_pass_stats");
+      updateThroughput(newStats);
+      stats = newStats;
     } catch (e: any) {
       console.error("Failed to load pass stats:", e);
     }
@@ -65,6 +104,7 @@
 
   async function startAnalysis() {
     errorMessage = "";
+    throughputBaseline.clear();
     try {
       await invoke("run_analysis_pipeline");
       isRunning = true;
@@ -157,10 +197,13 @@
               {#if pass.failed > 0}<span class="count-failed"> · {pass.failed} failed</span>{/if}
               {#if pass.pending > 0}<span class="count-pending"> · {pass.pending} pending</span>{/if}
               <span class="count-total"> / {pass.total}</span>
-              {#if isRunning && (pass.pending > 0 || pass.in_progress > 0) && pass.avg_duration_ms}
-                <span class="count-eta" style="color: var(--accent-cyan); font-weight: 500;">
-                  · {formatEta((pass.pending + pass.in_progress) * pass.avg_duration_ms)} remaining
-                </span>
+              {#if isRunning && (pass.pending > 0 || pass.in_progress > 0)}
+                {@const eta = etaForPass(pass)}
+                {#if eta > 0}
+                  <span class="count-eta" style="color: var(--accent-cyan); font-weight: 500;">
+                    · {formatEta(eta)} remaining
+                  </span>
+                {/if}
               {/if}
             </span>
             {#if pass.avg_duration_ms !== null}
