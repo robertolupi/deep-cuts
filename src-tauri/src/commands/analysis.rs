@@ -118,6 +118,10 @@ pub fn reset_pass(
          last_run_at = NULL, duration_ms = NULL WHERE pass_name = ?2",
         rusqlite::params![pass_status::PENDING, &pass_name],
     ).map_err(|e| e.to_string())?;
+    if pass_name == "clap" {
+        conn.execute("DELETE FROM audio_embeddings", [])
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -131,5 +135,7 @@ pub fn reset_all_passes(
          last_run_at = NULL, duration_ms = NULL",
         [pass_status::PENDING],
     ).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM audio_embeddings", [])
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
