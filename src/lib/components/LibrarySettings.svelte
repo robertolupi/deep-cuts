@@ -17,7 +17,8 @@
     choosePath,
     addDirectory,
     removeDirectory,
-    triggerScan
+    triggerScan,
+    exportSidecars
   }: {
     directories: WatchedDirectory[];
     trackCount: number;
@@ -35,6 +36,7 @@
     addDirectory: () => Promise<void>;
     removeDirectory: (id: number, folderName: string) => Promise<void>;
     triggerScan: () => Promise<void>;
+    exportSidecars: () => Promise<void>;
   } = $props();
 </script>
 
@@ -148,8 +150,8 @@
               </span>
             </div>
           {:else}
-            <button 
-              class="btn-primary" 
+            <button
+              class="btn-primary"
               onclick={triggerScan}
               style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent-cyan)); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: var(--radius-sm); width: auto;"
             >
@@ -158,6 +160,19 @@
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
               <span style="vertical-align: middle;">Scan Library</span>
+            </button>
+            <button
+              class="btn-secondary"
+              onclick={exportSidecars}
+              style="font-size: 0.78rem; padding: 0.35rem 0.9rem; border-radius: var(--radius-sm); width: auto;"
+              title="Write .dc.json sidecar files next to each audio file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem; vertical-align: middle;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span style="vertical-align: middle;">Export Sidecars</span>
             </button>
           {/if}
         </div>

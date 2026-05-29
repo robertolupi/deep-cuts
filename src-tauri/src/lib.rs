@@ -187,6 +187,26 @@ fn get_tracks(
     Ok(list)
 }
 
+/// Writes a .dc.json sidecar file next to the given track's audio file.
+#[tauri::command]
+fn save_sidecar(
+    track_id: i64,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    scanner::sidecar::save(&conn, track_id).map_err(|e| e.to_string())
+}
+
+/// Writes .dc.json sidecar files for every track in the database.
+/// Returns the number of files written successfully.
+#[tauri::command]
+fn export_sidecars(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<usize, String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    scanner::sidecar::export_all(&conn).map_err(|e| e.to_string())
+}
+
 /// Opens the system file manager and selects the given file.
 /// macOS: open -R <path>  |  Windows: explorer /select,<path>  |  Linux: xdg-open <parent dir>
 #[tauri::command]
@@ -255,6 +275,8 @@ pub fn run() {
             get_track_count,
             get_tracks,
             reveal_in_finder,
+            save_sidecar,
+            export_sidecars,
             scanner::scan_all_libraries
         ])
         .run(tauri::generate_context!())

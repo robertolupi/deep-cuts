@@ -57,7 +57,12 @@ M::up("
 
 1. **Update Rust structs** — if the new column is read anywhere (e.g. the `Track` struct in `database.rs`), add the field with `Option<T>` to handle pre-migration rows.
 
-2. **Run the test suite** — the in-memory test DB exercises every migration on each run:
+2. **Update sidecar structs** — if the new column holds ML-derived data that should survive a library rescan, wire it into `src-tauri/src/scanner/sidecar.rs` in three places:
+   - Add the field to `SidecarMlMetadata` (with `Option<T>`)
+   - Add the column to the `SELECT` in `save()` and assign it in the struct literal
+   - Add a `SET <column> = ?` to the `UPDATE` statement in `restore()`
+
+3. **Run the test suite** — the in-memory test DB exercises every migration on each run:
    ```bash
    cargo test --manifest-path src-tauri/Cargo.toml
    ```

@@ -1,6 +1,7 @@
 pub mod db;
 pub mod fs;
 pub mod metadata;
+pub mod sidecar;
 
 use std::collections::HashSet;
 use tauri::{AppHandle, Emitter};
@@ -202,6 +203,19 @@ pub async fn scan_all_libraries(
 
             if let Err(e) = db::upsert_tracks_transactional(&mut conn, &tracks_to_upsert) {
                 eprintln!("Database upsert error: {:?}", e);
+            }
+        }
+
+        // 5b. Sidecar restore — reload ML fields for newly-upserted tracks
+        if !tracks_to_upsert.is_empty() {
+            let paths: Vec<&str> = tracks_to_upsert.iter().map(|t| t.path.as_str()).collect();
+            let id_map = db::get_track_ids_by_paths(&conn, &paths);
+            for track in &tracks_to_upsert {
+                if let Some(&track_id) = id_map.get(&track.path) {
+                    if let Err(e) = sidecar::restore(&conn, track_id, &track.path) {
+                        eprintln!("Sidecar restore failed for '{}': {}", track.filename, e);
+                    }
+                }
             }
         }
 

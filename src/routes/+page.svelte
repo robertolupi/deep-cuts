@@ -378,6 +378,15 @@
     }
   }
 
+  async function exportSidecars() {
+    try {
+      const count = await invoke<number>("export_sidecars");
+      showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
+    } catch (err: any) {
+      showToast(err.toString(), "error");
+    }
+  }
+
   // Check Tauri connectivity and restore theme
   onMount(async () => {
     // Stage 1: Load instantly from localStorage for seamless boot
@@ -544,6 +553,7 @@
         {addDirectory}
         {removeDirectory}
         {triggerScan}
+        {exportSidecars}
       />
     {/if}
   </main>

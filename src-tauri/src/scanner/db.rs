@@ -93,6 +93,24 @@ pub fn upsert_tracks_transactional(
     Ok(())
 }
 
+/// Returns a map of path → track ID for the given paths, used by the sidecar restore step.
+pub fn get_track_ids_by_paths(
+    conn: &Connection,
+    paths: &[&str],
+) -> std::collections::HashMap<String, i64> {
+    let mut map = std::collections::HashMap::new();
+    for path in paths {
+        if let Ok(id) = conn.query_row(
+            "SELECT id FROM tracks WHERE path = ?1",
+            [path],
+            |row| row.get::<_, i64>(0),
+        ) {
+            map.insert(path.to_string(), id);
+        }
+    }
+    map
+}
+
 /// Prunes track records from the database that no longer physically exist in the scanned directory.
 pub fn reconcile_deleted_tracks(
     conn: &mut Connection,

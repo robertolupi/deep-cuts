@@ -42,6 +42,10 @@ static/          — static assets
 skills/          — project-specific agent playbooks
 ```
 
+## Testing & Committing
+
+Always run `cargo test --manifest-path src-tauri/Cargo.toml` after Rust changes. **Never commit — wait for the user to explicitly say so after manual testing.**
+
 ## Tech Stack
 
 - **Frontend**: Svelte 5, SvelteKit, TypeScript, D3.js, WaveSurfer.js
