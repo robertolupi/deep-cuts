@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
   import WaveSurfer from "wavesurfer.js";
   import Spectrogram from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 
@@ -14,6 +13,7 @@
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
   import type { WatchedDirectory, Track } from "$lib/types";
+  import { library } from "$lib/stores/library.svelte";
 
   // State managers using Svelte 5 runes
   let currentTheme = $state("system");
@@ -21,22 +21,12 @@
   let tauriConnected = $state(false);
   let activeTab = $state("dashboard");
 
-  // Watched directories state
-  let directories = $state<WatchedDirectory[]>([]);
+  // Local Form / Settings States
   let name = $state("");
   let path = $state("");
   let errorMessage = $state("");
   let successMessage = $state("");
   let isAddLoading = $state(false);
-
-  // Scanning States
-  let isScanning = $state(false);
-  let scanProgress = $state(0);
-  let scanCurrentFile = $state("Idle");
-  let scanProcessedCount = $state(0);
-  let scanTotalCount = $state(0);
-
-  let trackCount = $state(0);
 
   // Resizable Split Pane Heights
   let topPaneHeight = $state(330); // Default Top Pane height in pixels
@@ -64,19 +54,18 @@
   let waveformContainer = $state<HTMLDivElement | null>(null);
   let spectrogramContainer = $state<HTMLDivElement | null>(null);
 
-  // Track Collection States
-  let tracks = $state<Track[]>([]);
-  let selectedTrack = $state<Track | null>(null);
+  // Track Collection Filter States
   let searchQuery = $state("");
   let selectedGenre = $state("All");
   let minBpm = $state(20);
   let maxBpm = $state(250);
   let selectedKey = $state("All");
 
+  let selectedTrack = $state<Track | null>(null);
+
   // Derived list of filtered tracks reactively matching search box, genre, key, and BPM selections
-  // Needed for previous/next track traversal in root page context
   let filteredTracks = $derived.by(() => {
-    return tracks.filter(t => {
+    return library.tracks.filter(t => {
       // 1. Genre filter
       if (selectedGenre !== "All") {
         if (!t.genre || !t.genre.toLowerCase().includes(selectedGenre.toLowerCase())) {
@@ -112,24 +101,6 @@
       return true;
     });
   });
-
-  // Retrieve track count from SQLite
-  async function fetchTrackCount() {
-    try {
-      trackCount = await invoke<number>("get_track_count");
-    } catch (err: any) {
-      console.error("Failed to fetch track count:", err);
-    }
-  }
-
-  // Retrieve track list from SQLite
-  async function fetchTracks() {
-    try {
-      tracks = await invoke<Track[]>("get_tracks");
-    } catch (err: any) {
-      console.error("Failed to fetch tracks:", err);
-    }
-  }
 
   // Draggable Split Pane Resize Handlers
   function handleMouseDown(e: MouseEvent) {
@@ -267,7 +238,7 @@
   }
 
   function handlePrevTrack() {
-    if (!selectedTrack || tracks.length === 0) return;
+    if (!selectedTrack || library.tracks.length === 0) return;
     const activeList = filteredTracks;
     const index = activeList.findIndex(t => t.id === selectedTrack!.id);
     if (index > 0) {
@@ -278,7 +249,7 @@
   }
 
   async function handleNextTrack() {
-    if (!selectedTrack || tracks.length === 0) return;
+    if (!selectedTrack || library.tracks.length === 0) return;
     const activeList = filteredTracks;
     const index = activeList.findIndex(t => t.id === selectedTrack!.id);
     if (index !== -1 && index < activeList.length - 1) {
@@ -296,15 +267,6 @@
 
   function formatSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  // Retrieve directories list from SQLite
-  async function fetchDirectories() {
-    try {
-      directories = await invoke<WatchedDirectory[]>("get_watched_directories");
-    } catch (err: any) {
-      showToast(err.toString(), "error");
-    }
   }
 
   // Trigger native RFD directory selector in Rust
@@ -335,11 +297,10 @@
 
     isAddLoading = true;
     try {
-      await invoke("add_watched_directory", { name, path });
-      showToast(`Added folder "${name}" to watched lists.`, "success");
+      await library.addDirectory(name, path);
+      showToast(`Added folder "${name}" to monitored lists.`, "success");
       name = "";
       path = "";
-      await fetchDirectories();
     } catch (err: any) {
       showToast(err.toString(), "error");
     } finally {
@@ -350,11 +311,8 @@
   // Executes directory removal
   async function removeDirectory(id: number, folderName: string) {
     try {
-      await invoke("remove_watched_directory", { id });
+      await library.removeDirectory(id);
       showToast(`Stopped watching "${folderName}".`, "success");
-      await fetchDirectories();
-      await fetchTrackCount();
-      await fetchTracks();
     } catch (err: any) {
       showToast(err.toString(), "error");
     }
@@ -379,27 +337,23 @@
 
   // Trigger all library monitoring index scan
   async function triggerScan() {
-    if (isScanning) return;
-    if (directories.length === 0) {
+    if (library.isScanning) return;
+    if (library.directories.length === 0) {
       showToast("Register at least one monitored library directory first.", "error");
       return;
     }
 
     try {
-      isScanning = true;
-      scanProgress = 0;
-      scanCurrentFile = "Starting library scan...";
-      await invoke("scan_all_libraries");
+      await library.triggerScan();
       showToast("Library scanning initiated in background.", "success");
     } catch (err: any) {
-      isScanning = false;
       showToast(err.toString(), "error");
     }
   }
 
   async function exportSidecars() {
     try {
-      const count = await invoke<number>("export_sidecars");
+      const count = await library.exportSidecars();
       showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
     } catch (err: any) {
       showToast(err.toString(), "error");
@@ -412,52 +366,23 @@
     const saved = localStorage.getItem("deep-cuts-theme") || "system";
     setTheme(saved, false);
 
-    let unlistenProgress: (() => void) | undefined;
-
     async function init() {
-      // Stage 2: Query database via Tauri if online
+      // Stage 2: Initialize library store cache & scan listeners
+      await library.init();
+      tauriConnected = library.tauriConnected;
+
       try {
         // Query saved theme from Tauri SQLite database
         const dbTheme = await invoke<string>("get_theme");
-        tauriConnected = true;
         if (dbTheme && dbTheme !== saved) {
           await setTheme(dbTheme, false);
         }
-
-        // Fetch directories
-        await fetchDirectories();
-        // Fetch initial track count
-        await fetchTrackCount();
-        // Fetch initial track list
-        await fetchTracks();
-
-        // Listen for progress updates emitted by the parallel scanner
-        unlistenProgress = await listen<any>("scan:progress", (event) => {
-          const payload = event.payload;
-          isScanning = payload.is_scanning;
-          scanProgress = payload.progress;
-          scanCurrentFile = payload.current_file;
-          scanProcessedCount = payload.processed_count;
-          scanTotalCount = payload.total_count;
-
-          if (!payload.is_scanning && payload.progress === 100) {
-            showToast(payload.current_file, "success");
-            fetchTrackCount();
-            fetchTracks();
-          }
-        });
       } catch (e) {
-        console.warn("Tauri shell connection offline (running in browser context) or database loading.");
+        console.warn("Tauri context offline or library database loading.");
       }
     }
 
     init();
-
-    return () => {
-      if (unlistenProgress) {
-        unlistenProgress();
-      }
-    };
   });
 
   // Apply theme dynamically to HTML element and persist to storage
@@ -544,7 +469,7 @@
 
         <!-- Bottom Pane: List of Tracks & Filters -->
         <TrackList
-          {tracks}
+          tracks={library.tracks}
           {selectedTrack}
           {isPlaying}
           bind:searchQuery
@@ -566,13 +491,13 @@
       
     {:else if activeTab === 'settings'}
       <LibrarySettings
-        {directories}
-        {trackCount}
-        {isScanning}
-        {scanProgress}
-        {scanCurrentFile}
-        {scanProcessedCount}
-        {scanTotalCount}
+        directories={library.directories}
+        trackCount={library.trackCount}
+        isScanning={library.isScanning}
+        scanProgress={library.scanProgress}
+        scanCurrentFile={library.scanCurrentFile}
+        scanProcessedCount={library.scanProcessedCount}
+        scanTotalCount={library.scanTotalCount}
         bind:path
         bind:name
         {isAddLoading}
