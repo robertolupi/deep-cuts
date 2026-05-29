@@ -92,7 +92,7 @@
   <div class="analysis-header glass-panel">
     <div>
       <h2 class="panel-title">Audio Analysis</h2>
-      <p class="panel-subtitle">Compute BPM, key, loudness, and waveform data for your library.</p>
+      <p class="panel-subtitle">Compute BPM, key, loudness, waveforms, and neural embeddings for your library.</p>
     </div>
     <div class="header-actions">
       {#if isRunning}
