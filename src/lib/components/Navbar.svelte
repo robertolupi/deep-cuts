@@ -1,0 +1,59 @@
+<script lang="ts">
+  let {
+    activeTab = $bindable(),
+    currentTheme = $bindable(),
+    onThemeChange
+  }: {
+    activeTab: string;
+    currentTheme: string;
+    onThemeChange: (theme: string) => Promise<void>;
+  } = $props();
+</script>
+
+<header class="navbar glass-panel">
+  <div class="brand">
+    <div class="logo-circle">
+      <div class="logo-cut"></div>
+    </div>
+    <span class="brand-name shimmer-text">DEEP CUTS</span>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button 
+      class="nav-tab {activeTab === 'dashboard' ? 'active' : ''}" 
+      onclick={() => activeTab = 'dashboard'}
+    >
+      Dashboard
+    </button>
+    <button 
+      class="nav-tab {activeTab === 'music-map' ? 'active' : ''}" 
+      onclick={() => activeTab = 'music-map'}
+    >
+      Music Map
+    </button>
+    <button 
+      class="nav-tab {activeTab === 'settings' ? 'active' : ''}" 
+      onclick={() => activeTab = 'settings'}
+    >
+      Settings
+    </button>
+  </nav>
+
+  <!-- Theme Selection -->
+  <div class="controls">
+    <div class="theme-picker">
+      <select 
+        class="theme-select" 
+        value={currentTheme} 
+        onchange={(e) => onThemeChange((e.target as HTMLSelectElement).value)}
+        aria-label="Theme Selection"
+      >
+        <option value="system">🌓 System</option>
+        <option value="dark">🌙 Dark Mode</option>
+        <option value="light">☀️ Light Mode</option>
+        <option value="accessible">👓 High Contrast</option>
+      </select>
+    </div>
+  </div>
+</header>
