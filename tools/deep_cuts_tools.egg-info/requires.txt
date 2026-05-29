@@ -1,7 +1,0 @@
-torch>=2.2.0
-transformers>=4.38.0
-librosa>=0.10.0
-numpy>=1.26.0
-
-[essentia]
-essentia-tensorflow>=2.1b6.dev1110
