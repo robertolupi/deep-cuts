@@ -11,44 +11,71 @@ Schema changes are managed by `rusqlite_migration`. The crate applies migrations
 
 ## Rules
 
-- **Never edit an existing `M::up(...)` call.** Changing past migrations will corrupt databases that have already applied them.
+- **Never edit an existing migration.** Changing past migrations will corrupt databases that have already applied them.
 - **Never reorder migrations.** Index position is the version number.
 - **Always add at the end** of the array returned by `get_migrations()` in `src-tauri/src/database.rs`.
-- SQLite's `ALTER TABLE ... ADD COLUMN` is the only DDL allowed mid-migration without rebuilding the table. Adding `NOT NULL` columns without a default requires recreating the table.
+- **Use External SQL Files**: All migration SQL scripts must reside in `src-tauri/migrations/` as zero-padded, index-prefixed `.sql` files (e.g. `07_my_new_column.sql`) and be loaded via `include_str!()`.
+- **Avoid Inline SQL in Handlers**: Database interactions (queries, updates) should be encapsulated inside repository methods on the database structs (`Track`, `WatchedDirectory`) rather than written inlined inside Tauri command handlers.
 
 ---
 
 ## Adding a migration
 
-Open `src-tauri/src/database.rs` and append to the `migrations![]` array:
+1. **Create the SQL file** in `src-tauri/migrations/` using zero-padded prefixes. For example, `src-tauri/migrations/07_my_new_column.sql`:
 
-```rust
-M::up("
-    ALTER TABLE tracks ADD COLUMN <new_column> TEXT;
-"),
+   ```sql
+   ALTER TABLE tracks ADD COLUMN <new_column> TEXT;
+   ```
+
+2. **Register it at the end** of the `get_migrations()` array in `src-tauri/src/database.rs`:
+
+   ```rust
+   M::up(include_str!("../migrations/07_my_new_column.sql")),
+   ```
+
+For a new table, create `src-tauri/migrations/08_my_new_table.sql`:
+
+```sql
+CREATE TABLE IF NOT EXISTS my_new_table (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id INTEGER NOT NULL,
+    value    REAL,
+    FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_my_new_table_track ON my_new_table(track_id);
 ```
 
-For multiple changes that belong together:
+Register it in `database.rs`:
 
 ```rust
-M::up("
-    ALTER TABLE tracks ADD COLUMN detected_energy REAL;
-    ALTER TABLE tracks ADD COLUMN detected_valence REAL;
-"),
+M::up(include_str!("../migrations/08_my_new_table.sql")),
 ```
 
-For a new table:
+---
+
+## Encapsulating Database Code (Repository Pattern)
+
+Tauri commands should remain extremely thin and decoupled from raw SQL queries. 
+*   **Do not** execute prepare statements or map query rows inside `lib.rs` handlers.
+*   **Instead**, implement clean CRUD repository methods directly on the domain structs in `src-tauri/src/database.rs`:
 
 ```rust
-M::up("
-    CREATE TABLE IF NOT EXISTS my_new_table (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        track_id INTEGER NOT NULL,
-        value    REAL,
-        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
-    );
-    CREATE INDEX idx_my_new_table_track ON my_new_table(track_id);
-"),
+impl Track {
+    pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
+        let mut stmt = conn.prepare("SELECT ... FROM tracks")?;
+        // ... map rows and return ...
+    }
+}
+```
+
+*   Call them from your Tauri command:
+
+```rust
+#[tauri::command]
+fn get_tracks(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<Vec<Track>, String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    Track::find_all(&conn).map_err(|e| e.to_string())
+}
 ```
 
 ---

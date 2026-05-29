@@ -152,3 +152,145 @@ pub fn reconcile_deleted_tracks(
 
     Ok(deleted_count)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::setup_test_db;
+
+    #[test]
+    fn test_upsert_and_cache_queries() {
+        let mut conn = setup_test_db();
+        
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/rlupi/Music')",
+            [],
+        ).unwrap();
+
+        let track = ParsedAudioTags {
+            watched_directory_id: 1,
+            path: "/Users/rlupi/Music/song1.mp3".to_string(),
+            filename: "song1.mp3".to_string(),
+            size_bytes: 4096,
+            last_modified: 1700000000,
+            duration_seconds: 120,
+            sample_rate: Some(44100),
+            bitrate: Some(320),
+            channels: Some(2),
+            bit_depth: Some(16),
+            title: Some("Song One".to_string()),
+            artist: Some("Artist".to_string()),
+            album: Some("Album".to_string()),
+            genre: Some("Pop".to_string()),
+            year: Some(2026),
+            track_number: Some(1),
+            track_total: None,
+            disc_number: None,
+            disc_total: None,
+            album_artist: None,
+            composer: None,
+            comment: None,
+            bpm: None,
+            lyrics: None,
+        };
+
+        upsert_tracks_transactional(&mut conn, &[track.clone()]).unwrap();
+
+        let cached = get_cached_track_details(&conn, "/Users/rlupi/Music/song1.mp3").unwrap();
+        assert_eq!(cached, (4096, 1700000000));
+
+        assert!(get_cached_track_details(&conn, "/Users/rlupi/Music/unknown.mp3").is_none());
+
+        let ids = get_track_ids_by_paths(&conn, &["/Users/rlupi/Music/song1.mp3"]);
+        assert!(ids.contains_key("/Users/rlupi/Music/song1.mp3"));
+        let track_id = ids["/Users/rlupi/Music/song1.mp3"];
+        assert!(track_id > 0);
+    }
+
+    #[test]
+    fn test_reconcile_deleted_tracks() {
+        let mut conn = setup_test_db();
+
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Collection', '/Users/rlupi/Music')",
+            [],
+        ).unwrap();
+
+        let tracks = vec![
+            ParsedAudioTags {
+                watched_directory_id: 1,
+                path: "/Users/rlupi/Music/stay.mp3".to_string(),
+                filename: "stay.mp3".to_string(),
+                size_bytes: 1000,
+                last_modified: 1700000000,
+                duration_seconds: 150,
+                sample_rate: Some(44100),
+                bitrate: Some(320),
+                channels: Some(2),
+                bit_depth: Some(16),
+                title: Some("Stay".to_string()),
+                artist: None,
+                album: None,
+                genre: None,
+                year: None,
+                track_number: None,
+                track_total: None,
+                disc_number: None,
+                disc_total: None,
+                album_artist: None,
+                composer: None,
+                comment: None,
+                bpm: None,
+                lyrics: None,
+            },
+            ParsedAudioTags {
+                watched_directory_id: 1,
+                path: "/Users/rlupi/Music/delete_me.mp3".to_string(),
+                filename: "delete_me.mp3".to_string(),
+                size_bytes: 2000,
+                last_modified: 1700000000,
+                duration_seconds: 180,
+                sample_rate: Some(44100),
+                bitrate: Some(320),
+                channels: Some(2),
+                bit_depth: Some(16),
+                title: Some("Delete Me".to_string()),
+                artist: None,
+                album: None,
+                genre: None,
+                year: None,
+                track_number: None,
+                track_total: None,
+                disc_number: None,
+                disc_total: None,
+                album_artist: None,
+                composer: None,
+                comment: None,
+                bpm: None,
+                lyrics: None,
+            },
+        ];
+
+        upsert_tracks_transactional(&mut conn, &tracks).unwrap();
+
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 2);
+
+        let mut active_paths = HashSet::new();
+        active_paths.insert("/Users/rlupi/Music/stay.mp3".to_string());
+
+        let deleted = reconcile_deleted_tracks(&mut conn, 1, &active_paths).unwrap();
+        assert_eq!(deleted, 1);
+
+        let remaining_count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0)).unwrap();
+        assert_eq!(remaining_count, 1);
+
+        let stay_exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = '/Users/rlupi/Music/stay.mp3')",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        assert!(stay_exists);
+    }
+}
+

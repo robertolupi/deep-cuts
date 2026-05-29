@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS tracks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    watched_directory_id INTEGER NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    filename TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    sample_rate INTEGER,
+    bitrate INTEGER,
+    channels INTEGER,
+    bit_depth INTEGER,
+    title TEXT,
+    artist TEXT,
+    album TEXT,
+    genre TEXT,
+    year INTEGER,
+    track_number INTEGER,
+    track_total INTEGER,
+    disc_number INTEGER,
+    disc_total INTEGER,
+    album_artist TEXT,
+    composer TEXT,
+    comment TEXT,
+    bpm INTEGER,
+    lyrics TEXT,
+    FOREIGN KEY(watched_directory_id) REFERENCES watched_directories(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
+CREATE INDEX IF NOT EXISTS idx_tracks_directory ON tracks(watched_directory_id);

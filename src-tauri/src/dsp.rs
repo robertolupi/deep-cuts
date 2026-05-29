@@ -21,6 +21,132 @@ pub struct AudioAnalysisResult {
     pub loudness_range: f64,
 }
 
+/// Helper to extract audio samples from an AudioBufferRef as normalized f32.
+/// Returns a tuple containing:
+/// - A flat vector of stereo samples (if mono, duplicated to stereo)
+/// - A flat vector of mono averaged samples
+/// - The number of frames in the buffer
+fn extract_samples_as_f32(decoded: &AudioBufferRef) -> Option<(Vec<f32>, Vec<f32>, usize)> {
+    let mut stereo = Vec::new();
+    let mut mono = Vec::new();
+    let frames;
+
+    match decoded {
+        AudioBufferRef::F32(buf) => {
+            frames = buf.frames();
+            let channels = buf.spec().channels.count();
+            let c0 = buf.chan(0);
+            if channels == 1 {
+                for &s in c0 {
+                    mono.push(s);
+                    stereo.push(s);
+                    stereo.push(s);
+                }
+            } else {
+                let c1 = buf.chan(1);
+                for i in 0..frames {
+                    mono.push((c0[i] + c1[i]) * 0.5);
+                    stereo.push(c0[i]);
+                    stereo.push(c1[i]);
+                }
+            }
+        }
+        AudioBufferRef::F64(buf) => {
+            frames = buf.frames();
+            let channels = buf.spec().channels.count();
+            let c0 = buf.chan(0);
+            if channels == 1 {
+                for &s in c0 {
+                    let v = s as f32;
+                    mono.push(v);
+                    stereo.push(v);
+                    stereo.push(v);
+                }
+            } else {
+                let c1 = buf.chan(1);
+                for i in 0..frames {
+                    let l = c0[i] as f32;
+                    let r = c1[i] as f32;
+                    mono.push((l + r) * 0.5);
+                    stereo.push(l);
+                    stereo.push(r);
+                }
+            }
+        }
+        AudioBufferRef::S16(buf) => {
+            frames = buf.frames();
+            let norm = i16::MAX as f32;
+            let channels = buf.spec().channels.count();
+            let c0 = buf.chan(0);
+            if channels == 1 {
+                for &s in c0 {
+                    let v = s as f32 / norm;
+                    mono.push(v);
+                    stereo.push(v);
+                    stereo.push(v);
+                }
+            } else {
+                let c1 = buf.chan(1);
+                for i in 0..frames {
+                    let l = c0[i] as f32 / norm;
+                    let r = c1[i] as f32 / norm;
+                    mono.push((l + r) * 0.5);
+                    stereo.push(l);
+                    stereo.push(r);
+                }
+            }
+        }
+        AudioBufferRef::S32(buf) => {
+            frames = buf.frames();
+            let norm = i32::MAX as f32;
+            let channels = buf.spec().channels.count();
+            let c0 = buf.chan(0);
+            if channels == 1 {
+                for &s in c0 {
+                    let v = s as f32 / norm;
+                    mono.push(v);
+                    stereo.push(v);
+                    stereo.push(v);
+                }
+            } else {
+                let c1 = buf.chan(1);
+                for i in 0..frames {
+                    let l = c0[i] as f32 / norm;
+                    let r = c1[i] as f32 / norm;
+                    mono.push((l + r) * 0.5);
+                    stereo.push(l);
+                    stereo.push(r);
+                }
+            }
+        }
+        AudioBufferRef::U8(buf) => {
+            frames = buf.frames();
+            let channels = buf.spec().channels.count();
+            let c0 = buf.chan(0);
+            if channels == 1 {
+                for &s in c0 {
+                    let v = (s as f32 - 128.0) / 128.0;
+                    mono.push(v);
+                    stereo.push(v);
+                    stereo.push(v);
+                }
+            } else {
+                let c1 = buf.chan(1);
+                for i in 0..frames {
+                    let l = (c0[i] as f32 - 128.0) / 128.0;
+                    let r = (c1[i] as f32 - 128.0) / 128.0;
+                    mono.push((l + r) * 0.5);
+                    stereo.push(l);
+                    stereo.push(r);
+                }
+            }
+        }
+        _ => return None,
+    }
+
+    Some((stereo, mono, frames))
+}
+
 /// Decodes an audio file to a mono f32 sample vector, returning (samples, sample_rate).
 /// Handles multi-channel files by averaging to mono.
 pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
@@ -56,77 +182,8 @@ pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
             Err(_) => continue,
         };
 
-        match decoded {
-            AudioBufferRef::F32(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    mono_samples.extend_from_slice(c0);
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        mono_samples.push((c0[i] + c1[i]) * 0.5);
-                    }
-                }
-            }
-            AudioBufferRef::F64(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 { mono_samples.push(s as f32); }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        mono_samples.push(((c0[i] + c1[i]) * 0.5) as f32);
-                    }
-                }
-            }
-            AudioBufferRef::S16(buf) => {
-                let norm = i16::MAX as f32;
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 { mono_samples.push(s as f32 / norm); }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        mono_samples.push((c0[i] as f32 / norm + c1[i] as f32 / norm) * 0.5);
-                    }
-                }
-            }
-            AudioBufferRef::S32(buf) => {
-                let norm = i32::MAX as f32;
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 { mono_samples.push(s as f32 / norm); }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        mono_samples.push((c0[i] as f32 / norm + c1[i] as f32 / norm) * 0.5);
-                    }
-                }
-            }
-            AudioBufferRef::U8(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 { mono_samples.push((s as f32 - 128.0) / 128.0); }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let l = (c0[i] as f32 - 128.0) / 128.0;
-                        let r = (c1[i] as f32 - 128.0) / 128.0;
-                        mono_samples.push((l + r) * 0.5);
-                    }
-                }
-            }
-            _ => {}
+        if let Some((_, mono, _)) = extract_samples_as_f32(&decoded) {
+            mono_samples.extend(mono);
         }
     }
 
@@ -168,7 +225,6 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
 
     let mut mono_samples: Vec<f32> = Vec::new();
     let mut rms_energies: Vec<f32> = Vec::new();
-    let mut stereo_buf: Vec<f32> = Vec::new();
 
     while let Ok(packet) = probed.format.next_packet() {
         if packet.track_id() != track_id {
@@ -179,153 +235,18 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
             Err(_) => continue,
         };
 
-        stereo_buf.clear();
-        let mut packet_sum_sq = 0.0f64;
-        let mut packet_frames = 0usize;
-
-        let handled = match decoded {
-            AudioBufferRef::F32(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 {
-                        mono_samples.push(s);
-                        stereo_buf.push(s);
-                        stereo_buf.push(s);
-                        packet_sum_sq += (s * s) as f64;
-                    }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let mono = (c0[i] + c1[i]) * 0.5;
-                        mono_samples.push(mono);
-                        stereo_buf.push(c0[i]);
-                        stereo_buf.push(c1[i]);
-                        packet_sum_sq += (mono * mono) as f64;
-                    }
-                }
-                packet_frames = frames;
-                true
+        if let Some((stereo, mono, frames)) = extract_samples_as_f32(&decoded) {
+            let _ = meter.add_frames_f32(&stereo);
+            
+            let mut packet_sum_sq = 0.0f64;
+            for &s in &mono {
+                packet_sum_sq += (s * s) as f64;
             }
-            AudioBufferRef::F64(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 {
-                        let v = s as f32;
-                        mono_samples.push(v);
-                        stereo_buf.push(v);
-                        stereo_buf.push(v);
-                        packet_sum_sq += (v * v) as f64;
-                    }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let mono = ((c0[i] + c1[i]) * 0.5) as f32;
-                        mono_samples.push(mono);
-                        stereo_buf.push(c0[i] as f32);
-                        stereo_buf.push(c1[i] as f32);
-                        packet_sum_sq += (mono * mono) as f64;
-                    }
-                }
-                packet_frames = frames;
-                true
+            
+            mono_samples.extend(mono);
+            if frames > 0 {
+                rms_energies.push((packet_sum_sq / frames as f64).sqrt() as f32);
             }
-            AudioBufferRef::S16(buf) => {
-                let norm = i16::MAX as f32;
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 {
-                        let v = s as f32 / norm;
-                        mono_samples.push(v);
-                        stereo_buf.push(v);
-                        stereo_buf.push(v);
-                        packet_sum_sq += (v * v) as f64;
-                    }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let l = c0[i] as f32 / norm;
-                        let r = c1[i] as f32 / norm;
-                        let mono = (l + r) * 0.5;
-                        mono_samples.push(mono);
-                        stereo_buf.push(l);
-                        stereo_buf.push(r);
-                        packet_sum_sq += (mono * mono) as f64;
-                    }
-                }
-                packet_frames = frames;
-                true
-            }
-            AudioBufferRef::S32(buf) => {
-                let norm = i32::MAX as f32;
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 {
-                        let v = s as f32 / norm;
-                        mono_samples.push(v);
-                        stereo_buf.push(v);
-                        stereo_buf.push(v);
-                        packet_sum_sq += (v * v) as f64;
-                    }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let l = c0[i] as f32 / norm;
-                        let r = c1[i] as f32 / norm;
-                        let mono = (l + r) * 0.5;
-                        mono_samples.push(mono);
-                        stereo_buf.push(l);
-                        stereo_buf.push(r);
-                        packet_sum_sq += (mono * mono) as f64;
-                    }
-                }
-                packet_frames = frames;
-                true
-            }
-            AudioBufferRef::U8(buf) => {
-                let channels = buf.spec().channels.count();
-                let frames = buf.frames();
-                let c0 = buf.chan(0);
-                if channels == 1 {
-                    for &s in c0 {
-                        let v = (s as f32 - 128.0) / 128.0;
-                        mono_samples.push(v);
-                        stereo_buf.push(v);
-                        stereo_buf.push(v);
-                        packet_sum_sq += (v * v) as f64;
-                    }
-                } else {
-                    let c1 = buf.chan(1);
-                    for i in 0..frames {
-                        let l = (c0[i] as f32 - 128.0) / 128.0;
-                        let r = (c1[i] as f32 - 128.0) / 128.0;
-                        let mono = (l + r) * 0.5;
-                        mono_samples.push(mono);
-                        stereo_buf.push(l);
-                        stereo_buf.push(r);
-                        packet_sum_sq += (mono * mono) as f64;
-                    }
-                }
-                packet_frames = frames;
-                true
-            }
-            _ => false,
-        };
-
-        if !handled { continue; }
-
-        if !stereo_buf.is_empty() {
-            let _ = meter.add_frames_f32(&stereo_buf);
-        }
-        if packet_frames > 0 {
-            rms_energies.push((packet_sum_sq / packet_frames as f64).sqrt() as f32);
         }
     }
 
@@ -659,5 +580,19 @@ mod tests {
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
+    }
+
+    #[test]
+    fn test_compute_bpm_too_short() {
+        let samples = vec![0.0f32; 1000];
+        let result = compute_bpm_from_mono(&samples, 44100);
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "Audio too short for BPM detection");
+    }
+
+    #[test]
+    fn test_run_analysis_empty_samples() {
+        let result = run_audio_analysis("non_existent_file.mp3");
+        assert!(result.is_err());
     }
 }

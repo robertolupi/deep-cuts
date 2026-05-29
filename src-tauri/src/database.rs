@@ -52,6 +52,94 @@ pub struct Track {
     pub loudness_range: Option<f64>,
 }
 
+impl WatchedDirectory {
+    pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
+        let mut stmt = conn.prepare("SELECT id, name, path FROM watched_directories ORDER BY id DESC")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(Self {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                path: row.get(2)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for row in rows {
+            list.push(row?);
+        }
+        Ok(list)
+    }
+
+    pub fn insert(&self, conn: &Connection) -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "INSERT INTO watched_directories (name, path) VALUES (?1, ?2)",
+            [&self.name, &self.path],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        conn.execute("DELETE FROM watched_directories WHERE id = ?1", [id])?;
+        Ok(())
+    }
+}
+
+impl Track {
+    pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
+                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
+                    title, artist, album, genre, year, track_number, track_total,
+                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
+                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range
+             FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(Self {
+                id: row.get(0)?,
+                watched_directory_id: row.get(1)?,
+                path: row.get(2)?,
+                filename: row.get(3)?,
+                size_bytes: row.get(4)?,
+                last_modified: row.get(5)?,
+                duration_seconds: row.get(6)?,
+                sample_rate: row.get(7)?,
+                bitrate: row.get(8)?,
+                channels: row.get(9)?,
+                bit_depth: row.get(10)?,
+                title: row.get(11)?,
+                artist: row.get(12)?,
+                album: row.get(13)?,
+                genre: row.get(14)?,
+                year: row.get(15)?,
+                track_number: row.get(16)?,
+                track_total: row.get(17)?,
+                disc_number: row.get(18)?,
+                disc_total: row.get(19)?,
+                album_artist: row.get(20)?,
+                composer: row.get(21)?,
+                comment: row.get(22)?,
+                bpm: row.get(23)?,
+                lyrics: row.get(24)?,
+                waveform_data: row.get(25)?,
+                key: row.get(26)?,
+                scale: row.get(27)?,
+                key_strength: row.get(28)?,
+                loudness_lufs: row.get(29)?,
+                loudness_range: row.get(30)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for row in rows {
+            list.push(row?);
+        }
+        Ok(list)
+    }
+
+    pub fn count(conn: &Connection) -> Result<i64, rusqlite::Error> {
+        conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
+    }
+}
+
 pub mod pass_status {
     pub const PENDING: i64 = 0;
     pub const IN_PROGRESS: i64 = 1;
@@ -99,90 +187,12 @@ impl DbManager {
 /// Returns the schema migrations vector chronologically.
 pub fn get_migrations() -> Migrations<'static> {
     Migrations::new(vec![
-        M::up(
-            "CREATE TABLE IF NOT EXISTS app_settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            INSERT OR IGNORE INTO app_settings (key, value) VALUES ('theme', 'system');"
-        ),
-        M::up(
-            "CREATE TABLE IF NOT EXISTS watched_directories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                path TEXT NOT NULL UNIQUE
-            );"
-        ),
-        M::up(
-            "CREATE TABLE IF NOT EXISTS tracks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                watched_directory_id INTEGER NOT NULL,
-                path TEXT NOT NULL UNIQUE,
-                filename TEXT NOT NULL,
-                size_bytes INTEGER NOT NULL,
-                last_modified INTEGER NOT NULL,
-                duration_seconds INTEGER NOT NULL,
-                sample_rate INTEGER,
-                bitrate INTEGER,
-                channels INTEGER,
-                bit_depth INTEGER,
-                title TEXT,
-                artist TEXT,
-                album TEXT,
-                genre TEXT,
-                year INTEGER,
-                track_number INTEGER,
-                track_total INTEGER,
-                disc_number INTEGER,
-                disc_total INTEGER,
-                album_artist TEXT,
-                composer TEXT,
-                comment TEXT,
-                bpm INTEGER,
-                lyrics TEXT,
-                FOREIGN KEY(watched_directory_id) REFERENCES watched_directories(id) ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
-            CREATE INDEX IF NOT EXISTS idx_tracks_directory ON tracks(watched_directory_id);"
-        ),
-        M::up(
-            "ALTER TABLE tracks ADD COLUMN waveform_data TEXT;
-            ALTER TABLE tracks ADD COLUMN key TEXT;
-            ALTER TABLE tracks ADD COLUMN scale TEXT;
-            ALTER TABLE tracks ADD COLUMN key_strength REAL;
-            ALTER TABLE tracks ADD COLUMN loudness_lufs REAL;
-            ALTER TABLE tracks ADD COLUMN loudness_range REAL;
-            CREATE TABLE IF NOT EXISTS track_passes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                track_id INTEGER NOT NULL,
-                pass_name TEXT NOT NULL,
-                priority INTEGER NOT NULL DEFAULT 0,
-                status INTEGER NOT NULL DEFAULT 0,
-                log TEXT,
-                result TEXT,
-                duration_ms INTEGER,
-                last_run_at TEXT,
-                FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE,
-                UNIQUE(track_id, pass_name)
-            );
-            CREATE INDEX IF NOT EXISTS idx_track_passes_status ON track_passes(status);
-            CREATE INDEX IF NOT EXISTS idx_track_passes_track ON track_passes(track_id);"
-        ),
-        M::up(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS audio_embeddings USING vec0(
-                track_id INTEGER PRIMARY KEY,
-                embedding float[512]
-            );"
-        ),
-        M::up(
-            "CREATE TABLE IF NOT EXISTS track_coords (
-                track_id INTEGER PRIMARY KEY,
-                x        REAL NOT NULL,
-                y        REAL NOT NULL,
-                FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_track_coords_track ON track_coords(track_id);"
-        ),
+        M::up(include_str!("../migrations/01_app_settings.sql")),
+        M::up(include_str!("../migrations/02_watched_directories.sql")),
+        M::up(include_str!("../migrations/03_tracks.sql")),
+        M::up(include_str!("../migrations/04_track_passes.sql")),
+        M::up(include_str!("../migrations/05_audio_embeddings.sql")),
+        M::up(include_str!("../migrations/06_track_coords.sql")),
     ])
 }
 

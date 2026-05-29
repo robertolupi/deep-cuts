@@ -356,4 +356,18 @@ mod tests {
             norm_sq
         );
     }
+
+    #[test]
+    fn test_compute_clap_log_mel_dimensions() {
+        let filterbank = get_clap_mel_filterbank(None).expect("failed to load filterbank weights");
+        let sr = 48000;
+        let duration_secs = 1;
+        let signal: Vec<f32> = (0..sr * duration_secs)
+            .map(|i| (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / sr as f32).sin())
+            .collect();
+
+        let mel_flat = compute_clap_log_mel(&signal, filterbank).expect("spectrogram extraction failed");
+        assert_eq!(mel_flat.len(), CLAP_MAX_FRAMES * CLAP_N_MELS);
+        assert!(mel_flat.iter().all(|&v| v.is_finite()));
+    }
 }

@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS watched_directories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE
+);
