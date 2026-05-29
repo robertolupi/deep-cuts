@@ -257,39 +257,6 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/// Pre-computes log-mel spectrogram features for a track (CPU-bound decode + resample).
-/// Uses seek-aware decoding to skip the first half of the file, then extracts a 10 s window.
-pub fn preprocess_track_to_mel(
-    path: &str,
-    app: Option<&tauri::AppHandle>,
-) -> Result<Vec<f32>, String> {
-    // Seek-decode starts at midpoint−5 s; returned audio begins there
-    let (audio, sample_rate) = crate::dsp::decode_audio_to_mono_with_seeking(path)?;
-    let audio_48k = resample_audio(&audio, sample_rate, CLAP_SR)?;
-
-    // Take a CLAP_10S_SAMPLES window from the start of the decoded region
-    let mut window: Vec<f32> = if audio_48k.len() >= CLAP_10S_SAMPLES {
-        audio_48k[..CLAP_10S_SAMPLES].to_vec()
-    } else {
-        audio_48k
-    };
-
-    // Tile-pad short clips rather than zero-pad, to avoid DC bias
-    if window.len() < CLAP_10S_SAMPLES && !window.is_empty() {
-        let original = window.clone();
-        while window.len() < CLAP_10S_SAMPLES {
-            let needed = CLAP_10S_SAMPLES - window.len();
-            let to_add = needed.min(original.len());
-            window.extend_from_slice(&original[..to_add]);
-        }
-    } else {
-        window.resize(CLAP_10S_SAMPLES, 0.0);
-    }
-
-    let mel_filterbank = get_clap_mel_filterbank(app)?;
-    compute_clap_log_mel(&window, mel_filterbank)
-}
-
 /// Seek-decodes a 10 s window starting at `(duration * pct) − 5 s` and returns mel features.
 pub fn preprocess_window_at_pct(
     path: &str,
@@ -368,7 +335,8 @@ pub fn run_clap_inference_pooled(mels: [Vec<f32>; 3]) -> Result<Vec<f32>, String
     }
 }
 
-/// Convenience wrapper: full pipeline for a single track (used by tests and one-shot callers).
+/// Convenience wrapper: full pipeline for a single track. Only used in tests.
+#[cfg(test)]
 pub fn run_clap_audio_embed(
     path: &str,
     app: Option<&tauri::AppHandle>,
