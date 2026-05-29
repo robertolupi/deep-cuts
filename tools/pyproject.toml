@@ -1,0 +1,23 @@
+[project]
+name = "deep-cuts-tools"
+version = "0.1.0"
+description = "Model export and conversion scripts for Deep Cuts"
+requires-python = ">=3.10"
+
+dependencies = [
+    "torch>=2.2.0",
+    "transformers>=4.38.0",
+    "librosa>=0.10.0",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+# Only needed for export_essentia_mel_weights.py.
+# Use essentia-tensorflow which is available on PyPI including Apple Silicon:
+#   pip install -e ".[essentia]"
+essentia = [
+    "essentia-tensorflow>=2.1b6.dev1110",
+]
+
+[tool.uv]
+dev-dependencies = []

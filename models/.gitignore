@@ -1,0 +1,10 @@
+# Model weight files — never commit these to git.
+# Run the export scripts in tools/ to generate them.
+*.onnx
+*.onnx.data
+*.bin
+*.pb
+*.gguf
+
+# Label JSON files downloaded from the Essentia model hub
+*.json
