@@ -15,7 +15,8 @@
     spectrogramContainer = $bindable(),
     togglePlayback,
     handlePrevTrack,
-    handleNextTrack
+    handleNextTrack,
+    onFindSimilar
   }: {
     selectedTrack: Track;
     isPlaying: boolean;
@@ -30,6 +31,7 @@
     togglePlayback: () => void;
     handlePrevTrack: () => void;
     handleNextTrack: () => void;
+    onFindSimilar: () => void;
   } = $props();
 
   function getRevealLabel(): string {
@@ -130,10 +132,26 @@
         </div>
 
         <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <!-- Find similar tracks on the Music Map -->
+          <button
+            class="btn-secondary"
+            onclick={onFindSimilar}
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
+            title="Find similar tracks on the Music Map"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="11" y1="8" x2="11" y2="14"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+            <span style="vertical-align: middle;">Similar</span>
+          </button>
+
           <!-- Reveal in system file explorer -->
-          <button 
-            class="btn-secondary" 
-            onclick={handleReveal} 
+          <button
+            class="btn-secondary"
+            onclick={handleReveal}
             style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
             title={revealLabel}
           >

@@ -20,6 +20,12 @@
   let resolvedTheme = $state("dark");
   let tauriConnected = $state(false);
   let activeTab = $state("dashboard");
+  let mapFocusTrackId = $state<number | null>(null);
+
+  function findSimilar(trackId: number) {
+    mapFocusTrackId = trackId;
+    activeTab = 'music-map';
+  }
 
   // Local Form / Settings States
   let name = $state("");
@@ -450,6 +456,7 @@
               {togglePlayback}
               {handlePrevTrack}
               {handleNextTrack}
+              onFindSimilar={() => findSimilar(selectedTrack!.id)}
             />
           {/if}
         </div>
@@ -487,7 +494,7 @@
       <AnalysisPanel />
 
     {:else if activeTab === 'music-map'}
-      <MusicMap />
+      <MusicMap bind:focusTrackId={mapFocusTrackId} />
       
     {:else if activeTab === 'settings'}
       <LibrarySettings

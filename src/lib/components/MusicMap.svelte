@@ -19,6 +19,9 @@
     scale: string | null;
   }
 
+  // Optional prop: when set, the map will select this track ID and load its similar tracks
+  let { focusTrackId = $bindable(null) }: { focusTrackId?: number | null } = $props();
+
   // Reactive state using Svelte 5 runes
   let tracks = $state<MappedTrackPoint[]>([]);
   let selectedTrack = $state<MappedTrackPoint | null>(null);
@@ -250,6 +253,16 @@
       isLoading = false;
     }
   }
+
+  // When a focusTrackId arrives (from the Similar button), select and highlight that track
+  $effect(() => {
+    if (focusTrackId == null || tracks.length === 0) return;
+    const target = tracks.find(t => t.id === focusTrackId);
+    if (target) {
+      selectTrackPoint(target);
+      focusTrackId = null;
+    }
+  });
 
 
   async function runProjectionRecompute() {
