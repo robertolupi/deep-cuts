@@ -63,10 +63,10 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Add `is_music`, `ai_genre`, `ai_mood`, `ai_instruments`, `description` to `src/lib/types.ts`
 - [x] Verify `get_tracks` IPC in `lib.rs` returns these fields (check DB schema)
 
-### 1.6 — De-prop `LibrarySettings`
-- [ ] `LibrarySettings.svelte` imports `library` store directly (remove 14 props + callbacks)
-- [ ] Own `name`, `path`, `isAddLoading`, `errorMessage`, `successMessage` state internally
-- [ ] Remove all props from `+page.svelte` → `LibrarySettings`
+### 1.6 — De-prop `LibrarySettings` ✅ complete
+- [x] `LibrarySettings.svelte` imports `library` store directly (remove 14 props + callbacks)
+- [x] Own `name`, `path`, `isAddLoading` state internally; toast via `ui.showToast()`
+- [x] Remove all props from `+page.svelte` → `LibrarySettings`
 
 ### 1.7 — Slim `+page.svelte`
 - [ ] Remove split-pane resize logic (`topPaneHeight`, `isResizing`, mouse handlers)

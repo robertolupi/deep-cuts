@@ -1,43 +1,85 @@
 <script lang="ts">
-  import type { WatchedDirectory } from '../types';
+  import { invoke } from "@tauri-apps/api/core";
+  import { library } from "$lib/stores/library.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
 
-  let {
-    directories,
-    trackCount,
-    isScanning,
-    scanProgress,
-    scanCurrentFile,
-    scanProcessedCount,
-    scanTotalCount,
-    path = $bindable(),
-    name = $bindable(),
-    isAddLoading,
-    errorMessage,
-    successMessage,
-    choosePath,
-    addDirectory,
-    removeDirectory,
-    triggerScan,
-    exportSidecars
-  }: {
-    directories: WatchedDirectory[];
-    trackCount: number;
-    isScanning: boolean;
-    scanProgress: number;
-    scanCurrentFile: string;
-    scanProcessedCount: number;
-    scanTotalCount: number;
-    path: string;
-    name: string;
-    isAddLoading: boolean;
-    errorMessage: string;
-    successMessage: string;
-    choosePath: () => Promise<void>;
-    addDirectory: () => Promise<void>;
-    removeDirectory: (id: number, folderName: string) => Promise<void>;
-    triggerScan: () => Promise<void>;
-    exportSidecars: () => Promise<void>;
-  } = $props();
+  let name = $state("");
+  let path = $state("");
+  let isAddLoading = $state(false);
+
+  const directories = $derived(library.directories);
+  const trackCount = $derived(library.trackCount);
+  const isScanning = $derived(library.isScanning);
+  const scanProgress = $derived(library.scanProgress);
+  const scanCurrentFile = $derived(library.scanCurrentFile);
+  const scanProcessedCount = $derived(library.scanProcessedCount);
+  const scanTotalCount = $derived(library.scanTotalCount);
+
+  async function choosePath() {
+    try {
+      const selected = await invoke<string | null>("select_directory");
+      if (selected) {
+        path = selected;
+        if (!name) {
+          const parts = selected.split(/[/\\]/);
+          name = parts[parts.length - 1] || parts[parts.length - 2] || "Music Library";
+        }
+        ui.showToast("Path selected successfully.", "success");
+      }
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
+
+  async function addDirectory() {
+    if (!name.trim() || !path.trim()) {
+      ui.showToast("Collection Name and Directory Path are required.", "error");
+      return;
+    }
+    isAddLoading = true;
+    try {
+      await library.addDirectory(name, path);
+      ui.showToast(`Added folder "${name}" to monitored lists.`, "success");
+      name = "";
+      path = "";
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    } finally {
+      isAddLoading = false;
+    }
+  }
+
+  async function removeDirectory(id: number, folderName: string) {
+    try {
+      await library.removeDirectory(id);
+      ui.showToast(`Stopped watching "${folderName}".`, "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
+
+  async function triggerScan() {
+    if (library.isScanning) return;
+    if (library.directories.length === 0) {
+      ui.showToast("Register at least one monitored library directory first.", "error");
+      return;
+    }
+    try {
+      await library.triggerScan();
+      ui.showToast("Library scanning initiated in background.", "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
+
+  async function exportSidecars() {
+    try {
+      const count = await library.exportSidecars();
+      ui.showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
 </script>
 
 <div class="settings-panel-layout">
@@ -49,12 +91,12 @@
       
       <div class="form-group">
         <label for="dir-path">Directory Path</label>
-        <input 
+        <input
           id="dir-path"
-          type="text" 
-          value={path} 
-          placeholder="Select a folder to browse..." 
-          readonly 
+          type="text"
+          value={path}
+          placeholder="Select a folder to browse..."
+          readonly
         />
         <button class="btn-secondary picker-btn" onclick={choosePath}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -74,17 +116,17 @@
         />
       </div>
 
-      {#if errorMessage}
+      {#if ui.errorMessage}
         <div class="alert-box error-alert">
           <span class="alert-icon">⚠️</span>
-          <span class="alert-text">{errorMessage}</span>
+          <span class="alert-text">{ui.errorMessage}</span>
         </div>
       {/if}
 
-      {#if successMessage}
+      {#if ui.successMessage}
         <div class="alert-box success-alert">
           <span class="alert-icon">✓</span>
-          <span class="alert-text">{successMessage}</span>
+          <span class="alert-text">{ui.successMessage}</span>
         </div>
       {/if}
 

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
 
   // Import custom modular components
   import Navbar from "$lib/components/Navbar.svelte";
@@ -10,113 +9,18 @@
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
-  import type { WatchedDirectory, Track } from "$lib/types";
   import { library } from "$lib/stores/library.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
   import { theme } from "$lib/stores/theme.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
-  // State managers using Svelte 5 runes
+  // Resizable Split Pane Heights (removed in Phase 1.7)
   let tauriConnected = $state(false);
-
-  // Local Form / Settings States
-  let name = $state("");
-  let path = $state("");
-  let isAddLoading = $state(false);
-
-  // Resizable Split Pane Heights
   let topPaneHeight = $state(330);
   let isResizing = $state(false);
-  let showDetails = $state(false);
-  let preDetailsHeight = 330;
 
-  function toggleDetails() {
-    showDetails = !showDetails;
-    if (showDetails) {
-      preDetailsHeight = topPaneHeight;
-      topPaneHeight = 520;
-    } else {
-      topPaneHeight = preDetailsHeight;
-    }
-  }
-
-  // selectedTrack now lives in the player store
   const selectedTrack = $derived(player.selectedTrack);
-
-  // Trigger native RFD directory selector in Rust
-  async function choosePath() {
-    try {
-      const selected = await invoke<string | null>("select_directory");
-      if (selected) {
-        path = selected;
-        // Autofill a friendly collection name from the folder basename
-        if (!name) {
-          const parts = selected.split(/[/\\]/);
-          const baseName = parts[parts.length - 1] || parts[parts.length - 2] || "Music Library";
-          name = baseName;
-        }
-        ui.showToast("Path selected successfully.", "success");
-      }
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
-  }
-
-  // Submit and save new directory configuration
-  async function addDirectory() {
-    if (!name.trim() || !path.trim()) {
-      ui.showToast("Collection Name and Directory Path are required.", "error");
-      return;
-    }
-
-    isAddLoading = true;
-    try {
-      await library.addDirectory(name, path);
-      ui.showToast(`Added folder "${name}" to monitored lists.`, "success");
-      name = "";
-      path = "";
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    } finally {
-      isAddLoading = false;
-    }
-  }
-
-  // Executes directory removal
-  async function removeDirectory(id: number, folderName: string) {
-    try {
-      await library.removeDirectory(id);
-      ui.showToast(`Stopped watching "${folderName}".`, "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
-  }
-
-  // Trigger all library monitoring index scan
-  async function triggerScan() {
-    if (library.isScanning) return;
-    if (library.directories.length === 0) {
-      ui.showToast("Register at least one monitored library directory first.", "error");
-      return;
-    }
-
-    try {
-      await library.triggerScan();
-      ui.showToast("Library scanning initiated in background.", "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
-  }
-
-  async function exportSidecars() {
-    try {
-      const count = await library.exportSidecars();
-      ui.showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
-  }
 
   // Check Tauri connectivity, restore theme, initialize library
   onMount(() => {
@@ -176,25 +80,7 @@
       <MusicMap bind:focusTrackId={ui.mapFocusTrackId} />
 
     {:else if ui.activeView === 'settings'}
-      <LibrarySettings
-        directories={library.directories}
-        trackCount={library.trackCount}
-        isScanning={library.isScanning}
-        scanProgress={library.scanProgress}
-        scanCurrentFile={library.scanCurrentFile}
-        scanProcessedCount={library.scanProcessedCount}
-        scanTotalCount={library.scanTotalCount}
-        bind:path
-        bind:name
-        {isAddLoading}
-        errorMessage={ui.errorMessage}
-        successMessage={ui.successMessage}
-        {choosePath}
-        {addDirectory}
-        {removeDirectory}
-        {triggerScan}
-        {exportSidecars}
-      />
+      <LibrarySettings />
     {/if}
   </main>
 </div>
