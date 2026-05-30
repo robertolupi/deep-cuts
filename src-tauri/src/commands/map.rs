@@ -43,6 +43,52 @@ fn l2_normalize(vec: &[f32]) -> Vec<f32> {
     }
 }
 
+fn l2_distance_sq(a: &[f32], b: &[f32]) -> Option<f64> {
+    if a.len() != b.len() {
+        return None;
+    }
+    Some(
+        a.iter()
+            .zip(b.iter())
+            .map(|(&x, &y)| {
+                let delta = x as f64 - y as f64;
+                delta * delta
+            })
+            .sum(),
+    )
+}
+
+fn blended_embedding_distance(
+    seed_clap: &[f32],
+    seed_description: Option<&[f32]>,
+    candidate_clap: &[f32],
+    candidate_description: Option<&[f32]>,
+    clap_weight: f64,
+) -> Option<f64> {
+    let norm_seed_clap = l2_normalize(seed_clap);
+    let norm_candidate_clap = l2_normalize(candidate_clap);
+    let clap_distance_sq = l2_distance_sq(&norm_seed_clap, &norm_candidate_clap)?;
+
+    if let (Some(seed_description), Some(candidate_description)) =
+        (seed_description, candidate_description)
+    {
+        let norm_seed_description = l2_normalize(seed_description);
+        let norm_candidate_description = l2_normalize(candidate_description);
+        if let Some(description_distance_sq) =
+            l2_distance_sq(&norm_seed_description, &norm_candidate_description)
+        {
+            let description_weight = 1.0 - clap_weight;
+            return Some(
+                ((clap_weight * clap_weight * clap_distance_sq)
+                    + (description_weight * description_weight * description_distance_sq))
+                    .sqrt(),
+            );
+        }
+    }
+
+    Some(clap_distance_sq.sqrt())
+}
+
 #[derive(Debug, PartialEq)]
 struct EffectiveProjectionConfig {
     clap_weight: f64,
@@ -115,74 +161,124 @@ pub fn get_projection_coordinates(
 }
 
 /// KNN similarity search: given a seed track_id, returns the N nearest tracks
-/// by L2 distance in the CLAP audio embedding space.
+/// by blended acoustic/semantic embedding distance where semantic embeddings exist.
 #[tauri::command]
 pub fn search_similar_tracks_audio(
     track_id: i64,
     directory_id: Option<i64>,
+    clap_weight: Option<f64>,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<AudioSimilarityResult>, String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    let blend_weight = clap_weight.unwrap_or(0.5);
 
-    let blob: Vec<u8> = conn
+    let (seed_clap_blob, seed_description_blob): (Vec<u8>, Option<Vec<u8>>) = conn
         .query_row(
-            "SELECT embedding FROM audio_embeddings WHERE track_id = ?1",
+            "SELECT ae.embedding, de.embedding
+             FROM audio_embeddings ae
+             LEFT JOIN description_embeddings de ON de.track_id = ae.track_id
+             WHERE ae.track_id = ?1",
             [track_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|_| "Track has no CLAP embedding yet — run analysis first.".to_string())?;
+    let seed_clap = bytes_to_floats(&seed_clap_blob);
+    let seed_description = seed_description_blob
+        .as_ref()
+        .map(|blob| bytes_to_floats(blob));
 
-    // Build valid track ID set, optionally scoped to a directory
-    let valid_ids: std::collections::HashSet<i64> = if let Some(dir_id) = directory_id {
-        let mut s = conn
-            .prepare("SELECT id FROM tracks WHERE watched_directory_id = ?1")
+    let mut rows: Vec<AudioSimilarityResult> = if let Some(dir_id) = directory_id {
+        let mut stmt = conn
+            .prepare(
+                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id
+                 WHERE t.watched_directory_id = ?1 AND t.id != ?2",
+            )
             .map_err(|e| e.to_string())?;
-        let rows = s
-            .query_map([dir_id], |r| r.get(0))
-            .map_err(|e| e.to_string())?;
-        rows.filter_map(|r| r.ok()).collect()
-    } else {
-        let mut s = conn
-            .prepare("SELECT id FROM tracks")
-            .map_err(|e| e.to_string())?;
-        let rows = s.query_map([], |r| r.get(0)).map_err(|e| e.to_string())?;
-        rows.filter_map(|r| r.ok()).collect()
-    };
-
-    let k = if directory_id.is_some() {
-        500i64
-    } else {
-        (valid_ids.len() + 1) as i64
-    };
-    let knn_sql = format!(
-        "SELECT ae.track_id, ae.distance, t.title, t.artist, t.bpm, t.key, t.scale
-         FROM audio_embeddings ae
-         JOIN tracks t ON t.id = ae.track_id
-         WHERE ae.embedding MATCH ?1 AND k = {}
-         ORDER BY ae.distance ASC",
-        k
-    );
-    let mut stmt = conn.prepare(&knn_sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(rusqlite::params![blob], |row| {
-            Ok(AudioSimilarityResult {
-                id: row.get(0)?,
-                distance: row.get(1)?,
-                title: row.get(2)?,
-                artist: row.get(3)?,
-                bpm: row.get(4)?,
-                key: row.get(5)?,
-                scale: row.get(6)?,
+        let mapped = stmt
+            .query_map(rusqlite::params![dir_id, track_id], |row| {
+                let candidate_clap_blob: Vec<u8> = row.get(1)?;
+                let candidate_description_blob: Option<Vec<u8>> = row.get(2)?;
+                let candidate_clap = bytes_to_floats(&candidate_clap_blob);
+                let candidate_description = candidate_description_blob
+                    .as_ref()
+                    .map(|blob| bytes_to_floats(blob));
+                let distance = blended_embedding_distance(
+                    &seed_clap,
+                    seed_description.as_deref(),
+                    &candidate_clap,
+                    candidate_description.as_deref(),
+                    blend_weight,
+                )
+                .unwrap_or(f64::INFINITY);
+                Ok(AudioSimilarityResult {
+                    id: row.get(0)?,
+                    distance,
+                    title: row.get(3)?,
+                    artist: row.get(4)?,
+                    bpm: row.get(5)?,
+                    key: row.get(6)?,
+                    scale: row.get(7)?,
+                })
             })
-        })
-        .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
+        mapped
+            .filter_map(|r| r.ok())
+            .filter(|r| r.distance.is_finite())
+            .collect()
+    } else {
+        let mut stmt = conn
+            .prepare(
+                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id
+                 WHERE t.id != ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let mapped = stmt
+            .query_map([track_id], |row| {
+                let candidate_clap_blob: Vec<u8> = row.get(1)?;
+                let candidate_description_blob: Option<Vec<u8>> = row.get(2)?;
+                let candidate_clap = bytes_to_floats(&candidate_clap_blob);
+                let candidate_description = candidate_description_blob
+                    .as_ref()
+                    .map(|blob| bytes_to_floats(blob));
+                let distance = blended_embedding_distance(
+                    &seed_clap,
+                    seed_description.as_deref(),
+                    &candidate_clap,
+                    candidate_description.as_deref(),
+                    blend_weight,
+                )
+                .unwrap_or(f64::INFINITY);
+                Ok(AudioSimilarityResult {
+                    id: row.get(0)?,
+                    distance,
+                    title: row.get(3)?,
+                    artist: row.get(4)?,
+                    bpm: row.get(5)?,
+                    key: row.get(6)?,
+                    scale: row.get(7)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        mapped
+            .filter_map(|r| r.ok())
+            .filter(|r| r.distance.is_finite())
+            .collect()
+    };
 
-    let mut list: Vec<AudioSimilarityResult> = rows
-        .filter_map(|r| r.ok())
-        .filter(|r| r.id != track_id && valid_ids.contains(&r.id))
-        .collect();
-    list.truncate(20);
-    Ok(list)
+    rows.sort_by(|a, b| {
+        a.distance
+            .partial_cmp(&b.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.id.cmp(&b.id))
+    });
+    rows.truncate(20);
+    Ok(rows)
 }
 
 /// Runs UMAP on all CLAP audio embeddings (and optionally blends description embeddings)
@@ -362,5 +458,42 @@ mod math_tests {
             effective_projection_config(None, "pca", 5, 0.0, 100.0).clap_weight,
             0.5,
         );
+    }
+
+    #[test]
+    fn test_blended_embedding_distance_uses_description_when_available() {
+        let seed_clap = vec![1.0, 0.0];
+        let candidate_clap = vec![1.0, 0.0];
+        let seed_description = vec![1.0, 0.0];
+        let candidate_description = vec![0.0, 1.0];
+
+        let distance = blended_embedding_distance(
+            &seed_clap,
+            Some(&seed_description),
+            &candidate_clap,
+            Some(&candidate_description),
+            0.5,
+        )
+        .unwrap();
+
+        assert!((distance - 0.70710678118).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_blended_embedding_distance_falls_back_to_clap_without_description_pair() {
+        let seed_clap = vec![1.0, 0.0];
+        let candidate_clap = vec![0.0, 1.0];
+        let seed_description = vec![1.0, 0.0];
+
+        let distance = blended_embedding_distance(
+            &seed_clap,
+            Some(&seed_description),
+            &candidate_clap,
+            None,
+            0.5,
+        )
+        .unwrap();
+
+        assert!((distance - 2.0_f64.sqrt()).abs() < 1e-6);
     }
 }
