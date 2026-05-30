@@ -8,44 +8,84 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
 
 ## ✨ Features
 
-### Implemented
+### Library Management
 
-*   **Library Indexing**: Recursively scans watched directories for audio files (MP3, FLAC, WAV, AIFF, M4A, and more). Reads embedded metadata tags (title, artist, album, BPM, key, year, lyrics, etc.) via `lofty`. Gracefully re-indexes changed files and skips unreadable ones.
-*   **Sidecar Persistence** (`.dc.json`): Writes a JSON sidecar file next to each audio file containing all computed analysis results. Sidecars are restored automatically on re-index, so analysis work survives library moves and re-imports. The Export Sidecars command bulk-writes all tracks at once.
-*   **Audio Analysis Pipeline**: A concurrent, spool-based analysis engine that processes the library in parallel using `num_cpus / 2` worker threads. A single Symphonia decode pass per file computes:
-    *   **BPM** — spectral-flux onset envelope with autocorrelation and parabolic sub-sample refinement (40–210 BPM range, 80–160 BPM preference).
-    *   **Key & Scale** — chromagram built via FFT, HPCP-style harmonic suppression, and Krumhansl-Schmuckler profile correlation.
-    *   **Loudness** — integrated loudness (LUFS) and loudness range (LRA) via EBU R128 using `ebur128`.
-    *   **Waveform** — 128-point RMS energy profile for fast visual rendering.
-    *   **Duration** — derived from container metadata with a sample-count fallback.
-*   **Analysis UI**: Dedicated Analysis tab with per-pass progress bars, average timing, failed-track error log, and per-pass / full-library reset controls.
-*   **Dashboard**: Split-pane layout with a resizable divider. Top pane shows the audio player; bottom pane shows the searchable, filterable track list with BPM and key columns.
-*   **Audio Player**: WaveSurfer.js waveform and spectrogram visualisation, play/pause/prev/next controls, and an expandable metadata details panel showing technical specs, key, loudness, lyrics, and comments.
-*   **Search & Filter**: Real-time full-text search across title, artist, album, and filename. Features dynamically populated Genre and musical Key filters, and a popover-based BPM range selector (RangeSlider) with quick-presets and click-outside closure.
-*   **The Music Map (UMAP Projection)**: 2D visual projection of the entire audio collection using CLAP embeddings and Rust-native UMAP dimensionality reduction. Rendered dynamically via a theme-adaptive Svelte 5 canvas element supporting D3 zoom/pan, hover metadata tooltips, and a dynamic top-10 primary genre scanning system.
-*   **Acoustic Similarity Search (K-Nearest Neighbors)**: Index-based KNN similarity queries using virtual `audio_embeddings` tables via `sqlite-vec` to instantly find matching audio profiles on the Music Map's inspection pane, with native audio playback and progress scrubbing controls.
-*   **Reveal in Finder / Explorer**: Opens the system file manager with the track's file selected. macOS, Windows, and Linux are all handled.
-*   **Visual Themes**:
-    *   **Dark Mode**: Cyber-cyan, studio-pink, and deep-indigo glow interface.
-    *   **Light Mode**: Clean, professional bright slate/indigo studio theme.
-    *   **Accessible Mode**: High-contrast black-and-white theme with stark borders and zero panel blurs.
-*   **Decoupled & Testable Architecture**: Self-contained Rust backend with fully modular Tauri command modules, database models utilizing the Repository CRUD pattern, separate services (`PipelineManager` and `LibraryScanner`), custom serializable `AppError` handling, and an RAII `SleepPreventer` system. Verified by **29 unit and integration tests** covering DSP, database transactions, UMAP coordinates, and schema migrations.
-*   **Performance & Scale Optimization**: Svelte 5 frontend with a single-source-of-truth global cache (`LibraryStore`). Employs on-demand DOM pagination (rendering capped at 150 items with reactive `$effect` filter resets) to eliminate browser rendering bottlenecks, ensuring instantaneous search, scroll, and filter speeds even with libraries containing thousands of local tracks.
+- **Library Indexing**: Recursively scans watched directories for audio files (MP3, FLAC, WAV, AIFF, M4A, and more). Reads embedded metadata tags (title, artist, album, BPM, key, year, lyrics, etc.) via `lofty`. Gracefully re-indexes changed files and skips unreadable ones.
+- **Sidecar Persistence** (`.dc.json`): Writes a JSON sidecar file next to each audio file containing all computed analysis results. Sidecars are restored automatically on re-index, so analysis work survives library moves and re-imports. The Export Sidecars command bulk-writes all tracks at once.
+- **Reveal in Finder / Explorer**: Opens the system file manager with the track's file selected. macOS, Windows, and Linux are all handled.
 
-### Planned
+### Audio Analysis Pipeline
 
-*   **Offline Semantic Text Search**: Locally run ONNX-based CLAP text query encoding (e.g. searching "ambient synths" or "heavy bassline") to retrieve matching audio files.
-*   **Genre & Mood Classification**: Discogs-Effnet ONNX classifier for genre, vocal/instrumental detection, and seven mood axes.
+A concurrent, spool-based analysis engine that processes the library in parallel using `num_cpus / 2` worker threads. Passes run in dependency order:
+
+- **BPM** — spectral-flux onset envelope with autocorrelation and parabolic sub-sample refinement (40–210 BPM range, 80–160 BPM preference).
+- **BPM Correction** — coarse metadata genre used to resolve half/double-time errors.
+- **BPM Refinement** — precise Discogs-400 genre label used for a second correction sweep.
+- **Key & Scale** — chromagram built via FFT, HPCP-style harmonic suppression, and Krumhansl-Schmuckler profile correlation.
+- **Loudness** — integrated loudness (LUFS) and loudness range (LRA) via EBU R128 using `ebur128`.
+- **Waveform** — 128-point RMS energy profile for fast visual rendering.
+- **Duration** — derived from container metadata with a sample-count fallback.
+- **Essentia Classifier** — Discogs-Effnet ONNX model for hierarchical genre (400 classes), vocal/instrumental detection with confidence, and seven mood axes (happy, sad, aggressive, relaxed, party, acoustic, electronic). Runs a producer–consumer pipeline: multiple decode/spectrogram workers feed a single ONNX inference consumer.
+- **CLAP Audio Embeddings** — LAION CLAP ONNX model producing 512-dimensional audio embeddings from 10-second windows, stored in a `sqlite-vec` virtual table for fast KNN search.
+- **Qwen2-Audio Description** — local Qwen2-Audio-7B-Instruct GGML model (served via `llama-server`) produces a freeform text description, AI genre tag, and mood label per track.
+- **Description Embeddings** — all-MiniLM-L6-v2 ONNX model encodes the Qwen-generated description for semantic text search.
+
+### Search & Filtering
+
+Real-time filtering in the sidebar with zero round-trips to the backend:
+
+- **Full-text search** across title, artist, album, and filename.
+- **Genre** — autocomplete from all distinct metadata and Essentia-detected genres.
+- **Folder** — multi-select from watched directories; shows only when multiple roots are configured.
+- **Key** — multi-select note grid (C, C#, D … B) with All / Major / Minor scale toggle.
+- **BPM Range** — dual-handle range slider with quick presets (Slow / Mid / Fast / V.Fast / All).
+- **Vocals** — All / Vocals / Instrumental toggle, driven by Essentia `detected_vocal`.
+- **Music Only** — hides tracks Essentia classified as `Non-Music` (audiobooks, spoken word, etc.).
+- **Sounds Similar** — CLAP-based K-Nearest Neighbors filter launched from the track detail pane; surfaces the most acoustically similar tracks across the entire library.
+- Active filters shown as removable chips with a single "Clear all" action.
+
+### The Music Map
+
+- **UMAP Projection**: 2D visual projection of the entire audio collection using CLAP embeddings and Rust-native UMAP dimensionality reduction, rendered on a full-size canvas element.
+- **D3 zoom / pan** with smooth transitions.
+- **Filter-aware**: the projected points reflect the current sidebar filter state.
+- **Floating toolbar** for projection controls.
+- **Hover tooltips** showing track metadata.
+- **Dynamic top-10 genre scanning** that updates the legend as you pan.
+- **KNN Inspection pane**: click any point to find its nearest neighbours, with native audio playback and progress scrubbing.
+
+### Audio Player
+
+- WaveSurfer.js waveform and spectrogram visualisation.
+- Play / pause / prev / next controls in a persistent `PlayerBar`.
+- Track detail pane showing technical specs (sample rate, bit depth, channels, bitrate), key, loudness, BPM, lyrics, comments, AI description, mood, and instruments.
+- "Sounds Similar" button that fires a CLAP KNN query and activates the similarity filter.
+
+### UI & Theming
+
+- **Sonic Glitch design system**: `--sg-*` CSS custom property tokens used throughout.
+- **Dark Mode**: cyber-cyan, studio-pink, and deep-indigo glow interface.
+- **Light Mode**: clean, professional bright slate/indigo studio theme.
+- **Accessible Mode**: high-contrast black-and-white theme with stark borders and zero panel blurs.
+- **Global Toast notifications** for background events (scan complete, export results, etc.).
+- Collapsed/expandable filter sidebar with an active-filter indicator dot.
+
+### Architecture & Quality
+
+- **Decoupled & Testable**: self-contained Rust backend with fully modular Tauri command modules, database models using the Repository CRUD pattern, separate services (`PipelineManager` and `LibraryScanner`), custom serializable `AppError` handling, and an RAII `SleepPreventer` guard.
+- **Rust unit & integration tests** covering DSP algorithms, database transactions, UMAP coordinates, and schema migrations.
+- **Svelte 5 frontend tests** (Vitest) covering filter store, player store, UI store, and theme store.
+- **Performance**: single-source-of-truth `LibraryStore` global cache; on-demand DOM pagination capped at 150 rendered rows ensures instant search, scroll, and filter at library scales of thousands of tracks.
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: Svelte 5, static SvelteKit (SPA mode), Vite, vanilla CSS.
-*   **Backend**: Tauri v2 (Rust).
-*   **Storage & Vector Search**: SQLite (`rusqlite`) and `sqlite-vec` for local vector embeddings.
-*   **Audio DSP & Tagging**: `lofty` and `symphonia` for audio decoding and tag parsing.
-*   **Machine Learning**: `ort` (ONNX Runtime) for local, private model inference.
+- **Frontend**: Svelte 5, static SvelteKit (SPA mode), Vite, vanilla CSS, D3.js, WaveSurfer.js.
+- **Backend**: Tauri v2 (Rust).
+- **Storage & Vector Search**: SQLite (`rusqlite`) and `sqlite-vec` for local vector embeddings.
+- **Audio DSP & Tagging**: `lofty` and `symphonia` for audio decoding and tag parsing; `ebur128` for loudness.
+- **Machine Learning**: `ort` (ONNX Runtime) for local, private model inference; `llama-server` for Qwen2-Audio.
 
 ---
 
@@ -57,23 +97,27 @@ Ensure you have [Rust](https://www.rust-lang.org/) and [Node.js](https://nodejs.
 
 ### Installing Dependencies
 
-Install both root monorepo and SvelteKit dependencies:
-
 ```bash
 npm install
 ```
 
 ### Running in Development
 
-Boot the Tauri dev shell and Svelte static server concurrently:
-
 ```bash
 npm run tauri dev
 ```
 
-### Building for Production
+### Running Tests
 
-Compile the static SPA pages and bundle the sandboxed desktop application:
+```bash
+# Rust backend tests
+cargo test --manifest-path src-tauri/Cargo.toml
+
+# Frontend tests
+npm test
+```
+
+### Building for Production
 
 ```bash
 npm run tauri build
