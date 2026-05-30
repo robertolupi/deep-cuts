@@ -32,6 +32,38 @@
   let isBpmPopupOpen = $state(false);
   let bpmContainer = $state<HTMLDivElement | null>(null);
 
+  // Genre autocomplete state
+  let isGenreFocused = $state(false);
+  let genreInputEl = $state<HTMLInputElement | null>(null);
+
+  // All distinct genres from both metadata and essentia, sorted
+  let allGenres = $derived.by(() => {
+    const set = new Set<string>();
+    for (const t of tracks) {
+      if (t.genre) {
+        for (const g of t.genre.split(/[,;]/)) {
+          const trimmed = g.trim();
+          if (trimmed) set.add(trimmed);
+        }
+      }
+      if (t.detected_genre) set.add(t.detected_genre);
+    }
+    return Array.from(set).sort();
+  });
+
+  // Suggestions: genres matching the current filter text (max 12)
+  let genreSuggestions = $derived.by(() => {
+    const q = genreFilter.trim().toLowerCase();
+    if (!q) return [];
+    return allGenres.filter(g => g.toLowerCase().includes(q)).slice(0, 12);
+  });
+
+  function selectGenreSuggestion(genre: string) {
+    genreFilter = genre;
+    isGenreFocused = false;
+    genreInputEl?.blur();
+  }
+
   // Derived list of distinct keys reactively computed from tracks
   let keysList = $derived.by(() => {
     const list = new Set<string>();
@@ -130,18 +162,34 @@
         />
       </div>
 
-      <!-- Genre Filter -->
-      <div class="search-box-wrap" style="max-width: 200px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Filter by genre…"
-          bind:value={genreFilter}
-          class="search-input"
-        />
+      <!-- Genre Filter with autocomplete -->
+      <div class="genre-filter-container">
+        <div class="search-box-wrap" style="max-width: 200px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Filter by genre…"
+            bind:value={genreFilter}
+            bind:this={genreInputEl}
+            class="search-input"
+            onfocus={() => isGenreFocused = true}
+            onblur={() => setTimeout(() => { isGenreFocused = false; }, 150)}
+          />
+        </div>
+        {#if isGenreFocused && genreSuggestions.length > 0}
+          <div class="genre-suggestions glass-panel">
+            {#each genreSuggestions as suggestion}
+              <button
+                class="genre-suggestion-item"
+                type="button"
+                onmousedown={() => selectGenreSuggestion(suggestion)}
+              >{suggestion}</button>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <!-- Key Filter -->
@@ -548,5 +596,48 @@
 
   .load-more-btn:hover .load-more-icon {
     transform: translateY(1px);
+  }
+
+  .genre-filter-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .genre-suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.3rem 0;
+    z-index: 1000;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .genre-suggestion-item {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    text-align: left;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s ease, color 0.1s ease;
+  }
+
+  .genre-suggestion-item:hover {
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    color: var(--color-accent-cyan);
   }
 </style>
