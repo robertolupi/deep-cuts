@@ -193,6 +193,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/04_track_passes.sql")),
         M::up(include_str!("../migrations/05_audio_embeddings.sql")),
         M::up(include_str!("../migrations/06_track_coords.sql")),
+        M::up(include_str!("../migrations/07_essentia_columns.sql")),
     ])
 }
 

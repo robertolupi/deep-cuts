@@ -122,6 +122,16 @@ pub fn reset_pass(
         conn.execute("DELETE FROM audio_embeddings", [])
             .map_err(|e| e.to_string())?;
     }
+    if pass_name == "essentia" {
+        conn.execute(
+            "UPDATE tracks SET
+                detected_genre = NULL, detected_vocal = NULL, detected_vocal_confidence = NULL,
+                mood_happy = NULL, mood_sad = NULL, mood_aggressive = NULL,
+                mood_relaxed = NULL, mood_party = NULL, mood_acoustic = NULL,
+                mood_electronic = NULL",
+            [],
+        ).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

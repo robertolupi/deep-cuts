@@ -1,0 +1,10 @@
+ALTER TABLE tracks ADD COLUMN detected_genre TEXT;
+ALTER TABLE tracks ADD COLUMN detected_vocal TEXT;
+ALTER TABLE tracks ADD COLUMN detected_vocal_confidence REAL;
+ALTER TABLE tracks ADD COLUMN mood_happy REAL;
+ALTER TABLE tracks ADD COLUMN mood_sad REAL;
+ALTER TABLE tracks ADD COLUMN mood_aggressive REAL;
+ALTER TABLE tracks ADD COLUMN mood_relaxed REAL;
+ALTER TABLE tracks ADD COLUMN mood_party REAL;
+ALTER TABLE tracks ADD COLUMN mood_acoustic REAL;
+ALTER TABLE tracks ADD COLUMN mood_electronic REAL;

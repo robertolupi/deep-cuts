@@ -371,9 +371,143 @@ impl PipelineManager {
                 let _ = h.join();
             }
 
+            let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "clap" }));
+
+            // ── Phase 3: Essentia classifier (sequential, single-threaded) ────────
+            run_essentia_phase(&app, &conn_arc);
+
             let _ = app.emit("analysis-complete", ());
         });
 
         Ok(())
     }
+}
+
+/// Runs all pending `essentia` pass jobs sequentially.
+fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    // Backfill essentia pass rows for any track that doesn't have one yet
+    {
+        let conn = conn_arc.lock().unwrap();
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+             SELECT id, 'essentia', 50, ?1 FROM tracks",
+            [pass_status::PENDING],
+        );
+    }
+
+    let jobs: Vec<SpoolJob> = {
+        let conn = conn_arc.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT tp.id, tp.track_id, t.path
+             FROM track_passes tp
+             JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.status = ?1 AND tp.pass_name = 'essentia'
+             ORDER BY tp.id ASC",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[essentia] Failed to query pending jobs: {}", e);
+                return;
+            }
+        };
+        let rows: Vec<SpoolJob> = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+            })
+            .map(|r| r.filter_map(|x| x.ok()).collect())
+            .unwrap_or_default();
+        for job in &rows {
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+            );
+        }
+        rows
+    };
+
+    if jobs.is_empty() {
+        return;
+    }
+
+    log::info!("[essentia] Running {} pending jobs", jobs.len());
+
+    for job in jobs {
+        let start = std::time::Instant::now();
+
+        let result = (|| -> Result<crate::classifier::ClassifierResult, String> {
+            let (audio, sr) = dsp::decode_audio_to_mono(&job.path)?;
+            let audio_16k = crate::spectrogram::resample_to_16k(&audio, sr)?;
+
+            // 60-second window centred on the track midpoint
+            let mid = audio_16k.len() / 2;
+            let half = 16_000 * 30;
+            let start_idx = mid.saturating_sub(half);
+            let end_idx = (mid + half).min(audio_16k.len());
+            let window = &audio_16k[start_idx..end_idx];
+
+            let spec = crate::spectrogram::compute_log_mel_spectrogram(window)?;
+            let patches = crate::spectrogram::extract_patches(&spec)?;
+            crate::classifier::run_classifier_inference(&patches, Some(app))
+        })();
+
+        let elapsed_ms = start.elapsed().as_millis() as i64;
+        let conn = conn_arc.lock().unwrap();
+
+        match result {
+            Ok(r) => {
+                let _ = conn.execute(
+                    "UPDATE tracks SET
+                        detected_genre             = ?1,
+                        detected_vocal             = ?2,
+                        detected_vocal_confidence  = ?3,
+                        mood_happy                 = ?4,
+                        mood_sad                   = ?5,
+                        mood_aggressive            = ?6,
+                        mood_relaxed               = ?7,
+                        mood_party                 = ?8,
+                        mood_acoustic              = ?9,
+                        mood_electronic            = ?10
+                     WHERE id = ?11",
+                    rusqlite::params![
+                        r.genre,
+                        r.vocal,
+                        r.vocal_confidence,
+                        r.mood_happy,
+                        r.mood_sad,
+                        r.mood_aggressive,
+                        r.mood_relaxed,
+                        r.mood_party,
+                        r.mood_acoustic,
+                        r.mood_electronic,
+                        job.track_id,
+                    ],
+                );
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                    rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                );
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "essentia",
+                    "status": pass_status::DONE,
+                }));
+            }
+            Err(e) => {
+                log::error!("[essentia] Track {} failed: {}", job.track_id, e);
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                );
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "essentia",
+                    "status": pass_status::FAILED,
+                }));
+            }
+        }
+    }
+
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "essentia" }));
 }

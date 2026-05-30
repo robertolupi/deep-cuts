@@ -12,7 +12,7 @@ Run from the repo root with the tools venv active:
   python tools/export_essentia_mel_weights.py
 
 Output (compiled into the Rust binary via include_bytes!):
-  src-tauri/src/mel_weights.bin  — 96×257 float32 row-major matrix
+  src-tauri/src/essentia_mel_weights.bin  — 96×257 float32 row-major matrix
 
 NOTE: This is only needed for the Essentia classifier pass (future).
 The CLAP pass uses clap_mel_weights.bin exported by export_clap_onnx.py.
@@ -56,7 +56,7 @@ for k in range(N_BINS):
 
 print(f"Extracted matrix shape: {matrix.shape}  (expected {N_BANDS} × {N_BINS})")
 
-dest = Path(__file__).parent.parent / "src-tauri" / "src" / "mel_weights.bin"
+dest = Path(__file__).parent.parent / "src-tauri" / "src" / "essentia_mel_weights.bin"
 dest.parent.mkdir(parents=True, exist_ok=True)
 matrix.tofile(dest)
 print(f"Wrote {dest.stat().st_size:,} bytes → {dest}")

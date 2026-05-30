@@ -3,6 +3,8 @@
 mod database;
 mod dsp;
 mod embeddings;
+mod spectrogram;
+mod classifier;
 mod scanner;
 mod analysis;
 mod commands;
