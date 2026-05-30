@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter};
 use rusqlite::Connection;
 use crate::database::{pass_status, DbManager};
+use crate::scanner::sidecar::pass_version;
 use crate::{dsp, embeddings};
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -73,6 +74,24 @@ impl PipelineManager {
                 "UPDATE track_passes SET status = ?1, log = NULL, last_run_at = NULL
                  WHERE status IN (?2, ?3)",
                 rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS, pass_status::FAILED],
+            ).map_err(|e| e.to_string())?;
+
+            // Reset DONE rows whose pass_version is below the current algorithm version.
+            // This forces re-inference when a model or algorithm is updated.
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'audio_analysis' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::AUDIO_ANALYSIS],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'clap' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::CLAP],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'essentia' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::ESSENTIA],
             ).map_err(|e| e.to_string())?;
 
             // Backfill: insert a row for every track that doesn't have one yet
@@ -202,8 +221,9 @@ impl PipelineManager {
                                 );
                                 let _ = conn.execute(
                                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                                    rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                                     pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                                    rusqlite::params![pass_status::DONE, elapsed_ms,
+                                        pass_version::AUDIO_ANALYSIS, job.pass_id],
                                 );
                                 let _ = app_clone.emit("analysis-progress", serde_json::json!({
                                     "track_id": job.track_id,
@@ -350,8 +370,9 @@ impl PipelineManager {
                         );
                         let _ = conn.execute(
                             "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                             last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                            rusqlite::params![pass_status::DONE, elapsed_ms, prepped.pass_id],
+                             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                            rusqlite::params![pass_status::DONE, elapsed_ms,
+                                pass_version::CLAP, prepped.pass_id],
                         );
                         let _ = app.emit("analysis-progress", serde_json::json!({
                             "track_id": prepped.track_id,
@@ -530,8 +551,9 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                 );
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                    rusqlite::params![pass_status::DONE, elapsed_ms, prepped.pass_id],
+                     pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::DONE, elapsed_ms,
+                        pass_version::ESSENTIA, prepped.pass_id],
                 );
                 let _ = app.emit("analysis-progress", serde_json::json!({
                     "track_id": prepped.track_id,

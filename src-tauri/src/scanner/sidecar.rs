@@ -1,7 +1,18 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const SUFFIX: &str = ".dc.json";
+
+/// Current algorithm/model version for each analysis pass.
+/// Bump the version constant when the model or algorithm changes in a way that
+/// makes previously-cached results stale. restore() will skip any pass whose
+/// sidecar version is lower than the current constant, forcing re-inference.
+pub mod pass_version {
+    pub const AUDIO_ANALYSIS: u32 = 1;
+    pub const CLAP: u32 = 1;
+    pub const ESSENTIA: u32 = 1;
+}
 
 /// ML-derived fields persisted alongside each audio file.
 /// When adding a new analysis pass, add its output fields here and update:
@@ -53,7 +64,13 @@ pub struct SidecarMlMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SidecarData {
+    /// Schema version for the sidecar format itself (not pass versions).
     pub version: i32,
+    /// Per-pass algorithm/model version at the time this sidecar was written.
+    /// Missing entries (e.g. from old sidecars) are treated as version 0, which
+    /// is always lower than any current constant, so the pass is re-run.
+    #[serde(default)]
+    pub pass_versions: HashMap<String, u32>,
     #[serde(default)]
     pub ml_metadata: SidecarMlMetadata,
 }
@@ -124,15 +141,34 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         }
     }
 
-    let sidecar = SidecarData { version: 1, ml_metadata };
+    // Record the pass_version for every DONE pass directly from the DB column.
+    let mut pass_versions: HashMap<String, u32> = HashMap::new();
+    let mut stmt = conn.prepare(
+        "SELECT pass_name, pass_version FROM track_passes WHERE track_id = ?1 AND status = 2",
+    )?;
+    let rows: Vec<(String, u32)> = stmt
+        .query_map([track_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+    for (pass_name, version) in rows {
+        pass_versions.insert(pass_name, version);
+    }
+
+    let sidecar = SidecarData { version: 1, pass_versions, ml_metadata };
     let json = serde_json::to_string_pretty(&sidecar)?;
     std::fs::write(path_for(&path), json)?;
     Ok(())
 }
 
+/// Returns the sidecar-recorded version for `pass`, or 0 if absent (old sidecar → force re-run).
+fn sidecar_pass_version(sidecar: &SidecarData, pass: &str) -> u32 {
+    *sidecar.pass_versions.get(pass).unwrap_or(&0)
+}
+
 /// Reads the sidecar for `track_path` and restores its ML fields into the tracks table.
-/// Also re-inserts the CLAP embedding into `audio_embeddings` and marks the `clap` pass
-/// as DONE in `track_passes` so the pipeline skips re-running the ONNX encoder.
+/// Each pass is only restored if the sidecar's recorded version matches the current
+/// constant in `pass_version`. A missing entry (old sidecar) is treated as version 0
+/// and the pass is skipped, allowing the pipeline to re-run it fresh.
 pub fn restore(
     conn: &Connection,
     track_id: i64,
@@ -144,26 +180,51 @@ pub fn restore(
 
     let m = &sidecar.ml_metadata;
 
-    // Restore audio_analysis fields
-    conn.execute(
-        "UPDATE tracks SET
-            bpm = COALESCE(?1, bpm),
-            key = COALESCE(?2, key),
-            scale = COALESCE(?3, scale),
-            key_strength = COALESCE(?4, key_strength),
-            loudness_lufs = COALESCE(?5, loudness_lufs),
-            loudness_range = COALESCE(?6, loudness_range),
-            waveform_data = COALESCE(?7, waveform_data)
-         WHERE id = ?8",
-        rusqlite::params![
-            m.bpm, m.key, m.scale, m.key_strength,
-            m.loudness_lufs, m.loudness_range, m.waveform_data,
-            track_id,
-        ],
-    )?;
+    // --- audio_analysis ---
+    if sidecar_pass_version(&sidecar, "audio_analysis") >= pass_version::AUDIO_ANALYSIS {
+        conn.execute(
+            "UPDATE tracks SET
+                bpm = COALESCE(?1, bpm),
+                key = COALESCE(?2, key),
+                scale = COALESCE(?3, scale),
+                key_strength = COALESCE(?4, key_strength),
+                loudness_lufs = COALESCE(?5, loudness_lufs),
+                loudness_range = COALESCE(?6, loudness_range),
+                waveform_data = COALESCE(?7, waveform_data)
+             WHERE id = ?8",
+            rusqlite::params![
+                m.bpm, m.key, m.scale, m.key_strength,
+                m.loudness_lufs, m.loudness_range, m.waveform_data,
+                track_id,
+            ],
+        )?;
+        conn.execute(
+            "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
+             WHERE track_id = ?2 AND pass_name = 'audio_analysis'",
+            rusqlite::params![pass_version::AUDIO_ANALYSIS, track_id],
+        )?;
+    }
 
-    // Restore essentia fields (only when at least detected_genre is present)
-    if m.detected_genre.is_some() || m.mood_happy.is_some() {
+    // --- clap ---
+    if sidecar_pass_version(&sidecar, "clap") >= pass_version::CLAP {
+        if let Some(floats) = &m.clap_embedding {
+            if !floats.is_empty() {
+                let blob: Vec<u8> = floats.iter().flat_map(|&f| f.to_le_bytes()).collect();
+                conn.execute(
+                    "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                    rusqlite::params![track_id, blob],
+                )?;
+                conn.execute(
+                    "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
+                     WHERE track_id = ?2 AND pass_name = 'clap'",
+                    rusqlite::params![pass_version::CLAP, track_id],
+                )?;
+            }
+        }
+    }
+
+    // --- essentia ---
+    if sidecar_pass_version(&sidecar, "essentia") >= pass_version::ESSENTIA {
         conn.execute(
             "UPDATE tracks SET
                 detected_genre             = COALESCE(?1,  detected_genre),
@@ -184,29 +245,11 @@ pub fn restore(
                 track_id,
             ],
         )?;
-        // Mark essentia pass as DONE so the pipeline skips re-running ONNX inference
         conn.execute(
-            "UPDATE track_passes SET status = 2, last_run_at = CURRENT_TIMESTAMP
-             WHERE track_id = ?1 AND pass_name = 'essentia'",
-            [track_id],
+            "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
+             WHERE track_id = ?2 AND pass_name = 'essentia'",
+            rusqlite::params![pass_version::ESSENTIA, track_id],
         )?;
-    }
-
-    // Restore CLAP embedding into audio_embeddings and mark the pass done to avoid re-processing
-    if let Some(floats) = &m.clap_embedding {
-        if !floats.is_empty() {
-            let blob: Vec<u8> = floats.iter().flat_map(|&f| f.to_le_bytes()).collect();
-            conn.execute(
-                "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
-                rusqlite::params![track_id, blob],
-            )?;
-            // Mark the clap pass as DONE so run_analysis_pipeline skips this track
-            conn.execute(
-                "UPDATE track_passes SET status = 2, last_run_at = CURRENT_TIMESTAMP
-                 WHERE track_id = ?1 AND pass_name = 'clap'",
-                [track_id],
-            )?;
-        }
     }
 
     Ok(())
@@ -297,6 +340,12 @@ mod tests {
             [&track_path],
         )
         .unwrap();
+        // Mark audio_analysis as DONE with the current pass_version
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+             VALUES (1, 'audio_analysis', 10, 2, ?1)",
+            rusqlite::params![pass_version::AUDIO_ANALYSIS],
+        ).unwrap();
 
         save(&conn, 1).unwrap();
         let loaded = load(&track_path).expect("sidecar should be loadable after save");
@@ -309,6 +358,11 @@ mod tests {
         assert_eq!(m.loudness_lufs, Some(-14.2));
         assert_eq!(m.loudness_range, Some(6.1));
         assert_eq!(m.waveform_data.as_deref(), Some("[0.1,0.2]"));
+        // pass_versions should record audio_analysis at the current constant
+        assert_eq!(
+            loaded.pass_versions.get("audio_analysis").copied(),
+            Some(pass_version::AUDIO_ANALYSIS)
+        );
 
         cleanup(&dir, &track_path);
     }
@@ -330,12 +384,21 @@ mod tests {
             [&track_path],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+             VALUES (1, 'audio_analysis', 10, 2, ?1)",
+            rusqlite::params![pass_version::AUDIO_ANALYSIS],
+        ).unwrap();
 
-        // Save to disk, then clear the DB row, then restore from disk
+        // Save to disk, then wipe DB fields and the pass row, then restore from disk
         save(&conn, 1).unwrap();
         conn.execute(
             "UPDATE tracks SET bpm = NULL, key = NULL, scale = NULL, key_strength = NULL,
              loudness_lufs = NULL, loudness_range = NULL, waveform_data = NULL WHERE id = 1",
+            [],
+        ).unwrap();
+        conn.execute(
+            "UPDATE track_passes SET status = 0 WHERE track_id = 1 AND pass_name = 'audio_analysis'",
             [],
         ).unwrap();
         restore(&conn, 1, &track_path).unwrap();
@@ -346,6 +409,87 @@ mod tests {
         assert_eq!(bpm, Some(120.0));
         assert_eq!(key.as_deref(), Some("C"));
         assert_eq!(scale.as_deref(), Some("major"));
+
+        // Pass should be marked DONE with the current pass_version after restore
+        let (status, version): (i64, u32) = conn.query_row(
+            "SELECT status, pass_version FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'",
+            [], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap();
+        assert_eq!(status, 2, "audio_analysis pass should be DONE after restore");
+        assert_eq!(version, pass_version::AUDIO_ANALYSIS, "restored pass_version should match current constant");
+
+        cleanup(&dir, &track_path);
+    }
+
+    #[test]
+    fn test_restore_skips_stale_pass_version() {
+        let (dir, track_path) = temp_track("stale_version");
+
+        // Write a sidecar with pass_version 0 — below every current constant
+        let stale = r#"{"version":1,"pass_versions":{"audio_analysis":0},"ml_metadata":{"bpm":99.0}}"#;
+        std::fs::write(path_for(&track_path), stale).unwrap();
+
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+            [dir.to_string_lossy().as_ref()],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 0)",
+            [&track_path],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+             VALUES (1, 'audio_analysis', 10, 0, 0)",
+            [],
+        ).unwrap();
+
+        restore(&conn, 1, &track_path).unwrap();
+
+        // BPM should NOT have been restored — sidecar version was stale
+        let bpm: Option<f64> = conn.query_row(
+            "SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(bpm, None, "stale pass version should prevent restore");
+
+        // Pass should remain PENDING
+        let status: i64 = conn.query_row(
+            "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(status, 0, "stale pass should remain pending for re-run");
+
+        cleanup(&dir, &track_path);
+    }
+
+    #[test]
+    fn test_restore_old_sidecar_without_pass_versions() {
+        let (dir, track_path) = temp_track("old_sidecar");
+
+        // Old format: no pass_versions field at all
+        let old_format = r#"{"version":1,"ml_metadata":{"bpm":120.0,"key":"A","scale":"major"}}"#;
+        std::fs::write(path_for(&track_path), old_format).unwrap();
+
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+            [dir.to_string_lossy().as_ref()],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 0)",
+            [&track_path],
+        ).unwrap();
+
+        // Should not panic; missing pass_versions → all passes treated as version 0 → skipped
+        let result = restore(&conn, 1, &track_path);
+        assert!(result.is_ok());
+
+        let bpm: Option<f64> = conn.query_row(
+            "SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(bpm, None, "old sidecar without pass_versions should not restore any fields");
 
         cleanup(&dir, &track_path);
     }
