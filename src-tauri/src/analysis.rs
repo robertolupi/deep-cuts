@@ -60,7 +60,9 @@ impl PipelineManager {
 
     /// Runs the audio analysis and embedding pipeline concurrently.
     pub fn run(app: AppHandle, conn_mutex: &Mutex<Connection>) -> Result<(), String> {
+        log::info!("[pipeline] run() called");
         if ANALYSIS_ACTIVE.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            log::warn!("[pipeline] already running, rejecting");
             return Err("Analysis is already running".to_string());
         }
         let _guard = ActiveGuard;
@@ -172,20 +174,27 @@ impl PipelineManager {
         };
 
         let total = pending.len();
+        log::info!("[pipeline] audio_analysis pending: {}", total);
 
         // Check if there is any pending work across all passes
         let has_pending_passes = {
             let conn = conn_mutex.lock().map_err(|e| e.to_string())?;
-            conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM track_passes WHERE status = ?1)",
-                [pass_status::PENDING],
-                |row| row.get(0),
-            ).unwrap_or(false)
+            let pending_counts: Vec<(String, i64)> = {
+                let mut stmt = conn.prepare(
+                    "SELECT pass_name, COUNT(*) FROM track_passes WHERE status = ?1 GROUP BY pass_name"
+                ).unwrap();
+                stmt.query_map([pass_status::PENDING], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .unwrap().filter_map(|r| r.ok()).collect()
+            };
+            log::info!("[pipeline] pending counts: {:?}", pending_counts);
+            !pending_counts.is_empty()
         };
 
         if total == 0 && !has_pending_passes {
+            log::info!("[pipeline] nothing to do, returning early");
             return Ok(());
         }
+        log::info!("[pipeline] proceeding — has_pending_passes={}", has_pending_passes);
 
         let concurrency = crate::hardware::PipelineConfig::auto_tune().decode_threads;
 
@@ -280,13 +289,17 @@ impl PipelineManager {
             let _preventer_guard = sleep_preventer;
 
             // ── Phase 1: audio_analysis (parallel) ────────────────────────────
+            log::info!("[pipeline] waiting for audio_analysis workers");
             for h in handles {
                 let _ = h.join();
             }
+            log::info!("[pipeline] audio_analysis done");
             let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "audio_analysis" }));
 
             // ── Phase 1b: BPM correction (coarse metadata genre) ──────────────
+            log::info!("[pipeline] starting bpm_correction phase");
             run_bpm_correction_phase(&app, &conn_arc);
+            log::info!("[pipeline] bpm_correction phase done");
 
             // ── Phase 2: CLAP — producer-consumer with seek-aware parallel preprocessing ──
             let config = crate::hardware::PipelineConfig::auto_tune();
@@ -654,46 +667,49 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     let mut corrected = 0usize;
     let mut nulled = 0usize;
 
-    for job in &jobs {
-        let start = std::time::Instant::now();
-        let result = crate::bpm::correct_bpm(job.bpm_raw, job.genre.as_deref());
-        let elapsed_ms = start.elapsed().as_millis() as i64;
+    log::info!("[bpm_correction] loaded {} jobs, computing corrections", jobs.len());
+
+    // Compute all corrections first (pure CPU, no lock needed)
+    let corrections: Vec<crate::bpm::CorrectResult> = jobs.iter()
+        .map(|job| crate::bpm::correct_bpm(job.bpm_raw, job.genre.as_deref()))
+        .collect();
+
+    log::info!("[bpm_correction] corrections computed, acquiring DB lock for transaction");
+    // Write everything in a single transaction — avoids 1886 individual fsyncs
+    {
         let conn = conn_arc.lock().unwrap();
-
-        match result {
-            crate::bpm::CorrectResult::Corrected(new_bpm) => {
-                corrected += 1;
-                let _ = conn.execute(
-                    "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
-                    rusqlite::params![new_bpm, job.track_id],
-                );
+        log::debug!("[bpm_correction] lock acquired, beginning transaction");
+        let begin_result = conn.execute("BEGIN", []);
+        log::debug!("[bpm_correction] BEGIN result: {:?}", begin_result);
+        for (job, result) in jobs.iter().zip(corrections.iter()) {
+            match result {
+                crate::bpm::CorrectResult::Corrected(new_bpm) => {
+                    corrected += 1;
+                    let _ = conn.execute("UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                        rusqlite::params![new_bpm, job.track_id]);
+                }
+                crate::bpm::CorrectResult::Null => {
+                    nulled += 1;
+                    let _ = conn.execute("UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                        rusqlite::params![job.track_id]);
+                }
+                crate::bpm::CorrectResult::Unchanged => {}
             }
-            crate::bpm::CorrectResult::Null => {
-                nulled += 1;
-                let _ = conn.execute(
-                    "UPDATE tracks SET bpm = NULL WHERE id = ?1",
-                    rusqlite::params![job.track_id],
-                );
-            }
-            crate::bpm::CorrectResult::Unchanged => {}
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, duration_ms = 0,
+                 pass_version = ?2, last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                rusqlite::params![pass_status::DONE, pass_version::BPM_CORRECTION, job.pass_id],
+            );
         }
-
-        let _ = conn.execute(
-            "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-            rusqlite::params![pass_status::DONE, elapsed_ms,
-                pass_version::BPM_CORRECTION, job.pass_id],
-        );
-        let _ = app.emit("analysis-progress", serde_json::json!({
-            "track_id": job.track_id,
-            "pass_name": "bpm_correction",
-            "status": pass_status::DONE,
-        }));
-    }
+        let commit_result = conn.execute("COMMIT", []);
+        log::info!("[bpm_correction] COMMIT result: {:?}", commit_result);
+    } // lock released before any emit
 
     log::info!("[bpm_correction] {} tracks: {} corrected, {} nulled in {:.1}s",
         jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "bpm_correction" }));
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({
+        "pass": "bpm_correction", "corrected": corrected, "nulled": nulled,
+    }));
 }
 
 /// Runs pending `bpm_refinement` jobs using the precise Discogs-400 `detected_genre` field.
@@ -737,45 +753,47 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     let mut corrected = 0usize;
     let mut nulled = 0usize;
 
-    for job in &jobs {
-        let start = std::time::Instant::now();
-        // bpm_refinement always re-corrects from bpm_raw so the two passes are independent
-        let result = crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref());
-        let elapsed_ms = start.elapsed().as_millis() as i64;
+    log::info!("[bpm_refinement] loaded {} jobs, computing corrections", jobs.len());
+
+    // Compute all corrections first (pure CPU, no lock needed)
+    // bpm_refinement always re-corrects from bpm_raw so the two passes are independent
+    let corrections: Vec<crate::bpm::CorrectResult> = jobs.iter()
+        .map(|job| crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref()))
+        .collect();
+
+    log::info!("[bpm_refinement] corrections computed, acquiring DB lock for transaction");
+    {
         let conn = conn_arc.lock().unwrap();
-
-        match result {
-            crate::bpm::CorrectResult::Corrected(new_bpm) => {
-                corrected += 1;
-                let _ = conn.execute(
-                    "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
-                    rusqlite::params![new_bpm, job.track_id],
-                );
+        log::debug!("[bpm_refinement] lock acquired, beginning transaction");
+        let begin_result = conn.execute("BEGIN", []);
+        log::debug!("[bpm_refinement] BEGIN result: {:?}", begin_result);
+        for (job, result) in jobs.iter().zip(corrections.iter()) {
+            match result {
+                crate::bpm::CorrectResult::Corrected(new_bpm) => {
+                    corrected += 1;
+                    let _ = conn.execute("UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                        rusqlite::params![new_bpm, job.track_id]);
+                }
+                crate::bpm::CorrectResult::Null => {
+                    nulled += 1;
+                    let _ = conn.execute("UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                        rusqlite::params![job.track_id]);
+                }
+                crate::bpm::CorrectResult::Unchanged => {}
             }
-            crate::bpm::CorrectResult::Null => {
-                nulled += 1;
-                let _ = conn.execute(
-                    "UPDATE tracks SET bpm = NULL WHERE id = ?1",
-                    rusqlite::params![job.track_id],
-                );
-            }
-            crate::bpm::CorrectResult::Unchanged => {}
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, duration_ms = 0,
+                 pass_version = ?2, last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                rusqlite::params![pass_status::DONE, pass_version::BPM_REFINEMENT, job.pass_id],
+            );
         }
-
-        let _ = conn.execute(
-            "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-            rusqlite::params![pass_status::DONE, elapsed_ms,
-                pass_version::BPM_REFINEMENT, job.pass_id],
-        );
-        let _ = app.emit("analysis-progress", serde_json::json!({
-            "track_id": job.track_id,
-            "pass_name": "bpm_refinement",
-            "status": pass_status::DONE,
-        }));
-    }
+        let commit_result = conn.execute("COMMIT", []);
+        log::info!("[bpm_refinement] COMMIT result: {:?}", commit_result);
+    } // lock released before any emit
 
     log::info!("[bpm_refinement] {} tracks: {} corrected, {} nulled in {:.1}s",
         jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "bpm_refinement" }));
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({
+        "pass": "bpm_refinement", "corrected": corrected, "nulled": nulled,
+    }));
 }

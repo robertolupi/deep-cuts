@@ -172,17 +172,17 @@ pub fn correct_bpm(bpm: Option<f64>, genre: Option<&str>) -> CorrectResult {
         return CorrectResult::Null;
     }
 
-    loop {
-        if v > max {
-            v /= 2.0;
-        } else if v < min {
-            v *= 2.0;
-        } else {
-            break;
-        }
-        if v < 20.0 || v > 300.0 {
-            return CorrectResult::Null;
-        }
+    // Single halve or double. The detector is never more than 2× off, so one
+    // correction step is always sufficient. If the corrected value is still out
+    // of range, the genre range itself can't resolve it — return Null.
+    if v > max {
+        v /= 2.0;
+    } else if v < min {
+        v *= 2.0;
+    }
+    // After at most one correction, check the value is now in range
+    if v < min || v > max || v < 20.0 || v > 300.0 {
+        return CorrectResult::Null;
     }
 
     let corrected = (v * 10.0).round() / 10.0; // round to 1 decimal place
@@ -250,11 +250,15 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_step_correction() {
-        // 414 → 207 → 103.5 for Baroque
-        assert_eq!(correct_bpm(Some(414.0), Some("Classical---Baroque")), CorrectResult::Null); // 414 > 300 → Null
-        // 207 → 103.5 for Rock
+    fn test_single_step_only() {
+        // 414 > 300 → Null (garbage, before any correction)
+        assert_eq!(correct_bpm(Some(414.0), Some("Classical---Baroque")), CorrectResult::Null);
+        // 207 → 103.5 for Rock (one halve, lands in 70–180)
         assert_eq!(correct_bpm(Some(207.0), Some("Rock---Hard Rock")), CorrectResult::Corrected(103.5));
+        // 200 for DnB (155–185): 200/2=100 still out of range → Null (not infinite loop)
+        assert_eq!(correct_bpm(Some(200.0), Some("Electronic---Drum n Bass")), CorrectResult::Null);
+        // 200 for House (118–138): 200/2=100 still out of range → Null
+        assert_eq!(correct_bpm(Some(200.0), Some("Electronic---House")), CorrectResult::Null);
     }
 
     #[test]

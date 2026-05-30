@@ -198,6 +198,13 @@ impl DbManager {
     pub fn connect_and_migrate(&self) -> Result<Connection, Box<dyn std::error::Error>> {
         let mut conn = Connection::open(&self.db_path)?;
 
+        // WAL mode: allows one writer + concurrent readers without file-level locking.
+        // Must be set before migrations so the journal file is created correctly.
+        conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+
+        // Retry for up to 5 seconds if another connection holds a write lock.
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+
         // Enable foreign key constraints
         conn.execute("PRAGMA foreign_keys = ON;", [])?;
 
@@ -233,6 +240,7 @@ pub fn setup_test_db() -> Connection {
         )));
     }
     let mut conn = Connection::open_in_memory().unwrap();
+    conn.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
     conn.execute("PRAGMA foreign_keys = ON;", []).unwrap();
     let migrations = get_migrations();
     migrations.to_latest(&mut conn).unwrap();
