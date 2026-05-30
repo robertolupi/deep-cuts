@@ -10,9 +10,19 @@ function createFiltersStore() {
   let maxBpm       = $state(250);
   let selectedKeys = $state<string[]>([]);   // note names e.g. ["A", "C#"]
   let selectedScale = $state<ScaleFilter>("all");
+  let musicOnly = $state(false);
+  let vocalFilter = $state<"all" | "voice" | "instrumental">("all");
 
   const filteredTracks = $derived.by(() => {
     return library.tracks.filter((t) => {
+      // Music only: require explicit is_music = 1 (excludes non-music and unanalyzed)
+      if (musicOnly && t.is_music !== 1) return false;
+
+      // Vocal / instrumental
+      if (vocalFilter !== "all") {
+        if (t.detected_vocal !== vocalFilter) return false;
+      }
+
       // Genre
       if (genreFilter.trim()) {
         const q = genreFilter.trim().toLowerCase();
@@ -66,6 +76,10 @@ function createFiltersStore() {
     set selectedKeys(v) { selectedKeys = v; },
     get selectedScale() { return selectedScale; },
     set selectedScale(v: ScaleFilter) { selectedScale = v; },
+    get musicOnly()      { return musicOnly; },
+    set musicOnly(v)     { musicOnly = v; },
+    get vocalFilter()    { return vocalFilter; },
+    set vocalFilter(v: "all" | "voice" | "instrumental") { vocalFilter = v; },
     get filteredTracks(){ return filteredTracks; },
 
     toggleKey(key: string) {

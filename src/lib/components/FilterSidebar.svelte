@@ -43,16 +43,20 @@
     filters.selectedKeys.length > 0 ||
     filters.selectedScale !== "all" ||
     filters.minBpm !== 20 ||
-    filters.maxBpm !== 250
+    filters.maxBpm !== 250 ||
+    filters.musicOnly ||
+    filters.vocalFilter !== "all"
   );
 
   function clearAll() {
-    filters.searchQuery  = "";
-    filters.genreFilter  = "";
+    filters.searchQuery   = "";
+    filters.genreFilter   = "";
     filters.clearKeys();
     filters.selectedScale = "all";
     filters.minBpm        = 20;
     filters.maxBpm        = 250;
+    filters.musicOnly     = false;
+    filters.vocalFilter   = "all";
   }
 </script>
 
@@ -113,6 +117,16 @@
         {#if filters.minBpm !== 20 || filters.maxBpm !== 250}
           <button class="chip chip-active" onclick={() => { filters.minBpm = 20; filters.maxBpm = 250; }}>
             {Math.round(filters.minBpm)}–{Math.round(filters.maxBpm)} BPM ×
+          </button>
+        {/if}
+        {#if filters.musicOnly}
+          <button class="chip chip-active" onclick={() => filters.musicOnly = false}>
+            Music only ×
+          </button>
+        {/if}
+        {#if filters.vocalFilter !== "all"}
+          <button class="chip chip-active" onclick={() => filters.vocalFilter = "all"}>
+            {filters.vocalFilter === "voice" ? "Vocals" : "Instrumental"} ×
           </button>
         {/if}
         <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
@@ -203,6 +217,37 @@
         <button class="preset-btn" class:active={filters.minBpm===150&&filters.maxBpm===250}  onclick={() => { filters.minBpm=150; filters.maxBpm=250; }}>V.Fast</button>
         <button class="preset-btn" class:active={filters.minBpm===20&&filters.maxBpm===250}   onclick={() => { filters.minBpm=20;  filters.maxBpm=250; }}>All</button>
       </div>
+    </div>
+    <!-- Vocal / Instrumental -->
+    <div class="sidebar-section">
+      <span class="section-label">VOCALS</span>
+      <div class="scale-toggle">
+        {#each [["all", "All"], ["voice", "Vocals"], ["instrumental", "Instrumental"]] as [val, label]}
+          <button
+            class="scale-btn"
+            class:scale-active={filters.vocalFilter === val}
+            onclick={() => filters.vocalFilter = val as "all" | "voice" | "instrumental"}
+          >{label}</button>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Music only toggle -->
+    <div class="sidebar-section">
+      <label class="toggle-row">
+        <span class="section-label" style="margin-bottom:0;">MUSIC ONLY</span>
+        <button
+          class="toggle-btn"
+          class:toggle-on={filters.musicOnly}
+          onclick={() => filters.musicOnly = !filters.musicOnly}
+          title="Hide tracks classified as non-music"
+          role="switch"
+          aria-checked={filters.musicOnly}
+        >
+          <span class="toggle-knob"></span>
+        </button>
+      </label>
+      <p class="toggle-hint">Shows only tracks the AI confirmed as music (hides unanalyzed too)</p>
     </div>
   </div>
   {:else}
@@ -558,5 +603,56 @@
     border-color: var(--sg-primary, #00f0ff);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0,240,255,0.08);
+  }
+
+  /* ── Music only toggle ── */
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .toggle-btn {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle-btn.toggle-on {
+    background: rgba(0,240,255,0.2);
+    border-color: var(--sg-primary, #00f0ff);
+  }
+
+  .toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sg-outline, #849495);
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle-on .toggle-knob {
+    transform: translateX(14px);
+    background: var(--sg-primary, #00f0ff);
+  }
+
+  .toggle-hint {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    margin: 4px 0 0;
+    opacity: 0.7;
+    line-height: 1.4;
   }
 </style>

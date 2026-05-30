@@ -23,6 +23,8 @@
     filters.selectedScale;
     filters.minBpm;
     filters.maxBpm;
+    filters.musicOnly;
+    filters.vocalFilter;
     displayLimit = 150;
   });
 
