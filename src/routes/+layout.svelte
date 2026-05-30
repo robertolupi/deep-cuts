@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import PlayerBar from '$lib/components/PlayerBar.svelte';
   import TrackDetailPane from '$lib/components/TrackDetailPane.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import { library } from '$lib/stores/library.svelte';
   import { theme } from '$lib/stores/theme.svelte';
 
@@ -28,6 +29,7 @@
   </div>
   <TrackDetailPane />
 </div>
+<Toast />
 
 <style>
   .app-shell {

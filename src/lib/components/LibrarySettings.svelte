@@ -7,13 +7,13 @@
   let path = $state("");
   let isAddLoading = $state(false);
 
-  const directories = $derived(library.directories);
-  const trackCount = $derived(library.trackCount);
-  const isScanning = $derived(library.isScanning);
-  const scanProgress = $derived(library.scanProgress);
-  const scanCurrentFile = $derived(library.scanCurrentFile);
-  const scanProcessedCount = $derived(library.scanProcessedCount);
-  const scanTotalCount = $derived(library.scanTotalCount);
+  const directories    = $derived(library.directories);
+  const trackCount     = $derived(library.trackCount);
+  const isScanning     = $derived(library.isScanning);
+  const scanProgress   = $derived(library.scanProgress);
+  const scanCurrentFile      = $derived(library.scanCurrentFile);
+  const scanProcessedCount   = $derived(library.scanProcessedCount);
+  const scanTotalCount       = $derived(library.scanTotalCount);
 
   async function choosePath() {
     try {
@@ -26,9 +26,7 @@
         }
         ui.showToast("Path selected successfully.", "success");
       }
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
+    } catch (err: any) { ui.showToast(err.toString(), "error"); }
   }
 
   async function addDirectory() {
@@ -39,23 +37,17 @@
     isAddLoading = true;
     try {
       await library.addDirectory(name, path);
-      ui.showToast(`Added folder "${name}" to monitored lists.`, "success");
-      name = "";
-      path = "";
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    } finally {
-      isAddLoading = false;
-    }
+      ui.showToast(`Added folder "${name}" to monitored list.`, "success");
+      name = ""; path = "";
+    } catch (err: any) { ui.showToast(err.toString(), "error"); }
+    finally { isAddLoading = false; }
   }
 
   async function removeDirectory(id: number, folderName: string) {
     try {
       await library.removeDirectory(id);
       ui.showToast(`Stopped watching "${folderName}".`, "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
+    } catch (err: any) { ui.showToast(err.toString(), "error"); }
   }
 
   async function triggerScan() {
@@ -67,154 +59,131 @@
     try {
       await library.triggerScan();
       ui.showToast("Library scanning initiated in background.", "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
+    } catch (err: any) { ui.showToast(err.toString(), "error"); }
   }
 
   async function exportSidecars() {
     try {
       const count = await library.exportSidecars();
       ui.showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
-    } catch (err: any) {
-      ui.showToast(err.toString(), "error");
-    }
+    } catch (err: any) { ui.showToast(err.toString(), "error"); }
   }
 </script>
 
-<div class="settings-panel-layout">
-  <div class="settings-left-col">
-    <!-- Left Side: Folder Registration -->
-    <div class="glass-panel registration-card">
-      <h4>Add Music Library Path</h4>
-      <p class="desc">Register folders containing your MP3, WAV, FLAC, M4A, AIFF, OGG, or OPUS libraries to be monitored and indexed by our acoustic intelligence processors.</p>
-      
-      <div class="form-group">
-        <label for="dir-path">Directory Path</label>
+<div class="settings-layout">
+
+  <!-- Left column -->
+  <div class="settings-left">
+
+    <!-- Add folder card -->
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-title">Add Library Folder</span>
+        <span class="card-subtitle">MP3 · WAV · FLAC · M4A · AIFF · OGG · OPUS</span>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">DIRECTORY PATH</span>
+        <div class="path-row">
+          <input
+            type="text"
+            value={path}
+            placeholder="Select a folder…"
+            readonly
+            class="sg-input path-input"
+          />
+          <button class="sg-btn" onclick={choosePath}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            Browse
+          </button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">COLLECTION NAME</span>
         <input
-          id="dir-path"
           type="text"
-          value={path}
-          placeholder="Select a folder to browse..."
-          readonly
-        />
-        <button class="btn-secondary picker-btn" onclick={choosePath}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-          Select Folder
-        </button>
-      </div>
-
-      <div class="form-group">
-        <label for="col-name">Collection Name</label>
-        <input 
-          id="col-name"
-          type="text" 
-          bind:value={name} 
-          placeholder="e.g., Hi-Res Masters, Chillout Beats" 
+          bind:value={name}
+          placeholder="e.g. Hi-Res Masters, Chillout Beats"
+          class="sg-input"
         />
       </div>
 
-      {#if ui.errorMessage}
-        <div class="alert-box error-alert">
-          <span class="alert-icon">⚠️</span>
-          <span class="alert-text">{ui.errorMessage}</span>
-        </div>
-      {/if}
-
-      {#if ui.successMessage}
-        <div class="alert-box success-alert">
-          <span class="alert-icon">✓</span>
-          <span class="alert-text">{ui.successMessage}</span>
-        </div>
-      {/if}
-
-      <button 
-        class="btn-primary submit-btn" 
-        onclick={addDirectory} 
+      <button
+        class="sg-btn sg-btn-primary submit-btn"
+        onclick={addDirectory}
         disabled={isAddLoading || !path}
       >
         {#if isAddLoading}
-          Registering Folder...
+          <span class="spin-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          </span>
+          Registering…
         {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Register Library Folder
+          Register Folder
         {/if}
       </button>
     </div>
 
-    <!-- Collection Stats Card -->
-    <div class="stat-card glass-panel">
-      <h3>Collection Stats</h3>
-      <div style="display: flex; gap: 1.5rem; align-items: center; margin-top: 0.5rem;">
-        <div>
-          <p class="stat-value" style="font-size: 2.8rem;">{directories.length}</p>
-          <p class="stat-label">Folders Monitored</p>
+    <!-- Stats card -->
+    <div class="sg-card stats-card">
+      <span class="card-title">Collection</span>
+      <div class="stats-row">
+        <div class="stat-item">
+          <span class="stat-value">{directories.length}</span>
+          <span class="stat-label">Folders</span>
         </div>
-        <div style="width: 1px; height: 45px; background: var(--border-color); opacity: 0.6;"></div>
-        <div>
-          <p class="stat-value" style="font-size: 2.8rem; color: var(--color-accent-cyan);">{trackCount}</p>
-          <p class="stat-label">Tracks Indexed</p>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-value stat-cyan">{trackCount.toLocaleString()}</span>
+          <span class="stat-label">Tracks indexed</span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Right Side: Watched Folders Table -->
-  <div class="glass-panel list-card">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+  <!-- Right column: folder list -->
+  <div class="sg-card list-card">
+    <div class="list-header">
       <div>
-        <h4 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Monitored Music Folders</h4>
-        <p class="desc" style="margin: 0.25rem 0 0 0; font-size: 0.82rem;">Active music library folders monitored by Deep Cuts.</p>
+        <span class="card-title">Monitored Folders</span>
+        <span class="card-subtitle">Folders Deep Cuts watches for audio files</span>
       </div>
-      
+
       {#if directories.length > 0}
-        <div class="header-scan-action" style="min-width: 200px; display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+        <div class="scan-actions">
           {#if isScanning}
-            <div class="scanning-status-container" style="padding: 0; gap: 0.4rem; width: 100%;">
-              <div class="scanning-spinner-row" style="justify-content: flex-end; gap: 0.5rem;">
-                <div class="vinyl-spinner-mini active" style="width: 18px; height: 18px;"></div>
-                <div class="scanning-details" style="text-align: right;">
-                  <span class="scanning-title" style="font-size: 0.8rem;">Scanning ({Math.round(scanProgress)}%)</span>
-                  <span class="scanning-subtitle" style="font-size: 0.65rem;">{scanProcessedCount} / {scanTotalCount}</span>
-                </div>
+            <div class="scan-progress">
+              <div class="scan-top-row">
+                <span class="scan-label">Scanning {Math.round(scanProgress)}%</span>
+                <span class="scan-counts">{scanProcessedCount} / {scanTotalCount}</span>
               </div>
-              <div class="progress-bar-container" style="height: 4px; margin-top: 0.1rem;">
-                <div class="progress-bar-fill" style="width: {scanProgress}%"></div>
+              <div class="scan-bar-track">
+                <div class="scan-bar-fill" style="width:{scanProgress}%"></div>
               </div>
-              <!-- Scrolling ticker basename -->
-              <span style="font-size: 0.68rem; color: var(--color-accent-cyan); font-family: monospace; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; text-align: right;" title={scanCurrentFile}>
-                {scanCurrentFile.split(/[/\\]/).pop() || ""}
+              <span class="scan-file" title={scanCurrentFile}>
+                {scanCurrentFile.split(/[/\\]/).pop() ?? ""}
               </span>
             </div>
           {:else}
-            <button
-              class="btn-primary"
-              onclick={triggerScan}
-              style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent-cyan)); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: var(--radius-sm); width: auto;"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem; vertical-align: middle;">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+            <button class="sg-btn sg-btn-primary" onclick={triggerScan}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
-              <span style="vertical-align: middle;">Scan Library</span>
+              Scan Library
             </button>
-            <button
-              class="btn-secondary"
-              onclick={exportSidecars}
-              style="font-size: 0.78rem; padding: 0.35rem 0.9rem; border-radius: var(--radius-sm); width: auto;"
-              title="Write .dc.json sidecar files next to each audio file"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.25rem; vertical-align: middle;">
+            <button class="sg-btn" onclick={exportSidecars} title="Write .dc.json sidecar files next to each audio file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              <span style="vertical-align: middle;">Export Sidecars</span>
+              Export Sidecars
             </button>
           {/if}
         </div>
@@ -222,54 +191,379 @@
     </div>
 
     {#if directories.length > 0}
-      <div class="dir-table-container">
-        <table class="dir-table">
-          <thead>
-            <tr>
-              <th>Collection</th>
-              <th>Absolute Directory Path</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each directories as dir (dir.id)}
-              <tr class="dir-row">
-                <td class="dir-name">
-                  <span class="badge badge-cyan">{dir.name}</span>
-                </td>
-                <td class="dir-path" title={dir.path}>
-                  <code>{dir.path}</code>
-                </td>
-                <td class="dir-actions">
-                  <button
-                    class="btn-delete"
-                    title="Remove Watched Folder"
-                    onclick={() => removeDirectory(dir.id, dir.name)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      <line x1="10" y1="11" x2="10" y2="17"/>
-                      <line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="dir-list">
+        {#each directories as dir (dir.id)}
+          <div class="dir-row">
+            <div class="dir-name-badge">{dir.name}</div>
+            <code class="dir-path" title={dir.path}>{dir.path}</code>
+            <button
+              class="delete-btn"
+              title="Remove folder"
+              onclick={() => removeDirectory(dir.id, dir.name)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
+        {/each}
       </div>
     {:else}
       <div class="empty-dirs">
-        <div class="empty-icon-box">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 8v8M8 12h8"/>
-          </svg>
-        </div>
-        <h5>No Registered Libraries</h5>
-        <p>Your library is empty. Select a music directory folder on the left to activate scanning features.</p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <p>No folders registered yet.</p>
+        <p class="empty-sub">Use the form on the left to add a music directory.</p>
       </div>
     {/if}
   </div>
 </div>
+
+<style>
+  .settings-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    height: 100%;
+    overflow-y: auto;
+    background: var(--sg-surface, #0d1117);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    align-content: start;
+  }
+
+  .settings-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* ── Card ── */
+  .sg-card {
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .list-card {
+    height: fit-content;
+  }
+
+  .card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .card-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .card-subtitle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Form fields ── */
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .field-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--sg-outline, #849495);
+  }
+
+  .sg-input {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--sg-on-surface, #e3e1e9);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+
+  .sg-input::placeholder { color: var(--sg-outline, #849495); opacity: 0.6; }
+  .sg-input:focus { border-color: rgba(0,240,255,0.4); }
+  .sg-input[readonly] { cursor: default; opacity: 0.7; }
+
+  .path-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .path-input { flex: 1; min-width: 0; }
+
+  /* ── Buttons ── */
+  .sg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+
+  .sg-btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.25);
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .sg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .sg-btn-primary {
+    border-color: rgba(0,240,255,0.35);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.08);
+  }
+
+  .sg-btn-primary:hover:not(:disabled) {
+    background: rgba(0,240,255,0.14);
+    border-color: var(--sg-primary, #00f0ff);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .submit-btn { width: 100%; justify-content: center; }
+
+  .spin-icon {
+    display: inline-flex;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* ── Stats card ── */
+  .stats-card { padding: 0.85rem 1rem; }
+
+  .stats-row {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 0.25rem;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--sg-on-surface, #e3e1e9);
+    line-height: 1;
+  }
+
+  .stat-cyan { color: var(--sg-primary, #00f0ff); text-shadow: 0 0 12px rgba(0,240,255,0.3); }
+
+  .stat-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    letter-spacing: 0.06em;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 36px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* ── List card ── */
+  .list-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .scan-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .scan-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 160px;
+    align-items: flex-end;
+  }
+
+  .scan-top-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .scan-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .scan-counts {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+  }
+
+  .scan-bar-track {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .scan-bar-fill {
+    height: 100%;
+    background: var(--sg-primary, #00f0ff);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  .scan-file {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Directory rows ── */
+  .dir-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dir-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.02);
+    transition: border-color 0.15s;
+  }
+
+  .dir-row:hover { border-color: rgba(255,255,255,0.1); }
+
+  .dir-name-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border: 1px solid rgba(0,240,255,0.3);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.07);
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .dir-path {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .delete-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+
+  .delete-btn:hover {
+    color: #ff6b6b;
+    border-color: rgba(255,107,107,0.3);
+    background: rgba(255,107,107,0.07);
+  }
+
+  /* ── Empty state ── */
+  .empty-dirs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2.5rem 1rem;
+    color: var(--sg-outline, #849495);
+    opacity: 0.5;
+    text-align: center;
+  }
+
+  .empty-dirs p {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    margin: 0;
+  }
+
+  .empty-sub { font-size: 10px !important; opacity: 0.7; }
+</style>
