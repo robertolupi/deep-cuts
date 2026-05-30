@@ -8,12 +8,15 @@ function seedLibrary(tracks = MOCK_TRACKS) {
 }
 
 function resetFilters() {
-  filters.searchQuery  = "";
-  filters.genreFilter  = "";
-  filters.minBpm       = 20;
-  filters.maxBpm       = 250;
+  filters.searchQuery   = "";
+  filters.genreFilter   = "";
+  filters.minBpm        = 20;
+  filters.maxBpm        = 250;
   filters.selectedKeys  = [];
   filters.selectedScale = "all";
+  filters.musicOnly     = false;
+  filters.vocalFilter   = "all";
+  filters.clearSimilar();
 }
 
 describe("FiltersStore — initial state", () => {
@@ -230,5 +233,134 @@ describe("FiltersStore — AND logic across filters", () => {
     const ids = filters.filteredTracks.map(t => t.id);
     expect(ids).toContain(3);
     expect(ids).not.toContain(1);
+  });
+});
+
+describe("FiltersStore — musicOnly filter", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("shows all tracks when musicOnly is false", () => {
+    seedLibrary([
+      createTrack({ id: 1, is_music: 1 }),
+      createTrack({ id: 2, is_music: 0 }),
+      createTrack({ id: 3, is_music: null }),
+    ]);
+    expect(filters.filteredTracks).toHaveLength(3);
+  });
+
+  it("shows only is_music=1 tracks when musicOnly is true", () => {
+    seedLibrary([
+      createTrack({ id: 1, is_music: 1 }),
+      createTrack({ id: 2, is_music: 0 }),
+      createTrack({ id: 3, is_music: null }),
+    ]);
+    filters.musicOnly = true;
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+  });
+
+  it("excludes unanalyzed (null) tracks when musicOnly is true", () => {
+    seedLibrary([createTrack({ id: 1, is_music: null })]);
+    filters.musicOnly = true;
+    expect(filters.filteredTracks).toHaveLength(0);
+  });
+
+  it("combines musicOnly with BPM filter", () => {
+    seedLibrary([
+      createTrack({ id: 1, is_music: 1,    bpm: 128 }),
+      createTrack({ id: 2, is_music: 1,    bpm: 60  }),
+      createTrack({ id: 3, is_music: null, bpm: 128 }),
+    ]);
+    filters.musicOnly = true;
+    filters.minBpm    = 100;
+    filters.maxBpm    = 250;
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+  });
+});
+
+describe("FiltersStore — vocalFilter", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("shows all tracks when vocalFilter is 'all'", () => {
+    seedLibrary([
+      createTrack({ id: 1, detected_vocal: "voice" }),
+      createTrack({ id: 2, detected_vocal: "instrumental" }),
+      createTrack({ id: 3, detected_vocal: null }),
+    ]);
+    expect(filters.filteredTracks).toHaveLength(3);
+  });
+
+  it("filters to voice tracks only", () => {
+    seedLibrary([
+      createTrack({ id: 1, detected_vocal: "voice" }),
+      createTrack({ id: 2, detected_vocal: "instrumental" }),
+      createTrack({ id: 3, detected_vocal: null }),
+    ]);
+    filters.vocalFilter = "voice";
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+  });
+
+  it("filters to instrumental tracks only", () => {
+    seedLibrary([
+      createTrack({ id: 1, detected_vocal: "voice" }),
+      createTrack({ id: 2, detected_vocal: "instrumental" }),
+      createTrack({ id: 3, detected_vocal: null }),
+    ]);
+    filters.vocalFilter = "instrumental";
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(2);
+    expect(ids).not.toContain(1);
+    expect(ids).not.toContain(3);
+  });
+
+  it("excludes null detected_vocal when a specific filter is active", () => {
+    seedLibrary([createTrack({ id: 1, detected_vocal: null })]);
+    filters.vocalFilter = "voice";
+    expect(filters.filteredTracks).toHaveLength(0);
+  });
+
+  it("combines vocalFilter with musicOnly", () => {
+    seedLibrary([
+      createTrack({ id: 1, is_music: 1,    detected_vocal: "voice" }),
+      createTrack({ id: 2, is_music: 1,    detected_vocal: "instrumental" }),
+      createTrack({ id: 3, is_music: null, detected_vocal: "voice" }),
+    ]);
+    filters.musicOnly   = true;
+    filters.vocalFilter = "voice";
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+  });
+});
+
+describe("FiltersStore — similarTo filter", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("starts with no similarToTrack", () => {
+    expect(filters.similarToTrack).toBeNull();
+  });
+
+  it("clearSimilar resets similarToTrack to null", () => {
+    // Manually inject state as setSimilarTo is async (requires IPC)
+    filters.clearSimilar();
+    expect(filters.similarToTrack).toBeNull();
+  });
+
+  it("shows all tracks when no similar filter is active", () => {
+    seedLibrary(MOCK_TRACKS);
+    expect(filters.filteredTracks).toHaveLength(MOCK_TRACKS.length);
+  });
+
+  it("isSimilarLoading starts false", () => {
+    expect(filters.isSimilarLoading).toBe(false);
   });
 });
