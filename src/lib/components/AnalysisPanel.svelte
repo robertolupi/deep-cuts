@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { onMount, onDestroy } from "svelte";
+  import { theme } from "$lib/stores/theme.svelte";
 
   interface PassError {
     path: string;
@@ -49,18 +50,44 @@
     'bpm_refinement',
   ];
 
-  const PASS_META: Record<string, { label: string; description: string; color: string }> = {
-    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate',          color: '#00f0ff' },
-    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range',         color: '#00f0ff' },
-    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search',    color: '#fe00fe' },
-    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments',          color: '#fe00fe' },
-    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions',       color: '#c87800' },
-    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier', color: '#76ff03' },
-    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates',    color: '#00f0ff' },
+  // Dark / light color pairs per pass role
+  const PASS_COLORS: Record<string, { dark: string; light: string }> = {
+    audio:       { dark: '#00f0ff', light: '#0284c7' },  // cyan → sky blue
+    neural_pink: { dark: '#fe00fe', light: '#9333ea' },  // magenta → purple
+    amber:       { dark: '#c87800', light: '#b45309' },  // amber stays, slightly darker
+    green:       { dark: '#76ff03', light: '#16a34a' },  // lime → forest green
+    muted:       { dark: '#849495', light: '#64748b' },
   };
 
+  const PASS_ROLE: Record<string, keyof typeof PASS_COLORS> = {
+    audio_analysis:    'audio',
+    bpm_correction:    'audio',
+    bpm_refinement:    'audio',
+    clap:              'neural_pink',
+    qwen:              'neural_pink',
+    description_embed: 'amber',
+    essentia:          'green',
+  };
+
+  const PASS_META: Record<string, { label: string; description: string }> = {
+    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate'          },
+    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range'         },
+    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search'    },
+    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments'          },
+    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions'       },
+    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier' },
+    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates'    },
+  };
+
+  const isLight = $derived(theme.resolvedTheme === 'light');
+
+  function passColor(name: string): string {
+    const role = PASS_ROLE[name] ?? 'muted';
+    return isLight ? PASS_COLORS[role].light : PASS_COLORS[role].dark;
+  }
+
   function passMeta(name: string) {
-    return PASS_META[name] ?? { label: name, description: '', color: '#849495' };
+    return PASS_META[name] ?? { label: name, description: '' };
   }
 
   let stats           = $state<PassStats[]>([]);
@@ -309,13 +336,14 @@
     <div class="passes">
       {#each sortedStats as pass (pass.pass_name)}
         {@const meta   = passMeta(pass.pass_name)}
+        {@const color  = passColor(pass.pass_name)}
         {@const pct    = pass.total > 0 ? (pass.done / pass.total) * 100 : 0}
         {@const active = pass.in_progress > 0}
         <div class="pass-card" class:pass-active={active}>
           <div class="pass-top">
             <div class="pass-info">
               <div class="pass-name-row">
-                <span class="pass-accent" style="background:{meta.color};"></span>
+                <span class="pass-accent" style="background:{color};"></span>
                 <span class="pass-label">{meta.label}</span>
                 {#if active}
                   <span class="pass-running-tag">processing</span>
@@ -343,14 +371,14 @@
 
           <!-- Progress bar -->
           <div class="progress-track">
-            <div class="progress-done" style="width:{pct}%; background:{meta.color};"></div>
-            <div class="progress-running" style="width:{pass.total > 0 ? (pass.in_progress/pass.total)*100 : 0}%; background:{meta.color}44;"></div>
+            <div class="progress-done" style="width:{pct}%; background:{color};"></div>
+            <div class="progress-running" style="width:{pass.total > 0 ? (pass.in_progress/pass.total)*100 : 0}%; background:{color}44;"></div>
             <div class="progress-failed"  style="width:{pass.total > 0 ? (pass.failed/pass.total)*100  : 0}%;"></div>
           </div>
 
           <!-- Counts -->
           <div class="pass-counts">
-            <span class="cnt cnt-done" style="color:{meta.color}">{pass.done} done</span>
+            <span class="cnt cnt-done" style="color:{color}">{pass.done} done</span>
             {#if pass.in_progress > 0}<span class="cnt cnt-progress">{pass.in_progress} running</span>{/if}
             {#if pass.failed > 0}<span class="cnt cnt-failed">{pass.failed} failed</span>{/if}
             {#if pass.pending > 0}<span class="cnt cnt-pending">{pass.pending} pending</span>{/if}

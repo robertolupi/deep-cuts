@@ -421,7 +421,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 6px;
     padding: 0.65rem;
-    background: rgba(13,17,23,0.5);
+    background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 4px;
     margin: 0.65rem 0;
