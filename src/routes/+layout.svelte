@@ -2,6 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import PlayerBar from '$lib/components/PlayerBar.svelte';
+  import TrackDetailPane from '$lib/components/TrackDetailPane.svelte';
   import { library } from '$lib/stores/library.svelte';
   import { theme } from '$lib/stores/theme.svelte';
 
@@ -19,20 +20,31 @@
 </script>
 
 <div class="app-shell" data-theme={theme.currentTheme}>
-  <div class="app-shell-content">
-    {@render children()}
+  <div class="app-left-col">
+    <div class="app-shell-content">
+      {@render children()}
+    </div>
+    <PlayerBar />
   </div>
-  <PlayerBar />
+  <TrackDetailPane />
 </div>
 
 <style>
   .app-shell {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     height: 100vh;
     overflow: hidden;
     background: var(--sg-surface);
     color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .app-left-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .app-shell-content {

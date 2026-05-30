@@ -76,9 +76,6 @@
                 </td>
                 <td class="track-title-cell" title={track.title || track.filename}>
                   <span class="track-primary-title">{track.title || track.filename}</span>
-                  {#if !track.title}
-                    <span class="file-tag">file</span>
-                  {/if}
                 </td>
                 <td class="col-waveform">
                   {#if track.waveform_data}
