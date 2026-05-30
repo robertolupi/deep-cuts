@@ -3,6 +3,7 @@ use std::sync::{Mutex, OnceLock};
 use ort::session::Session;
 use ort::{inputs, value::Tensor};
 use rustfft::{num_complex::Complex, FftPlanner};
+use tokenizers::{Tokenizer, TruncationParams, TruncationDirection, TruncationStrategy};
 use rubato::{
     Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
 };
@@ -353,6 +354,123 @@ pub fn run_clap_audio_embed(
         preprocess_window_at_pct(path, 0.75, app)?,
     ];
     run_clap_inference_pooled(mels)
+}
+
+// ── Sentence Embedding (all-MiniLM-L6-v2) ──────────────────────────────────────
+
+static SESSION_SENTENCE: OnceLock<Result<Mutex<Session>, String>> = OnceLock::new();
+static SENTENCE_TOKENIZER: OnceLock<Result<Tokenizer, String>> = OnceLock::new();
+
+fn load_sentence_session(model_file: &str, app: Option<&tauri::AppHandle>) -> Result<Mutex<Session>, String> {
+    let path = get_model_path(model_file, app);
+    if !path.exists() {
+        return Err(format!(
+            "Embedding model missing: {:?}. Please download it first.",
+            path
+        ));
+    }
+    let builder = Session::builder()
+        .map_err(|e| format!("ORT builder error: {}", e))?;
+
+    let mut configured = builder
+        .with_intra_threads(1)
+        .and_then(|b| b.with_inter_threads(1))
+        .map_err(|e| format!("Failed to configure threading: {}", e))?;
+
+    configured
+        .commit_from_file(&path)
+        .map(Mutex::new)
+        .map_err(|e| format!("Failed to load {}: {}", model_file, e))
+}
+
+fn get_sentence_session(app: Option<&tauri::AppHandle>) -> Result<&'static Mutex<Session>, String> {
+    match SESSION_SENTENCE.get_or_init(|| load_sentence_session("all-minilm-l6-v2.onnx", app)) {
+        Ok(s) => Ok(s),
+        Err(e) => Err(e.clone()),
+    }
+}
+
+fn load_tokenizer(
+    tokenizer_file: &str,
+    max_length: usize,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Tokenizer, String> {
+    let path = get_model_path(tokenizer_file, app);
+    let mut tokenizer = Tokenizer::from_file(path.to_str().unwrap_or(""))
+        .map_err(|e| format!("Failed to load tokenizer {:?}: {}", path, e))?;
+    tokenizer
+        .with_truncation(Some(TruncationParams {
+            max_length,
+            strategy: TruncationStrategy::LongestFirst,
+            direction: TruncationDirection::Right,
+            stride: 0,
+        }))
+        .map_err(|e| format!("Tokenizer truncation config failed: {}", e))?;
+    Ok(tokenizer)
+}
+
+fn get_sentence_tokenizer(app: Option<&tauri::AppHandle>) -> Result<&'static Tokenizer, String> {
+    match SENTENCE_TOKENIZER.get_or_init(|| {
+        load_tokenizer("all-minilm-l6-v2-tokenizer.json", 512, app)
+    }) {
+        Ok(t) => Ok(t),
+        Err(e) => Err(e.clone()),
+    }
+}
+
+/// Encodes `text` into (input_ids, attention_mask, token_type_ids) as i64 vectors.
+fn tokenize(tokenizer: &Tokenizer, text: &str) -> Result<(Vec<i64>, Vec<i64>, Vec<i64>), String> {
+    let enc = tokenizer
+        .encode(text, true)
+        .map_err(|e| format!("Tokenisation failed: {}", e))?;
+
+    let ids: Vec<i64> = enc.get_ids().iter().map(|&v| v as i64).collect();
+    let mask: Vec<i64> = enc.get_attention_mask().iter().map(|&v| v as i64).collect();
+    let type_ids: Vec<i64> = enc.get_type_ids().iter().map(|&v| v as i64).collect();
+    Ok((ids, mask, type_ids))
+}
+
+/// Generates a 384-d L2-normalised sentence embedding using all-MiniLM-L6-v2.
+pub fn run_sentence_embed(
+    text: &str,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Vec<f32>, String> {
+    let tokenizer = get_sentence_tokenizer(app)?;
+    let (ids, mask, type_ids) = tokenize(tokenizer, text)?;
+    let seq_len = ids.len();
+
+    let ids_t = Tensor::from_array(([1, seq_len], ids)).map_err(|e| e.to_string())?;
+    let mask_t = Tensor::from_array(([1, seq_len], mask)).map_err(|e| e.to_string())?;
+    let type_t = Tensor::from_array(([1, seq_len], type_ids)).map_err(|e| e.to_string())?;
+
+    let session_mutex = get_sentence_session(app)?;
+    let mut session = session_mutex.lock().map_err(|e| e.to_string())?;
+
+    let outputs = session
+        .run(inputs![
+            "input_ids"      => ids_t,
+            "attention_mask" => mask_t,
+            "token_type_ids" => type_t
+        ])
+        .map_err(|e| format!("MiniLM inference failed: {}", e))?;
+
+    let out = outputs
+        .get("sentence_embedding")
+        .ok_or("MiniLM output 'sentence_embedding' missing")?;
+
+    let (_, data) = out
+        .try_extract_tensor::<f32>()
+        .map_err(|e| format!("Failed to extract MiniLM output: {}", e))?;
+
+    let embedding: Vec<f32> = data.iter().copied().take(384).collect();
+    
+    // L2 normalization
+    let l2_norm = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
+    if l2_norm > 1e-8 {
+        Ok(embedding.iter().map(|&x| x / l2_norm).collect())
+    } else {
+        Ok(embedding)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

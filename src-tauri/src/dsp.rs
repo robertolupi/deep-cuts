@@ -491,9 +491,89 @@ fn pearson_with_rotation(chroma: &[f64; 12], profile: &[f64; 12], root: usize) -
     if den_c * den_p == 0.0 { 0.0 } else { num / (den_c * den_p) }
 }
 
+fn create_wav_header(num_samples: usize, sample_rate: u32, num_channels: u16, bits_per_sample: u16) -> Vec<u8> {
+    let mut header = Vec::with_capacity(44);
+    let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample / 8) as u32;
+    let block_align = num_channels * (bits_per_sample / 8);
+    let data_size = num_samples * num_channels as usize * (bits_per_sample as usize / 8);
+    let file_size = 36 + data_size;
+
+    header.extend_from_slice(b"RIFF");
+    header.extend_from_slice(&(file_size as u32).to_le_bytes());
+    header.extend_from_slice(b"WAVE");
+    
+    header.extend_from_slice(b"fmt ");
+    header.extend_from_slice(&16u32.to_le_bytes());
+    header.extend_from_slice(&1u16.to_le_bytes());
+    header.extend_from_slice(&num_channels.to_le_bytes());
+    header.extend_from_slice(&sample_rate.to_le_bytes());
+    header.extend_from_slice(&byte_rate.to_le_bytes());
+    header.extend_from_slice(&block_align.to_le_bytes());
+    header.extend_from_slice(&bits_per_sample.to_le_bytes());
+
+    header.extend_from_slice(b"data");
+    header.extend_from_slice(&(data_size as u32).to_le_bytes());
+
+    header
+}
+
+pub fn encode_audio_to_wav(samples: &[f32], sample_rate: u32) -> Vec<u8> {
+    let header = create_wav_header(samples.len(), sample_rate, 1, 16);
+    let mut wav_bytes = header;
+    wav_bytes.reserve(samples.len() * 2);
+    for &sample in samples {
+        let clamped = sample.clamp(-1.0, 1.0);
+        let s = (clamped * 32767.0) as i16;
+        wav_bytes.extend_from_slice(&s.to_le_bytes());
+    }
+    wav_bytes
+}
+
+pub fn base64_encode(data: &[u8]) -> String {
+    const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut i = 0;
+    while i < data.len() {
+        let chunk = &data[i..(i + 3).min(data.len())];
+        i += 3;
+        let mut b = 0u32;
+        for (idx, &byte) in chunk.iter().enumerate() {
+            b |= (byte as u32) << (16 - idx * 8);
+        }
+        let char_count = chunk.len() + 1;
+        for idx in 0..4 {
+            if idx < char_count {
+                let char_idx = ((b >> (18 - idx * 6)) & 0x3F) as usize;
+                result.push(CHARSET[char_idx] as char);
+            } else {
+                result.push('=');
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_base64_encode() {
+        assert_eq!(base64_encode(b"hello"), "aGVsbG8=");
+        assert_eq!(base64_encode(b"world!"), "d29ybGQh");
+        assert_eq!(base64_encode(b""), "");
+    }
+
+    #[test]
+    fn test_encode_audio_to_wav_has_header() {
+        let samples = vec![0.0f32; 100];
+        let wav = encode_audio_to_wav(&samples, 16000);
+        assert_eq!(wav.len(), 44 + 200);
+        assert_eq!(&wav[0..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(&wav[12..16], b"fmt ");
+        assert_eq!(&wav[36..40], b"data");
+    }
 
     #[test]
     fn test_key_names_enharmonics() {

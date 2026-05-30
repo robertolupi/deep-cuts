@@ -29,6 +29,60 @@
   let errorMessage = $state("");
   let unlisteners: Array<() => void> = [];
 
+  // Model existence states
+  interface ModelExistence {
+    qwen_model: boolean;
+    qwen_mmproj: boolean;
+    sentence_model: boolean;
+    sentence_tok: boolean;
+    clap_model: boolean;
+    clap_mel: boolean;
+    essentia_base: boolean;
+    essentia_base_json: boolean;
+    essentia_heads: boolean;
+    qwen_exists: boolean;
+    sentence_exists: boolean;
+    clap_exists: boolean;
+    essentia_exists: boolean;
+    all_exist: boolean;
+  }
+
+  let modelStatus = $state<ModelExistence | null>(null);
+  let isCheckingModels = $state(false);
+  let showModelWarning = $state(false);
+  let hasCopiedCommand = $state(false);
+  let warningDismissed = $state(false);
+
+  async function checkModels() {
+    isCheckingModels = true;
+    try {
+      const status = await invoke<ModelExistence>("check_models_exist");
+      modelStatus = status;
+      if (!status.all_exist && !warningDismissed) {
+        showModelWarning = true;
+      } else if (status.all_exist) {
+        showModelWarning = false;
+      }
+    } catch (e) {
+      console.error("Failed to check model existence:", e);
+    } finally {
+      isCheckingModels = false;
+    }
+  }
+
+  function copyCommand() {
+    navigator.clipboard.writeText("python3 tools/download_models.py");
+    hasCopiedCommand = true;
+    setTimeout(() => {
+      hasCopiedCommand = false;
+    }, 2000);
+  }
+
+  function dismissWarning() {
+    showModelWarning = false;
+    warningDismissed = true;
+  }
+
   // Per-pass throughput tracking: records the done count and wall-clock time at the moment
   // a pass first starts completing tracks, so we can compute actual completions/ms.
   interface ThroughputSample { time: number; done: number; }
@@ -137,9 +191,19 @@
     return `${(ms / 1000).toFixed(1)}s`;
   }
 
+  let checkInterval: any;
+
   onMount(() => {
     checkRunning();
     loadStats();
+    checkModels();
+
+    // Auto-check models every 5 seconds if warning is visible and no active analysis is running
+    checkInterval = setInterval(() => {
+      if (showModelWarning && !isCheckingModels && !isRunning) {
+        checkModels();
+      }
+    }, 5000);
 
     listen("analysis-progress", () => { loadStats(); }).then(u => unlisteners.push(u));
     listen("analysis-complete", () => { isRunning = false; loadStats(); }).then(u => unlisteners.push(u));
@@ -147,6 +211,9 @@
 
   onDestroy(() => {
     unlisteners.forEach(u => u());
+    if (checkInterval) {
+      clearInterval(checkInterval);
+    }
   });
 </script>
 
@@ -176,6 +243,190 @@
       {/if}
     </div>
   </div>
+
+  {#if showModelWarning && modelStatus}
+    <div class="model-warning-pane glass-panel">
+      <div class="warning-pane-header">
+        <div class="warning-pane-title-area">
+          <h3 class="warning-title">
+            <span class="warning-icon">⚠️</span>
+            Neural Network Models Check — Missing Files Detected
+          </h3>
+          <p class="warning-desc">
+            Deep Cuts relies on locally executed neural network models to run classification, acoustic mapping, and audio description passes. Some required files are missing from your local directory structure.
+          </p>
+        </div>
+        <button class="warning-dismiss-btn" onclick={dismissWarning} title="Dismiss Warning">
+          ✕
+        </button>
+      </div>
+
+      <div class="model-groups-grid">
+        <!-- GROUP 1: Essentia Models -->
+        <div class="model-group-card">
+          <div class="model-group-header">
+            <div class="model-group-info">
+              <span class="model-group-name">🎧 Essentia Acoustic Classifier</span>
+              <span class="model-group-feature">Enables BPM, genre, mood, & vocal state detection</span>
+            </div>
+            <span class="badge-status {modelStatus.essentia_exists ? 'badge-status-ok' : 'badge-status-missing'}">
+              {modelStatus.essentia_exists ? '● READY' : '▲ INCOMPLETE'}
+            </span>
+          </div>
+          <div class="model-files-list">
+            <div class="model-file-item">
+              <span class="model-file-name" title="discogs-effnet-bsdynamic-1.onnx">discogs-effnet base model</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.essentia_base ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.essentia_base ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.essentia_base ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+            <div class="model-file-item">
+              <span class="model-file-name" title="discogs-effnet-bsdynamic-1.json">discogs-effnet labels</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.essentia_base_json ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.essentia_base_json ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.essentia_base_json ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+            <div class="model-file-item">
+              <span class="model-file-name" title="9 classification head model files">9 task heads & labels</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.essentia_heads ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.essentia_heads ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.essentia_heads ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 2: CLAP Models -->
+        <div class="model-group-card">
+          <div class="model-group-header">
+            <div class="model-group-info">
+              <span class="model-group-name">🗺️ CLAP Acoustic Embedder</span>
+              <span class="model-group-feature">Enables acoustic mapping on UMAP music projection</span>
+            </div>
+            <span class="badge-status {modelStatus.clap_exists ? 'badge-status-ok' : 'badge-status-missing'}">
+              {modelStatus.clap_exists ? '● READY' : '▲ INCOMPLETE'}
+            </span>
+          </div>
+          <div class="model-files-list">
+            <div class="model-file-item">
+              <span class="model-file-name" title="clap_audio_encoder.onnx">clap_audio_encoder.onnx</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.clap_model ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.clap_model ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.clap_model ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+            <div class="model-file-item">
+              <span class="model-file-name" title="clap_mel_weights.bin">clap_mel_weights.bin</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.clap_mel ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.clap_mel ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.clap_mel ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 3: Qwen Listener -->
+        <div class="model-group-card">
+          <div class="model-group-header">
+            <div class="model-group-info">
+              <span class="model-group-name">🤖 Qwen2-Audio Listener</span>
+              <span class="model-group-feature">Enables prose descriptive text generation</span>
+            </div>
+            <span class="badge-status {modelStatus.qwen_exists ? 'badge-status-ok' : 'badge-status-missing'}">
+              {modelStatus.qwen_exists ? '● READY' : '▲ INCOMPLETE'}
+            </span>
+          </div>
+          <div class="model-files-list">
+            <div class="model-file-item">
+              <span class="model-file-name" title="Qwen2-Audio-7B-Instruct.Q4_K_M.gguf">Audio LLM GGUF (4.7GB)</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.qwen_model ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.qwen_model ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.qwen_model ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+            <div class="model-file-item">
+              <span class="model-file-name" title="Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf">mmproj projection (0.3GB)</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.qwen_mmproj ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.qwen_mmproj ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.qwen_mmproj ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 4: Description Embedder -->
+        <div class="model-group-card">
+          <div class="model-group-header">
+            <div class="model-group-info">
+              <span class="model-group-name">📝 MiniLM Text Embedder</span>
+              <span class="model-group-feature">Enables prose description embedding vector indexing</span>
+            </div>
+            <span class="badge-status {modelStatus.sentence_exists ? 'badge-status-ok' : 'badge-status-missing'}">
+              {modelStatus.sentence_exists ? '● READY' : '▲ INCOMPLETE'}
+            </span>
+          </div>
+          <div class="model-files-list">
+            <div class="model-file-item">
+              <span class="model-file-name" title="all-minilm-l6-v2.onnx">all-minilm-l6-v2.onnx</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.sentence_model ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.sentence_model ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.sentence_model ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+            <div class="model-file-item">
+              <span class="model-file-name" title="all-minilm-l6-v2-tokenizer.json">all-minilm tokenizer</span>
+              <span class="file-status-dot">
+                <span class="dot {modelStatus.sentence_tok ? 'dot-ok' : 'dot-missing'}"></span>
+                <span class="{modelStatus.sentence_tok ? 'text-ok' : 'text-missing'}">
+                  {modelStatus.sentence_tok ? 'Found' : 'Missing'}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="warning-actions-row">
+        <div class="terminal-command-box">
+          <span class="command-text">python3 tools/download_models.py</span>
+          <button class="btn-copy-cmd {hasCopiedCommand ? 'copied' : ''}" onclick={copyCommand}>
+            {hasCopiedCommand ? '✓ Copied' : '❐ Copy Command'}
+          </button>
+        </div>
+
+        <div class="warning-control-buttons">
+          <button class="btn-check-again" onclick={checkModels} disabled={isCheckingModels}>
+            {#if isCheckingModels}
+              <span class="spin-icon">⏳</span> Checking...
+            {:else}
+              <span>🔄 Check Status</span>
+            {/if}
+          </button>
+          <button class="btn-dismiss-warn" onclick={dismissWarning}>
+            Proceed Anyway
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if errorMessage}
     <div class="error-banner">{errorMessage}</div>
@@ -438,5 +689,324 @@
     font-size: 0.72rem;
     color: var(--text-secondary);
     flex-shrink: 0;
+  }
+
+  /* Model warning panel styles */
+  .model-warning-pane {
+    padding: 1.5rem;
+    background: rgba(255, 110, 0, 0.04);
+    border: 2px solid rgba(255, 110, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .model-warning-pane::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, var(--color-accent-yellow), var(--color-accent-magenta));
+  }
+
+  .warning-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .warning-pane-title-area {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .warning-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .warning-title span.warning-icon {
+    font-size: 1.2rem;
+    color: var(--color-accent-yellow);
+    filter: drop-shadow(0 0 4px rgba(249, 217, 118, 0.4));
+  }
+
+  .warning-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-top: 0.35rem;
+    max-width: 800px;
+  }
+
+  .warning-dismiss-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+  }
+
+  .warning-dismiss-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .model-groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin: 1.25rem 0;
+  }
+
+  .model-group-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: var(--transition-smooth);
+  }
+
+  .model-group-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .model-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .model-group-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .model-group-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .model-group-feature {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  /* Compact status badges for groups */
+  .badge-status {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .badge-status-ok {
+    background: rgba(0, 242, 254, 0.08);
+    color: var(--color-accent-cyan);
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.1);
+  }
+
+  .badge-status-missing {
+    background: rgba(255, 0, 127, 0.08);
+    color: var(--color-accent-magenta);
+    border: 1px solid rgba(255, 0, 127, 0.2);
+    box-shadow: 0 0 10px rgba(255, 0, 127, 0.1);
+  }
+
+  .model-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    padding-top: 0.6rem;
+  }
+
+  .model-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+  }
+
+  .model-file-name {
+    font-family: var(--font-mono, monospace);
+    color: var(--text-secondary);
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-status-dot {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 500;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .dot-ok {
+    background-color: var(--color-accent-cyan);
+    box-shadow: 0 0 6px var(--color-accent-cyan);
+  }
+
+  .dot-missing {
+    background-color: var(--color-accent-magenta);
+    box-shadow: 0 0 6px var(--color-accent-magenta);
+  }
+
+  .text-ok {
+    color: var(--color-accent-cyan);
+  }
+
+  .text-missing {
+    color: var(--color-accent-magenta);
+  }
+
+  /* Action container in warning pane */
+  .warning-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .terminal-command-box {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    color: var(--color-accent-yellow);
+    max-width: 500px;
+    flex: 1;
+    min-width: 280px;
+    justify-content: space-between;
+  }
+
+  .command-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: all;
+  }
+
+  .btn-copy-cmd {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .btn-copy-cmd:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-copy-cmd.copied {
+    color: var(--color-accent-cyan);
+    background: rgba(0, 242, 254, 0.08);
+    border-color: rgba(0, 242, 254, 0.3);
+  }
+
+  .warning-control-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .btn-check-again {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .btn-check-again:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-color-hover);
+  }
+
+  .btn-check-again:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .spin-icon {
+    display: inline-block;
+    animation: icon-spin 1s infinite linear;
+  }
+
+  @keyframes icon-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .btn-dismiss-warn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .btn-dismiss-warn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
   }
 </style>

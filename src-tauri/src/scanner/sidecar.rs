@@ -14,6 +14,8 @@ pub mod pass_version {
     pub const ESSENTIA: u32 = 1;
     pub const BPM_CORRECTION: u32 = 1;
     pub const BPM_REFINEMENT: u32 = 1;
+    pub const QWEN: u32 = 1;
+    pub const DESCRIPTION_EMBED: u32 = 1;
 }
 
 /// ML-derived fields persisted alongside each audio file.
@@ -62,6 +64,20 @@ pub struct SidecarMlMetadata {
     pub mood_acoustic: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mood_electronic: Option<f64>,
+    // --- qwen pass ---
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_music: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_genre: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_mood: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_instruments: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    // --- description_embed pass ---
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description_embedding: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -100,7 +116,8 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
                 detected_genre, detected_vocal, detected_vocal_confidence,
                 mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                mood_party, mood_acoustic, mood_electronic
+                mood_party, mood_acoustic, mood_electronic,
+                is_music, ai_genre, ai_mood, ai_instruments, description
          FROM tracks WHERE id = ?1",
         [track_id],
         |row| Ok(SidecarMlMetadata {
@@ -122,6 +139,12 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
             mood_party: row.get(14)?,
             mood_acoustic: row.get(15)?,
             mood_electronic: row.get(16)?,
+            is_music: row.get(17)?,
+            ai_genre: row.get(18)?,
+            ai_mood: row.get(19)?,
+            ai_instruments: row.get(20)?,
+            description: row.get(21)?,
+            description_embedding: None,
         }),
     )?;
 
@@ -140,6 +163,24 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
             .collect();
         if !floats.is_empty() {
             ml_metadata.clap_embedding = Some(floats);
+        }
+    }
+
+    // Read DESCRIPTION embedding blob from description_embeddings and deserialise to Vec<f32>
+    let desc_blob: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT embedding FROM description_embeddings WHERE track_id = ?1",
+            [track_id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(blob) = desc_blob {
+        let floats: Vec<f32> = blob
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .collect();
+        if !floats.is_empty() {
+            ml_metadata.description_embedding = Some(floats);
         }
     }
 
@@ -252,6 +293,46 @@ pub fn restore(
              WHERE track_id = ?2 AND pass_name = 'essentia'",
             rusqlite::params![pass_version::ESSENTIA, track_id],
         )?;
+    }
+
+    // --- qwen ---
+    if sidecar_pass_version(&sidecar, "qwen") >= pass_version::QWEN {
+        conn.execute(
+            "UPDATE tracks SET
+                is_music = COALESCE(?1, is_music),
+                ai_genre = COALESCE(?2, ai_genre),
+                ai_mood = COALESCE(?3, ai_mood),
+                ai_instruments = COALESCE(?4, ai_instruments),
+                description = COALESCE(?5, description)
+             WHERE id = ?6",
+            rusqlite::params![
+                m.is_music, m.ai_genre, m.ai_mood, m.ai_instruments, m.description,
+                track_id,
+            ],
+        )?;
+        conn.execute(
+            "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
+             WHERE track_id = ?2 AND pass_name = 'qwen'",
+            rusqlite::params![pass_version::QWEN, track_id],
+        )?;
+    }
+
+    // --- description_embed ---
+    if sidecar_pass_version(&sidecar, "description_embed") >= pass_version::DESCRIPTION_EMBED {
+        if let Some(floats) = &m.description_embedding {
+            if !floats.is_empty() {
+                let blob: Vec<u8> = floats.iter().flat_map(|&f| f.to_le_bytes()).collect();
+                conn.execute(
+                    "INSERT OR REPLACE INTO description_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                    rusqlite::params![track_id, blob],
+                )?;
+                conn.execute(
+                    "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
+                     WHERE track_id = ?2 AND pass_name = 'description_embed'",
+                    rusqlite::params![pass_version::DESCRIPTION_EMBED, track_id],
+                )?;
+            }
+        }
     }
 
     Ok(())

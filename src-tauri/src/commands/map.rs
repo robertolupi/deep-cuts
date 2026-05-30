@@ -148,10 +148,11 @@ pub fn search_similar_tracks_audio(
     Ok(list)
 }
 
-/// Runs UMAP on all CLAP audio embeddings and persists the 2D coordinates in
-/// `track_coords`. Emits `projection-updated` when done.
+/// Runs UMAP on all CLAP audio embeddings (and optionally blends description embeddings)
+/// and persists the 2D coordinates in `track_coords`. Emits `projection-updated` when done.
 #[tauri::command]
 pub async fn recompute_projection(
+    clap_weight: Option<f64>,
     _algorithm: String,
     _n_neighbors: i32,
     _min_dist: f64,
@@ -161,24 +162,52 @@ pub async fn recompute_projection(
 ) -> Result<usize, String> {
     use tauri::Emitter;
 
-    // Collect all CLAP embeddings
+    // Collect all CLAP and description embeddings
     let (track_ids, blended_vectors) = {
         let conn = conn_state.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
-            .prepare("SELECT ae.track_id, ae.embedding FROM audio_embeddings ae")
+            .prepare(
+                "SELECT t.id, ae.embedding, de.embedding
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id"
+            )
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |row| {
                 let id: i64 = row.get(0)?;
-                let blob: Vec<u8> = row.get(1)?;
-                Ok((id, blob))
+                let clap_blob: Vec<u8> = row.get(1)?;
+                let desc_blob_opt: Option<Vec<u8>> = row.get(2)?;
+                Ok((id, clap_blob, desc_blob_opt))
             })
             .map_err(|e| e.to_string())?;
         let mut ids = Vec::new();
         let mut vecs = Vec::new();
+        let blend_weight = clap_weight.unwrap_or(0.5);
+
         for row in rows.filter_map(|r| r.ok()) {
-            ids.push(row.0);
-            vecs.push(l2_normalize(&bytes_to_floats(&row.1)));
+            let (id, clap_blob, desc_blob_opt) = row;
+            let clap_embed = bytes_to_floats(&clap_blob);
+            let desc_embed_opt = desc_blob_opt.map(|b| bytes_to_floats(&b));
+
+            let blended = if let Some(desc_embed) = desc_embed_opt {
+                let norm_clap = l2_normalize(&clap_embed);
+                let norm_desc = l2_normalize(&desc_embed);
+                
+                let mut vec = Vec::with_capacity(norm_clap.len() + norm_desc.len());
+                for &x in &norm_clap {
+                    vec.push(x * blend_weight as f32);
+                }
+                for &x in &norm_desc {
+                    vec.push(x * (1.0 - blend_weight) as f32);
+                }
+                vec
+            } else {
+                l2_normalize(&clap_embed)
+            };
+
+            ids.push(id);
+            vecs.push(blended);
         }
         (ids, vecs)
     };

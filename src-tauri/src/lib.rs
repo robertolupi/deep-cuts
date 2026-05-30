@@ -9,6 +9,7 @@ mod bpm;
 mod scanner;
 mod analysis;
 mod commands;
+mod llama;
 pub mod error;
 pub mod hardware;
 
@@ -25,7 +26,7 @@ pub fn run() {
         )));
     }
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_drag::init())
         .plugin(
@@ -51,6 +52,10 @@ pub fn run() {
                     log::error!("Database initialization failed: {}", err);
                 }
             }
+            
+            // Manage the thread-safe llama-server background child process
+            app.manage(llama::LlamaServerState { child: Mutex::new(None) });
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,10 +76,21 @@ pub fn run() {
             commands::analysis::get_pass_stats,
             commands::analysis::reset_pass,
             commands::analysis::reset_all_passes,
+            commands::analysis::check_models_exist,
             commands::map::get_projection_coordinates,
             commands::map::search_similar_tracks_audio,
             commands::map::recompute_projection,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        match event {
+            tauri::RunEvent::Exit => {
+                log::info!("[tauri] Deep Cuts application exiting. Cleaning up processes...");
+                llama::terminate_llama_server(app_handle);
+            }
+            _ => {}
+        }
+    });
 }

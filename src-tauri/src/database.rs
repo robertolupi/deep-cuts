@@ -62,6 +62,13 @@ pub struct Track {
     pub mood_party: Option<f64>,
     pub mood_acoustic: Option<f64>,
     pub mood_electronic: Option<f64>,
+
+    // Qwen2-Audio listener results
+    pub is_music: Option<i64>,
+    pub ai_genre: Option<String>,
+    pub ai_mood: Option<String>,
+    pub ai_instruments: Option<String>,
+    pub description: Option<String>,
 }
 
 impl WatchedDirectory {
@@ -105,7 +112,8 @@ impl Track {
                     waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                    mood_party, mood_acoustic, mood_electronic
+                    mood_party, mood_acoustic, mood_electronic,
+                    is_music, ai_genre, ai_mood, ai_instruments, description
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -151,6 +159,11 @@ impl Track {
                 mood_party: row.get(38)?,
                 mood_acoustic: row.get(39)?,
                 mood_electronic: row.get(40)?,
+                is_music: row.get(41)?,
+                ai_genre: row.get(42)?,
+                ai_mood: row.get(43)?,
+                ai_instruments: row.get(44)?,
+                description: row.get(45)?,
             })
         })?;
         let mut list = Vec::new();
@@ -228,6 +241,8 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/07_essentia_columns.sql")),
         M::up(include_str!("../migrations/08_track_passes_version.sql")),
         M::up(include_str!("../migrations/09_bpm_raw.sql")),
+        M::up(include_str!("../migrations/10_qwen_columns.sql")),
+        M::up(include_str!("../migrations/11_description_embeddings.sql")),
     ])
 }
 
@@ -316,7 +331,8 @@ mod tests {
                     waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                    mood_party, mood_acoustic, mood_electronic
+                    mood_party, mood_acoustic, mood_electronic,
+                    is_music, ai_genre, ai_mood, ai_instruments, description
              FROM tracks WHERE title = 'My Song'",
             [],
             |row| {
@@ -362,6 +378,11 @@ mod tests {
                     mood_party: row.get(38)?,
                     mood_acoustic: row.get(39)?,
                     mood_electronic: row.get(40)?,
+                    is_music: row.get(41)?,
+                    ai_genre: row.get(42)?,
+                    ai_mood: row.get(43)?,
+                    ai_instruments: row.get(44)?,
+                    description: row.get(45)?,
                 })
             },
         ).unwrap();

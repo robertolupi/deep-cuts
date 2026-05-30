@@ -139,6 +139,28 @@ pub fn reset_pass(
             [],
         ).map_err(|e| e.to_string())?;
     }
+    if pass_name == "qwen" {
+        conn.execute(
+            "UPDATE tracks SET
+                is_music = NULL,
+                ai_genre = NULL,
+                ai_mood = NULL,
+                ai_instruments = NULL,
+                description = NULL",
+            [],
+        ).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM description_embeddings", [])
+            .map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
+             last_run_at = NULL, duration_ms = NULL WHERE pass_name = 'description_embed'",
+            [pass_status::PENDING],
+        ).map_err(|e| e.to_string())?;
+    }
+    if pass_name == "description_embed" {
+        conn.execute("DELETE FROM description_embeddings", [])
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -154,5 +176,76 @@ pub fn reset_all_passes(
     ).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM audio_embeddings", [])
         .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM description_embeddings", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE tracks SET
+            is_music = NULL,
+            ai_genre = NULL,
+            ai_mood = NULL,
+            ai_instruments = NULL,
+            description = NULL",
+        [],
+    ).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let qwen_model = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(&app));
+    let qwen_mmproj = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(&app));
+    let sentence_model = crate::embeddings::get_model_path("all-minilm-l6-v2.onnx", Some(&app));
+    let sentence_tok = crate::embeddings::get_model_path("all-minilm-l6-v2-tokenizer.json", Some(&app));
+    let clap_model = crate::embeddings::get_model_path("clap_audio_encoder.onnx", Some(&app));
+    let clap_mel = crate::embeddings::get_model_path("clap_mel_weights.bin", Some(&app));
+
+    // Essentia models
+    let essentia_base = crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.onnx", Some(&app));
+    let essentia_base_json = crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.json", Some(&app));
+    
+    // Check all head files
+    let heads = [
+        "genre_discogs400-discogs-effnet-1",
+        "mood_happy-discogs-effnet-1",
+        "mood_sad-discogs-effnet-1",
+        "mood_aggressive-discogs-effnet-1",
+        "mood_relaxed-discogs-effnet-1",
+        "mood_party-discogs-effnet-1",
+        "mood_acoustic-discogs-effnet-1",
+        "mood_electronic-discogs-effnet-1",
+        "voice_instrumental-discogs-effnet-1",
+    ];
+
+    let mut essentia_heads_exist = true;
+    for head in &heads {
+        let onnx_path = crate::embeddings::get_model_path(&format!("{}.onnx", head), Some(&app));
+        let json_path = crate::embeddings::get_model_path(&format!("{}.json", head), Some(&app));
+        if !onnx_path.exists() || !json_path.exists() {
+            essentia_heads_exist = false;
+        }
+    }
+
+    let qwen_exists = qwen_model.exists() && qwen_mmproj.exists();
+    let sentence_exists = sentence_model.exists() && sentence_tok.exists();
+    let clap_exists = clap_model.exists() && clap_mel.exists();
+    let essentia_exists = essentia_base.exists() && essentia_base_json.exists() && essentia_heads_exist;
+
+    let all_exist = qwen_exists && sentence_exists && clap_exists && essentia_exists;
+
+    Ok(serde_json::json!({
+        "qwen_model": qwen_model.exists(),
+        "qwen_mmproj": qwen_mmproj.exists(),
+        "sentence_model": sentence_model.exists(),
+        "sentence_tok": sentence_tok.exists(),
+        "clap_model": clap_model.exists(),
+        "clap_mel": clap_mel.exists(),
+        "essentia_base": essentia_base.exists(),
+        "essentia_base_json": essentia_base_json.exists(),
+        "essentia_heads": essentia_heads_exist,
+        "qwen_exists": qwen_exists,
+        "sentence_exists": sentence_exists,
+        "clap_exists": clap_exists,
+        "essentia_exists": essentia_exists,
+        "all_exist": all_exist,
+    }))
 }

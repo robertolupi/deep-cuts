@@ -92,6 +92,16 @@ impl PipelineManager {
             ).map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'qwen' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::QWEN],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'description_embed' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::DESCRIPTION_EMBED],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'essentia' AND status = ?2 AND pass_version < ?3",
                 rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::ESSENTIA],
             ).map_err(|e| e.to_string())?;
@@ -127,7 +137,21 @@ impl PipelineManager {
                 [pass_status::PENDING],
             ).map_err(|e| e.to_string())?;
 
-            // Backfill essentia pass (priority 50 — runs after clap)
+            // Backfill qwen pass (priority 30 — runs after clap)
+            conn.execute(
+                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+                 SELECT id, 'qwen', 30, ?1 FROM tracks",
+                [pass_status::PENDING],
+            ).map_err(|e| e.to_string())?;
+
+            // Backfill description_embed pass (priority 40 — runs after qwen)
+            conn.execute(
+                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+                 SELECT id, 'description_embed', 40, ?1 FROM tracks",
+                [pass_status::PENDING],
+            ).map_err(|e| e.to_string())?;
+
+            // Backfill essentia pass (priority 50 — runs after description_embed)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'essentia', 50, ?1 FROM tracks",
@@ -442,10 +466,16 @@ impl PipelineManager {
 
             let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "clap" }));
 
-            // ── Phase 3: Essentia classifier (sequential, single-threaded) ────────
+            // ── Phase 3: Qwen listener (sequential, single-threaded) ──────────────
+            run_qwen_phase(&app, &conn_arc);
+
+            // ── Phase 4: Description embedding (sequential, single-threaded) ──────
+            run_description_embed_phase(&app, &conn_arc);
+
+            // ── Phase 5: Essentia classifier (sequential, single-threaded) ────────
             run_essentia_phase(&app, &conn_arc);
 
-            // ── Phase 3b: BPM refinement (precise Discogs-400 genre) ─────────
+            // ── Phase 6: BPM refinement (precise Discogs-400 genre) ─────────
             run_bpm_refinement_phase(&app, &conn_arc);
 
             let _ = app.emit("analysis-complete", ());
@@ -796,4 +826,407 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     let _ = app.emit("analysis-phase-complete", serde_json::json!({
         "pass": "bpm_refinement", "corrected": corrected, "nulled": nulled,
     }));
+}
+
+/// Sequential, thread-safe listener pass running the Qwen2-Audio model.
+fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    let jobs: Vec<SpoolJob> = {
+        let conn = conn_arc.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT tp.id, tp.track_id, t.path
+             FROM track_passes tp
+             JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.status = ?1 AND tp.pass_name = 'qwen'
+             ORDER BY tp.id ASC",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[qwen] Failed to query pending jobs: {}", e);
+                return;
+            }
+        };
+        let rows: Vec<SpoolJob> = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+            })
+            .map(|r| r.filter_map(|x| x.ok()).collect())
+            .unwrap_or_default();
+        for job in &rows {
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+            );
+        }
+        rows
+    };
+
+    if jobs.is_empty() {
+        return;
+    }
+
+    log::info!("[qwen] loaded {} jobs, checking/booting llama-server", jobs.len());
+    
+    // Boot llama-server
+    let guard = match crate::llama::ensure_llama_server_running(app) {
+        Ok(g) => g,
+        Err(err) => {
+            log::error!("[qwen] Failed to boot llama-server: {}", err);
+            // Mark all jobs as failed
+            let conn = conn_arc.lock().unwrap();
+            for job in jobs {
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = 0, last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                    rusqlite::params![pass_status::FAILED, err, job.pass_id],
+                );
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "qwen",
+                    "status": pass_status::FAILED,
+                }));
+            }
+            return;
+        }
+    };
+
+    // Single-threaded sequential processing (Qwen inference is very heavy)
+    for job in jobs {
+        let start = std::time::Instant::now();
+        
+        let result = (|| -> Result<serde_json::Value, String> {
+            // 1. Retrieve BPM/Key/Scale/Genre from DB to build prompt
+            let track_data: (Option<f64>, Option<String>, Option<String>, Option<String>) = {
+                let conn = conn_arc.lock().unwrap();
+                conn.query_row(
+                    "SELECT bpm, key, scale, genre FROM tracks WHERE id = ?1",
+                    [job.track_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                ).map_err(|e| e.to_string())?
+            };
+            
+            let bpm = track_data.0.unwrap_or(120.0);
+            let key = track_data.1.unwrap_or_else(|| "C".to_string());
+            let scale = track_data.2.unwrap_or_else(|| "major".to_string());
+            let genre = track_data.3;
+
+            // 2. Decode audio & resample to 16 kHz
+            let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&job.path)?;
+            let audio_16k_full = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
+            
+            // 3. Take 30 seconds centered midpoint window (15s on each side)
+            let mid_16k = audio_16k_full.len() / 2;
+            let half_16k = 16000 * 15;
+            let start_idx = mid_16k.saturating_sub(half_16k);
+            let end_idx = (mid_16k + half_16k).min(audio_16k_full.len());
+            let audio_window = &audio_16k_full[start_idx..end_idx];
+            
+            // 4. Encode audio to WAV & Base64
+            let wav_bytes = crate::dsp::encode_audio_to_wav(audio_window, 16000);
+            let base64_audio = crate::dsp::base64_encode(&wav_bytes);
+
+            // 5. Formulate prompt
+            let mut prompt = format!(
+                "The measured tempo of this track is approximately {:.0} BPM and the detected key is {} {}.",
+                bpm, key, scale
+            );
+            if let Some(g) = genre {
+                if !g.trim().is_empty() {
+                    prompt.push_str(&format!(
+                        " The file metadata tags this track as \"{}\", though that label may be broad or imprecise.",
+                        g
+                    ));
+                }
+            }
+            prompt.push_str(
+                "\nListen carefully and respond using ONLY the following format, one field per line, nothing else:\n\n\
+                MUSIC: yes or no (is this music, as opposed to speech, podcast, sound effects, or silence?)\n\
+                GENRE: genre and subgenre in a few words\n\
+                MOOD: mood and emotional feel in a few words\n\
+                INSTRUMENTS: main instruments, comma-separated\n\
+                DESCRIPTION: two to three sentences of plain prose describing the track"
+            );
+
+            // 6. HTTP API Call
+            let payload = serde_json::json!({
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": base64_audio,
+                                    "format": "wav"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ]
+            });
+
+            let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", crate::llama::LLAMA_PORT);
+            log::info!("[qwen] Dispatching audio to local llama-server completions endpoint for track {}...", job.track_id);
+            
+            let resp = ureq::post(&api_url)
+                .timeout(std::time::Duration::from_secs(120))
+                .send_json(&payload)
+                .map_err(|e| format!("Completions request to llama-server failed: {}", e))?;
+                
+            let resp_json = resp.into_json::<serde_json::Value>()
+                .map_err(|e| format!("Failed to parse completions response JSON: {}", e))?;
+                
+            let content = resp_json["choices"][0]["message"]["content"]
+                .as_str()
+                .ok_or_else(|| format!("Unexpected JSON response structure from llama-server: {:?}", resp_json))?;
+                
+            // 7. Parse Response
+            let mut is_music = None;
+            let mut ai_genre = None;
+            let mut ai_mood = None;
+            let mut ai_instruments = None;
+            let mut description = None;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if let Some(pos) = trimmed.find(':') {
+                    let key = trimmed[..pos].trim().to_uppercase();
+                    let val = trimmed[pos + 1..].trim().to_string();
+                    if val.is_empty() {
+                        continue;
+                    }
+                    match key.as_str() {
+                        "MUSIC" => {
+                            is_music = Some(if val.to_lowercase().contains("yes") { 1 } else { 0 });
+                        }
+                        "GENRE" => ai_genre = Some(val),
+                        "MOOD" => ai_mood = Some(val),
+                        "INSTRUMENTS" => ai_instruments = Some(val),
+                        "DESCRIPTION" => description = Some(val),
+                        _ => {}
+                    }
+                }
+            }
+
+            Ok(serde_json::json!({
+                "is_music": is_music,
+                "ai_genre": ai_genre,
+                "ai_mood": ai_mood,
+                "ai_instruments": ai_instruments,
+                "description": description
+            }))
+        })();
+
+        let elapsed_ms = start.elapsed().as_millis() as i64;
+        let conn = conn_arc.lock().unwrap();
+
+        match result {
+            Ok(data) => {
+                let is_music_val = data["is_music"].as_i64();
+                let ai_genre_val = data["ai_genre"].as_str();
+                let ai_mood_val = data["ai_mood"].as_str();
+                let ai_instruments_val = data["ai_instruments"].as_str();
+                let description_val = data["description"].as_str();
+
+                let _ = conn.execute(
+                    "UPDATE tracks SET
+                        is_music = ?1,
+                        ai_genre = ?2,
+                        ai_mood = ?3,
+                        ai_instruments = ?4,
+                        description = ?5
+                     WHERE id = ?6",
+                    rusqlite::params![
+                        is_music_val,
+                        ai_genre_val,
+                        ai_mood_val,
+                        ai_instruments_val,
+                        description_val,
+                        job.track_id
+                    ],
+                );
+
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                     pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::DONE, elapsed_ms,
+                        pass_version::QWEN, job.pass_id],
+                );
+                
+                // Save to sidecar
+                if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
+                    log::error!("[qwen] Failed to save sidecar metadata for track {}: {}", job.track_id, e);
+                }
+
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "qwen",
+                    "status": pass_status::DONE,
+                }));
+            }
+            Err(e) => {
+                log::error!("[qwen] Track {} failed: {}", job.track_id, e);
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                );
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "qwen",
+                    "status": pass_status::FAILED,
+                }));
+            }
+        }
+    }
+
+    drop(guard); // Automatic sequential termination of llama-server
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "qwen" }));
+}
+
+/// Description embedding pass utilizing all-MiniLM-L6-v2.
+fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    let jobs: Vec<SpoolJob> = {
+        let conn = conn_arc.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT tp.id, tp.track_id, t.path
+             FROM track_passes tp
+             JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.status = ?1 AND tp.pass_name = 'description_embed'
+             ORDER BY tp.id ASC",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[description_embed] Failed to query pending jobs: {}", e);
+                return;
+            }
+        };
+        let rows: Vec<SpoolJob> = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+            })
+            .map(|r| r.filter_map(|x| x.ok()).collect())
+            .unwrap_or_default();
+        for job in &rows {
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+            );
+        }
+        rows
+    };
+
+    if jobs.is_empty() {
+        return;
+    }
+
+    log::info!("[description_embed] loaded {} jobs, starting sentence embeddings", jobs.len());
+
+    for job in jobs {
+        let start = std::time::Instant::now();
+
+        let result = (|| -> Result<Option<Vec<f32>>, String> {
+            // Retrieve description and other Qwen columns
+            let track_data: (Option<i64>, Option<String>, Option<String>, Option<String>, Option<String>) = {
+                let conn = conn_arc.lock().unwrap();
+                conn.query_row(
+                    "SELECT is_music, description, ai_genre, ai_mood, ai_instruments FROM tracks WHERE id = ?1",
+                    [job.track_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                ).map_err(|e| e.to_string())?
+            };
+
+            let is_music = track_data.0;
+            let description = track_data.1;
+            let ai_genre = track_data.2;
+            let ai_mood = track_data.3;
+            let ai_instruments = track_data.4;
+
+            // If not music, skip entirely
+            if let Some(0) = is_music {
+                log::info!("[description_embed] Track {} marked as non-music. Skipping embedding.", job.track_id);
+                return Ok(None);
+            }
+
+            let desc = match description {
+                Some(d) if !d.trim().is_empty() => d,
+                _ => return Ok(None), // no description, mark done with no embedding
+            };
+
+            // Build concatenated text for richer semantic signal
+            let mut embed_text = String::new();
+            if let Some(g) = ai_genre {
+                if !g.trim().is_empty() {
+                    embed_text.push_str(&format!("Genre: {}. ", g));
+                }
+            }
+            if let Some(m) = ai_mood {
+                if !m.trim().is_empty() {
+                    embed_text.push_str(&format!("Mood: {}. ", m));
+                }
+            }
+            if let Some(i) = ai_instruments {
+                if !i.trim().is_empty() {
+                    embed_text.push_str(&format!("Instruments: {}. ", i));
+                }
+            }
+            embed_text.push_str(&desc);
+
+            let embedding = crate::embeddings::run_sentence_embed(&embed_text, Some(app))?;
+            Ok(Some(embedding))
+        })();
+
+        let elapsed_ms = start.elapsed().as_millis() as i64;
+        let conn = conn_arc.lock().unwrap();
+
+        match result {
+            Ok(emb_opt) => {
+                if let Some(embedding) = emb_opt {
+                    let blob: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
+                    let _ = conn.execute(
+                        "INSERT OR REPLACE INTO description_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                        rusqlite::params![job.track_id, blob],
+                    );
+                }
+
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                     pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::DONE, elapsed_ms,
+                        pass_version::DESCRIPTION_EMBED, job.pass_id],
+                );
+
+                // Save sidecar
+                if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
+                    log::error!("[description_embed] Failed to save sidecar metadata for track {}: {}", job.track_id, e);
+                }
+
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "description_embed",
+                    "status": pass_status::DONE,
+                }));
+            }
+            Err(e) => {
+                log::error!("[description_embed] Track {} failed: {}", job.track_id, e);
+                let _ = conn.execute(
+                    "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                     last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                );
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": job.track_id,
+                    "pass_name": "description_embed",
+                    "status": pass_status::FAILED,
+                }));
+            }
+        }
+    }
+
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "description_embed" }));
 }
