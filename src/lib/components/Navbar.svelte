@@ -1,11 +1,6 @@
 <script lang="ts">
   import { theme } from "$lib/stores/theme.svelte";
-
-  let {
-    activeTab = $bindable(),
-  }: {
-    activeTab: string;
-  } = $props();
+  import { ui } from "$lib/stores/ui.svelte";
 </script>
 
 <header class="navbar glass-panel">
@@ -18,27 +13,27 @@
 
   <!-- Navigation Tabs -->
   <nav class="nav-tabs">
-    <button 
-      class="nav-tab {activeTab === 'dashboard' ? 'active' : ''}" 
-      onclick={() => activeTab = 'dashboard'}
+    <button
+      class="nav-tab {ui.activeView === 'table' ? 'active' : ''}"
+      onclick={() => ui.activeView = 'table'}
     >
       Dashboard
     </button>
     <button
-      class="nav-tab {activeTab === 'music-map' ? 'active' : ''}"
-      onclick={() => activeTab = 'music-map'}
+      class="nav-tab {ui.activeView === 'map' ? 'active' : ''}"
+      onclick={() => ui.activeView = 'map'}
     >
       Music Map
     </button>
     <button
-      class="nav-tab {activeTab === 'analysis' ? 'active' : ''}"
-      onclick={() => activeTab = 'analysis'}
+      class="nav-tab {ui.activeView === 'analysis' ? 'active' : ''}"
+      onclick={() => ui.activeView = 'analysis'}
     >
       Analysis
     </button>
     <button
-      class="nav-tab {activeTab === 'settings' ? 'active' : ''}"
-      onclick={() => activeTab = 'settings'}
+      class="nav-tab {ui.activeView === 'settings' ? 'active' : ''}"
+      onclick={() => ui.activeView = 'settings'}
     >
       Settings
     </button>

@@ -15,22 +15,14 @@
   import { player } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
   import { theme } from "$lib/stores/theme.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
 
   // State managers using Svelte 5 runes
   let tauriConnected = $state(false);
-  let activeTab = $state("dashboard");
-  let mapFocusTrackId = $state<number | null>(null);
-
-  function findSimilar(trackId: number) {
-    mapFocusTrackId = trackId;
-    activeTab = 'music-map';
-  }
 
   // Local Form / Settings States
   let name = $state("");
   let path = $state("");
-  let errorMessage = $state("");
-  let successMessage = $state("");
   let isAddLoading = $state(false);
 
   // Resizable Split Pane Heights
@@ -64,28 +56,28 @@
           const baseName = parts[parts.length - 1] || parts[parts.length - 2] || "Music Library";
           name = baseName;
         }
-        showToast("Path selected successfully.", "success");
+        ui.showToast("Path selected successfully.", "success");
       }
     } catch (err: any) {
-      showToast(err.toString(), "error");
+      ui.showToast(err.toString(), "error");
     }
   }
 
   // Submit and save new directory configuration
   async function addDirectory() {
     if (!name.trim() || !path.trim()) {
-      showToast("Collection Name and Directory Path are required.", "error");
+      ui.showToast("Collection Name and Directory Path are required.", "error");
       return;
     }
 
     isAddLoading = true;
     try {
       await library.addDirectory(name, path);
-      showToast(`Added folder "${name}" to monitored lists.`, "success");
+      ui.showToast(`Added folder "${name}" to monitored lists.`, "success");
       name = "";
       path = "";
     } catch (err: any) {
-      showToast(err.toString(), "error");
+      ui.showToast(err.toString(), "error");
     } finally {
       isAddLoading = false;
     }
@@ -95,51 +87,34 @@
   async function removeDirectory(id: number, folderName: string) {
     try {
       await library.removeDirectory(id);
-      showToast(`Stopped watching "${folderName}".`, "success");
+      ui.showToast(`Stopped watching "${folderName}".`, "success");
     } catch (err: any) {
-      showToast(err.toString(), "error");
+      ui.showToast(err.toString(), "error");
     }
-  }
-
-  // Toast notifier helper
-  let toastTimeout: any;
-  function showToast(msg: string, type: "success" | "error") {
-    clearTimeout(toastTimeout);
-    if (type === "error") {
-      errorMessage = msg;
-      successMessage = "";
-    } else {
-      successMessage = msg;
-      errorMessage = "";
-    }
-    toastTimeout = setTimeout(() => {
-      errorMessage = "";
-      successMessage = "";
-    }, 4500);
   }
 
   // Trigger all library monitoring index scan
   async function triggerScan() {
     if (library.isScanning) return;
     if (library.directories.length === 0) {
-      showToast("Register at least one monitored library directory first.", "error");
+      ui.showToast("Register at least one monitored library directory first.", "error");
       return;
     }
 
     try {
       await library.triggerScan();
-      showToast("Library scanning initiated in background.", "success");
+      ui.showToast("Library scanning initiated in background.", "success");
     } catch (err: any) {
-      showToast(err.toString(), "error");
+      ui.showToast(err.toString(), "error");
     }
   }
 
   async function exportSidecars() {
     try {
       const count = await library.exportSidecars();
-      showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
+      ui.showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
     } catch (err: any) {
-      showToast(err.toString(), "error");
+      ui.showToast(err.toString(), "error");
     }
   }
 
@@ -159,24 +134,24 @@
 
 <div class="app-layout">
   <!-- Top Glass Navigation Bar -->
-  <Navbar bind:activeTab />
+  <Navbar />
 
   <!-- Main Workspace -->
   <main class="workspace">
-    {#if activeTab === 'dashboard'}
+    {#if ui.activeView === 'table'}
       <div class="dashboard-split-layout">
         <!-- Top Pane: Welcome Hero or WaveSurfer audio analyzer -->
         <div class="top-pane-resizable glass-panel" style="height: {topPaneHeight}px">
           {#if selectedTrack === null}
-            <HeroPanel bind:activeTab />
+            <HeroPanel />
           {:else}
             <AudioPlayer />
           {/if}
         </div>
 
         <!-- Draggable Resizer Dividers (mouse handlers moved to Phase 1.7) -->
-        <div 
-          class="split-pane-resizer {isResizing ? 'active' : ''}" 
+        <div
+          class="split-pane-resizer {isResizing ? 'active' : ''}"
           role="separator"
           aria-valuenow={topPaneHeight}
           aria-valuemin={220}
@@ -191,17 +166,16 @@
           {selectedTrack}
           isPlaying={player.isPlaying}
           onTrackSelect={(t) => player.playTrack(t, theme.resolvedTheme, filters.filteredTracks)}
-          bind:activeTab
         />
       </div>
 
-    {:else if activeTab === 'analysis'}
+    {:else if ui.activeView === 'analysis'}
       <AnalysisPanel />
 
-    {:else if activeTab === 'music-map'}
-      <MusicMap bind:focusTrackId={mapFocusTrackId} />
-      
-    {:else if activeTab === 'settings'}
+    {:else if ui.activeView === 'map'}
+      <MusicMap bind:focusTrackId={ui.mapFocusTrackId} />
+
+    {:else if ui.activeView === 'settings'}
       <LibrarySettings
         directories={library.directories}
         trackCount={library.trackCount}
@@ -213,8 +187,8 @@
         bind:path
         bind:name
         {isAddLoading}
-        {errorMessage}
-        {successMessage}
+        errorMessage={ui.errorMessage}
+        successMessage={ui.successMessage}
         {choosePath}
         {addDirectory}
         {removeDirectory}

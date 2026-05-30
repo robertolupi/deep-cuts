@@ -3,19 +3,18 @@
   import RangeSlider from './RangeSlider.svelte';
   import { formatDuration } from '$lib/utils/format';
   import { filters } from '$lib/stores/filters.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
 
   let {
     tracks,
     selectedTrack,
     isPlaying,
     onTrackSelect,
-    activeTab = $bindable()
   }: {
     tracks: Track[];
     selectedTrack: Track | null;
     isPlaying: boolean;
     onTrackSelect: (track: Track) => void;
-    activeTab?: string;
   } = $props();
 
   // BPM filter popup state
@@ -314,11 +313,9 @@
       </div>
       <h5>Your Music Library is Empty</h5>
       <p>Monitored collection folders have not scanned any supported audio files yet.</p>
-      {#if activeTab !== undefined}
-        <button class="btn-primary" onclick={() => activeTab = 'settings'} style="margin-top: 0.5rem;">
-          Go to Library Settings
-        </button>
-      {/if}
+      <button class="btn-primary" onclick={() => ui.activeView = 'settings'} style="margin-top: 0.5rem;">
+        Go to Library Settings
+      </button>
     </div>
   {/if}
 </div>

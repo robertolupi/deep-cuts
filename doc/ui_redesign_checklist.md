@@ -51,13 +51,13 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Update `Navbar.svelte`: remove `currentTheme`/`onThemeChange` props, import store
 - [x] Update `+page.svelte`: remove theme state, call `theme.init()` in `onMount`
 
-### 1.4 — UI store (`src/lib/stores/ui.svelte.ts`)
-- [ ] Create `src/lib/stores/ui.svelte.ts`
-- [ ] Move `activeTab` → `activeView: 'table' | 'map' | 'analysis' | 'settings'`
-- [ ] Move `mapFocusTrackId` into store
-- [ ] Move `showToast()`, toast state (`errorMessage`, `successMessage`, timeout) into store
-- [ ] Update `HeroPanel.svelte` and `TrackList.svelte` to read `activeView` from store
-- [ ] Update `+page.svelte`: remove ui state
+### 1.4 — UI store (`src/lib/stores/ui.svelte.ts`) ✅ complete
+- [x] Create `src/lib/stores/ui.svelte.ts`
+- [x] Move `activeTab` → `activeView: 'table' | 'map' | 'analysis' | 'settings'`
+- [x] Move `mapFocusTrackId` into store
+- [x] Move `showToast()`, toast state (`errorMessage`, `successMessage`, timeout) into store
+- [x] Update `HeroPanel.svelte` and `TrackList.svelte` to read `activeView` from store
+- [x] Update `+page.svelte`: remove ui state
 
 ### 1.5 — Update `Track` type
 - [ ] Add `is_music`, `ai_genre`, `ai_mood`, `ai_instruments`, `description` to `src/lib/types.ts`

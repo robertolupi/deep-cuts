@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { activeTab = $bindable() }: { activeTab: string } = $props();
+  import { ui } from "$lib/stores/ui.svelte";
 </script>
 
 <div class="hero-panel-content">
@@ -10,10 +10,10 @@
     </p>
 
     <div class="hero-buttons">
-      <button class="btn-primary" onclick={() => activeTab = 'settings'} style="font-size: 0.9rem; padding: 0.5rem 1.25rem;">
+      <button class="btn-primary" onclick={() => ui.activeView = 'settings'} style="font-size: 0.9rem; padding: 0.5rem 1.25rem;">
         Configure watched folders
       </button>
-      <button class="btn-secondary" onclick={() => activeTab = 'settings'} style="font-size: 0.9rem; padding: 0.5rem 1.25rem;">
+      <button class="btn-secondary" onclick={() => ui.activeView = 'settings'} style="font-size: 0.9rem; padding: 0.5rem 1.25rem;">
         Monitored Library
       </button>
     </div>
