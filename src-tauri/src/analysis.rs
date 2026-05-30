@@ -51,6 +51,14 @@ struct SpoolJob {
     path: String,
 }
 
+struct ClapSpoolJob {
+    pass_id: i64,
+    track_id: i64,
+    path: String,
+    duration_seconds: i64,
+    waveform_data: Option<String>,
+}
+
 fn emit_pipeline_error(app: &tauri::AppHandle, phase: &str, message: impl Into<String>) {
     let message = message.into();
     log::error!("[pipeline] {} failed: {}", phase, message);
@@ -433,7 +441,7 @@ impl PipelineManager {
                 return;
             }
 
-            let clap_pending: Vec<SpoolJob> = {
+            let clap_pending: Vec<ClapSpoolJob> = {
                 let conn = match lock_analysis_conn(&conn_arc, "clap") {
                     Ok(conn) => conn,
                     Err(e) => {
@@ -443,7 +451,7 @@ impl PipelineManager {
                     }
                 };
                 let mut stmt = match conn.prepare(
-                    "SELECT tp.id, tp.track_id, t.path
+                    "SELECT tp.id, tp.track_id, t.path, t.duration_seconds, t.waveform_data
                      FROM track_passes tp
                      JOIN tracks t ON t.id = tp.track_id
                      WHERE tp.status = ?1 AND tp.pass_name = 'clap'
@@ -460,11 +468,13 @@ impl PipelineManager {
                         return;
                     }
                 };
-                let rows: Vec<SpoolJob> = match stmt.query_map([pass_status::PENDING], |row| {
-                    Ok(SpoolJob {
+                let rows: Vec<ClapSpoolJob> = match stmt.query_map([pass_status::PENDING], |row| {
+                    Ok(ClapSpoolJob {
                         pass_id: row.get(0)?,
                         track_id: row.get(1)?,
                         path: row.get(2)?,
+                        duration_seconds: row.get(3)?,
+                        waveform_data: row.get(4)?,
                     })
                 }) {
                     Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
@@ -513,20 +523,24 @@ impl PipelineManager {
 
                     let start = std::time::Instant::now();
                     let result = (|| -> Result<[Vec<f32>; 3], String> {
+                        let window_pcts = embeddings::select_clap_window_pcts(
+                            job.waveform_data.as_deref(),
+                            job.duration_seconds,
+                        );
                         Ok([
                             embeddings::preprocess_window_at_pct(
                                 &job.path,
-                                0.25,
+                                window_pcts[0],
                                 Some(&app_clone),
                             )?,
                             embeddings::preprocess_window_at_pct(
                                 &job.path,
-                                0.50,
+                                window_pcts[1],
                                 Some(&app_clone),
                             )?,
                             embeddings::preprocess_window_at_pct(
                                 &job.path,
-                                0.75,
+                                window_pcts[2],
                                 Some(&app_clone),
                             )?,
                         ])

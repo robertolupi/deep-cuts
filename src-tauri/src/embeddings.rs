@@ -250,6 +250,80 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+const DEFAULT_CLAP_WINDOW_PCTS: [f64; 3] = [0.25, 0.50, 0.75];
+
+/// Selects three CLAP window centers from the audio-analysis waveform profile.
+///
+/// `waveform_data` is a fixed-size RMS profile over the track duration. We use
+/// its loudest bins as cheap, deterministic targets, then let CLAP decode real
+/// 10 s audio around those percentages.
+pub fn select_clap_window_pcts(waveform_data: Option<&str>, duration_seconds: i64) -> [f64; 3] {
+    let Some(waveform_data) = waveform_data else {
+        return DEFAULT_CLAP_WINDOW_PCTS;
+    };
+    let Ok(waveform) = serde_json::from_str::<Vec<f32>>(waveform_data) else {
+        return DEFAULT_CLAP_WINDOW_PCTS;
+    };
+    if waveform.is_empty() || waveform.iter().all(|v| !v.is_finite() || *v <= 0.0) {
+        return DEFAULT_CLAP_WINDOW_PCTS;
+    }
+
+    let bin_count = waveform.len();
+    let min_sep_bins = if duration_seconds > 0 {
+        ((10.0 / duration_seconds as f64) * bin_count as f64)
+            .ceil()
+            .max(1.0) as usize
+    } else {
+        (bin_count / 12).max(1)
+    };
+
+    let mut ranked: Vec<(usize, f32)> = waveform
+        .iter()
+        .copied()
+        .enumerate()
+        .filter(|(_, v)| v.is_finite())
+        .collect();
+    ranked.sort_by(|(idx_a, energy_a), (idx_b, energy_b)| {
+        energy_b
+            .partial_cmp(energy_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| idx_a.cmp(idx_b))
+    });
+
+    let mut selected: Vec<usize> = Vec::with_capacity(3);
+    for (idx, _) in &ranked {
+        let far_enough = selected
+            .iter()
+            .all(|picked| idx.abs_diff(*picked) >= min_sep_bins);
+        if far_enough {
+            selected.push(*idx);
+        }
+        if selected.len() == 3 {
+            break;
+        }
+    }
+
+    for (idx, _) in ranked {
+        if !selected.contains(&idx) {
+            selected.push(idx);
+        }
+        if selected.len() == 3 {
+            break;
+        }
+    }
+
+    if selected.len() < 3 {
+        return DEFAULT_CLAP_WINDOW_PCTS;
+    }
+
+    selected.sort_unstable();
+    [
+        (selected[0] as f64 + 0.5) / bin_count as f64,
+        (selected[1] as f64 + 0.5) / bin_count as f64,
+        (selected[2] as f64 + 0.5) / bin_count as f64,
+    ]
+}
+
 /// Decodes the full file, resamples to 48 kHz, then extracts a 10 s window centred at `pct`.
 pub fn preprocess_window_at_pct(
     path: &str,
@@ -521,5 +595,29 @@ mod tests {
             compute_clap_log_mel(&signal, filterbank).expect("spectrogram extraction failed");
         assert_eq!(mel_flat.len(), CLAP_MAX_FRAMES * CLAP_N_MELS);
         assert!(mel_flat.iter().all(|&v| v.is_finite()));
+    }
+
+    #[test]
+    fn test_select_clap_window_pcts_uses_loudest_spaced_bins() {
+        let waveform = serde_json::to_string(&vec![
+            0.1, 0.2, 9.0, 0.2, 0.1, 0.3, 8.0, 0.2, 0.1, 0.4, 7.0, 0.2,
+        ])
+        .unwrap();
+
+        let pcts = select_clap_window_pcts(Some(&waveform), 120);
+        assert_eq!(pcts, [2.5 / 12.0, 6.5 / 12.0, 10.5 / 12.0]);
+    }
+
+    #[test]
+    fn test_select_clap_window_pcts_falls_back_for_bad_waveform() {
+        assert_eq!(
+            select_clap_window_pcts(Some("not json"), 120),
+            DEFAULT_CLAP_WINDOW_PCTS
+        );
+        assert_eq!(
+            select_clap_window_pcts(Some("[0,0,0]"), 120),
+            DEFAULT_CLAP_WINDOW_PCTS
+        );
+        assert_eq!(select_clap_window_pcts(None, 120), DEFAULT_CLAP_WINDOW_PCTS);
     }
 }

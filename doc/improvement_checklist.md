@@ -29,7 +29,7 @@ This checklist captures concrete follow-up work found during the repository revi
 ## Embedding & Similarity Quality
 
 - [x] Add base-DSP silence detection storing silence regions and a `has_long_silence` flag.
-- [ ] Replace fixed CLAP windows at 25/50/75% with energy-based non-silent window selection.
+- [x] Replace fixed CLAP windows at 25/50/75% with waveform-based loudest-window selection.
 - [ ] Version and re-run the CLAP pass when energy-based windowing lands.
 - [ ] Implement blended acoustic/semantic similarity using CLAP plus description embeddings.
 - [ ] Add graceful fallback behavior for tracks missing description embeddings.
