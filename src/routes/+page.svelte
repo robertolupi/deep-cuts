@@ -15,21 +15,22 @@
   <Navbar />
 
   <main class="workspace">
-    {#if ui.activeView === 'table'}
+    {#if ui.activeView === 'table' || ui.activeView === 'map'}
       <div class="table-view-layout">
         <FilterSidebar />
-        <TrackList
-          {selectedTrack}
-          isPlaying={player.isPlaying}
-          onTrackSelect={(t) => player.playTrack(t)}
-        />
+        {#if ui.activeView === 'table'}
+          <TrackList
+            {selectedTrack}
+            isPlaying={player.isPlaying}
+            onTrackSelect={(t) => player.playTrack(t)}
+          />
+        {:else}
+          <MusicMap />
+        {/if}
       </div>
 
     {:else if ui.activeView === 'analysis'}
       <AnalysisPanel />
-
-    {:else if ui.activeView === 'map'}
-      <MusicMap bind:focusTrackId={ui.mapFocusTrackId} />
 
     {:else if ui.activeView === 'settings'}
       <LibrarySettings />
