@@ -50,4 +50,11 @@ export interface Track {
   mood_party: number | null;
   mood_acoustic: number | null;
   mood_electronic: number | null;
+
+  // Qwen / LLM analysis results
+  is_music: number | null;
+  ai_genre: string | null;
+  ai_mood: string | null;
+  ai_instruments: string | null;
+  description: string | null;
 }

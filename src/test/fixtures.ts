@@ -47,6 +47,11 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     mood_party: 0.7,
     mood_acoustic: 0.05,
     mood_electronic: 0.9,
+    is_music: 1,
+    ai_genre: null,
+    ai_mood: null,
+    ai_instruments: null,
+    description: null,
     ...overrides,
   };
 }

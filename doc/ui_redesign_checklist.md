@@ -59,9 +59,9 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Update `HeroPanel.svelte` and `TrackList.svelte` to read `activeView` from store
 - [x] Update `+page.svelte`: remove ui state
 
-### 1.5 — Update `Track` type
-- [ ] Add `is_music`, `ai_genre`, `ai_mood`, `ai_instruments`, `description` to `src/lib/types.ts`
-- [ ] Verify `get_tracks` IPC in `lib.rs` returns these fields (check DB schema)
+### 1.5 — Update `Track` type ✅ complete
+- [x] Add `is_music`, `ai_genre`, `ai_mood`, `ai_instruments`, `description` to `src/lib/types.ts`
+- [x] Verify `get_tracks` IPC in `lib.rs` returns these fields (check DB schema)
 
 ### 1.6 — De-prop `LibrarySettings`
 - [ ] `LibrarySettings.svelte` imports `library` store directly (remove 14 props + callbacks)
