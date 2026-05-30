@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { onMount, onDestroy } from "svelte";
+  import { theme } from "$lib/stores/theme.svelte";
 
   interface PassError {
     path: string;
@@ -9,9 +10,6 @@
     duration_ms: number | null;
     last_run_at: string | null;
   }
-
-  // Mirrors pass_status constants in database.rs
-  const PassStatus = { PENDING: 0, IN_PROGRESS: 1, DONE: 2, FAILED: 3 } as const;
 
   interface PassStats {
     pass_name: string;
@@ -24,12 +22,6 @@
     errors: PassError[];
   }
 
-  let stats = $state<PassStats[]>([]);
-  let isRunning = $state(false);
-  let errorMessage = $state("");
-  let unlisteners: Array<() => void> = [];
-
-  // Model existence states
   interface ModelExistence {
     qwen_model: boolean;
     qwen_mmproj: boolean;
@@ -47,22 +39,82 @@
     all_exist: boolean;
   }
 
-  let modelStatus = $state<ModelExistence | null>(null);
-  let isCheckingModels = $state(false);
-  let showModelWarning = $state(false);
-  let hasCopiedCommand = $state(false);
-  let warningDismissed = $state(false);
+  // Ordered by pipeline execution priority (sequential — no two passes run concurrently)
+  const PASS_ORDER = [
+    'audio_analysis',
+    'bpm_correction',
+    'clap',
+    'qwen',
+    'description_embed',
+    'essentia',
+    'bpm_refinement',
+  ];
+
+  // Dark / light color pairs per pass role
+  const PASS_COLORS: Record<string, { dark: string; light: string }> = {
+    audio:       { dark: '#00f0ff', light: '#0284c7' },  // cyan → sky blue
+    neural_pink: { dark: '#fe00fe', light: '#9333ea' },  // magenta → purple
+    amber:       { dark: '#c87800', light: '#b45309' },  // amber stays, slightly darker
+    green:       { dark: '#76ff03', light: '#16a34a' },  // lime → forest green
+    muted:       { dark: '#849495', light: '#64748b' },
+  };
+
+  const PASS_ROLE: Record<string, keyof typeof PASS_COLORS> = {
+    audio_analysis:    'audio',
+    bpm_correction:    'audio',
+    bpm_refinement:    'audio',
+    clap:              'neural_pink',
+    qwen:              'neural_pink',
+    description_embed: 'amber',
+    essentia:          'green',
+  };
+
+  const PASS_META: Record<string, { label: string; description: string }> = {
+    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate'          },
+    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range'         },
+    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search'    },
+    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments'          },
+    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions'       },
+    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier' },
+    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates'    },
+  };
+
+  const isLight = $derived(theme.resolvedTheme === 'light');
+
+  function passColor(name: string): string {
+    const role = PASS_ROLE[name] ?? 'muted';
+    return isLight ? PASS_COLORS[role].light : PASS_COLORS[role].dark;
+  }
+
+  function passMeta(name: string) {
+    return PASS_META[name] ?? { label: name, description: '' };
+  }
+
+  let stats           = $state<PassStats[]>([]);
+  const sortedStats   = $derived(
+    [...stats].sort((a, b) => {
+      const ai = PASS_ORDER.indexOf(a.pass_name);
+      const bi = PASS_ORDER.indexOf(b.pass_name);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    })
+  );
+  let isRunning       = $state(false);
+  let errorMessage    = $state("");
+  let unlisteners: Array<() => void> = [];
+
+  let modelStatus       = $state<ModelExistence | null>(null);
+  let isCheckingModels  = $state(false);
+  let showModelWarning  = $state(false);
+  let hasCopiedCommand  = $state(false);
+  let warningDismissed  = $state(false);
 
   async function checkModels() {
     isCheckingModels = true;
     try {
       const status = await invoke<ModelExistence>("check_models_exist");
       modelStatus = status;
-      if (!status.all_exist && !warningDismissed) {
-        showModelWarning = true;
-      } else if (status.all_exist) {
-        showModelWarning = false;
-      }
+      if (!status.all_exist && !warningDismissed) showModelWarning = true;
+      else if (status.all_exist) showModelWarning = false;
     } catch (e) {
       console.error("Failed to check model existence:", e);
     } finally {
@@ -73,18 +125,11 @@
   function copyCommand() {
     navigator.clipboard.writeText("python3 tools/download_models.py");
     hasCopiedCommand = true;
-    setTimeout(() => {
-      hasCopiedCommand = false;
-    }, 2000);
+    setTimeout(() => { hasCopiedCommand = false; }, 2000);
   }
 
-  function dismissWarning() {
-    showModelWarning = false;
-    warningDismissed = true;
-  }
+  function dismissWarning() { showModelWarning = false; warningDismissed = true; }
 
-  // Per-pass throughput tracking: records the done count and wall-clock time at the moment
-  // a pass first starts completing tracks, so we can compute actual completions/ms.
   interface ThroughputSample { time: number; done: number; }
   let throughputBaseline = new Map<string, ThroughputSample>();
 
@@ -93,12 +138,8 @@
     for (const pass of newStats) {
       const existing = throughputBaseline.get(pass.pass_name);
       if (pass.done > 0 && pass.in_progress > 0) {
-        // Pass is actively running — seed baseline on first completion
-        if (!existing) {
-          throughputBaseline.set(pass.pass_name, { time: now, done: pass.done });
-        }
+        if (!existing) throughputBaseline.set(pass.pass_name, { time: now, done: pass.done });
       } else if (pass.in_progress === 0) {
-        // Pass finished or not started — clear baseline so it reseeds next run
         throughputBaseline.delete(pass.pass_name);
       }
     }
@@ -107,82 +148,29 @@
   function etaForPass(pass: PassStats): number {
     const remaining = pass.pending + pass.in_progress;
     if (remaining <= 0) return 0;
-
     const baseline = throughputBaseline.get(pass.pass_name);
     if (baseline) {
       const elapsedMs = Date.now() - baseline.time;
       const completed = pass.done - baseline.done;
-      if (completed > 0 && elapsedMs > 0) {
-        const throughputPerMs = completed / elapsedMs;
-        return remaining / throughputPerMs;
-      }
+      if (completed > 0 && elapsedMs > 0) return remaining / (completed / elapsedMs);
     }
-
-    // Fallback to avg_duration_ms before any completions arrive
     if (pass.avg_duration_ms) return remaining * pass.avg_duration_ms;
     return 0;
   }
 
-  // Derived state to compute total remaining ETA across all active/pending passes
-  let estimatedTimeRemaining = $derived.by(() => {
+  const estimatedTimeRemaining = $derived.by(() => {
     let totalMs = 0;
-    for (const pass of stats) {
-      totalMs += etaForPass(pass);
-    }
+    for (const pass of stats) totalMs += etaForPass(pass);
     return totalMs;
   });
 
-  function formatEta(ms: number | null): string {
-    if (ms === null || ms <= 0) return "";
+  function formatEta(ms: number): string {
+    if (ms <= 0) return "";
     const seconds = Math.ceil(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    if (secs === 0) return `${mins}m`;
-    return `${mins}m ${secs}s`;
-  }
-
-  async function loadStats() {
-    try {
-      const newStats = await invoke<PassStats[]>("get_pass_stats");
-      updateThroughput(newStats);
-      stats = newStats;
-    } catch (e: any) {
-      console.error("Failed to load pass stats:", e);
-    }
-  }
-
-  async function checkRunning() {
-    isRunning = await invoke<boolean>("is_analysis_running");
-  }
-
-  async function startAnalysis() {
-    errorMessage = "";
-    throughputBaseline.clear();
-    try {
-      await invoke("run_analysis_pipeline");
-      isRunning = true;
-    } catch (e: any) {
-      errorMessage = e?.toString() ?? "Unknown error";
-    }
-  }
-
-  async function resetAll() {
-    try {
-      await invoke("reset_all_passes");
-      await loadStats();
-    } catch (e: any) {
-      errorMessage = e?.toString() ?? "Unknown error";
-    }
-  }
-
-  async function resetPass(passName: string) {
-    try {
-      await invoke("reset_pass", { passName });
-      await loadStats();
-    } catch (e: any) {
-      errorMessage = e?.toString() ?? "Unknown error";
-    }
+    return secs === 0 ? `${mins}m` : `${mins}m ${secs}s`;
   }
 
   function formatMs(ms: number | null): string {
@@ -191,315 +179,230 @@
     return `${(ms / 1000).toFixed(1)}s`;
   }
 
-  let checkInterval: any;
+  async function loadStats() {
+    try {
+      const newStats = await invoke<PassStats[]>("get_pass_stats");
+      updateThroughput(newStats);
+      stats = newStats;
+    } catch (e) { console.error("Failed to load pass stats:", e); }
+  }
+
+  async function startAnalysis() {
+    errorMessage = "";
+    throughputBaseline.clear();
+    try {
+      await invoke("run_analysis_pipeline");
+      isRunning = true;
+    } catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
+  }
+
+  async function resetAll() {
+    try { await invoke("reset_all_passes"); await loadStats(); }
+    catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
+  }
+
+  async function resetPass(passName: string) {
+    try { await invoke("reset_pass", { passName }); await loadStats(); }
+    catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
+  }
+
+  let checkInterval: ReturnType<typeof setInterval>;
 
   onMount(() => {
-    checkRunning();
+    invoke<boolean>("is_analysis_running").then(v => { isRunning = v; });
     loadStats();
     checkModels();
-
-    // Auto-check models every 5 seconds if warning is visible and no active analysis is running
     checkInterval = setInterval(() => {
-      if (showModelWarning && !isCheckingModels && !isRunning) {
-        checkModels();
-      }
+      if (showModelWarning && !isCheckingModels && !isRunning) checkModels();
     }, 5000);
-
-    listen("analysis-progress", () => { loadStats(); }).then(u => unlisteners.push(u));
+    listen("analysis-progress", () => loadStats()).then(u => unlisteners.push(u));
     listen("analysis-complete", () => { isRunning = false; loadStats(); }).then(u => unlisteners.push(u));
   });
 
   onDestroy(() => {
     unlisteners.forEach(u => u());
-    if (checkInterval) {
-      clearInterval(checkInterval);
-    }
+    clearInterval(checkInterval);
   });
 </script>
 
 <div class="analysis-panel">
-  <div class="analysis-header glass-panel">
-    <div>
-      <h2 class="panel-title">Audio Analysis</h2>
-      <p class="panel-subtitle">Compute BPM, key, loudness, waveforms, and neural embeddings for your library.</p>
+
+  <!-- Header -->
+  <div class="panel-header">
+    <div class="header-left">
+      <h2 class="panel-title">Analysis Pipeline</h2>
+      <p class="panel-subtitle">BPM · Key · Loudness · Waveforms · Genre · Mood · CLAP · AI Description</p>
     </div>
-    <div class="header-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+    <div class="header-actions">
       {#if isRunning}
         {#if estimatedTimeRemaining > 0}
-          <span class="eta-global" style="font-size: 0.8rem; color: var(--text-secondary); font-family: var(--font-mono, monospace);">
-            ⏱️ {formatEta(estimatedTimeRemaining)} remaining
-          </span>
+          <span class="eta-label">~{formatEta(estimatedTimeRemaining)} remaining</span>
         {/if}
-        <span class="badge badge-cyan pulse-glow-cyan">Running…</span>
+        <span class="running-badge">
+          <span class="pulse-dot"></span> Running
+        </span>
       {:else}
-        <button class="btn-primary" onclick={startAnalysis}>
+        <button class="action-btn action-btn-primary" onclick={startAnalysis}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
           Run Analysis
         </button>
         {#if stats.length > 0}
-          <button class="btn-secondary" onclick={resetAll} style="margin-left: 0.5rem;">
-            Reset All
-          </button>
+          <button class="action-btn" onclick={resetAll}>Reset All</button>
         {/if}
       {/if}
     </div>
   </div>
 
-  {#if showModelWarning && modelStatus}
-    <div class="model-warning-pane glass-panel">
-      <div class="warning-pane-header">
-        <div class="warning-pane-title-area">
-          <h3 class="warning-title">
-            <span class="warning-icon">⚠️</span>
-            Neural Network Models Check — Missing Files Detected
-          </h3>
-          <p class="warning-desc">
-            Deep Cuts relies on locally executed neural network models to run classification, acoustic mapping, and audio description passes. Some required files are missing from your local directory structure.
-          </p>
-        </div>
-        <button class="warning-dismiss-btn" onclick={dismissWarning} title="Dismiss Warning">
-          ✕
-        </button>
-      </div>
-
-      <div class="model-groups-grid">
-        <!-- GROUP 1: Essentia Models -->
-        <div class="model-group-card">
-          <div class="model-group-header">
-            <div class="model-group-info">
-              <span class="model-group-name">🎧 Essentia Acoustic Classifier</span>
-              <span class="model-group-feature">Enables BPM, genre, mood, & vocal state detection</span>
-            </div>
-            <span class="badge-status {modelStatus.essentia_exists ? 'badge-status-ok' : 'badge-status-missing'}">
-              {modelStatus.essentia_exists ? '● READY' : '▲ INCOMPLETE'}
-            </span>
-          </div>
-          <div class="model-files-list">
-            <div class="model-file-item">
-              <span class="model-file-name" title="discogs-effnet-bsdynamic-1.onnx">discogs-effnet base model</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.essentia_base ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.essentia_base ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.essentia_base ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-            <div class="model-file-item">
-              <span class="model-file-name" title="discogs-effnet-bsdynamic-1.json">discogs-effnet labels</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.essentia_base_json ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.essentia_base_json ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.essentia_base_json ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-            <div class="model-file-item">
-              <span class="model-file-name" title="9 classification head model files">9 task heads & labels</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.essentia_heads ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.essentia_heads ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.essentia_heads ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- GROUP 2: CLAP Models -->
-        <div class="model-group-card">
-          <div class="model-group-header">
-            <div class="model-group-info">
-              <span class="model-group-name">🗺️ CLAP Acoustic Embedder</span>
-              <span class="model-group-feature">Enables acoustic mapping on UMAP music projection</span>
-            </div>
-            <span class="badge-status {modelStatus.clap_exists ? 'badge-status-ok' : 'badge-status-missing'}">
-              {modelStatus.clap_exists ? '● READY' : '▲ INCOMPLETE'}
-            </span>
-          </div>
-          <div class="model-files-list">
-            <div class="model-file-item">
-              <span class="model-file-name" title="clap_audio_encoder.onnx">clap_audio_encoder.onnx</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.clap_model ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.clap_model ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.clap_model ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-            <div class="model-file-item">
-              <span class="model-file-name" title="clap_mel_weights.bin">clap_mel_weights.bin</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.clap_mel ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.clap_mel ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.clap_mel ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- GROUP 3: Qwen Listener -->
-        <div class="model-group-card">
-          <div class="model-group-header">
-            <div class="model-group-info">
-              <span class="model-group-name">🤖 Qwen2-Audio Listener</span>
-              <span class="model-group-feature">Enables prose descriptive text generation</span>
-            </div>
-            <span class="badge-status {modelStatus.qwen_exists ? 'badge-status-ok' : 'badge-status-missing'}">
-              {modelStatus.qwen_exists ? '● READY' : '▲ INCOMPLETE'}
-            </span>
-          </div>
-          <div class="model-files-list">
-            <div class="model-file-item">
-              <span class="model-file-name" title="Qwen2-Audio-7B-Instruct.Q4_K_M.gguf">Audio LLM GGUF (4.7GB)</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.qwen_model ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.qwen_model ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.qwen_model ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-            <div class="model-file-item">
-              <span class="model-file-name" title="Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf">mmproj projection (0.3GB)</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.qwen_mmproj ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.qwen_mmproj ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.qwen_mmproj ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- GROUP 4: Description Embedder -->
-        <div class="model-group-card">
-          <div class="model-group-header">
-            <div class="model-group-info">
-              <span class="model-group-name">📝 MiniLM Text Embedder</span>
-              <span class="model-group-feature">Enables prose description embedding vector indexing</span>
-            </div>
-            <span class="badge-status {modelStatus.sentence_exists ? 'badge-status-ok' : 'badge-status-missing'}">
-              {modelStatus.sentence_exists ? '● READY' : '▲ INCOMPLETE'}
-            </span>
-          </div>
-          <div class="model-files-list">
-            <div class="model-file-item">
-              <span class="model-file-name" title="all-minilm-l6-v2.onnx">all-minilm-l6-v2.onnx</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.sentence_model ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.sentence_model ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.sentence_model ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-            <div class="model-file-item">
-              <span class="model-file-name" title="all-minilm-l6-v2-tokenizer.json">all-minilm tokenizer</span>
-              <span class="file-status-dot">
-                <span class="dot {modelStatus.sentence_tok ? 'dot-ok' : 'dot-missing'}"></span>
-                <span class="{modelStatus.sentence_tok ? 'text-ok' : 'text-missing'}">
-                  {modelStatus.sentence_tok ? 'Found' : 'Missing'}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="warning-actions-row">
-        <div class="terminal-command-box">
-          <span class="command-text">python3 tools/download_models.py</span>
-          <button class="btn-copy-cmd {hasCopiedCommand ? 'copied' : ''}" onclick={copyCommand}>
-            {hasCopiedCommand ? '✓ Copied' : '❐ Copy Command'}
-          </button>
-        </div>
-
-        <div class="warning-control-buttons">
-          <button class="btn-check-again" onclick={checkModels} disabled={isCheckingModels}>
-            {#if isCheckingModels}
-              <span class="spin-icon">⏳</span> Checking...
-            {:else}
-              <span>🔄 Check Status</span>
-            {/if}
-          </button>
-          <button class="btn-dismiss-warn" onclick={dismissWarning}>
-            Proceed Anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
-
   {#if errorMessage}
     <div class="error-banner">{errorMessage}</div>
   {/if}
 
+  <!-- Model warning -->
+  {#if showModelWarning && modelStatus}
+    <div class="model-warning">
+      <div class="warning-title-row">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c87800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span class="warning-title-text">Missing neural network model files</span>
+        <button class="warning-close" onclick={dismissWarning}>×</button>
+      </div>
+
+      <div class="model-groups">
+        {#each [
+          { key: 'essentia_exists', label: 'Essentia Classifier', files: [
+            { label: 'discogs-effnet base', ok: modelStatus.essentia_base },
+            { label: 'discogs-effnet labels', ok: modelStatus.essentia_base_json },
+            { label: '9 task heads', ok: modelStatus.essentia_heads },
+          ]},
+          { key: 'clap_exists', label: 'CLAP Embedder', files: [
+            { label: 'clap_audio_encoder.onnx', ok: modelStatus.clap_model },
+            { label: 'clap_mel_weights.bin', ok: modelStatus.clap_mel },
+          ]},
+          { key: 'qwen_exists', label: 'Qwen Audio LLM', files: [
+            { label: 'LLM GGUF (4.7 GB)', ok: modelStatus.qwen_model },
+            { label: 'mmproj (0.3 GB)', ok: modelStatus.qwen_mmproj },
+          ]},
+          { key: 'sentence_exists', label: 'MiniLM Text Embedder', files: [
+            { label: 'all-minilm-l6-v2.onnx', ok: modelStatus.sentence_model },
+            { label: 'all-minilm tokenizer', ok: modelStatus.sentence_tok },
+          ]},
+        ] as group}
+          {@const groupOk = modelStatus[group.key as keyof ModelExistence] as boolean}
+          <div class="model-group" class:group-ok={groupOk} class:group-missing={!groupOk}>
+            <div class="group-header">
+              <span class="group-label">{group.label}</span>
+              <span class="group-status">{groupOk ? '● OK' : '▲ MISSING'}</span>
+            </div>
+            {#each group.files as f}
+              <div class="model-file">
+                <span class="file-dot" class:dot-ok={f.ok} class:dot-missing={!f.ok}></span>
+                <span class="file-label">{f.label}</span>
+                <span class="file-status" class:file-ok={f.ok} class:file-missing={!f.ok}>
+                  {f.ok ? 'found' : 'missing'}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+
+      <div class="warning-footer">
+        <div class="cmd-box">
+          <code>python3 tools/download_models.py</code>
+          <button class="cmd-copy" class:copied={hasCopiedCommand} onclick={copyCommand}>
+            {hasCopiedCommand ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+        <div class="warning-actions">
+          <button class="action-btn" onclick={checkModels} disabled={isCheckingModels}>
+            {isCheckingModels ? 'Checking…' : 'Re-check'}
+          </button>
+          <button class="action-btn-ghost" onclick={dismissWarning}>Proceed anyway</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Pass cards -->
   {#if stats.length === 0}
-    <div class="empty-state glass-panel">
-      <p>No analysis data yet. Run analysis to get started.</p>
+    <div class="empty-state">
+      <p>No analysis data yet — run the pipeline to get started.</p>
     </div>
   {:else}
-    {#each stats as pass (pass.pass_name)}
-      <div class="pass-card glass-panel">
-        <div class="pass-header">
-          <div class="pass-title-row">
-            <span class="pass-name">{pass.pass_name}</span>
-            <span class="pass-counts">
-              <span class="count-done">{pass.done} done</span>
-              {#if pass.in_progress > 0}<span class="count-progress"> · {pass.in_progress} running</span>{/if}
-              {#if pass.failed > 0}<span class="count-failed"> · {pass.failed} failed</span>{/if}
-              {#if pass.pending > 0}<span class="count-pending"> · {pass.pending} pending</span>{/if}
-              <span class="count-total"> / {pass.total}</span>
+    <div class="passes">
+      {#each sortedStats as pass (pass.pass_name)}
+        {@const meta   = passMeta(pass.pass_name)}
+        {@const color  = passColor(pass.pass_name)}
+        {@const pct    = pass.total > 0 ? (pass.done / pass.total) * 100 : 0}
+        {@const active = pass.in_progress > 0}
+        <div class="pass-card" class:pass-active={active}>
+          <div class="pass-top">
+            <div class="pass-info">
+              <div class="pass-name-row">
+                <span class="pass-accent" style="background:{color};"></span>
+                <span class="pass-label">{meta.label}</span>
+                {#if active}
+                  <span class="pass-running-tag">processing</span>
+                {/if}
+              </div>
+              {#if meta.description}
+                <span class="pass-desc">{meta.description}</span>
+              {/if}
+            </div>
+            <div class="pass-right">
               {#if isRunning && (pass.pending > 0 || pass.in_progress > 0)}
                 {@const eta = etaForPass(pass)}
                 {#if eta > 0}
-                  <span class="count-eta" style="color: var(--accent-cyan); font-weight: 500;">
-                    · {formatEta(eta)} remaining
-                  </span>
+                  <span class="pass-eta">~{formatEta(eta)}</span>
                 {/if}
               {/if}
-            </span>
-            {#if pass.avg_duration_ms !== null}
-              <span class="avg-duration">avg {formatMs(pass.avg_duration_ms)}</span>
-            {/if}
+              {#if pass.avg_duration_ms !== null}
+                <span class="pass-avg">avg {formatMs(pass.avg_duration_ms)}</span>
+              {/if}
+              {#if !isRunning}
+                <button class="reset-btn" onclick={() => resetPass(pass.pass_name)}>Reset</button>
+              {/if}
+            </div>
           </div>
-          <div class="progress-bar-track">
-            <div
-              class="progress-bar-done"
-              style="width: {pass.total > 0 ? (pass.done / pass.total) * 100 : 0}%"
-            ></div>
-            <div
-              class="progress-bar-running"
-              style="width: {pass.total > 0 ? (pass.in_progress / pass.total) * 100 : 0}%"
-            ></div>
-            <div
-              class="progress-bar-failed"
-              style="width: {pass.total > 0 ? (pass.failed / pass.total) * 100 : 0}%"
-            ></div>
+
+          <!-- Progress bar -->
+          <div class="progress-track">
+            <div class="progress-done" style="width:{pct}%; background:{color};"></div>
+            <div class="progress-running" style="width:{pass.total > 0 ? (pass.in_progress/pass.total)*100 : 0}%; background:{color}44;"></div>
+            <div class="progress-failed"  style="width:{pass.total > 0 ? (pass.failed/pass.total)*100  : 0}%;"></div>
           </div>
-          {#if !isRunning}
-            <button class="btn-ghost-sm" onclick={() => resetPass(pass.pass_name)}>Reset</button>
+
+          <!-- Counts -->
+          <div class="pass-counts">
+            <span class="cnt cnt-done" style="color:{color}">{pass.done} done</span>
+            {#if pass.in_progress > 0}<span class="cnt cnt-progress">{pass.in_progress} running</span>{/if}
+            {#if pass.failed > 0}<span class="cnt cnt-failed">{pass.failed} failed</span>{/if}
+            {#if pass.pending > 0}<span class="cnt cnt-pending">{pass.pending} pending</span>{/if}
+            <span class="cnt cnt-total">/ {pass.total}</span>
+          </div>
+
+          <!-- Error list -->
+          {#if pass.errors.length > 0}
+            <details class="error-details">
+              <summary>{pass.errors.length} failed track{pass.errors.length !== 1 ? 's' : ''}</summary>
+              <div class="error-list">
+                {#each pass.errors as err}
+                  <div class="error-row">
+                    <code class="error-path">{err.path.split('/').pop()}</code>
+                    {#if err.log}<span class="error-log">{err.log}</span>{/if}
+                    {#if err.duration_ms !== null}<span class="error-dur">{formatMs(err.duration_ms)}</span>{/if}
+                  </div>
+                {/each}
+              </div>
+            </details>
           {/if}
         </div>
-
-        {#if pass.errors.length > 0}
-          <details class="error-details">
-            <summary>{pass.errors.length} failed track{pass.errors.length !== 1 ? 's' : ''}</summary>
-            <div class="error-list">
-              {#each pass.errors as err}
-                <div class="error-row">
-                  <code class="error-path" title={err.path}>{err.path.split('/').pop()}</code>
-                  {#if err.log}
-                    <span class="error-log">{err.log}</span>
-                  {/if}
-                  {#if err.duration_ms !== null}
-                    <span class="error-dur">{formatMs(err.duration_ms)}</span>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </details>
-        {/if}
-      </div>
-    {/each}
+      {/each}
+    </div>
   {/if}
 </div>
 
@@ -507,30 +410,44 @@
   .analysis-panel {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem;
+    gap: 0.85rem;
+    padding: 1rem 1.25rem;
     height: 100%;
     overflow-y: auto;
+    background: var(--sg-surface, #0d1117);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
   }
 
-  .analysis-header {
+  /* ── Header ── */
+  .panel-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.25rem;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    flex-shrink: 0;
   }
 
   .panel-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 0.25rem 0;
-    color: var(--text-primary);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sg-on-surface, #e3e1e9);
+    margin: 0 0 3px;
   }
 
   .panel-subtitle {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
     margin: 0;
+    letter-spacing: 0.05em;
   }
 
   .header-actions {
@@ -540,473 +457,462 @@
     flex-shrink: 0;
   }
 
+  .eta-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+  }
+
+  .running-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-primary, #00f0ff);
+    padding: 4px 10px;
+    border: 1px solid rgba(0,240,255,0.3);
+    border-radius: 999px;
+    background: rgba(0,240,255,0.07);
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--sg-primary, #00f0ff);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.25);
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .action-btn-primary {
+    border-color: rgba(0,240,255,0.35);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.08);
+  }
+
+  .action-btn-primary:hover {
+    background: rgba(0,240,255,0.14) !important;
+    border-color: var(--sg-primary, #00f0ff) !important;
+    color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  .action-btn-ghost {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    padding: 5px 8px;
+  }
+
+  .action-btn-ghost:hover { color: var(--sg-on-surface, #e3e1e9); }
+
+  /* ── Error banner ── */
   .error-banner {
-    background: rgba(255, 80, 80, 0.12);
-    border: 1px solid rgba(255, 80, 80, 0.3);
-    border-radius: var(--radius-sm);
     padding: 0.6rem 1rem;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+    border: 1px solid rgba(255,80,80,0.3);
+    border-radius: 4px;
+    background: rgba(255,80,80,0.08);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #ff6b6b;
   }
 
-  .empty-state {
-    padding: 2rem;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-  }
-
-  .pass-card {
-    padding: 1rem 1.25rem;
+  /* ── Model warning ── */
+  .model-warning {
+    padding: 1rem;
+    background: rgba(200,120,0,0.06);
+    border: 1px solid rgba(200,120,0,0.25);
+    border-left: 3px solid #c87800;
+    border-radius: 6px;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.85rem;
   }
 
-  .pass-header {
+  .warning-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .warning-title-text {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #c87800;
+    flex: 1;
+  }
+
+  .warning-close {
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+  }
+
+  .model-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.65rem;
+  }
+
+  .model-group {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 5px;
+    background: rgba(255,255,255,0.02);
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 4px;
   }
 
-  .pass-title-row {
+  .group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .group-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .group-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+  }
+
+  .group-ok .group-status   { color: var(--sg-primary, #00f0ff); }
+  .group-missing .group-status { color: var(--sg-secondary, #fe00fe); }
+
+  .model-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .file-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-ok      { background: var(--sg-primary, #00f0ff); box-shadow: 0 0 4px rgba(0,240,255,0.5); }
+  .dot-missing { background: var(--sg-secondary, #fe00fe); }
+
+  .file-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-status { font-family: "JetBrains Mono", monospace; font-size: 9px; }
+  .file-ok     { color: var(--sg-primary, #00f0ff); }
+  .file-missing{ color: var(--sg-secondary, #fe00fe); }
+
+  .warning-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .cmd-box {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 5px 10px;
+    flex: 1;
+    min-width: 240px;
+  }
+
+  .cmd-box code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #c87800;
+    flex: 1;
+    user-select: all;
+  }
+
+  .cmd-copy {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    padding: 2px 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+
+  .cmd-copy.copied {
+    border-color: rgba(0,240,255,0.3);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.08);
+  }
+
+  .warning-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--sg-outline, #849495);
+    opacity: 0.6;
+  }
+
+  /* ── Pass cards ── */
+  .passes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pass-card {
+    padding: 0.85rem 1rem;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .pass-active {
+    border-color: rgba(0,240,255,0.2);
+  }
+
+  .pass-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .pass-name-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .pass-accent {
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .pass-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .pass-running-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,240,255,0.3);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.07);
+    animation: pulse-border 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: rgba(0,240,255,0.3); }
+    50%       { border-color: rgba(0,240,255,0.7); }
+  }
+
+  .pass-desc {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    margin-top: 2px;
+    display: block;
+  }
+
+  .pass-right {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-shrink: 0;
+  }
+
+  .pass-eta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .pass-avg {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    opacity: 0.7;
+  }
+
+  .reset-btn {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    padding: 3px 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .reset-btn:hover {
+    border-color: rgba(0,240,255,0.3);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  /* ── Progress bar ── */
+  .progress-track {
+    height: 3px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .progress-done    { height: 100%; transition: width 0.3s ease; }
+  .progress-running { height: 100%; transition: width 0.3s ease; }
+  .progress-failed  { height: 100%; background: #ff6b6b; transition: width 0.3s ease; }
+
+  /* ── Counts ── */
+  .pass-counts {
+    display: flex;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
-  .pass-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-family: var(--font-mono, monospace);
+  .cnt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
   }
 
-  .pass-counts {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-  }
+  .cnt-progress { color: var(--sg-outline, #849495); }
+  .cnt-failed   { color: #ff6b6b; }
+  .cnt-pending  { color: var(--sg-outline, #849495); opacity: 0.6; }
+  .cnt-total    { color: var(--sg-outline, #849495); opacity: 0.4; }
 
-  .count-done { color: var(--accent-cyan); }
-  .count-progress { color: var(--text-secondary); }
-  .count-failed { color: #ff6b6b; }
-  .count-pending { color: var(--text-secondary); }
-  .count-total { color: var(--text-secondary); }
-
-  .avg-duration {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-    margin-left: auto;
-  }
-
-  .progress-bar-track {
-    height: 4px;
-    background: var(--border-color);
-    border-radius: 2px;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-  }
-
-  .progress-bar-done {
-    background: var(--accent-cyan);
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-
-  .progress-bar-running {
-    background: rgba(var(--accent-cyan-rgb, 0, 200, 200), 0.4);
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-
-  .progress-bar-failed {
-    background: #ff6b6b;
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-
-  .btn-ghost-sm {
-    font-size: 0.72rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    cursor: pointer;
-    align-self: flex-end;
-    transition: border-color 0.15s, color 0.15s;
-  }
-
-  .btn-ghost-sm:hover {
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
-  }
-
+  /* ── Error details ── */
   .error-details {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 0.4rem;
   }
 
   .error-details summary {
-    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
     color: #ff6b6b;
-    padding: 0.2rem 0;
+    cursor: pointer;
+    padding: 2px 0;
   }
 
   .error-list {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-    margin-top: 0.4rem;
+    gap: 3px;
+    margin-top: 4px;
     padding-left: 0.5rem;
   }
 
   .error-row {
     display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
+    align-items: baseline;
+    gap: 0.6rem;
     flex-wrap: wrap;
   }
 
   .error-path {
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    max-width: 280px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-on-surface, #e3e1e9);
+    max-width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .error-log {
-    font-size: 0.72rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
     color: #ff6b6b;
     flex: 1;
   }
 
   .error-dur {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
     flex-shrink: 0;
-  }
-
-  /* Model warning panel styles */
-  .model-warning-pane {
-    padding: 1.5rem;
-    background: rgba(255, 110, 0, 0.04);
-    border: 2px solid rgba(255, 110, 0, 0.15);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .model-warning-pane::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(to bottom, var(--color-accent-yellow), var(--color-accent-magenta));
-  }
-
-  .warning-pane-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-    gap: 1rem;
-  }
-
-  .warning-pane-title-area {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .warning-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0;
-  }
-
-  .warning-title span.warning-icon {
-    font-size: 1.2rem;
-    color: var(--color-accent-yellow);
-    filter: drop-shadow(0 0 4px rgba(249, 217, 118, 0.4));
-  }
-
-  .warning-desc {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-    margin-top: 0.35rem;
-    max-width: 800px;
-  }
-
-  .warning-dismiss-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0.25rem;
-    line-height: 1;
-    border-radius: var(--radius-sm);
-    transition: var(--transition-fast);
-  }
-
-  .warning-dismiss-btn:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .model-groups-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
-    margin: 1.25rem 0;
-  }
-
-  .model-group-card {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    transition: var(--transition-smooth);
-  }
-
-  .model-group-card:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-
-  .model-group-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .model-group-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .model-group-name {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .model-group-feature {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-
-  /* Compact status badges for groups */
-  .badge-status {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .badge-status-ok {
-    background: rgba(0, 242, 254, 0.08);
-    color: var(--color-accent-cyan);
-    border: 1px solid rgba(0, 242, 254, 0.2);
-    box-shadow: 0 0 10px rgba(0, 242, 254, 0.1);
-  }
-
-  .badge-status-missing {
-    background: rgba(255, 0, 127, 0.08);
-    color: var(--color-accent-magenta);
-    border: 1px solid rgba(255, 0, 127, 0.2);
-    box-shadow: 0 0 10px rgba(255, 0, 127, 0.1);
-  }
-
-  .model-files-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    padding-top: 0.6rem;
-  }
-
-  .model-file-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.75rem;
-  }
-
-  .model-file-name {
-    font-family: var(--font-mono, monospace);
-    color: var(--text-secondary);
-    max-width: 190px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .file-status-dot {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-weight: 500;
-  }
-
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-
-  .dot-ok {
-    background-color: var(--color-accent-cyan);
-    box-shadow: 0 0 6px var(--color-accent-cyan);
-  }
-
-  .dot-missing {
-    background-color: var(--color-accent-magenta);
-    box-shadow: 0 0 6px var(--color-accent-magenta);
-  }
-
-  .text-ok {
-    color: var(--color-accent-cyan);
-  }
-
-  .text-missing {
-    color: var(--color-accent-magenta);
-  }
-
-  /* Action container in warning pane */
-  .warning-actions-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding-top: 1rem;
-    margin-top: 0.5rem;
-  }
-
-  .terminal-command-box {
-    display: flex;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.75rem;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.78rem;
-    color: var(--color-accent-yellow);
-    max-width: 500px;
-    flex: 1;
-    min-width: 280px;
-    justify-content: space-between;
-  }
-
-  .command-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    user-select: all;
-  }
-
-  .btn-copy-cmd {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-family: 'Inter', sans-serif;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .btn-copy-cmd:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  .btn-copy-cmd.copied {
-    color: var(--color-accent-cyan);
-    background: rgba(0, 242, 254, 0.08);
-    border-color: rgba(0, 242, 254, 0.3);
-  }
-
-  .warning-control-buttons {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .btn-check-again {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.45rem 0.9rem;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .btn-check-again:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--border-color-hover);
-  }
-
-  .btn-check-again:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .spin-icon {
-    display: inline-block;
-    animation: icon-spin 1s infinite linear;
-  }
-
-  @keyframes icon-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .btn-dismiss-warn {
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-secondary);
-    font-size: 0.78rem;
-    font-weight: 500;
-    padding: 0.45rem 0.9rem;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .btn-dismiss-warn:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.04);
   }
 </style>

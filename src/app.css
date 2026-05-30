@@ -263,21 +263,6 @@ h1, h2, h3, h4, h5, h6 {
 /* --- 3. PREMIUM UTILITY STYLES --- */
 
 /* Glassmorphism Card base */
-.glass-panel {
-  background: var(--bg-card);
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--card-shadow);
-  transition: var(--transition-smooth);
-}
-
-.glass-panel:hover {
-  border-color: var(--border-color-hover);
-  background: var(--bg-card-hover);
-}
-
 /* Custom Glowing Buttons */
 .btn-primary {
   background: linear-gradient(135deg, var(--color-primary), #4f46e5);
@@ -476,117 +461,14 @@ html[data-theme="accessible"] .heartbeat-dot {
 }
 
 /* Text Shimmer Effect */
-.shimmer-text {
-  background: linear-gradient(
-    to right,
-    var(--text-primary) 20%,
-    var(--color-accent-cyan) 40%,
-    var(--color-accent-magenta) 60%,
-    var(--text-primary) 80%
-  );
-  background-size: 200% auto;
-  color: transparent;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: shine 4s linear infinite;
-}
-
-html[data-theme="accessible"] .shimmer-text {
-  background: none;
-  color: var(--text-primary);
-  animation: none;
-}
-
-@keyframes shine {
-  to {
-    background-position: 200% center;
-  }
-}
-
 /* --- 4. REFACTORED COMPONENT STYLES (MIGRATED FROM +PAGE.SVELTE) --- */
 .app-layout {
-    height: 100vh;
+    height: 100%;
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     overflow: hidden;
-  }
-
-  /* Navbar Styles */
-  .navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .logo-circle {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: var(--text-primary);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .logo-cut {
-    position: absolute;
-    width: 100%;
-    height: 3px;
-    background-color: var(--bg-main);
-    top: 50%;
-    transform: translateY(-50%) rotate(23deg);
-  }
-
-  .brand-name {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.4rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-  }
-
-  .nav-tabs {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .nav-tab {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
-    font-size: 1rem;
-    padding: 0.5rem 1.25rem;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: var(--transition-smooth);
-  }
-
-  .nav-tab:hover, .nav-tab.active {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  html[data-theme="light"] .nav-tab:hover, html[data-theme="light"] .nav-tab.active {
-    background: rgba(15, 23, 42, 0.05);
-  }
-
-  html[data-theme="accessible"] .nav-tab.active {
-    border: 2px solid #fff;
-  }
-
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
   }
 
 
@@ -601,11 +483,11 @@ html[data-theme="accessible"] .shimmer-text {
     overflow: hidden;
   }
 
-  .hero-panel {
-    display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 2rem;
-    padding: 3rem;
+  .table-view-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .hero-title {
@@ -1176,16 +1058,6 @@ html[data-theme="accessible"] .shimmer-text {
     border-bottom-right-radius: 0;
   }
 
-  .hero-panel-content {
-    display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 2rem;
-    padding: 2rem 3rem;
-    align-items: center;
-    height: 100%;
-    width: 100%;
-  }
-
   .hero-left {
     display: flex;
     flex-direction: column;
@@ -1199,44 +1071,6 @@ html[data-theme="accessible"] .shimmer-text {
   }
 
   /* --- Resizable Splitter Divider --- */
-  .split-pane-resizer {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.02);
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    cursor: row-resize;
-    position: relative;
-    transition: background 0.15s ease, border-color 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-    z-index: 10;
-  }
-
-  .split-pane-resizer:hover, .split-pane-resizer.active {
-    background: rgba(138, 43, 226, 0.1);
-    border-top-color: rgba(138, 43, 226, 0.3);
-    border-bottom-color: rgba(138, 43, 226, 0.3);
-  }
-
-  html[data-theme="light"] .split-pane-resizer:hover, html[data-theme="light"] .split-pane-resizer.active {
-    background: rgba(99, 102, 241, 0.08);
-    border-top-color: rgba(99, 102, 241, 0.2);
-    border-bottom-color: rgba(99, 102, 241, 0.2);
-  }
-
-  html[data-theme="accessible"] .split-pane-resizer {
-    height: 10px;
-    background: #000;
-    border-top: 2px solid #fff;
-    border-bottom: 2px solid #fff;
-  }
-
-  html[data-theme="accessible"] .split-pane-resizer:hover, html[data-theme="accessible"] .split-pane-resizer.active {
-    background: #fff;
-  }
-
   .resizer-knob {
     width: 48px;
     height: 4px;
@@ -1246,48 +1080,11 @@ html[data-theme="accessible"] .shimmer-text {
     transition: opacity 0.15s ease, background 0.15s ease;
   }
 
-  .split-pane-resizer:hover .resizer-knob, .split-pane-resizer.active .resizer-knob {
-    opacity: 1;
-    background: var(--color-primary);
-  }
-
   html[data-theme="accessible"] .resizer-knob {
     background: #fff;
     opacity: 1;
     height: 6px;
     border-radius: 0;
-  }
-
-  .bottom-pane-scroller {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    border-top: none;
-  }
-
-  /* --- WaveSurfer Audio Player Pane --- */
-  .audio-player-pane {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem 2rem;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-  }
-
-  .player-left-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.85rem;
-    border-right: 1px solid var(--border-color);
-    padding-right: 2rem;
-    overflow: hidden;
   }
 
   .player-main-col {
@@ -1470,14 +1267,6 @@ html[data-theme="accessible"] .shimmer-text {
   }
 
   /* --- Multi-Column Metadata Expanded Grid --- */
-  .player-upper-row {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 2rem;
-    width: 100%;
-    align-items: center;
-  }
-
   .player-details-row {
     margin-top: 0.85rem;
     padding: 1.25rem;
@@ -1566,16 +1355,6 @@ html[data-theme="accessible"] .shimmer-text {
     font-family: monospace;
     word-break: break-all;
     white-space: normal;
-  }
-
-  .audio-player-pane.expanded {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    padding: 1.25rem 2rem;
-    height: 100%;
-    width: 100%;
-    overflow-y: auto;
   }
 
   html[data-theme="light"] .waveform-outer, html[data-theme="light"] .spectrogram-outer {
