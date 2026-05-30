@@ -62,7 +62,7 @@
 
   // Track Collection Filter States
   let searchQuery = $state("");
-  let selectedGenre = $state("All");
+  let genreFilter = $state("");
   let minBpm = $state(20);
   let maxBpm = $state(250);
   let selectedKey = $state("All");
@@ -72,11 +72,12 @@
   // Derived list of filtered tracks reactively matching search box, genre, key, and BPM selections
   let filteredTracks = $derived.by(() => {
     return library.tracks.filter(t => {
-      // 1. Genre filter
-      if (selectedGenre !== "All") {
-        if (!t.genre || !t.genre.toLowerCase().includes(selectedGenre.toLowerCase())) {
-          return false;
-        }
+      // 1. Genre filter — partial case-insensitive match against metadata genre or detected_genre
+      if (genreFilter.trim()) {
+        const q = genreFilter.trim().toLowerCase();
+        const metaMatch = t.genre?.toLowerCase().includes(q) ?? false;
+        const detectedMatch = t.detected_genre?.toLowerCase().includes(q) ?? false;
+        if (!metaMatch && !detectedMatch) return false;
       }
       
       // 2. Key filter
@@ -480,7 +481,7 @@
           {selectedTrack}
           {isPlaying}
           bind:searchQuery
-          bind:selectedGenre
+          bind:genreFilter
           bind:minBpm
           bind:maxBpm
           bind:selectedKey

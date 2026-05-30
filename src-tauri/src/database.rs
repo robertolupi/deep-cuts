@@ -50,6 +50,18 @@ pub struct Track {
     pub key_strength: Option<f64>,
     pub loudness_lufs: Option<f64>,
     pub loudness_range: Option<f64>,
+
+    // Essentia classifier results
+    pub detected_genre: Option<String>,
+    pub detected_vocal: Option<String>,
+    pub detected_vocal_confidence: Option<f64>,
+    pub mood_happy: Option<f64>,
+    pub mood_sad: Option<f64>,
+    pub mood_aggressive: Option<f64>,
+    pub mood_relaxed: Option<f64>,
+    pub mood_party: Option<f64>,
+    pub mood_acoustic: Option<f64>,
+    pub mood_electronic: Option<f64>,
 }
 
 impl WatchedDirectory {
@@ -90,7 +102,10 @@ impl Track {
                     duration_seconds, sample_rate, bitrate, channels, bit_depth,
                     title, artist, album, genre, year, track_number, track_total,
                     disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
-                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range
+                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
+                    detected_genre, detected_vocal, detected_vocal_confidence,
+                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
+                    mood_party, mood_acoustic, mood_electronic
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -126,6 +141,16 @@ impl Track {
                 key_strength: row.get(28)?,
                 loudness_lufs: row.get(29)?,
                 loudness_range: row.get(30)?,
+                detected_genre: row.get(31)?,
+                detected_vocal: row.get(32)?,
+                detected_vocal_confidence: row.get(33)?,
+                mood_happy: row.get(34)?,
+                mood_sad: row.get(35)?,
+                mood_aggressive: row.get(36)?,
+                mood_relaxed: row.get(37)?,
+                mood_party: row.get(38)?,
+                mood_acoustic: row.get(39)?,
+                mood_electronic: row.get(40)?,
             })
         })?;
         let mut list = Vec::new();
@@ -278,7 +303,10 @@ mod tests {
                     duration_seconds, sample_rate, bitrate, channels, bit_depth,
                     title, artist, album, genre, year, track_number, track_total,
                     disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
-                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range
+                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
+                    detected_genre, detected_vocal, detected_vocal_confidence,
+                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
+                    mood_party, mood_acoustic, mood_electronic
              FROM tracks WHERE title = 'My Song'",
             [],
             |row| {
@@ -314,6 +342,16 @@ mod tests {
                     key_strength: row.get(28)?,
                     loudness_lufs: row.get(29)?,
                     loudness_range: row.get(30)?,
+                    detected_genre: row.get(31)?,
+                    detected_vocal: row.get(32)?,
+                    detected_vocal_confidence: row.get(33)?,
+                    mood_happy: row.get(34)?,
+                    mood_sad: row.get(35)?,
+                    mood_aggressive: row.get(36)?,
+                    mood_relaxed: row.get(37)?,
+                    mood_party: row.get(38)?,
+                    mood_acoustic: row.get(39)?,
+                    mood_electronic: row.get(40)?,
                 })
             },
         ).unwrap();

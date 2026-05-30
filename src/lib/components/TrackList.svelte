@@ -7,7 +7,7 @@
     selectedTrack,
     isPlaying,
     searchQuery = $bindable(),
-    selectedGenre = $bindable(),
+    genreFilter = $bindable(),
     minBpm = $bindable(20),
     maxBpm = $bindable(250),
     selectedKey = $bindable("All"),
@@ -19,7 +19,7 @@
     selectedTrack: Track | null;
     isPlaying: boolean;
     searchQuery: string;
-    selectedGenre: string;
+    genreFilter: string;
     minBpm: number;
     maxBpm: number;
     selectedKey: string;
@@ -31,20 +31,6 @@
   // BPM filter popup state
   let isBpmPopupOpen = $state(false);
   let bpmContainer = $state<HTMLDivElement | null>(null);
-
-  // Derived list of distinct genres reactively computed from tracks
-  let genresList = $derived.by(() => {
-    const list = new Set<string>();
-    for (const t of tracks) {
-      if (t.genre) {
-        for (const g of t.genre.split(/[,;]/)) {
-          const trimmed = g.trim();
-          if (trimmed) list.add(trimmed);
-        }
-      }
-    }
-    return ["All", ...Array.from(list).sort()];
-  });
 
   // Derived list of distinct keys reactively computed from tracks
   let keysList = $derived.by(() => {
@@ -61,11 +47,12 @@
   // Derived list of filtered tracks reactively matching search box and genre/key/BPM selections
   let filteredTracks = $derived.by(() => {
     return tracks.filter(t => {
-      // 1. Genre filter
-      if (selectedGenre !== "All") {
-        if (!t.genre || !t.genre.toLowerCase().includes(selectedGenre.toLowerCase())) {
-          return false;
-        }
+      // 1. Genre filter — partial case-insensitive match against metadata genre or detected_genre
+      if (genreFilter.trim()) {
+        const q = genreFilter.trim().toLowerCase();
+        const metaMatch = t.genre?.toLowerCase().includes(q) ?? false;
+        const detectedMatch = t.detected_genre?.toLowerCase().includes(q) ?? false;
+        if (!metaMatch && !detectedMatch) return false;
       }
       
       // 2. Key filter
@@ -102,7 +89,7 @@
   $effect(() => {
     // Reactively reset limit to 150 when filters or search query change
     searchQuery;
-    selectedGenre;
+    genreFilter;
     selectedKey;
     minBpm;
     maxBpm;
@@ -144,12 +131,17 @@
       </div>
 
       <!-- Genre Filter -->
-      <div class="filter-select-wrap">
-        <select bind:value={selectedGenre} class="filter-select" aria-label="Genre Filter">
-          {#each genresList as genre}
-            <option value={genre}>{genre === "All" ? "🏷️ All Genres" : genre}</option>
-          {/each}
-        </select>
+      <div class="search-box-wrap" style="max-width: 200px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Filter by genre…"
+          bind:value={genreFilter}
+          class="search-input"
+        />
       </div>
 
       <!-- Key Filter -->

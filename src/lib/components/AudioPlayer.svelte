@@ -272,6 +272,57 @@
         </div>
       </div>
 
+      <!-- Essentia analysis row (shown only when detected_genre or any mood is present) -->
+      {#if selectedTrack.detected_genre || selectedTrack.detected_vocal || selectedTrack.mood_happy != null}
+        <div style="border-top: 1px solid var(--border-color); margin-top: 0.85rem; padding-top: 0.75rem;">
+          <span class="metadata-label" style="display: block; margin-bottom: 0.5rem;">AI Analysis (Essentia)</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: flex-start;">
+            {#if selectedTrack.detected_genre}
+              <div class="metadata-card" style="min-width: 180px;">
+                <span class="metadata-label">Detected Genre</span>
+                <span class="metadata-value">{selectedTrack.detected_genre}</span>
+              </div>
+            {/if}
+            {#if selectedTrack.detected_vocal}
+              <div class="metadata-card" style="min-width: 130px;">
+                <span class="metadata-label">Voice</span>
+                <span class="metadata-value">
+                  {selectedTrack.detected_vocal}
+                  {#if selectedTrack.detected_vocal_confidence != null}
+                    <span style="color: var(--text-muted); font-size: 0.72rem;">({(selectedTrack.detected_vocal_confidence * 100).toFixed(0)}%)</span>
+                  {/if}
+                </span>
+              </div>
+            {/if}
+            <!-- Mood bars -->
+            {#if selectedTrack.mood_happy != null}
+              {@const moods = [
+                { label: 'Happy',      value: selectedTrack.mood_happy },
+                { label: 'Sad',        value: selectedTrack.mood_sad },
+                { label: 'Aggressive', value: selectedTrack.mood_aggressive },
+                { label: 'Relaxed',    value: selectedTrack.mood_relaxed },
+                { label: 'Party',      value: selectedTrack.mood_party },
+                { label: 'Acoustic',   value: selectedTrack.mood_acoustic },
+                { label: 'Electronic', value: selectedTrack.mood_electronic },
+              ]}
+              <div style="display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; flex: 1; min-width: 300px;">
+                {#each moods as mood}
+                  {#if mood.value != null}
+                    <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 140px;">
+                      <span style="font-size: 0.72rem; color: var(--text-muted); width: 60px; flex-shrink: 0;">{mood.label}</span>
+                      <div style="flex: 1; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; width: {(mood.value * 100).toFixed(1)}%; background: linear-gradient(90deg, var(--color-primary), var(--color-accent-cyan)); border-radius: 3px;"></div>
+                      </div>
+                      <span style="font-size: 0.7rem; color: var(--text-secondary); width: 30px; text-align: right;">{(mood.value * 100).toFixed(0)}%</span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+
       <!-- Full width filepath -->
       <div style="border-top: 1px solid var(--border-color); margin-top: 0.85rem; padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem;">
         <span class="metadata-label">Absolute File Path</span>

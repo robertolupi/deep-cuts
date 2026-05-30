@@ -38,4 +38,16 @@ export interface Track {
   key_strength: number | null;
   loudness_lufs: number | null;
   loudness_range: number | null;
+
+  // Essentia classifier results
+  detected_genre: string | null;
+  detected_vocal: string | null;
+  detected_vocal_confidence: number | null;
+  mood_happy: number | null;
+  mood_sad: number | null;
+  mood_aggressive: number | null;
+  mood_relaxed: number | null;
+  mood_party: number | null;
+  mood_acoustic: number | null;
+  mood_electronic: number | null;
 }
