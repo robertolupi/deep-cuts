@@ -89,6 +89,13 @@ impl PipelineManager {
                 [pass_status::PENDING],
             ).map_err(|e| e.to_string())?;
 
+            // Backfill essentia pass (priority 50 — runs after clap)
+            conn.execute(
+                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+                 SELECT id, 'essentia', 50, ?1 FROM tracks",
+                [pass_status::PENDING],
+            ).map_err(|e| e.to_string())?;
+
             let mut stmt = conn
                 .prepare(
                     "SELECT tp.id, tp.track_id, t.path
@@ -123,17 +130,17 @@ impl PipelineManager {
 
         let total = pending.len();
 
-        // Check if there are any pending CLAP passes
-        let has_clap = {
+        // Check if there is any pending work across all passes
+        let has_pending_passes = {
             let conn = conn_mutex.lock().map_err(|e| e.to_string())?;
             conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM track_passes WHERE status = ?1 AND pass_name = 'clap')",
+                "SELECT EXISTS(SELECT 1 FROM track_passes WHERE status = ?1)",
                 [pass_status::PENDING],
                 |row| row.get(0),
             ).unwrap_or(false)
         };
 
-        if total == 0 && !has_clap {
+        if total == 0 && !has_pending_passes {
             return Ok(());
         }
 
@@ -385,16 +392,6 @@ impl PipelineManager {
 
 /// Runs all pending `essentia` pass jobs sequentially.
 fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
-    // Backfill essentia pass rows for any track that doesn't have one yet
-    {
-        let conn = conn_arc.lock().unwrap();
-        let _ = conn.execute(
-            "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-             SELECT id, 'essentia', 50, ?1 FROM tracks",
-            [pass_status::PENDING],
-        );
-    }
-
     let jobs: Vec<SpoolJob> = {
         let conn = conn_arc.lock().unwrap();
         let mut stmt = match conn.prepare(

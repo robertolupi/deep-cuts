@@ -28,6 +28,10 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/query-db/SKILL.md](skills/query-db/SKILL.md)
    - **Use when**: Formulating database queries or interacting with the SQLite database directly.
 
+6. **Adding an Analysis Pass**
+   - **Path**: [skills/add-analysis-pass/SKILL.md](skills/add-analysis-pass/SKILL.md)
+   - **Use when**: Adding a new pass to the analysis pipeline (e.g. essentia, qwen, bpm_correction).
+
 ## Repository Layout
 
 ```
