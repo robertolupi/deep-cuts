@@ -18,13 +18,7 @@
   let projectedTracks = $state<MappedTrackPoint[]>([]);
   let isRecomputing   = $state(false);
   let isLoading       = $state(false);
-  let showParams      = $state(false);
 
-  // Algorithm params
-  let algorithm  = $state<'umap' | 'tsne'>('umap');
-  let nNeighbors = $state(20);
-  let minDist    = $state(0.1);
-  let perplexity = $state(30.0);
   let colorCoding = $state<'genre' | 'camelot' | 'bpm'>('genre');
 
   // Canvas
@@ -121,11 +115,13 @@
 
   async function runProjectionRecompute() {
     isRecomputing = true;
-    showParams = false;
     try {
       ui.showToast('Running projection… this may take a few seconds', 'success');
       const count = await invoke<number>('recompute_projection', {
-        algorithm, nNeighbors, minDist, perplexity,
+        algorithm: 'umap',
+        nNeighbors: 20,
+        minDist: 0.1,
+        perplexity: 30,
       });
       ui.showToast(`Projected ${count} tracks into 2D space`, 'success');
       await loadCoordinates();
@@ -316,17 +312,6 @@
       </div>
     </div>
 
-    <!-- Params toggle -->
-    <button class="toolbar-btn" class:toolbar-btn-active={showParams} onclick={() => showParams = !showParams}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
-        <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/>
-        <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/>
-        <circle cx="9" cy="18" r="2" fill="currentColor" stroke="none"/>
-      </svg>
-      Params
-    </button>
-
     <!-- Recompute -->
     <button
       class="toolbar-btn toolbar-btn-primary"
@@ -351,34 +336,6 @@
     <!-- Hint -->
     <span class="toolbar-hint">Scroll to zoom · Drag to pan · Click dot to play</span>
   </div>
-
-  <!-- Params panel -->
-  {#if showParams}
-    <div class="params-panel">
-      <div class="param-group">
-        <span class="param-label">ALGORITHM</span>
-        <div class="toolbar-toggle">
-          <button class="ttog-btn" class:ttog-active={algorithm==='umap'} onclick={() => algorithm='umap'}>UMAP</button>
-          <button class="ttog-btn" class:ttog-active={algorithm==='tsne'} onclick={() => algorithm='tsne'}>t-SNE</button>
-        </div>
-      </div>
-      {#if algorithm === 'umap'}
-        <div class="param-group">
-          <span class="param-label">NEIGHBORS <span class="param-val">{nNeighbors}</span></span>
-          <input type="range" min="5" max="50" step="5" bind:value={nNeighbors} />
-        </div>
-        <div class="param-group">
-          <span class="param-label">MIN DIST <span class="param-val">{minDist}</span></span>
-          <input type="range" min="0.0" max="0.5" step="0.05" bind:value={minDist} />
-        </div>
-      {:else}
-        <div class="param-group">
-          <span class="param-label">PERPLEXITY <span class="param-val">{perplexity}</span></span>
-          <input type="range" min="5" max="100" step="5" bind:value={perplexity} />
-        </div>
-      {/if}
-    </div>
-  {/if}
 
   <!-- Canvas -->
   {#if isLoading}
@@ -537,12 +494,6 @@
     background: rgba(255,255,255,0.05);
   }
 
-  .toolbar-btn-active {
-    border-color: rgba(0,240,255,0.4);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
-  }
-
   .toolbar-btn-primary {
     border-color: rgba(0,240,255,0.35);
     color: var(--sg-primary, #00f0ff);
@@ -565,58 +516,6 @@
     color: var(--sg-outline, #849495);
     opacity: 0.5;
     margin-left: auto;
-  }
-
-  /* ── Params panel ── */
-  .params-panel {
-    flex-shrink: 0;
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    padding: 0.5rem 0.85rem;
-    background: var(--sg-surface-low, #1a1b21);
-    border-bottom: 1px solid var(--sg-surface-high, rgba(255,255,255,0.05));
-    flex-wrap: wrap;
-  }
-
-  .param-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 140px;
-  }
-
-  .param-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--sg-outline, #849495);
-  }
-
-  .param-val {
-    color: var(--sg-primary, #00f0ff);
-    font-weight: 400;
-    margin-left: 4px;
-  }
-
-  input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 3px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.1);
-    outline: none;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--sg-primary, #00f0ff);
-    cursor: pointer;
   }
 
   /* ── Loading / empty ── */

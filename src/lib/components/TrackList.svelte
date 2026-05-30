@@ -3,6 +3,7 @@
   import { filters } from '$lib/stores/filters.svelte';
   import { library } from '$lib/stores/library.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { waveformBarsFromJson } from '$lib/utils/waveform';
 
   let {
     selectedTrack,
@@ -81,17 +82,21 @@
                 </td>
                 <td class="col-waveform">
                   {#if track.waveform_data}
-                    {@const bars = (JSON.parse(track.waveform_data) as number[]).filter((_, i) => i % 3 === 0)}
+                    {@const bars = waveformBarsFromJson(track.waveform_data)}
                     {@const peak = Math.max(...bars, 1e-6)}
-                    <div class="mini-waveform">
-                      {#each bars as energy}
-                        {@const norm = energy / peak}
-                        <div
-                           class="waveform-bar"
-                           style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
-                        ></div>
-                      {/each}
-                    </div>
+                    {#if bars.length > 0}
+                      <div class="mini-waveform">
+                        {#each bars as energy}
+                          {@const norm = energy / peak}
+                          <div
+                             class="waveform-bar"
+                             style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
+                          ></div>
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="mini-waveform-skeleton shimmer"></div>
+                    {/if}
                   {:else}
                     <div class="mini-waveform-skeleton shimmer"></div>
                   {/if}

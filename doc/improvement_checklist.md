@@ -4,10 +4,10 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Correctness & Test Health
 
-- [ ] Add `@types/node` or adjust `tsconfig.json` so `npm run check` has zero warnings.
-- [ ] Add regression tests for `musicOnly` using `detected_genre.startsWith("Non-Music")` as the source of truth.
-- [ ] Add tests for malformed `waveform_data` so the track list cannot crash on corrupt JSON.
-- [ ] Add map command tests proving exposed projection parameters are either honored or intentionally ignored.
+- [x] Add `@types/node` or adjust `tsconfig.json` so `npm run check` has zero warnings.
+- [x] Add regression tests for `musicOnly` using `detected_genre.startsWith("Non-Music")` as the source of truth.
+- [x] Add tests for malformed `waveform_data` so the track list cannot crash on corrupt JSON.
+- [x] Add map command tests proving exposed projection parameters are either honored or intentionally ignored.
 
 ## Analysis Pipeline Reliability
 
@@ -20,7 +20,7 @@ This checklist captures concrete follow-up work found during the repository revi
 ## Music Map Quality
 
 - [ ] Replace min/max projection normalization with percentile-clipped normalization, probably p1-p99.
-- [ ] Either hide projection controls whose parameters are ignored, or implement the requested algorithm/parameter behavior.
+- [x] Either hide projection controls whose parameters are ignored, or implement the requested algorithm/parameter behavior.
 - [ ] Add PCA as a fast deterministic projection option and consider making it the default if it improves global structure.
 - [ ] Persist map settings such as algorithm, blend weight, and normalization percentile in `app_settings`.
 - [ ] Exclude or separately handle non-music tracks during projection so spoken-word/outlier content does not distort the map.
@@ -56,4 +56,3 @@ This checklist captures concrete follow-up work found during the repository revi
 - [ ] Fill in `authors` and `repository` metadata in `src-tauri/Cargo.toml`.
 - [ ] Decide whether `ort` should keep `download-binaries` for production builds or vendor/runtime-check model dependencies explicitly.
 - [ ] Add a documented model path setting UI if the intended `app_settings.model_path` flow is still desired.
-

@@ -39,6 +39,24 @@ fn l2_normalize(vec: &[f32]) -> Vec<f32> {
     if norm == 0.0 { vec.to_vec() } else { vec.iter().map(|&x| x / norm).collect() }
 }
 
+#[derive(Debug, PartialEq)]
+struct EffectiveProjectionConfig {
+    clap_weight: f64,
+}
+
+fn effective_projection_config(
+    clap_weight: Option<f64>,
+    algorithm: &str,
+    n_neighbors: i32,
+    min_dist: f64,
+    perplexity: f64,
+) -> EffectiveProjectionConfig {
+    // rag-umap exposes no tuning surface here yet. Keep accepted UI parameters
+    // intentionally ignored until alternate projection algorithms are implemented.
+    let _ = (algorithm, n_neighbors, min_dist, perplexity);
+    EffectiveProjectionConfig { clap_weight: clap_weight.unwrap_or(0.5) }
+}
+
 fn standardize_to_100(coords: &[(f64, f64)]) -> Vec<(f64, f64)> {
     if coords.is_empty() { return Vec::new(); }
     let x_min = coords.iter().map(|p| p.0).fold(f64::MAX, f64::min);
@@ -153,14 +171,21 @@ pub fn search_similar_tracks_audio(
 #[tauri::command]
 pub async fn recompute_projection(
     clap_weight: Option<f64>,
-    _algorithm: String,
-    _n_neighbors: i32,
-    _min_dist: f64,
-    _perplexity: f64,
+    algorithm: String,
+    n_neighbors: i32,
+    min_dist: f64,
+    perplexity: f64,
     app: tauri::AppHandle,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<usize, String> {
     use tauri::Emitter;
+    let effective_config = effective_projection_config(
+        clap_weight,
+        &algorithm,
+        n_neighbors,
+        min_dist,
+        perplexity,
+    );
 
     // Collect all CLAP and description embeddings
     let (track_ids, blended_vectors) = {
@@ -183,7 +208,7 @@ pub async fn recompute_projection(
             .map_err(|e| e.to_string())?;
         let mut ids = Vec::new();
         let mut vecs = Vec::new();
-        let blend_weight = clap_weight.unwrap_or(0.5);
+        let blend_weight = effective_config.clap_weight;
 
         for row in rows.filter_map(|r| r.ok()) {
             let (id, clap_blob, desc_blob_opt) = row;
@@ -299,5 +324,18 @@ mod math_tests {
         let coords = vec![(10.0, 5.0)];
         let standardized = standardize_to_100(&coords);
         assert_eq!(standardized[0], (0.0, 0.0));
+    }
+
+    #[test]
+    fn test_projection_request_parameters_are_currently_ignored_except_blend_weight() {
+        let default_umap = effective_projection_config(Some(0.7), "umap", 20, 0.1, 30.0);
+        let requested_tsne = effective_projection_config(Some(0.7), "tsne", 90, 0.8, 5.0);
+
+        assert_eq!(default_umap, requested_tsne);
+        assert_eq!(default_umap.clap_weight, 0.7);
+        assert_eq!(
+            effective_projection_config(None, "pca", 5, 0.0, 100.0).clap_weight,
+            0.5,
+        );
     }
 }
