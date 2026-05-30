@@ -12,6 +12,9 @@ vite.config.ts.timestamp-*
 # Local dev performance tuning (target-cpu=native) — not safe for distributed builds
 .cargo/config.toml
 
+# Production database (lives in ~/Library/Application Support, not the repo)
+src-tauri/deep_cuts.db
+
 # Scratch Files & Folders
 scratch/
 scratch
