@@ -46,6 +46,9 @@
           {#if track.album}
             <p class="track-album">{track.album}{track.year ? ` · ${track.year}` : ''}</p>
           {/if}
+          {#if track.genre}
+            <p class="track-genre">{track.genre}</p>
+          {/if}
         </div>
       </div>
 
@@ -82,13 +85,13 @@
         {#if track.key && track.scale}
           <div class="spec-cell">
             <span class="spec-label">KEY</span>
-            <span class="spec-value">{track.key} {track.scale}</span>
+            <span class="spec-value">{track.key} {track.scale}{track.key_strength != null ? ` · ${(track.key_strength * 100).toFixed(0)}%` : ''}</span>
           </div>
         {/if}
         {#if track.loudness_lufs}
           <div class="spec-cell">
             <span class="spec-label">LOUDNESS</span>
-            <span class="spec-value">{track.loudness_lufs} LUFS</span>
+            <span class="spec-value">{track.loudness_lufs} LUFS{track.loudness_range ? ` · ${track.loudness_range} LU` : ''}</span>
           </div>
         {/if}
         <div class="spec-cell">
@@ -99,6 +102,30 @@
           <span class="spec-label">SIZE</span>
           <span class="spec-value">{formatSize(track.size_bytes)}</span>
         </div>
+        {#if track.track_number}
+          <div class="spec-cell">
+            <span class="spec-label">TRACK</span>
+            <span class="spec-value">{track.track_number}{track.track_total ? ` / ${track.track_total}` : ''}</span>
+          </div>
+        {/if}
+        {#if track.disc_number}
+          <div class="spec-cell">
+            <span class="spec-label">DISC</span>
+            <span class="spec-value">{track.disc_number}{track.disc_total ? ` / ${track.disc_total}` : ''}</span>
+          </div>
+        {/if}
+        {#if track.album_artist}
+          <div class="spec-cell spec-cell-full">
+            <span class="spec-label">ALBUM ARTIST</span>
+            <span class="spec-value">{track.album_artist}</span>
+          </div>
+        {/if}
+        {#if track.composer}
+          <div class="spec-cell spec-cell-full">
+            <span class="spec-label">COMPOSER</span>
+            <span class="spec-value">{track.composer}</span>
+          </div>
+        {/if}
       </div>
 
       <!-- AI description (Studio Pink) -->
@@ -144,6 +171,38 @@
                 <span class="mood-pct" style="color: {mood.color};">{((mood.value ?? 0) * 100).toFixed(0)}%</span>
               </div>
             {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Essentia classifier -->
+      {#if track.detected_genre || track.detected_vocal || track.is_music != null}
+        <div class="section">
+          <span class="section-label">CLASSIFIER</span>
+          <div class="classifier-rows">
+            {#if track.is_music != null}
+              <div class="classifier-row">
+                <span class="classifier-key">TYPE</span>
+                <span class="classifier-val">{track.is_music ? 'Music' : 'Non-music'}</span>
+              </div>
+            {/if}
+            {#if track.detected_genre}
+              <div class="classifier-row">
+                <span class="classifier-key">GENRE</span>
+                <span class="classifier-val">{track.detected_genre}</span>
+              </div>
+            {/if}
+            {#if track.detected_vocal}
+              <div class="classifier-row">
+                <span class="classifier-key">VOCAL</span>
+                <span class="classifier-val">
+                  {track.detected_vocal}
+                  {#if track.detected_vocal_confidence != null}
+                    <span class="classifier-conf">({(track.detected_vocal_confidence * 100).toFixed(0)}%)</span>
+                  {/if}
+                </span>
+              </div>
+            {/if}
           </div>
         </div>
       {/if}
@@ -481,6 +540,54 @@
 
   .filepath:hover code {
     color: var(--sg-primary, #00f0ff);
+  }
+
+  .track-genre {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+    opacity: 0.6;
+    margin: 2px 0 0;
+  }
+
+  /* full-width spec cell for long text like composer/album artist */
+  .spec-cell-full {
+    grid-column: 1 / -1;
+  }
+
+  /* ── Classifier section ── */
+  .classifier-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .classifier-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  .classifier-key {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--sg-outline, #849495);
+    width: 44px;
+    flex-shrink: 0;
+  }
+
+  .classifier-val {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .classifier-conf {
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    margin-left: 3px;
   }
 
   /* ── Lyrics ── */
