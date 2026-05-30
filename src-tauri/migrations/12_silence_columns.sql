@@ -1,0 +1,2 @@
+ALTER TABLE tracks ADD COLUMN silence_regions TEXT;
+ALTER TABLE tracks ADD COLUMN has_long_silence INTEGER NOT NULL DEFAULT 0;

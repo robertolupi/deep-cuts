@@ -172,7 +172,9 @@ pub fn reset_pass(
                 scale = NULL,
                 key_strength = NULL,
                 loudness_lufs = NULL,
-                loudness_range = NULL",
+                loudness_range = NULL,
+                silence_regions = NULL,
+                has_long_silence = 0",
             [],
         )
         .map_err(|e| e.to_string())?;
@@ -254,6 +256,8 @@ pub fn reset_all_passes(conn_state: tauri::State<'_, Mutex<Connection>>) -> Resu
             key_strength = NULL,
             loudness_lufs = NULL,
             loudness_range = NULL,
+            silence_regions = NULL,
+            has_long_silence = 0,
             detected_genre = NULL,
             detected_vocal = NULL,
             detected_vocal_confidence = NULL,

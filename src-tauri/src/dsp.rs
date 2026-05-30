@@ -25,6 +25,72 @@ pub struct AudioAnalysisResult {
     pub key_strength: f64,
     pub loudness_lufs: f64,
     pub loudness_range: f64,
+    pub silence_regions: String,
+    pub has_long_silence: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SilenceAnalysisResult {
+    pub silence_regions: String,
+    pub has_long_silence: bool,
+}
+
+/// Detect contiguous low-energy regions in mono audio.
+///
+/// A region is considered silence when 10 ms RMS blocks stay below -60 dBFS
+/// for at least 2 seconds. `has_long_silence` is true for any detected region
+/// longer than 10 seconds.
+pub fn detect_silence_regions(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<SilenceAnalysisResult, String> {
+    if sample_rate == 0 {
+        return Err("Sample rate must be greater than zero".to_string());
+    }
+    if samples.is_empty() {
+        return Ok(SilenceAnalysisResult {
+            silence_regions: "[]".to_string(),
+            has_long_silence: false,
+        });
+    }
+
+    let block_size = ((sample_rate as f64 * 0.010).round() as usize).max(1);
+    let threshold = 10f32.powf(-60.0 / 20.0);
+    let min_region_seconds = 2.0;
+    let long_region_seconds = 10.0;
+    let mut regions: Vec<[f64; 2]> = Vec::new();
+    let mut active_start: Option<usize> = None;
+
+    for (block_index, block) in samples.chunks(block_size).enumerate() {
+        let rms = (block.iter().map(|s| s * s).sum::<f32>() / block.len() as f32).sqrt();
+        if rms < threshold {
+            active_start.get_or_insert(block_index);
+        } else if let Some(start_block) = active_start.take() {
+            let start = start_block as f64 * block_size as f64 / sample_rate as f64;
+            let end = block_index as f64 * block_size as f64 / sample_rate as f64;
+            if end - start >= min_region_seconds {
+                regions.push([start, end]);
+            }
+        }
+    }
+
+    if let Some(start_block) = active_start {
+        let start = start_block as f64 * block_size as f64 / sample_rate as f64;
+        let end = samples.len() as f64 / sample_rate as f64;
+        if end - start >= min_region_seconds {
+            regions.push([start, end]);
+        }
+    }
+
+    let has_long_silence = regions
+        .iter()
+        .any(|[start, end]| end - start > long_region_seconds);
+    let silence_regions = serde_json::to_string(&regions).map_err(|e| e.to_string())?;
+
+    Ok(SilenceAnalysisResult {
+        silence_regions,
+        has_long_silence,
+    })
 }
 
 /// Helper to extract audio samples from an AudioBufferRef as normalized f32.
@@ -275,6 +341,7 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
 
     let waveform = downsample_profile(&rms_energies, 128);
     let waveform_data = serde_json::to_string(&waveform).map_err(|e| e.to_string())?;
+    let silence = detect_silence_regions(&mono_samples, sample_rate)?;
 
     // Crop to centre 90 s window for key and BPM
     let cap = (90u64 * sample_rate as u64) as usize;
@@ -304,6 +371,8 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
         key_strength,
         loudness_lufs,
         loudness_range,
+        silence_regions: silence.silence_regions,
+        has_long_silence: silence.has_long_silence,
     })
 }
 
@@ -691,6 +760,8 @@ mod tests {
         assert!(result.loudness_lufs < 0.0, "LUFS should be negative");
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
+        let silence_regions: Vec<[f64; 2]> = serde_json::from_str(&result.silence_regions).unwrap();
+        assert!(!result.has_long_silence || !silence_regions.is_empty());
     }
 
     #[test]
@@ -747,6 +818,33 @@ mod tests {
         let result = compute_bpm_from_mono(&samples, 44100);
         assert!(result.is_err());
         assert_eq!(result.err().unwrap(), "Audio too short for BPM detection");
+    }
+
+    #[test]
+    fn test_detect_silence_regions_ignores_short_gaps() {
+        let sample_rate = 100;
+        let mut samples = vec![0.25; 100];
+        samples.extend(vec![0.0; 150]);
+        samples.extend(vec![0.25; 100]);
+
+        let result = detect_silence_regions(&samples, sample_rate).unwrap();
+        assert_eq!(result.silence_regions, "[]");
+        assert!(!result.has_long_silence);
+    }
+
+    #[test]
+    fn test_detect_silence_regions_flags_long_silence() {
+        let sample_rate = 100;
+        let mut samples = vec![0.25; 100];
+        samples.extend(vec![0.0; 1_100]);
+        samples.extend(vec![0.25; 100]);
+
+        let result = detect_silence_regions(&samples, sample_rate).unwrap();
+        let regions: Vec<[f64; 2]> = serde_json::from_str(&result.silence_regions).unwrap();
+        assert_eq!(regions.len(), 1);
+        assert!((regions[0][0] - 1.0).abs() < 0.01);
+        assert!((regions[0][1] - 12.0).abs() < 0.01);
+        assert!(result.has_long_silence);
     }
 
     #[test]

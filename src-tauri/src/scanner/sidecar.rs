@@ -39,6 +39,10 @@ pub struct SidecarMlMetadata {
     pub loudness_range: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub waveform_data: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub silence_regions: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_long_silence: Option<i64>,
     // --- clap pass (stored separately as a blob, serialised here as Vec<f32>) ---
     /// 512-d L2-normalised CLAP audio embedding. Persisted to avoid expensive ONNX re-inference.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,6 +117,7 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
 
     let mut ml_metadata: SidecarMlMetadata = conn.query_row(
         "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
+                silence_regions, has_long_silence,
                 detected_genre, detected_vocal, detected_vocal_confidence,
                 mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                 mood_party, mood_acoustic, mood_electronic,
@@ -128,22 +133,24 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
                 loudness_lufs: row.get(4)?,
                 loudness_range: row.get(5)?,
                 waveform_data: row.get(6)?,
+                silence_regions: row.get(7)?,
+                has_long_silence: row.get(8)?,
                 clap_embedding: None,
-                detected_genre: row.get(7)?,
-                detected_vocal: row.get(8)?,
-                detected_vocal_confidence: row.get(9)?,
-                mood_happy: row.get(10)?,
-                mood_sad: row.get(11)?,
-                mood_aggressive: row.get(12)?,
-                mood_relaxed: row.get(13)?,
-                mood_party: row.get(14)?,
-                mood_acoustic: row.get(15)?,
-                mood_electronic: row.get(16)?,
-                is_music: row.get(17)?,
-                ai_genre: row.get(18)?,
-                ai_mood: row.get(19)?,
-                ai_instruments: row.get(20)?,
-                description: row.get(21)?,
+                detected_genre: row.get(9)?,
+                detected_vocal: row.get(10)?,
+                detected_vocal_confidence: row.get(11)?,
+                mood_happy: row.get(12)?,
+                mood_sad: row.get(13)?,
+                mood_aggressive: row.get(14)?,
+                mood_relaxed: row.get(15)?,
+                mood_party: row.get(16)?,
+                mood_acoustic: row.get(17)?,
+                mood_electronic: row.get(18)?,
+                is_music: row.get(19)?,
+                ai_genre: row.get(20)?,
+                ai_mood: row.get(21)?,
+                ai_instruments: row.get(22)?,
+                description: row.get(23)?,
                 description_embedding: None,
             })
         },
@@ -238,8 +245,10 @@ pub fn restore(
                 key_strength = COALESCE(?4, key_strength),
                 loudness_lufs = COALESCE(?5, loudness_lufs),
                 loudness_range = COALESCE(?6, loudness_range),
-                waveform_data = COALESCE(?7, waveform_data)
-             WHERE id = ?8",
+                waveform_data = COALESCE(?7, waveform_data),
+                silence_regions = COALESCE(?8, silence_regions),
+                has_long_silence = COALESCE(?9, has_long_silence)
+             WHERE id = ?10",
             rusqlite::params![
                 m.bpm,
                 m.key,
@@ -248,6 +257,8 @@ pub fn restore(
                 m.loudness_lufs,
                 m.loudness_range,
                 m.waveform_data,
+                m.silence_regions,
+                m.has_long_silence,
                 track_id,
             ],
         )?;
@@ -439,8 +450,10 @@ mod tests {
         .unwrap();
         conn.execute(
             "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
-                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data) \
-             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 128.5, 'G', 'minor', 0.87, -14.2, 6.1, '[0.1,0.2]')",
+                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
+                                 silence_regions, has_long_silence) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 128.5, 'G', 'minor', 0.87, -14.2, 6.1, '[0.1,0.2]',
+                     '[[12.0,15.5]]', 0)",
             [&track_path],
         )
         .unwrap();
@@ -463,6 +476,8 @@ mod tests {
         assert_eq!(m.loudness_lufs, Some(-14.2));
         assert_eq!(m.loudness_range, Some(6.1));
         assert_eq!(m.waveform_data.as_deref(), Some("[0.1,0.2]"));
+        assert_eq!(m.silence_regions.as_deref(), Some("[[12.0,15.5]]"));
+        assert_eq!(m.has_long_silence, Some(0));
         // pass_versions should record audio_analysis at the current constant
         assert_eq!(
             loaded.pass_versions.get("audio_analysis").copied(),
@@ -484,8 +499,10 @@ mod tests {
         .unwrap();
         conn.execute(
             "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
-                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data) \
-             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 120.0, 'C', 'major', 0.9, -12.0, 5.0, '[0.5]')",
+                                 bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
+                                 silence_regions, has_long_silence) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 0, 180, 120.0, 'C', 'major', 0.9, -12.0, 5.0, '[0.5]',
+                     '[[8.0,20.5]]', 1)",
             [&track_path],
         )
         .unwrap();
@@ -500,7 +517,8 @@ mod tests {
         save(&conn, 1).unwrap();
         conn.execute(
             "UPDATE tracks SET bpm = NULL, key = NULL, scale = NULL, key_strength = NULL,
-             loudness_lufs = NULL, loudness_range = NULL, waveform_data = NULL WHERE id = 1",
+             loudness_lufs = NULL, loudness_range = NULL, waveform_data = NULL,
+             silence_regions = NULL, has_long_silence = 0 WHERE id = 1",
             [],
         )
         .unwrap();
@@ -510,14 +528,24 @@ mod tests {
         ).unwrap();
         restore(&conn, 1, &track_path).unwrap();
 
-        let (bpm, key, scale): (Option<f64>, Option<String>, Option<String>) = conn
-            .query_row("SELECT bpm, key, scale FROM tracks WHERE id = 1", [], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-            })
+        let (bpm, key, scale, silence_regions, has_long_silence): (
+            Option<f64>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            i64,
+        ) = conn
+            .query_row(
+                "SELECT bpm, key, scale, silence_regions, has_long_silence FROM tracks WHERE id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
             .unwrap();
         assert_eq!(bpm, Some(120.0));
         assert_eq!(key.as_deref(), Some("C"));
         assert_eq!(scale.as_deref(), Some("major"));
+        assert_eq!(silence_regions.as_deref(), Some("[[8.0,20.5]]"));
+        assert_eq!(has_long_silence, 1);
 
         // Pass should be marked DONE with the current pass_version after restore
         let (status, version): (i64, u32) = conn.query_row(

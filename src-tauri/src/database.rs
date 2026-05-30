@@ -50,6 +50,8 @@ pub struct Track {
     pub key_strength: Option<f64>,
     pub loudness_lufs: Option<f64>,
     pub loudness_range: Option<f64>,
+    pub silence_regions: Option<String>,
+    pub has_long_silence: i64,
 
     // Essentia classifier results
     pub detected_genre: Option<String>,
@@ -111,6 +113,7 @@ impl Track {
                     title, artist, album, genre, year, track_number, track_total,
                     disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
                     waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
+                    silence_regions, has_long_silence,
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
@@ -150,21 +153,23 @@ impl Track {
                 key_strength: row.get(28)?,
                 loudness_lufs: row.get(29)?,
                 loudness_range: row.get(30)?,
-                detected_genre: row.get(31)?,
-                detected_vocal: row.get(32)?,
-                detected_vocal_confidence: row.get(33)?,
-                mood_happy: row.get(34)?,
-                mood_sad: row.get(35)?,
-                mood_aggressive: row.get(36)?,
-                mood_relaxed: row.get(37)?,
-                mood_party: row.get(38)?,
-                mood_acoustic: row.get(39)?,
-                mood_electronic: row.get(40)?,
-                is_music: row.get(41)?,
-                ai_genre: row.get(42)?,
-                ai_mood: row.get(43)?,
-                ai_instruments: row.get(44)?,
-                description: row.get(45)?,
+                silence_regions: row.get(31)?,
+                has_long_silence: row.get(32)?,
+                detected_genre: row.get(33)?,
+                detected_vocal: row.get(34)?,
+                detected_vocal_confidence: row.get(35)?,
+                mood_happy: row.get(36)?,
+                mood_sad: row.get(37)?,
+                mood_aggressive: row.get(38)?,
+                mood_relaxed: row.get(39)?,
+                mood_party: row.get(40)?,
+                mood_acoustic: row.get(41)?,
+                mood_electronic: row.get(42)?,
+                is_music: row.get(43)?,
+                ai_genre: row.get(44)?,
+                ai_mood: row.get(45)?,
+                ai_instruments: row.get(46)?,
+                description: row.get(47)?,
             })
         })?;
         let mut list = Vec::new();
@@ -244,6 +249,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/09_bpm_raw.sql")),
         M::up(include_str!("../migrations/10_qwen_columns.sql")),
         M::up(include_str!("../migrations/11_description_embeddings.sql")),
+        M::up(include_str!("../migrations/12_silence_columns.sql")),
     ])
 }
 
@@ -340,6 +346,7 @@ mod tests {
                     title, artist, album, genre, year, track_number, track_total,
                     disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
                     waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
+                    silence_regions, has_long_silence,
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
@@ -379,21 +386,23 @@ mod tests {
                         key_strength: row.get(28)?,
                         loudness_lufs: row.get(29)?,
                         loudness_range: row.get(30)?,
-                        detected_genre: row.get(31)?,
-                        detected_vocal: row.get(32)?,
-                        detected_vocal_confidence: row.get(33)?,
-                        mood_happy: row.get(34)?,
-                        mood_sad: row.get(35)?,
-                        mood_aggressive: row.get(36)?,
-                        mood_relaxed: row.get(37)?,
-                        mood_party: row.get(38)?,
-                        mood_acoustic: row.get(39)?,
-                        mood_electronic: row.get(40)?,
-                        is_music: row.get(41)?,
-                        ai_genre: row.get(42)?,
-                        ai_mood: row.get(43)?,
-                        ai_instruments: row.get(44)?,
-                        description: row.get(45)?,
+                        silence_regions: row.get(31)?,
+                        has_long_silence: row.get(32)?,
+                        detected_genre: row.get(33)?,
+                        detected_vocal: row.get(34)?,
+                        detected_vocal_confidence: row.get(35)?,
+                        mood_happy: row.get(36)?,
+                        mood_sad: row.get(37)?,
+                        mood_aggressive: row.get(38)?,
+                        mood_relaxed: row.get(39)?,
+                        mood_party: row.get(40)?,
+                        mood_acoustic: row.get(41)?,
+                        mood_electronic: row.get(42)?,
+                        is_music: row.get(43)?,
+                        ai_genre: row.get(44)?,
+                        ai_mood: row.get(45)?,
+                        ai_instruments: row.get(46)?,
+                        description: row.get(47)?,
                     })
                 },
             )
@@ -423,5 +432,7 @@ mod tests {
         assert_eq!(track.key_strength, None);
         assert_eq!(track.loudness_lufs, None);
         assert_eq!(track.loudness_range, None);
+        assert_eq!(track.silence_regions, None);
+        assert_eq!(track.has_long_silence, 0);
     }
 }

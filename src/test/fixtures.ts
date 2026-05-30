@@ -37,6 +37,8 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     key_strength: 0.82,
     loudness_lufs: -14.2,
     loudness_range: 6.1,
+    silence_regions: null,
+    has_long_silence: 0,
     detected_genre: "electronic",
     detected_vocal: "instrumental",
     detected_vocal_confidence: 0.91,

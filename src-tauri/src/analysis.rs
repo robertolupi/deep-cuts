@@ -349,8 +349,10 @@ impl PipelineManager {
                                         scale = ?5,
                                         key_strength = ?6,
                                         loudness_lufs = ?7,
-                                        loudness_range = ?8
-                                     WHERE id = ?9",
+                                        loudness_range = ?8,
+                                        silence_regions = ?9,
+                                        has_long_silence = ?10
+                                     WHERE id = ?11",
                                     rusqlite::params![
                                         analysis.duration_seconds as i64,
                                         analysis.waveform_data,
@@ -360,6 +362,8 @@ impl PipelineManager {
                                         analysis.key_strength,
                                         analysis.loudness_lufs,
                                         analysis.loudness_range,
+                                        analysis.silence_regions,
+                                        if analysis.has_long_silence { 1 } else { 0 },
                                         job.track_id,
                                     ],
                                 );

@@ -38,6 +38,8 @@ export interface Track {
   key_strength: number | null;
   loudness_lufs: number | null;
   loudness_range: number | null;
+  silence_regions: string | null;
+  has_long_silence: number;
 
   // Essentia classifier results
   detected_genre: string | null;
