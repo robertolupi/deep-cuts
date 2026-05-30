@@ -23,6 +23,28 @@ npm run tauri  # full Tauri dev mode
 
 **Do not** invoke `vite` or `cargo tauri` directly — always go through `npm run`.
 
+### ⚠️ Stale binary problem
+
+`npm run tauri dev` sometimes serves a **stale Rust binary** — it may not recompile even when source files have changed. Symptoms: code fixes appear to have no effect, or analysis results are inconsistent with source changes.
+
+**Diagnose: check if the binary is older than the source:**
+
+```bash
+stat -f "%Sm %N" src-tauri/target/debug/deep-cuts
+stat -f "%Sm %N" src-tauri/src/embeddings.rs   # or whichever file was changed
+```
+
+If the binary timestamp is **earlier** than the source file, it's stale.
+
+**Fix: force a rebuild before launching:**
+
+```bash
+cargo build --manifest-path src-tauri/Cargo.toml
+npm run tauri dev
+```
+
+This is especially important after editing files in `src-tauri/src/` (e.g. `embeddings.rs`, `analysis.rs`) where a stale binary produces silently wrong results with no error message.
+
 ## 2. Frontend layout
 
 The frontend lives at the **project root** (not a `frontend/` subdirectory). All `npm` commands run from the root:
