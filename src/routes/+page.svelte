@@ -1,5 +1,6 @@
 <script lang="ts">
   import Navbar from "$lib/components/Navbar.svelte";
+  import FilterSidebar from "$lib/components/FilterSidebar.svelte";
   import TrackList from "$lib/components/TrackList.svelte";
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
@@ -16,12 +17,15 @@
 
   <main class="workspace">
     {#if ui.activeView === 'table'}
-      <TrackList
-        tracks={library.tracks}
-        {selectedTrack}
-        isPlaying={player.isPlaying}
-        onTrackSelect={(t) => player.playTrack(t)}
-      />
+      <div class="table-view-layout">
+        <FilterSidebar />
+        <TrackList
+          tracks={library.tracks}
+          {selectedTrack}
+          isPlaying={player.isPlaying}
+          onTrackSelect={(t) => player.playTrack(t)}
+        />
+      </div>
 
     {:else if ui.activeView === 'analysis'}
       <AnalysisPanel />

@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Track } from '../types';
-  import RangeSlider from './RangeSlider.svelte';
   import { formatDuration } from '$lib/utils/format';
   import { filters } from '$lib/stores/filters.svelte';
   import { ui } from '$lib/stores/ui.svelte';
@@ -17,178 +16,24 @@
     onTrackSelect: (track: Track) => void;
   } = $props();
 
-  // BPM filter popup state
-  let isBpmPopupOpen = $state(false);
-  let bpmContainer = $state<HTMLDivElement | null>(null);
-
-  // Genre autocomplete state
-  let isGenreFocused = $state(false);
-  let genreInputEl = $state<HTMLInputElement | null>(null);
-
-  // All distinct genres from both metadata and essentia, sorted
-  let allGenres = $derived.by(() => {
-    const set = new Set<string>();
-    for (const t of tracks) {
-      if (t.genre) {
-        for (const g of t.genre.split(/[,;]/)) {
-          const trimmed = g.trim();
-          if (trimmed) set.add(trimmed);
-        }
-      }
-      if (t.detected_genre) set.add(t.detected_genre);
-    }
-    return Array.from(set).sort();
-  });
-
-  // Suggestions: genres matching the current filter text (max 12)
-  let genreSuggestions = $derived.by(() => {
-    const q = filters.genreFilter.trim().toLowerCase();
-    if (!q) return [];
-    return allGenres.filter(g => g.toLowerCase().includes(q)).slice(0, 12);
-  });
-
-  function selectGenreSuggestion(genre: string) {
-    filters.genreFilter = genre;
-    isGenreFocused = false;
-    genreInputEl?.blur();
-  }
-
-  // Derived list of distinct keys reactively computed from tracks
-  let keysList = $derived.by(() => {
-    const list = new Set<string>();
-    for (const t of tracks) {
-      if (t.key && t.scale) {
-        const scaleLabel = t.scale.toLowerCase() === 'minor' ? 'minor' : 'major';
-        list.add(`${t.key} ${scaleLabel}`);
-      }
-    }
-    return ["All", ...Array.from(list).sort()];
-  });
-
   let displayLimit = $state(150);
 
   $effect(() => {
     filters.searchQuery;
     filters.genreFilter;
-    filters.selectedKey;
+    filters.selectedKeys;
+    filters.selectedScale;
     filters.minBpm;
     filters.maxBpm;
     displayLimit = 150;
   });
 
   let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
-
-  function setBpmPreset(minVal: number, maxVal: number) {
-    filters.minBpm = minVal;
-    filters.maxBpm = maxVal;
-  }
-
-  function handleWindowClick(e: MouseEvent) {
-    if (isBpmPopupOpen && bpmContainer && !bpmContainer.contains(e.target as Node)) {
-      isBpmPopupOpen = false;
-    }
-  }
 </script>
 
-<svelte:window onclick={handleWindowClick} />
-
 <div class="bottom-pane-scroller glass-panel">
-  <!-- Filters & search Row -->
+  <!-- Track count badge -->
   <div class="tracks-toolbar">
-    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; position: relative;">
-      <!-- Search box -->
-      <div class="search-box-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search tracks by title, artist, album, filename..."
-          bind:value={filters.searchQuery}
-          class="search-input"
-        />
-      </div>
-
-      <!-- Genre Filter with autocomplete -->
-      <div class="genre-filter-container">
-        <div class="search-box-wrap" style="max-width: 200px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Filter by genre…"
-            bind:value={filters.genreFilter}
-            bind:this={genreInputEl}
-            class="search-input"
-            onfocus={() => isGenreFocused = true}
-            onblur={() => setTimeout(() => { isGenreFocused = false; }, 150)}
-          />
-        </div>
-        {#if isGenreFocused && genreSuggestions.length > 0}
-          <div class="genre-suggestions glass-panel">
-            {#each genreSuggestions as suggestion}
-              <button
-                class="genre-suggestion-item"
-                type="button"
-                onmousedown={() => selectGenreSuggestion(suggestion)}
-              >{suggestion}</button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-
-      <!-- Key Filter -->
-      <div class="filter-select-wrap">
-        <select bind:value={filters.selectedKey} class="filter-select" aria-label="Key Filter">
-          <option value="All">🎹 All Keys</option>
-          {#each keysList.filter(k => k !== "All") as keyItem}
-            <option value={keyItem}>{keyItem}</option>
-          {/each}
-        </select>
-      </div>
-
-      <!-- BPM Filter Container -->
-      <div class="bpm-filter-container" bind:this={bpmContainer}>
-        <button
-          class="bpm-filter-btn {filters.minBpm > 20 || filters.maxBpm < 250 ? 'active' : ''}"
-          onclick={() => isBpmPopupOpen = !isBpmPopupOpen}
-          type="button"
-        >
-          ⏱️ BPM: {filters.minBpm === 20 && filters.maxBpm === 250 ? 'All' : `${Math.round(filters.minBpm)}-${Math.round(filters.maxBpm)}`}
-        </button>
-
-        {#if isBpmPopupOpen}
-          <div class="bpm-popup glass-panel">
-            <div class="bpm-popup-header">
-              <span class="bpm-popup-title">BPM Range</span>
-              <button class="btn-close-sm" onclick={() => isBpmPopupOpen = false} type="button">&times;</button>
-            </div>
-            <div class="bpm-slider-wrapper">
-              <RangeSlider
-                min={20}
-                max={250}
-                step={1}
-                bind:minValue={filters.minBpm}
-                bind:maxValue={filters.maxBpm}
-                unit="BPM"
-              />
-            </div>
-            <div class="bpm-presets">
-              <button class="preset-btn {filters.minBpm === 60 && filters.maxBpm === 90 ? 'active' : ''}" onclick={() => setBpmPreset(60, 90)} type="button">Slow</button>
-              <button class="preset-btn {filters.minBpm === 90 && filters.maxBpm === 125 ? 'active' : ''}" onclick={() => setBpmPreset(90, 125)} type="button">Mid</button>
-              <button class="preset-btn {filters.minBpm === 125 && filters.maxBpm === 150 ? 'active' : ''}" onclick={() => setBpmPreset(125, 150)} type="button">Fast</button>
-              <button class="preset-btn {filters.minBpm === 150 && filters.maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(150, 250)} type="button">V. Fast</button>
-              <button class="preset-btn preset-btn-full {filters.minBpm === 20 && filters.maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(20, 250)} type="button">All</button>
-            </div>
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Library metadata count badge -->
     <div class="library-count-badge">
       <code>{filters.filteredTracks.length} / {tracks.length} tracks</code>
     </div>
@@ -377,130 +222,7 @@
     100% { transform: translateX(100%); }
   }
 
-  .bpm-filter-container {
-    position: relative;
-    display: inline-block;
-  }
-
-  .bpm-filter-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    padding: 0.35rem 0.75rem;
-    font-size: 0.85rem;
-    font-family: inherit;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    transition: all 0.2s ease;
-    height: 38px; /* aligns perfectly with filter-select */
-    box-sizing: border-box;
-  }
-
-  .bpm-filter-btn:hover {
-    border-color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 5%, var(--bg-card));
-  }
-
-  .bpm-filter-btn.active {
-    border-color: var(--color-accent-cyan);
-    color: var(--color-accent-cyan);
-    background: color-mix(in srgb, var(--color-accent-cyan) 8%, var(--bg-card));
-    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 15%, transparent);
-  }
-
-  .bpm-popup {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    width: 250px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 1rem;
-    z-index: 1000;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    backdrop-filter: blur(12px);
-  }
-
-  .bpm-popup-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.45rem;
-  }
-
-  .bpm-popup-title {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-
-  .btn-close-sm {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-  }
-
-  .btn-close-sm:hover {
-    color: var(--text-primary);
-  }
-
-  .bpm-slider-wrapper {
-    padding: 0.25rem 0.5rem;
-  }
-
-  .bpm-presets {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.35rem;
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.6rem;
-  }
-
-  .preset-btn {
-    background: color-mix(in srgb, var(--text-muted) 6%, transparent);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    padding: 0.25rem 0;
-    font-size: 0.68rem;
-    font-weight: 600;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    text-align: center;
-  }
-
-  .preset-btn:hover {
-    border-color: var(--color-primary);
-    color: var(--text-primary);
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-  }
-
-  .preset-btn.active {
-    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
-    border-color: var(--color-accent-cyan);
-    color: var(--color-accent-cyan);
-  }
-
-  .preset-btn-full {
-    grid-column: span 4;
-    margin-top: 0.15rem;
-  }
-
-  .load-more-container {
+.load-more-container {
     display: flex;
     justify-content: center;
     padding: 1.5rem;
@@ -544,46 +266,4 @@
     transform: translateY(1px);
   }
 
-  .genre-filter-container {
-    position: relative;
-    display: inline-block;
-  }
-
-  .genre-suggestions {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 220px;
-    max-height: 260px;
-    overflow-y: auto;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 0.3rem 0;
-    z-index: 1000;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .genre-suggestion-item {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    text-align: left;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.82rem;
-    font-family: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background 0.1s ease, color 0.1s ease;
-  }
-
-  .genre-suggestion-item:hover {
-    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
-    color: var(--color-accent-cyan);
-  }
 </style>

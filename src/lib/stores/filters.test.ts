@@ -3,20 +3,21 @@ import { filters } from "$lib/stores/filters.svelte";
 import { library } from "$lib/stores/library.svelte";
 import { MOCK_TRACKS, createTrack } from "../../test/fixtures";
 
-// Seed library.tracks before each test so the derived filteredTracks has data
 function seedLibrary(tracks = MOCK_TRACKS) {
   library.tracks = [...tracks];
 }
 
+function resetFilters() {
+  filters.searchQuery  = "";
+  filters.genreFilter  = "";
+  filters.minBpm       = 20;
+  filters.maxBpm       = 250;
+  filters.selectedKeys  = [];
+  filters.selectedScale = "all";
+}
+
 describe("FiltersStore — initial state", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
   it("starts with empty search and genre", () => {
     expect(filters.searchQuery).toBe("");
@@ -28,8 +29,9 @@ describe("FiltersStore — initial state", () => {
     expect(filters.maxBpm).toBe(250);
   });
 
-  it("starts with All keys selected", () => {
-    expect(filters.selectedKey).toBe("All");
+  it("starts with no keys and scale=all", () => {
+    expect(filters.selectedKeys).toEqual([]);
+    expect(filters.selectedScale).toBe("all");
   });
 
   it("filteredTracks returns all tracks when no filters are active", () => {
@@ -38,17 +40,9 @@ describe("FiltersStore — initial state", () => {
 });
 
 describe("FiltersStore — genre filter", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
   it("filters by metadata genre (case-insensitive, partial match)", () => {
-    // Override detected_genre so Ambient/Jazz tracks don't sneak through via detected_genre
     seedLibrary([
       createTrack({ id: 1, genre: "Electronic",  detected_genre: "electronic" }),
       createTrack({ id: 2, genre: "Ambient",     detected_genre: "ambient"    }),
@@ -64,9 +58,7 @@ describe("FiltersStore — genre filter", () => {
   });
 
   it("filters by detected_genre when metadata genre doesn't match", () => {
-    seedLibrary([
-      createTrack({ id: 10, genre: "Pop", detected_genre: "electronic" }),
-    ]);
+    seedLibrary([createTrack({ id: 10, genre: "Pop", detected_genre: "electronic" })]);
     filters.genreFilter = "electronic";
     expect(filters.filteredTracks).toHaveLength(1);
     expect(filters.filteredTracks[0].id).toBe(10);
@@ -84,42 +76,79 @@ describe("FiltersStore — genre filter", () => {
 });
 
 describe("FiltersStore — key filter", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
-  it("shows all tracks when key is All", () => {
-    filters.selectedKey = "All";
+  it("shows all tracks when no keys selected and scale=all", () => {
     expect(filters.filteredTracks).toHaveLength(MOCK_TRACKS.length);
   });
 
-  it("filters to matching key+scale only", () => {
-    filters.selectedKey = "C major";
+  it("filters to a single selected key note", () => {
+    filters.selectedKeys = ["C"];
     const result = filters.filteredTracks;
-    expect(result.every(t => t.key === "C" && t.scale?.toLowerCase() === "major")).toBe(true);
-    expect(result).toHaveLength(1);
+    expect(result.every(t => t.key === "C")).toBe(true);
+    expect(result).toHaveLength(1); // only id=1 has key C
   });
 
-  it("excludes tracks with null key/scale", () => {
-    filters.selectedKey = "C major";
-    expect(filters.filteredTracks.map(t => t.id)).not.toContain(5); // No BPM Track has null key
+  it("ORs multiple selected keys", () => {
+    filters.selectedKeys = ["C", "F"];
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1); // C major
+    expect(ids).toContain(3); // F major
+    expect(ids).not.toContain(2); // A minor
+    expect(ids).not.toContain(4); // Bb minor
+  });
+
+  it("filters by scale=major only", () => {
+    filters.selectedScale = "major";
+    const result = filters.filteredTracks;
+    expect(result.every(t => t.scale?.toLowerCase() === "major")).toBe(true);
+  });
+
+  it("filters by scale=minor only", () => {
+    filters.selectedScale = "minor";
+    const result = filters.filteredTracks;
+    expect(result.every(t => t.scale?.toLowerCase() === "minor")).toBe(true);
+  });
+
+  it("combines key AND scale (e.g. A minor)", () => {
+    filters.selectedKeys  = ["A"];
+    filters.selectedScale = "minor";
+    const result = filters.filteredTracks;
+    expect(result.every(t => t.key === "A" && t.scale?.toLowerCase() === "minor")).toBe(true);
+    expect(result).toHaveLength(1); // id=2 A minor
+  });
+
+  it("excludes tracks with null key when keys are selected", () => {
+    filters.selectedKeys = ["C"];
+    expect(filters.filteredTracks.map(t => t.id)).not.toContain(5); // null key
+  });
+
+  it("excludes tracks with null scale when scale filter is active", () => {
+    filters.selectedScale = "major";
+    expect(filters.filteredTracks.map(t => t.id)).not.toContain(5); // null scale
+  });
+
+  it("toggleKey adds a key", () => {
+    filters.toggleKey("A");
+    expect(filters.selectedKeys).toContain("A");
+  });
+
+  it("toggleKey removes a key that is already selected", () => {
+    filters.selectedKeys = ["A", "C"];
+    filters.toggleKey("A");
+    expect(filters.selectedKeys).not.toContain("A");
+    expect(filters.selectedKeys).toContain("C");
+  });
+
+  it("clearKeys resets to empty", () => {
+    filters.selectedKeys = ["A", "C"];
+    filters.clearKeys();
+    expect(filters.selectedKeys).toEqual([]);
   });
 });
 
 describe("FiltersStore — BPM filter", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
   it("shows all tracks when BPM range is at default", () => {
     expect(filters.filteredTracks).toHaveLength(MOCK_TRACKS.length);
@@ -128,15 +157,15 @@ describe("FiltersStore — BPM filter", () => {
   it("excludes tracks with null BPM when range is narrowed", () => {
     filters.minBpm = 60;
     filters.maxBpm = 200;
-    expect(filters.filteredTracks.map(t => t.id)).not.toContain(5); // null bpm
+    expect(filters.filteredTracks.map(t => t.id)).not.toContain(5);
   });
 
   it("includes tracks whose BPM falls within the range", () => {
     filters.minBpm = 90;
     filters.maxBpm = 130;
     const ids = filters.filteredTracks.map(t => t.id);
-    expect(ids).toContain(1); // 128
-    expect(ids).toContain(4); // 95
+    expect(ids).toContain(1);  // 128
+    expect(ids).toContain(4);  // 95
     expect(ids).not.toContain(2); // 72
     expect(ids).not.toContain(3); // 145
   });
@@ -151,14 +180,7 @@ describe("FiltersStore — BPM filter", () => {
 });
 
 describe("FiltersStore — search query filter", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
   it("matches by title", () => {
     filters.searchQuery = "cyan";
@@ -189,29 +211,22 @@ describe("FiltersStore — search query filter", () => {
 });
 
 describe("FiltersStore — AND logic across filters", () => {
-  beforeEach(() => {
-    filters.searchQuery = "";
-    filters.genreFilter = "";
-    filters.minBpm = 20;
-    filters.maxBpm = 250;
-    filters.selectedKey = "All";
-    seedLibrary();
-  });
+  beforeEach(() => { resetFilters(); seedLibrary(); });
 
   it("applies genre AND BPM filters together", () => {
     filters.genreFilter = "electronic";
     filters.minBpm = 130;
     filters.maxBpm = 250;
-    // id=1 Electronic 128bpm — below range; id=3 Electronic 145bpm — in range
     const ids = filters.filteredTracks.map(t => t.id);
-    expect(ids).toContain(3);
-    expect(ids).not.toContain(1);
+    expect(ids).toContain(3);     // Electronic 145 bpm
+    expect(ids).not.toContain(1); // Electronic 128 bpm — below range
   });
 
-  it("applies search AND key filters together", () => {
-    filters.searchQuery = "artist a";
-    filters.selectedKey = "F major";
-    // id=1 Artist A, C major — key excluded; id=3 Artist A, F major — passes both
+  it("applies search AND key+scale filters together", () => {
+    filters.searchQuery   = "artist a";
+    filters.selectedKeys  = ["F"];
+    filters.selectedScale = "major";
+    // id=1 Artist A, C major — key excluded; id=3 Artist A, F major — passes
     const ids = filters.filteredTracks.map(t => t.id);
     expect(ids).toContain(3);
     expect(ids).not.toContain(1);
