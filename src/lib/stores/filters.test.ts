@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { filters } from "$lib/stores/filters.svelte";
 import { library } from "$lib/stores/library.svelte";
+import { ui } from "$lib/stores/ui.svelte";
+import { invoke } from "@tauri-apps/api/core";
 import { MOCK_TRACKS, createTrack } from "../../test/fixtures";
 
 function seedLibrary(tracks = MOCK_TRACKS) {
@@ -356,5 +358,57 @@ describe("FiltersStore — similarTo filter", () => {
 
   it("isSimilarLoading starts false", () => {
     expect(filters.isSimilarLoading).toBe(false);
+  });
+
+  it("shows an error toast when the IPC call rejects", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("no embeddings"));
+    const toastSpy = vi.spyOn(ui, "showToast");
+    await filters.setSimilarTo({ id: 99, title: "Ghost Track" });
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Similarity search failed"),
+      "error",
+    );
+    expect(filters.isSimilarLoading).toBe(false);
+    toastSpy.mockRestore();
+  });
+
+  it("does not set similarToTrack when the IPC call rejects", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("no embeddings"));
+    await filters.setSimilarTo({ id: 99, title: "Ghost Track" });
+    expect(filters.similarToTrack).toBeNull();
+  });
+});
+
+describe("FiltersStore — clearAll", () => {
+  beforeEach(() => { resetFilters(); seedLibrary(); });
+
+  it("resets all filter state to defaults", () => {
+    filters.searchQuery   = "test";
+    filters.genreFilter   = "jazz";
+    filters.minBpm        = 80;
+    filters.maxBpm        = 160;
+    filters.selectedKeys  = ["A", "C#"];
+    filters.selectedScale = "minor";
+    filters.musicOnly     = true;
+    filters.vocalFilter   = "voice";
+
+    filters.clearAll();
+
+    expect(filters.searchQuery).toBe("");
+    expect(filters.genreFilter).toBe("");
+    expect(filters.minBpm).toBe(20);
+    expect(filters.maxBpm).toBe(250);
+    expect(filters.selectedKeys).toEqual([]);
+    expect(filters.selectedScale).toBe("all");
+    expect(filters.musicOnly).toBe(false);
+    expect(filters.vocalFilter).toBe("all");
+    expect(filters.similarToTrack).toBeNull();
+  });
+
+  it("restores all tracks to filteredTracks after clearAll", () => {
+    filters.searchQuery = "zzznomatch";
+    expect(filters.filteredTracks).toHaveLength(0);
+    filters.clearAll();
+    expect(filters.filteredTracks).toHaveLength(library.tracks.length);
   });
 });
