@@ -13,6 +13,7 @@ function createFiltersStore() {
   let selectedScale = $state<ScaleFilter>("all");
   let musicOnly = $state(false);
   let vocalFilter = $state<"all" | "voice" | "instrumental">("all");
+  let selectedDirectoryIds = $state<number[]>([]);
   let similarToTrack = $state<{ id: number; title: string } | null>(null);
   let similarTrackIds = $state<Set<number>>(new Set());
   let isSimilarLoading = $state(false);
@@ -22,12 +23,17 @@ function createFiltersStore() {
       // Sounds similar filter
       if (similarTrackIds.size > 0 && !similarTrackIds.has(t.id)) return false;
 
-      // Music only: require explicit is_music = 1 (excludes non-music and unanalyzed)
-      if (musicOnly && t.is_music !== 1) return false;
+      // Music only: exclude tracks Essentia classified as Non-Music
+      if (musicOnly && t.detected_genre?.startsWith("Non-Music")) return false;
 
       // Vocal / instrumental
       if (vocalFilter !== "all") {
         if (t.detected_vocal !== vocalFilter) return false;
+      }
+
+      // Watched directory
+      if (selectedDirectoryIds.length > 0) {
+        if (!selectedDirectoryIds.includes(t.watched_directory_id)) return false;
       }
 
       // Genre
@@ -85,8 +91,15 @@ function createFiltersStore() {
     set selectedScale(v: ScaleFilter) { selectedScale = v; },
     get musicOnly()        { return musicOnly; },
     set musicOnly(v)       { musicOnly = v; },
-    get vocalFilter()      { return vocalFilter; },
+    get vocalFilter()          { return vocalFilter; },
     set vocalFilter(v: "all" | "voice" | "instrumental") { vocalFilter = v; },
+    get selectedDirectoryIds() { return selectedDirectoryIds; },
+    toggleDirectoryId(id: number) {
+      selectedDirectoryIds = selectedDirectoryIds.includes(id)
+        ? selectedDirectoryIds.filter(d => d !== id)
+        : [...selectedDirectoryIds, id];
+    },
+    clearDirectories() { selectedDirectoryIds = []; },
     get similarToTrack()   { return similarToTrack; },
     get isSimilarLoading() { return isSimilarLoading; },
     get filteredTracks()   { return filteredTracks; },

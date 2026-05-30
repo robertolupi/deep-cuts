@@ -40,6 +40,7 @@
   const hasActiveFilters = $derived(
     filters.searchQuery !== "" ||
     filters.genreFilter !== "" ||
+    filters.selectedDirectoryIds.length > 0 ||
     filters.selectedKeys.length > 0 ||
     filters.selectedScale !== "all" ||
     filters.minBpm !== 20 ||
@@ -52,6 +53,7 @@
   function clearAll() {
     filters.searchQuery   = "";
     filters.genreFilter   = "";
+    filters.clearDirectories();
     filters.clearKeys();
     filters.selectedScale = "all";
     filters.minBpm        = 20;
@@ -101,6 +103,14 @@
     <!-- Active filter chips -->
     {#if hasActiveFilters}
       <div class="sidebar-section active-chips">
+        {#each filters.selectedDirectoryIds as id}
+          {@const dir = library.directories.find(d => d.id === id)}
+          {#if dir}
+            <button class="chip chip-active" onclick={() => filters.toggleDirectoryId(id)}>
+              {dir.name} ×
+            </button>
+          {/if}
+        {/each}
         {#if filters.genreFilter}
           <button class="chip chip-active" onclick={() => filters.genreFilter = ""}>
             {filters.genreFilter} ×
@@ -138,6 +148,38 @@
         {/if}
         <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
       </div>
+    {/if}
+
+    <!-- Watched directory filter -->
+    {#if library.directories.length > 1}
+    <div class="sidebar-section">
+      <div class="section-label-row">
+        <span class="section-label">FOLDERS</span>
+        {#if filters.selectedDirectoryIds.length > 0}
+          <button class="label-clear" onclick={() => filters.clearDirectories()}>Clear</button>
+        {/if}
+      </div>
+      <div class="dir-list">
+        {#each library.directories as dir}
+          <button
+            class="dir-btn"
+            class:dir-active={filters.selectedDirectoryIds.includes(dir.id)}
+            onclick={() => filters.toggleDirectoryId(dir.id)}
+            title={dir.path}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="dir-icon">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span class="dir-name">{dir.name}</span>
+            {#if filters.selectedDirectoryIds.includes(dir.id)}
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="dir-check">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
     {/if}
 
     <!-- Genre filter -->
@@ -254,7 +296,7 @@
           <span class="toggle-knob"></span>
         </button>
       </label>
-      <p class="toggle-hint">Shows only tracks the AI confirmed as music (hides unanalyzed too)</p>
+      <p class="toggle-hint">Hides tracks Essentia classified as Non-Music (audiobooks, spoken word, etc.)</p>
     </div>
   </div>
   {:else}
@@ -520,6 +562,53 @@
     color: var(--sg-outline, #849495);
     font-style: italic;
   }
+
+  /* ── Watched directory list ── */
+  .dir-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dir-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+    padding: 5px 7px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.02);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    transition: all 0.12s;
+  }
+
+  .dir-btn:hover {
+    border-color: rgba(0,240,255,0.3);
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(0,240,255,0.04);
+  }
+
+  .dir-btn.dir-active {
+    border-color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.1);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .dir-icon { flex-shrink: 0; }
+
+  .dir-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dir-check { flex-shrink: 0; margin-left: auto; }
 
   .chip-similar {
     border-color: rgba(254,0,254,0.45) !important;
