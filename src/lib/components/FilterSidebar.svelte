@@ -45,7 +45,8 @@
     filters.minBpm !== 20 ||
     filters.maxBpm !== 250 ||
     filters.musicOnly ||
-    filters.vocalFilter !== "all"
+    filters.vocalFilter !== "all" ||
+    filters.similarToTrack !== null
   );
 
   function clearAll() {
@@ -57,6 +58,7 @@
     filters.maxBpm        = 250;
     filters.musicOnly     = false;
     filters.vocalFilter   = "all";
+    filters.clearSimilar();
   }
 </script>
 
@@ -127,6 +129,11 @@
         {#if filters.vocalFilter !== "all"}
           <button class="chip chip-active" onclick={() => filters.vocalFilter = "all"}>
             {filters.vocalFilter === "voice" ? "Vocals" : "Instrumental"} ×
+          </button>
+        {/if}
+        {#if filters.similarToTrack}
+          <button class="chip chip-active chip-similar" onclick={() => filters.clearSimilar()}>
+            ≈ {filters.similarToTrack.title} ×
           </button>
         {/if}
         <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
@@ -512,6 +519,16 @@
     border-color: rgba(255,255,255,0.08);
     color: var(--sg-outline, #849495);
     font-style: italic;
+  }
+
+  .chip-similar {
+    border-color: rgba(254,0,254,0.45) !important;
+    background: rgba(254,0,254,0.08) !important;
+    color: var(--sg-secondary, #fe00fe) !important;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* ── Key filter ── */

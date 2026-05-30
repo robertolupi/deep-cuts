@@ -1,5 +1,6 @@
 import type { Track } from "$lib/types";
 import { library } from "$lib/stores/library.svelte";
+import { invoke } from "@tauri-apps/api/core";
 
 export type ScaleFilter = "all" | "major" | "minor";
 
@@ -12,9 +13,15 @@ function createFiltersStore() {
   let selectedScale = $state<ScaleFilter>("all");
   let musicOnly = $state(false);
   let vocalFilter = $state<"all" | "voice" | "instrumental">("all");
+  let similarToTrack = $state<{ id: number; title: string } | null>(null);
+  let similarTrackIds = $state<Set<number>>(new Set());
+  let isSimilarLoading = $state(false);
 
   const filteredTracks = $derived.by(() => {
     return library.tracks.filter((t) => {
+      // Sounds similar filter
+      if (similarTrackIds.size > 0 && !similarTrackIds.has(t.id)) return false;
+
       // Music only: require explicit is_music = 1 (excludes non-music and unanalyzed)
       if (musicOnly && t.is_music !== 1) return false;
 
@@ -76,11 +83,31 @@ function createFiltersStore() {
     set selectedKeys(v) { selectedKeys = v; },
     get selectedScale() { return selectedScale; },
     set selectedScale(v: ScaleFilter) { selectedScale = v; },
-    get musicOnly()      { return musicOnly; },
-    set musicOnly(v)     { musicOnly = v; },
-    get vocalFilter()    { return vocalFilter; },
+    get musicOnly()        { return musicOnly; },
+    set musicOnly(v)       { musicOnly = v; },
+    get vocalFilter()      { return vocalFilter; },
     set vocalFilter(v: "all" | "voice" | "instrumental") { vocalFilter = v; },
-    get filteredTracks(){ return filteredTracks; },
+    get similarToTrack()   { return similarToTrack; },
+    get isSimilarLoading() { return isSimilarLoading; },
+    get filteredTracks()   { return filteredTracks; },
+
+    async setSimilarTo(track: { id: number; title: string; }) {
+      isSimilarLoading = true;
+      try {
+        const results = await invoke<{ id: number; distance: number }[]>(
+          'search_similar_tracks_audio', { trackId: track.id }
+        );
+        similarTrackIds = new Set(results.map(r => r.id));
+        similarToTrack  = track;
+      } finally {
+        isSimilarLoading = false;
+      }
+    },
+
+    clearSimilar() {
+      similarToTrack  = null;
+      similarTrackIds = new Set();
+    },
 
     toggleKey(key: string) {
       selectedKeys = selectedKeys.includes(key)

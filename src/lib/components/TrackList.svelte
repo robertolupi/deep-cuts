@@ -25,6 +25,7 @@
     filters.maxBpm;
     filters.musicOnly;
     filters.vocalFilter;
+    filters.similarToTrack;
     displayLimit = 150;
   });
 

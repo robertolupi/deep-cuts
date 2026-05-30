@@ -1,5 +1,6 @@
 <script lang="ts">
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
+  import { filters } from "$lib/stores/filters.svelte";
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
@@ -206,6 +207,38 @@
           </div>
         </div>
       {/if}
+
+      <!-- Sounds similar -->
+      <div class="section similar-section">
+        <button
+          class="similar-btn"
+          class:similar-active={filters.similarToTrack?.id === track.id}
+          class:similar-loading={filters.isSimilarLoading}
+          disabled={filters.isSimilarLoading}
+          onclick={() => {
+            if (filters.similarToTrack?.id === track.id) {
+              filters.clearSimilar();
+            } else {
+              filters.setSimilarTo({ id: track.id, title: track.title ?? track.filename });
+            }
+          }}
+        >
+          {#if filters.isSimilarLoading}
+            <span class="similar-spinner">⟳</span> Finding similar…
+          {:else if filters.similarToTrack?.id === track.id}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Clear similar filter
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+            Find sounds similar
+          {/if}
+        </button>
+      </div>
 
       <!-- File path -->
       <div class="section filepath-section">
@@ -588,6 +621,56 @@
     font-size: 9px;
     color: var(--sg-outline, #849495);
     margin-left: 3px;
+  }
+
+  /* ── Sounds similar ── */
+  .similar-section {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .similar-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 7px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(254,0,254,0.3);
+    background: rgba(254,0,254,0.06);
+    color: var(--sg-secondary, #fe00fe);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .similar-btn:hover:not(:disabled) {
+    background: rgba(254,0,254,0.12);
+    border-color: rgba(254,0,254,0.55);
+  }
+
+  .similar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .similar-btn.similar-active {
+    background: rgba(254,0,254,0.12);
+    border-color: var(--sg-secondary, #fe00fe);
+  }
+
+  .similar-spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
   }
 
   /* ── Lyrics ── */
