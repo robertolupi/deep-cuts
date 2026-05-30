@@ -68,11 +68,11 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Own `name`, `path`, `isAddLoading` state internally; toast via `ui.showToast()`
 - [x] Remove all props from `+page.svelte` → `LibrarySettings`
 
-### 1.7 — Slim `+page.svelte`
-- [ ] Remove split-pane resize logic (`topPaneHeight`, `isResizing`, mouse handlers)
-- [ ] Remove `showDetails` / `toggleDetails()`
-- [ ] Verify `+page.svelte` contains only layout skeleton + store `init()` calls
-- [ ] Commit "refactor: slim +page.svelte — Phase 1 complete"
+### 1.7 — Slim `+page.svelte` ✅ complete
+- [x] Remove split-pane resize logic (`topPaneHeight`, `isResizing`, mouse handlers)
+- [x] Remove `showDetails` / `toggleDetails()`
+- [x] `+page.svelte` contains only layout skeleton + store `init()` calls
+- [x] Commit "refactor: slim +page.svelte — Phase 1 complete"
 
 ---
 
