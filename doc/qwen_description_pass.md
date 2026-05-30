@@ -196,10 +196,13 @@ INSERT OR REPLACE INTO description_embeddings (track_id, embedding) VALUES (?1, 
 ## Pipeline Sequencing in `PipelineManager::run()`
 
 ```
-Phase 1 — audio_analysis    (parallel, N threads)
-Phase 2 — clap              (single-threaded, sequential)
-Phase 3 — qwen              (single-threaded; llama-server started before, killed after)
-Phase 4 — description_embed (single-threaded)
+Phase 1 — audio_analysis    (parallel, N threads)   priority 10
+Phase 2 — bpm_correction    (single-threaded)        priority 15  — see bpm_correction_passes.md
+Phase 3 — clap              (single-threaded)        priority 20
+Phase 4 — qwen              (single-threaded; llama-server started before, killed after)  priority 30
+Phase 5 — description_embed (single-threaded)        priority 40
+Phase 6 — essentia          (single-threaded)        priority 50
+Phase 7 — bpm_refinement    (single-threaded)        priority 55  — see bpm_correction_passes.md
 ```
 
 Each phase queries for its pending jobs at the start of the phase (not at pipeline start), so tracks that failed earlier phases are naturally skipped.
