@@ -85,17 +85,19 @@ git checkout -b ui-redesign
 
 ### 2.1 — Sonic Glitch design tokens ✅ DONE in Phase 0
 
-### 2.2 — `+layout.svelte` — app shell + PlayerBar mount
-- [ ] Create `src/routes/+layout.svelte` with `app-shell` grid
-- [ ] Import and mount `PlayerBar` at layout level
+### 2.2 — `+layout.svelte` — app shell + PlayerBar mount ✅ complete
+- [x] Create `src/routes/+layout.svelte` with `app-shell` flex-column
+- [x] Import and mount `PlayerBar` at layout level
+- [x] Move `library.init()` + `theme.init()` here (out of `+page.svelte`)
 
-### 2.3 — `PlayerBar.svelte` (new)
-- [ ] Left: vinyl icon, track title, artist (from player store)
-- [ ] Center: WaveSurfer waveform (48px) + spectrogram (48px, toggleable, spring-animates)
-- [ ] Right: prev/play-pause/next, time readout, spectrogram toggle, "Find Similar", volume
-- [ ] WaveSurfer initialised here (moved from `AudioPlayer.svelte` / player store)
-- [ ] Spectrogram toggle state persisted to `localStorage`
-- [ ] Background: `var(--sg-waveform-bg)` — recessed from glass panels above
+### 2.3 — `PlayerBar.svelte` (new) ✅ complete
+- [x] Left: vinyl thumb (spinning when playing), track title + artist (JetBrains Mono), Find Similar button
+- [x] Center: prev/play-pause/next transport + waveform row (WaveSurfer 48px + spectrogram 48px)
+- [x] Right: reveal-in-finder, spectrogram toggle
+- [x] WaveSurfer containers registered with player store via `register()` on mount
+- [x] Spectrogram toggle state persisted to `localStorage` (`deep-cuts-spectrogram`)
+- [x] Background: `var(--sg-waveform-bg)` — recessed from glass panels above
+- [x] `player.playTrack()` / `handlePrevTrack()` / `handleNextTrack()` — args removed; store imports `theme` + `filters` directly
 
 ### 2.4 — `FilterSidebar.svelte` (new)
 - [ ] Search input + `⚡ AI` mode toggle

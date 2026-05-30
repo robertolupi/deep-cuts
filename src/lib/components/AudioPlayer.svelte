@@ -89,7 +89,7 @@
       <div class="playback-controls-row">
         <div style="display: flex; gap: 0.75rem; align-items: center;">
           <!-- Skip back -->
-          <button class="player-btn" title="Previous Track" onclick={() => player.handlePrevTrack([], 'dark')}>
+          <button class="player-btn" title="Previous Track" onclick={() => player.handlePrevTrack()}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="19 20 9 12 19 4 19 20"/>
               <rect x="5" y="4" width="2" height="16"/>
@@ -109,7 +109,7 @@
             {/if}
           </button>
           <!-- Skip forward -->
-          <button class="player-btn" title="Next Track" onclick={() => player.handleNextTrack([], 'dark')}>
+          <button class="player-btn" title="Next Track" onclick={() => player.handleNextTrack()}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5 4 15 12 5 20 5 4"/>
               <rect x="17" y="4" width="2" height="16"/>

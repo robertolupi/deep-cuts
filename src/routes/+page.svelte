@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-
   import Navbar from "$lib/components/Navbar.svelte";
   import HeroPanel from "$lib/components/HeroPanel.svelte";
   import AudioPlayer from "$lib/components/AudioPlayer.svelte";
@@ -10,22 +8,9 @@
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
   import { library } from "$lib/stores/library.svelte";
   import { player } from "$lib/stores/player.svelte";
-  import { filters } from "$lib/stores/filters.svelte";
-  import { theme } from "$lib/stores/theme.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
   const selectedTrack = $derived(player.selectedTrack);
-
-  onMount(() => {
-    async function init() {
-      await library.init();
-      await theme.init(library.tauriConnected);
-    }
-
-    const cleanup = theme.initSystemListener();
-    init();
-    return cleanup;
-  });
 </script>
 
 <div class="app-layout">
@@ -50,7 +35,7 @@
           tracks={library.tracks}
           {selectedTrack}
           isPlaying={player.isPlaying}
-          onTrackSelect={(t) => player.playTrack(t, theme.resolvedTheme, filters.filteredTracks)}
+          onTrackSelect={(t) => player.playTrack(t)}
         />
       </div>
 

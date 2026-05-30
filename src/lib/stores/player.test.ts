@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { player } from "$lib/stores/player.svelte";
+import { library } from "$lib/stores/library.svelte";
 import { MOCK_TRACKS, createTrack } from "../../test/fixtures";
 
 // WaveSurfer and Tauri are mocked globally in src/test/setup.ts
@@ -55,37 +56,39 @@ describe("PlayerStore — resetPlayer", () => {
 describe("PlayerStore — handlePrevTrack", () => {
   beforeEach(() => {
     player.resetPlayer();
+    library.tracks = [];
   });
 
   it("does nothing when no track is selected", () => {
     player.selectedTrack = null;
-    // Should not throw
-    expect(() => player.handlePrevTrack(MOCK_TRACKS, "dark")).not.toThrow();
+    expect(() => player.handlePrevTrack()).not.toThrow();
   });
 
   it("does nothing when the track list is empty", () => {
     player.selectedTrack = MOCK_TRACKS[1];
-    expect(() => player.handlePrevTrack([], "dark")).not.toThrow();
+    expect(() => player.handlePrevTrack()).not.toThrow();
   });
 
   it("navigates to the previous track", async () => {
+    library.tracks = MOCK_TRACKS;
     player.selectedTrack = MOCK_TRACKS[2]; // id=3 Glitch Step
     const waveform = document.createElement("div");
     const spectrogram = document.createElement("div");
     player.register(waveform, spectrogram);
 
-    await player.handlePrevTrack(MOCK_TRACKS, "dark");
+    await player.handlePrevTrack();
 
     expect(player.selectedTrack?.id).toBe(MOCK_TRACKS[1].id);
   });
 
   it("wraps around to the last track when on the first", async () => {
+    library.tracks = MOCK_TRACKS;
     player.selectedTrack = MOCK_TRACKS[0]; // first track
     const waveform = document.createElement("div");
     const spectrogram = document.createElement("div");
     player.register(waveform, spectrogram);
 
-    await player.handlePrevTrack(MOCK_TRACKS, "dark");
+    await player.handlePrevTrack();
 
     expect(player.selectedTrack?.id).toBe(MOCK_TRACKS[MOCK_TRACKS.length - 1].id);
   });
@@ -94,31 +97,34 @@ describe("PlayerStore — handlePrevTrack", () => {
 describe("PlayerStore — handleNextTrack", () => {
   beforeEach(() => {
     player.resetPlayer();
+    library.tracks = [];
   });
 
   it("does nothing when no track is selected", () => {
     player.selectedTrack = null;
-    expect(() => player.handleNextTrack(MOCK_TRACKS, "dark")).not.toThrow();
+    expect(() => player.handleNextTrack()).not.toThrow();
   });
 
   it("navigates to the next track", async () => {
+    library.tracks = MOCK_TRACKS;
     player.selectedTrack = MOCK_TRACKS[0]; // first
     const waveform = document.createElement("div");
     const spectrogram = document.createElement("div");
     player.register(waveform, spectrogram);
 
-    await player.handleNextTrack(MOCK_TRACKS, "dark");
+    await player.handleNextTrack();
 
     expect(player.selectedTrack?.id).toBe(MOCK_TRACKS[1].id);
   });
 
   it("wraps around to the first track when on the last", async () => {
+    library.tracks = MOCK_TRACKS;
     player.selectedTrack = MOCK_TRACKS[MOCK_TRACKS.length - 1]; // last track
     const waveform = document.createElement("div");
     const spectrogram = document.createElement("div");
     player.register(waveform, spectrogram);
 
-    await player.handleNextTrack(MOCK_TRACKS, "dark");
+    await player.handleNextTrack();
 
     expect(player.selectedTrack?.id).toBe(MOCK_TRACKS[0].id);
   });
