@@ -1,98 +1,230 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* --- 1. THEME DEFINITIONS & DESIGN TOKENS --- */
 
-/* DEFAULT: DARK THEME */
+/* =============================================
+   SONIC GLITCH DESIGN SYSTEM — DARK (default)
+   Cyberpunk Glassmorphism. Cyber Cyan + Studio Pink.
+   ============================================= */
 :root, html[data-theme="dark"] {
-  --bg-main: #0a0b10;
-  --bg-card: rgba(18, 20, 32, 0.65);
-  --bg-card-hover: rgba(26, 29, 46, 0.8);
-  --border-color: rgba(255, 255, 255, 0.06);
-  --border-color-hover: rgba(255, 255, 255, 0.12);
-  
-  --color-primary: #8a2be2; /* Indigo/Purple */
-  --color-accent-cyan: #00f2fe; /* Cyber Cyan */
-  --color-accent-magenta: #ff007f; /* Studio Pink/Magenta */
-  --color-accent-yellow: #f9d976; /* Warm Gold */
-  
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  
-  --cyan-glow: 0 0 20px rgba(0, 242, 254, 0.35);
-  --magenta-glow: 0 0 20px rgba(255, 0, 127, 0.35);
-  --indigo-glow: 0 0 20px rgba(138, 43, 226, 0.35);
-  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --backdrop-blur: blur(16px);
-  
-  --radial-bg: 
-    radial-gradient(at 10% 10%, rgba(138, 43, 226, 0.12) 0px, transparent 50%),
-    radial-gradient(at 90% 90%, rgba(0, 242, 254, 0.08) 0px, transparent 50%),
-    radial-gradient(at 50% 10%, rgba(255, 0, 127, 0.06) 0px, transparent 40%);
+  /* — Surface scale — */
+  --sg-surface:              #121318;   /* app shell bg */
+  --sg-surface-dim:          #0d0e13;   /* deepest recessed bg */
+  --sg-surface-low:          #1a1b21;   /* panel bg */
+  --sg-surface-container:    #1e1f25;   /* card / well bg */
+  --sg-surface-high:         #292a2f;   /* dividers */
+  --sg-surface-highest:      #34343a;   /* strong dividers */
+  --sg-surface-slate:        #161b22;   /* sidebar / detail pane */
+  --sg-waveform-bg:          #0d1117;   /* recessed audio surface */
+
+  /* — On-surface (text & icons) — */
+  --sg-on-surface:           #e3e1e9;   /* primary text */
+  --sg-on-surface-variant:   #b9cacb;   /* secondary text */
+  --sg-on-surface-muted:     #849495;   /* captions / timestamps (AA-large only) */
+
+  /* — Brand accents — */
+  --sg-primary:              #00f0ff;   /* Cyber Cyan — controls, active states */
+  --sg-on-primary:           #002022;
+  --sg-primary-dim:          #00dbe9;   /* hover / dimmed state */
+  --sg-secondary:            #fe00fe;   /* Studio Pink — AI-generated content */
+  --sg-on-secondary:         #380038;
+
+  /* — Semantic — */
+  --sg-error:                #ffb4ab;
+  --sg-success:              #00dbe9;
+  --sg-warning:              #f9d976;
+
+  /* — Glass panels — */
+  --sg-glass-bg:             rgba(22, 27, 34, 0.70);
+  --sg-glass-blur:           blur(20px);
+  --sg-glass-border:         rgba(255, 255, 255, 0.08);
+  --sg-glass-border-active:  rgba(0, 240, 255, 0.50);   /* cyan focus ring */
+
+  /* — Glow / shadow — */
+  --sg-glow-primary:         0 0 20px rgba(0, 240, 255, 0.40);
+  --sg-glow-secondary:       0 0 20px rgba(254, 0, 254, 0.30);
+  --sg-glow-card:            0 8px 32px rgba(0, 0, 0, 0.37);
+
+  /* — Ambient radial gradient — */
+  --sg-ambient-bg:
+    radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.06) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(254, 0, 254, 0.04) 0px, transparent 50%);
 }
 
-/* LIGHT THEME: BRIGHT & PREMIUM */
+/* =============================================
+   DEEP CUTS STUDIO — LIGHT
+   DAW warm-neutral. Logic Pro / Ableton-inspired.
+   Warm off-white surfaces, teal primary, plum secondary. No neon.
+   ============================================= */
 html[data-theme="light"] {
-  --bg-main: #f8fafc;
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --bg-card-hover: rgba(255, 255, 255, 0.95);
-  --border-color: rgba(15, 23, 42, 0.08);
-  --border-color-hover: rgba(15, 23, 42, 0.16);
-  
-  --color-primary: #6366f1; /* Cobalt Indigo */
-  --color-accent-cyan: #06b6d4; /* Deep Cyan */
-  --color-accent-magenta: #db2777; /* Premium Pink */
-  --color-accent-yellow: #d97706; /* Warm Amber */
-  
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  
-  --cyan-glow: 0 0 15px rgba(6, 182, 212, 0.15);
-  --magenta-glow: 0 0 15px rgba(219, 39, 119, 0.15);
-  --indigo-glow: 0 0 15px rgba(99, 102, 241, 0.2);
-  --card-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
-  --backdrop-blur: blur(16px);
-  
-  --radial-bg: 
-    radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
-    radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.04) 0px, transparent 50%),
-    radial-gradient(at 50% 10%, rgba(219, 39, 119, 0.03) 0px, transparent 40%);
+  /* — Surface scale (warm stone / beige) — */
+  --sg-surface:              #f0eeeb;   /* warm off-white app shell */
+  --sg-surface-dim:          #e8e5e0;   /* inset areas */
+  --sg-surface-low:          #f8f7f4;   /* panel bg */
+  --sg-surface-container:    #ffffff;   /* card / well bg */
+  --sg-surface-high:         #dedad4;   /* dividers */
+  --sg-surface-highest:      #c8c3bb;   /* strong dividers */
+  --sg-surface-slate:        #f4f2ef;   /* sidebar / detail pane */
+  --sg-waveform-bg:          #e0ddd8;   /* recessed audio surface */
+
+  /* — On-surface (warm charcoal) — */
+  --sg-on-surface:           #1c1917;   /* warm black */
+  --sg-on-surface-variant:   #57534e;   /* warm gray */
+  --sg-on-surface-muted:     #78716c;   /* captions / timestamps */
+
+  /* — Brand accents (desaturated, AA-safe) — */
+  --sg-primary:              #0d7377;   /* deep teal — 5.3:1 on panel bg */
+  --sg-on-primary:           #ffffff;
+  --sg-primary-dim:          #0a5f63;
+  --sg-secondary:            #7c2d6b;   /* muted plum — 6.1:1 on white */
+  --sg-on-secondary:         #ffffff;
+
+  /* — Semantic — */
+  --sg-error:                #9b1c1c;
+  --sg-success:              #0a5f63;
+  --sg-warning:              #78350f;
+
+  /* — Glass panels (near-opaque warm white) — */
+  --sg-glass-bg:             rgba(248, 247, 244, 0.90);
+  --sg-glass-blur:           blur(12px);
+  --sg-glass-border:         rgba(28, 25, 23, 0.10);
+  --sg-glass-border-active:  rgba(13, 115, 119, 0.50);
+
+  /* — Subtle shadows, no neon glow — */
+  --sg-glow-primary:         0 2px 12px rgba(13, 115, 119, 0.12);
+  --sg-glow-secondary:       0 2px 12px rgba(124, 45, 107, 0.10);
+  --sg-glow-card:            0 2px 12px rgba(28, 25, 23, 0.08);
+
+  /* — No ambient radial glow in light mode — */
+  --sg-ambient-bg:           none;
 }
 
-/* HIGH-CONTRAST ACCESSIBILITY THEME */
+/* =============================================
+   HIGH CONTRAST — ACCESSIBLE
+   Pure black/white. All glass, blur, glow, animation suppressed.
+   ============================================= */
 html[data-theme="accessible"] {
-  --bg-main: #000000;
-  --bg-card: #000000;
-  --bg-card-hover: #121212;
-  --border-color: #ffffff;
-  --border-color-hover: #ffffff;
-  
-  --color-primary: #ffff00; /* Pure Yellow */
-  --color-accent-cyan: #00ffff; /* Pure Cyan */
-  --color-accent-magenta: #ff00ff; /* Pure Magenta */
-  --color-accent-yellow: #ffff00;
-  
-  --text-primary: #ffffff;
-  --text-secondary: #e5e7eb;
-  --text-muted: #d1d5db;
-  
-  --cyan-glow: none;
-  --magenta-glow: none;
-  --indigo-glow: none;
-  --card-shadow: none;
-  --backdrop-blur: none; /* Turn off blurs to maximize performance and contrast */
-  
-  --radial-bg: none;
+  /* — Surface scale — */
+  --sg-surface:              #000000;
+  --sg-surface-dim:          #000000;
+  --sg-surface-low:          #000000;
+  --sg-surface-container:    #000000;
+  --sg-surface-high:         #111111;
+  --sg-surface-highest:      #222222;
+  --sg-surface-slate:        #000000;
+  --sg-waveform-bg:          #000000;
+
+  /* — On-surface — */
+  --sg-on-surface:           #ffffff;
+  --sg-on-surface-variant:   #e5e7eb;
+  --sg-on-surface-muted:     #d1d5db;
+
+  /* — Brand accents (pure, maximum contrast) — */
+  --sg-primary:              #00cccc;   /* darker cyan — legible on black, distinct from white */
+  --sg-on-primary:           #000000;   /* black text on cyan bg — contrast 11:1 */
+  --sg-primary-dim:          #009999;
+  --sg-secondary:            #ff00ff;
+  --sg-on-secondary:         #000000;
+
+  /* — Semantic — */
+  --sg-error:                #ff6b6b;
+  --sg-success:              #00ffff;   /* full cyan for success / info only */
+  --sg-warning:              #ffff00;
+
+  /* — Glass → opaque + hard white border — */
+  --sg-glass-bg:             #000000;
+  --sg-glass-blur:           none;
+  --sg-glass-border:         #ffffff;
+  --sg-glass-border-active:  #00cccc;  /* focus rings match primary */
+
+  /* — No glow, no ambient — */
+  --sg-glow-primary:         none;
+  --sg-glow-secondary:       none;
+  --sg-glow-card:            none;
+  --sg-ambient-bg:           none;
 }
 
-/* LAYOUT CONSTANTS */
+/* =============================================
+   LAYOUT, SHAPE, TYPOGRAPHY & MOTION CONSTANTS
+   Theme-invariant. Accessible theme overrides motion.
+   ============================================= */
 :root {
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --radius-sm: 6px;
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-fast: all 0.15s ease;
+  /* Layout */
+  --sg-sidebar-width:        260px;
+  --sg-detail-pane-width:    320px;
+  --sg-player-bar-height:    80px;
+  --sg-player-bar-expanded:  128px;  /* waveform + spectrogram */
+  --sg-gap-sm:               8px;
+  --sg-gap-md:               16px;
+  --sg-container-padding:    24px;
+
+  /* Shape */
+  --sg-radius-sm:            4px;    /* buttons, inputs */
+  --sg-radius-md:            6px;
+  --sg-radius-lg:            8px;    /* panels */
+  --sg-radius-pill:          9999px; /* chips / badges */
+
+  /* Typography */
+  --sg-font-ui:              'Inter', system-ui, sans-serif;
+  --sg-font-mono:            'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Motion */
+  --sg-transition:           all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --sg-transition-fast:      all 0.12s ease;
+  --sg-spring:               all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Suppress all motion in accessible theme */
+html[data-theme="accessible"] {
+  --sg-transition:           none;
+  --sg-transition-fast:      none;
+  --sg-spring:               none;
+}
+
+/* =============================================
+   BACKWARD-COMPAT SHIM ALIASES
+   Old --* tokens point at new --sg-* tokens.
+   Remove during Phase 3 cleanup once all components
+   have been migrated to --sg-* directly.
+   ============================================= */
+:root,
+html[data-theme="dark"],
+html[data-theme="light"],
+html[data-theme="accessible"] {
+  /* Surfaces */
+  --bg-main:               var(--sg-surface);
+  --bg-card:               var(--sg-glass-bg);
+  --bg-card-hover:         var(--sg-surface-low);
+  --border-color:          var(--sg-glass-border);
+  --border-color-hover:    var(--sg-glass-border-active);
+
+  /* Accents — cyan is now the primary brand color (replaces old purple) */
+  --color-primary:         var(--sg-primary);
+  --color-accent-cyan:     var(--sg-primary);
+  --color-accent-magenta:  var(--sg-secondary);
+  --color-accent-yellow:   var(--sg-warning);
+
+  /* Text */
+  --text-primary:          var(--sg-on-surface);
+  --text-secondary:        var(--sg-on-surface-variant);
+  --text-muted:            var(--sg-on-surface-muted);
+
+  /* Effects */
+  --cyan-glow:             var(--sg-glow-primary);
+  --magenta-glow:          var(--sg-glow-secondary);
+  --indigo-glow:           var(--sg-glow-primary);  /* indigo gone; map to primary */
+  --card-shadow:           var(--sg-glow-card);
+  --backdrop-blur:         var(--sg-glass-blur);
+  --radial-bg:             var(--sg-ambient-bg);
+
+  /* Shape — old names kept, values updated to Sonic Glitch spec */
+  --radius-lg:             var(--sg-radius-lg);
+  --radius-md:             var(--sg-radius-md);
+  --radius-sm:             var(--sg-radius-sm);
+
+  /* Motion */
+  --transition-smooth:     var(--sg-transition);
+  --transition-fast:       var(--sg-transition-fast);
 }
 
 /* --- 2. GLOBAL RESET & BASE STYLES --- */
@@ -105,7 +237,7 @@ html[data-theme="accessible"] {
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--sg-font-ui);
   background-color: var(--bg-main);
   color: var(--text-primary);
   min-height: 100vh;
@@ -163,10 +295,11 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.5rem;
 }
 
+/* — Accessible: filled primary bg + black text (high-contrast button convention) — */
 html[data-theme="accessible"] .btn-primary {
-  background: #000;
-  color: #fff;
-  border: 3px solid #fff;
+  background: var(--sg-primary);
+  color: var(--sg-on-primary);   /* #000 — black text on cyan */
+  border: 3px solid var(--sg-primary);
   box-shadow: none;
   border-radius: 0;
 }
@@ -178,8 +311,9 @@ html[data-theme="accessible"] .btn-primary {
 }
 
 html[data-theme="accessible"] .btn-primary:hover {
-  background: #fff;
-  color: #000;
+  background: var(--sg-primary-dim);
+  color: var(--sg-on-primary);
+  border-color: var(--sg-primary-dim);
   transform: none;
 }
 
