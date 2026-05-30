@@ -99,67 +99,67 @@ git checkout -b ui-redesign
 - [x] Background: `var(--sg-waveform-bg)` — recessed from glass panels above
 - [x] `player.playTrack()` / `handlePrevTrack()` / `handleNextTrack()` — args removed; store imports `theme` + `filters` directly
 
-### 2.4 — `FilterSidebar.svelte` (new)
-- [ ] Search input + `⚡ AI` mode toggle
-- [ ] Active filter dismissable chips
-- [ ] Genre chips (most frequent, overflow expand)
-- [ ] Camelot key grid (4×6)
-- [ ] BPM range slider (reuse `RangeSlider.svelte`)
-- [ ] Energy level selector (1–5, shown when ai_genre present)
-- [ ] Mood sliders (shown when Essentia mood data present)
-- [ ] Format checkboxes
-- [ ] Sort dropdown
-- [ ] Collapsible
+### 2.4 — `FilterSidebar.svelte` (new) ✅ complete
+- [x] Search input + genre autocomplete
+- [x] Active filter dismissable chips
+- [x] Key note grid (12-note multi-select OR) + scale toggle (All/Maj/Min)
+- [x] BPM range slider + presets
+- [x] Vocals filter (All / Vocals / Instrumental)
+- [x] Music-only toggle (requires is_music = 1)
+- [x] Collapsible
 
-### 2.5 — `TrackDetailPane.svelte` (new)
-- [ ] Empty state (vinyl + prompt) when no track selected
-- [ ] Track header: title, artist, album, year, format badge
-- [ ] Technical specs in `var(--sg-font-mono)`
-- [ ] Mood bars (hidden when all null)
-- [ ] AI description prose (hidden when `description` null)
-- [ ] "Sounds vs. Feels" slider + ranked similar tracks list
-- [ ] File path (monospace, click → reveal in Finder)
-- [ ] Lyrics / Comments (collapsed by default)
-- [ ] Collapsible pane
+### 2.5 — `TrackDetailPane.svelte` (new) ✅ complete
+- [x] Empty state (vinyl + prompt) when no track selected
+- [x] Track header: title, artist, album, year, genre, format badge, spinning vinyl
+- [x] Technical specs grid (all fields including key strength, loudness range, track/disc, composer, album artist)
+- [x] Mood bars (Essentia — hidden when all null)
+- [x] AI description prose + colour-coded tags (genre=pink, mood=amber, instruments=cyan)
+- [x] Essentia classifier section (type, genre, vocal + confidence)
+- [x] "Find sounds similar" CLAP-based filter button
+- [x] File path (monospace, click → reveal in Finder)
+- [x] Lyrics / Comments (always expanded with separate headers)
 
-### 2.6 — `TableView.svelte` (refactor `TrackList.svelte`)
-- [ ] Remove filter toolbar (filters now in `FilterSidebar`)
-- [ ] Read `filters.filteredTracks` from store
-- [ ] Track click → `player.playTrack()` directly
-- [ ] Remove `activeTab` prop
-- [ ] Keep columns, waveform thumbnails, load-more
+### 2.6 — `TableView.svelte` (refactor `TrackList.svelte`) ✅ complete
+- [x] Remove filter toolbar (filters now in `FilterSidebar`)
+- [x] Read `filters.filteredTracks` from store
+- [x] Remove `tracks` prop — reads `library.tracks` directly
+- [x] Drop legacy `glass-panel` / `bottom-pane-scroller` classes
 
-### 2.7 — `MapView.svelte` (refactor `MusicMap.svelte`)
-- [ ] Remove internal similarity sidebar (→ `TrackDetailPane`)
-- [ ] Dot selection → `player.playTrack()` + `player.selectedTrack`
-- [ ] Add floating map toolbar (Density Contours, Instrument Spotlight, Pathfinding)
-- [ ] Read `ui.mapFocusTrackId` from store (remove prop)
-- [ ] Theme detection via theme store (not `MutationObserver`)
+### 2.7 — `MapView.svelte` (refactor `MusicMap.svelte`) ✅ complete
+- [x] Full-size canvas filling workspace
+- [x] Remove internal similarity sidebar, details panel, inline audio player
+- [x] Dot selection → `player.playTrack()` (TrackDetailPane shows details)
+- [x] visibleTracks filtered by `filters.filteredTracks` IDs
+- [x] Floating toolbar: track count, color-coding toggle, algo params, Recompute button
+- [x] Hover tooltip follows cursor
+- [x] FilterSidebar visible in both table and map views
+- [x] Theme-aware toolbar colors (--sg-surface-* tokens)
 
-### 2.8 — `AnalysisView.svelte` (refactor `AnalysisPanel.svelte`)
-- [ ] Real pass display names (audio_analysis, bpm_correction, clap, essentia, qwen, description_embed)
-- [ ] Estimated remaining time display
-- [ ] Currently-processing track panel (right) with live mood bars
+### 2.8 — `AnalysisPanel.svelte` ✅ complete
+- [x] Human-readable pass labels with one-line descriptions
+- [x] Passes sorted by pipeline execution order
+- [x] Per-pass colour accent (theme-aware: pastel in light mode)
+- [x] ETA display per pass + global remaining time
+- [x] "processing" tag pulses on active pass
+- [x] Model warning panel restyled
 
-### 2.9 — `ConfigurationPage.svelte` (refactor `LibrarySettings.svelte`)
-- [ ] Restyle to Sonic Glitch
-- [ ] Add Duplicates card
-- [ ] Add Map Configuration card
+### 2.9 — `LibrarySettings.svelte` ✅ complete
+- [x] Restyle to Sonic Glitch tokens
+- [x] Global Toast component added to layout (replaces per-page inline alerts)
 
-### 2.10 — `+page.svelte` — four-zone layout
-- [ ] `FilterSidebar` | `main content (Navbar + view switch)` | `TrackDetailPane`
-- [ ] CSS: `grid-template-columns: var(--sg-sidebar-width) 1fr var(--sg-detail-pane-width)`
-- [ ] Slim `Navbar.svelte` to view toggle buttons + Settings
+### 2.10 — `Navbar.svelte` ✅ complete
+- [x] Slim 44px bar: wordmark left, icon+label view toggles centre, theme picker right
+- [x] All legacy classes removed, fully scoped styles
 
 ---
 
-## Phase 3 — Post-Conversion Cleanup
+## Phase 3 — Post-Conversion Cleanup ✅ complete
 
-- [ ] Delete `HeroPanel.svelte`
-- [ ] Delete `AudioPlayer.svelte`
-- [ ] Remove split-pane CSS from `app.css`
-- [ ] Remove `activeTab` prop from any remaining components
-- [ ] Remove `MusicMap`'s internal `similarTracks` state
+- [x] Delete `HeroPanel.svelte`
+- [x] Delete `AudioPlayer.svelte`
+- [x] Remove split-pane, glass-panel, shimmer-text, old navbar, hero-panel, audio-player-pane CSS from `app.css` (−228 lines)
+- [x] Update stale comments in `player.svelte.ts`
+- [x] `MusicMap` internal similarity sidebar removed
 - [ ] Consolidate CSS — remove per-component `--sg-*` redefinitions
 - [ ] Remove backward-compat shim aliases from `app.css`
 - [ ] Verify `Track` type coverage matches all fields returned by `get_tracks`

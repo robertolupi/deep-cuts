@@ -1,13 +1,8 @@
 /**
  * Player store — owns all WaveSurfer / playback state.
- * Extracted from +page.svelte as part of Phase 1.1 store refactor.
  *
- * DOM containers (waveformContainer, spectrogramContainer) are registered
- * by AudioPlayer.svelte via register() on mount, so WaveSurfer can find
- * them regardless of which component renders the containers.
- *
- * NOTE: playTrack() still receives resolvedTheme as an argument until the
- * theme store (Phase 1.3) exists and can be imported directly.
+ * DOM containers are registered by PlayerBar.svelte via register() using
+ * a $effect, so WaveSurfer can find them once the DOM nodes exist.
  */
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { tick } from "svelte";
@@ -33,7 +28,7 @@ class PlayerStore {
   #waveformContainer   = $state<HTMLDivElement | null>(null);
   #spectrogramContainer = $state<HTMLDivElement | null>(null);
 
-  // ── Container registration (called by AudioPlayer.svelte on mount) ──────────
+  // ── Container registration (called by PlayerBar.svelte via $effect) ─────────
   register(waveform: HTMLDivElement, spectrogram: HTMLDivElement) {
     this.#waveformContainer   = waveform;
     this.#spectrogramContainer = spectrogram;
@@ -62,11 +57,11 @@ class PlayerStore {
 
     const assetUrl = convertFileSrc(track.path);
 
-    // Wait for Svelte DOM tick so AudioPlayer can bind its containers
+    // Wait for Svelte DOM tick so PlayerBar's $effect can register containers
     await tick();
 
     if (!this.#waveformContainer) {
-      console.error("[PlayerStore] waveformContainer not registered — call player.register() in AudioPlayer onMount.");
+      console.error("[PlayerStore] waveformContainer not registered — PlayerBar must call player.register() via $effect.");
       return;
     }
 
