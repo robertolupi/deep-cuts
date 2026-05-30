@@ -5,6 +5,7 @@ mod dsp;
 mod embeddings;
 mod spectrogram;
 mod classifier;
+mod bpm;
 mod scanner;
 mod analysis;
 mod commands;

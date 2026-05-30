@@ -15,8 +15,10 @@ in priority order after `audio_analysis` (priority 10) and `clap` (priority 20).
 | Pass | Priority | File |
 |------|----------|------|
 | `audio_analysis` | 10 | `analysis.rs` Phase 1 |
+| `bpm_correction` | 15 | `analysis.rs` Phase 1b — coarse metadata genre |
 | `clap` | 20 | `analysis.rs` Phase 2 |
 | `essentia` | 50 | `analysis.rs` Phase 3 |
+| `bpm_refinement` | 55 | `analysis.rs` Phase 3b — Discogs-400 detected_genre |
 
 Pick a priority that places your pass at the right point in that sequence.
 

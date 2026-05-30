@@ -132,6 +132,13 @@ pub fn reset_pass(
             [],
         ).map_err(|e| e.to_string())?;
     }
+    // bpm_correction and bpm_refinement: restore bpm from bpm_raw so re-running is idempotent
+    if pass_name == "bpm_correction" || pass_name == "bpm_refinement" {
+        conn.execute(
+            "UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL",
+            [],
+        ).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

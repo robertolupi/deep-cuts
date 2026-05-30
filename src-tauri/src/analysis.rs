@@ -93,6 +93,16 @@ impl PipelineManager {
                  WHERE pass_name = 'essentia' AND status = ?2 AND pass_version < ?3",
                 rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::ESSENTIA],
             ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'bpm_correction' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::BPM_CORRECTION],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL
+                 WHERE pass_name = 'bpm_refinement' AND status = ?2 AND pass_version < ?3",
+                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::BPM_REFINEMENT],
+            ).map_err(|e| e.to_string())?;
 
             // Backfill: insert a row for every track that doesn't have one yet
             conn.execute(
@@ -101,7 +111,14 @@ impl PipelineManager {
                 [pass_status::PENDING],
             ).map_err(|e| e.to_string())?;
 
-            // Backfill clap pass (priority 20 — runs after audio_analysis)
+            // Backfill bpm_correction pass (priority 15 — runs after audio_analysis)
+            conn.execute(
+                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+                 SELECT id, 'bpm_correction', 15, ?1 FROM tracks",
+                [pass_status::PENDING],
+            ).map_err(|e| e.to_string())?;
+
+            // Backfill clap pass (priority 20 — runs after bpm_correction)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'clap', 20, ?1 FROM tracks",
@@ -112,6 +129,13 @@ impl PipelineManager {
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'essentia', 50, ?1 FROM tracks",
+                [pass_status::PENDING],
+            ).map_err(|e| e.to_string())?;
+
+            // Backfill bpm_refinement pass (priority 55 — runs after essentia)
+            conn.execute(
+                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+                 SELECT id, 'bpm_refinement', 55, ?1 FROM tracks",
                 [pass_status::PENDING],
             ).map_err(|e| e.to_string())?;
 
@@ -201,6 +225,7 @@ impl PipelineManager {
                                         duration_seconds = ?1,
                                         waveform_data = ?2,
                                         bpm = ?3,
+                                        bpm_raw = ?3,
                                         key = ?4,
                                         scale = ?5,
                                         key_strength = ?6,
@@ -259,6 +284,9 @@ impl PipelineManager {
                 let _ = h.join();
             }
             let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "audio_analysis" }));
+
+            // ── Phase 1b: BPM correction (coarse metadata genre) ──────────────
+            run_bpm_correction_phase(&app, &conn_arc);
 
             // ── Phase 2: CLAP — producer-consumer with seek-aware parallel preprocessing ──
             let config = crate::hardware::PipelineConfig::auto_tune();
@@ -403,6 +431,9 @@ impl PipelineManager {
 
             // ── Phase 3: Essentia classifier (sequential, single-threaded) ────────
             run_essentia_phase(&app, &conn_arc);
+
+            // ── Phase 3b: BPM refinement (precise Discogs-400 genre) ─────────
+            run_bpm_refinement_phase(&app, &conn_arc);
 
             let _ = app.emit("analysis-complete", ());
         });
@@ -579,4 +610,172 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
 
     for h in prep_handles { let _ = h.join(); }
     let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "essentia" }));
+}
+
+/// Runs pending `bpm_correction` jobs using the coarse metadata `genre` field.
+fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    // Each job needs the track's metadata genre alongside the standard SpoolJob fields.
+    struct BpmJob {
+        pass_id: i64,
+        track_id: i64,
+        bpm_raw: Option<f64>,
+        genre: Option<String>,
+    }
+
+    let jobs: Vec<BpmJob> = {
+        let conn = conn_arc.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT tp.id, tp.track_id, t.bpm_raw, t.genre
+             FROM track_passes tp
+             JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.status = ?1 AND tp.pass_name = 'bpm_correction'
+             ORDER BY tp.id ASC",
+        ) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("[bpm_correction] prepare failed: {}", e); return; }
+        };
+        let rows: Vec<BpmJob> = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(BpmJob { pass_id: row.get(0)?, track_id: row.get(1)?,
+                            bpm_raw: row.get(2)?, genre: row.get(3)? })
+            })
+            .map(|r| r.filter_map(|x| x.ok()).collect())
+            .unwrap_or_default();
+        for job in &rows {
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+            );
+        }
+        rows
+    };
+
+    let start_phase = std::time::Instant::now();
+    let mut corrected = 0usize;
+    let mut nulled = 0usize;
+
+    for job in &jobs {
+        let start = std::time::Instant::now();
+        let result = crate::bpm::correct_bpm(job.bpm_raw, job.genre.as_deref());
+        let elapsed_ms = start.elapsed().as_millis() as i64;
+        let conn = conn_arc.lock().unwrap();
+
+        match result {
+            crate::bpm::CorrectResult::Corrected(new_bpm) => {
+                corrected += 1;
+                let _ = conn.execute(
+                    "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                    rusqlite::params![new_bpm, job.track_id],
+                );
+            }
+            crate::bpm::CorrectResult::Null => {
+                nulled += 1;
+                let _ = conn.execute(
+                    "UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                    rusqlite::params![job.track_id],
+                );
+            }
+            crate::bpm::CorrectResult::Unchanged => {}
+        }
+
+        let _ = conn.execute(
+            "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+            rusqlite::params![pass_status::DONE, elapsed_ms,
+                pass_version::BPM_CORRECTION, job.pass_id],
+        );
+        let _ = app.emit("analysis-progress", serde_json::json!({
+            "track_id": job.track_id,
+            "pass_name": "bpm_correction",
+            "status": pass_status::DONE,
+        }));
+    }
+
+    log::info!("[bpm_correction] {} tracks: {} corrected, {} nulled in {:.1}s",
+        jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "bpm_correction" }));
+}
+
+/// Runs pending `bpm_refinement` jobs using the precise Discogs-400 `detected_genre` field.
+fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    struct BpmJob {
+        pass_id: i64,
+        track_id: i64,
+        bpm_raw: Option<f64>,
+        detected_genre: Option<String>,
+    }
+
+    let jobs: Vec<BpmJob> = {
+        let conn = conn_arc.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT tp.id, tp.track_id, t.bpm_raw, t.detected_genre
+             FROM track_passes tp
+             JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.status = ?1 AND tp.pass_name = 'bpm_refinement'
+             ORDER BY tp.id ASC",
+        ) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("[bpm_refinement] prepare failed: {}", e); return; }
+        };
+        let rows: Vec<BpmJob> = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(BpmJob { pass_id: row.get(0)?, track_id: row.get(1)?,
+                            bpm_raw: row.get(2)?, detected_genre: row.get(3)? })
+            })
+            .map(|r| r.filter_map(|x| x.ok()).collect())
+            .unwrap_or_default();
+        for job in &rows {
+            let _ = conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![pass_status::IN_PROGRESS, job.pass_id],
+            );
+        }
+        rows
+    };
+
+    let start_phase = std::time::Instant::now();
+    let mut corrected = 0usize;
+    let mut nulled = 0usize;
+
+    for job in &jobs {
+        let start = std::time::Instant::now();
+        // bpm_refinement always re-corrects from bpm_raw so the two passes are independent
+        let result = crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref());
+        let elapsed_ms = start.elapsed().as_millis() as i64;
+        let conn = conn_arc.lock().unwrap();
+
+        match result {
+            crate::bpm::CorrectResult::Corrected(new_bpm) => {
+                corrected += 1;
+                let _ = conn.execute(
+                    "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                    rusqlite::params![new_bpm, job.track_id],
+                );
+            }
+            crate::bpm::CorrectResult::Null => {
+                nulled += 1;
+                let _ = conn.execute(
+                    "UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                    rusqlite::params![job.track_id],
+                );
+            }
+            crate::bpm::CorrectResult::Unchanged => {}
+        }
+
+        let _ = conn.execute(
+            "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+            rusqlite::params![pass_status::DONE, elapsed_ms,
+                pass_version::BPM_REFINEMENT, job.pass_id],
+        );
+        let _ = app.emit("analysis-progress", serde_json::json!({
+            "track_id": job.track_id,
+            "pass_name": "bpm_refinement",
+            "status": pass_status::DONE,
+        }));
+    }
+
+    log::info!("[bpm_refinement] {} tracks: {} corrected, {} nulled in {:.1}s",
+        jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
+    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "bpm_refinement" }));
 }
