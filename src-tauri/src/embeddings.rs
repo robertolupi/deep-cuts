@@ -47,9 +47,16 @@ pub fn get_model_path(model_filename: &str, app: Option<&tauri::AppHandle>) -> P
                 return path;
             }
         }
+        // 3. User-configured model directory from app_settings.model_path
+        if let Some(model_dir) = configured_model_dir(app) {
+            let path = model_dir.join(model_filename);
+            if path.exists() {
+                return path;
+            }
+        }
     }
 
-    // 3. Dev fallbacks (run from project root or src-tauri/)
+    // 4. Dev fallbacks (run from project root or src-tauri/)
     let dev_path = Path::new("models").join(model_filename);
     if dev_path.exists() {
         return dev_path;
@@ -60,6 +67,28 @@ pub fn get_model_path(model_filename: &str, app: Option<&tauri::AppHandle>) -> P
     }
 
     PathBuf::from(model_filename)
+}
+
+fn configured_model_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    let db_path = app.path().app_data_dir().ok()?.join("deep_cuts.db");
+    if !db_path.exists() {
+        return None;
+    }
+    let conn = rusqlite::Connection::open(db_path).ok()?;
+    let value: String = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'model_path'",
+            [],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(trimmed))
+    }
 }
 
 // ── Session management ────────────────────────────────────────────────────────

@@ -29,3 +29,45 @@ pub fn save_theme(
     )?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_model_path_setting(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Option<String>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let path = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'model_path'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    Ok(path)
+}
+
+#[tauri::command]
+pub fn save_model_path_setting(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+    path: Option<String>,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let path = path
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    if let Some(path) = path {
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('model_path', ?)",
+            [path],
+        )?;
+    } else {
+        conn.execute("DELETE FROM app_settings WHERE key = 'model_path'", [])?;
+    }
+    Ok(())
+}

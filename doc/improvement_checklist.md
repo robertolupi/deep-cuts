@@ -17,6 +17,14 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Add a user-facing recovery action for stuck `IN_PROGRESS` rows beyond implicit reset on the next run.
 - [x] Review pass reset behavior so each reset clears all derived outputs owned by that pass, including vector-table orphans.
 
+## Analysis Pass Code Organization
+
+- [ ] Split `src-tauri/src/analysis.rs` into per-pass modules, keeping orchestration separate from pass implementation details.
+- [ ] Introduce a single pass registry/spec for pass name, priority, version, dependencies, owned outputs, and reset behavior.
+- [ ] Extract shared `track_passes` lifecycle helpers for backfill, stale-version invalidation, pending-job loading, in-progress marking, DONE/FAILED updates, progress events, and sidecar saves.
+- [ ] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements.
+- [ ] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical.
+
 ## Music Map Quality
 
 - [ ] Replace min/max projection normalization with percentile-clipped normalization, probably p1-p99.
@@ -52,7 +60,7 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Build & Configuration
 
-- [ ] Define a `coreml` Cargo feature or remove the stale `#[cfg(feature = "coreml")]` branches.
-- [ ] Fill in `authors` and `repository` metadata in `src-tauri/Cargo.toml`.
-- [ ] Decide whether `ort` should keep `download-binaries` for production builds or vendor/runtime-check model dependencies explicitly.
-- [ ] Add a documented model path setting UI if the intended `app_settings.model_path` flow is still desired.
+- [x] Define a `coreml` Cargo feature or remove the stale `#[cfg(feature = "coreml")]` branches.
+- [x] Fill in `authors` and `repository` metadata in `src-tauri/Cargo.toml`.
+- [x] Decide whether `ort` should keep `download-binaries` for production builds or vendor/runtime-check model dependencies explicitly.
+- [x] Add a documented model path setting UI if the intended `app_settings.model_path` flow is still desired.

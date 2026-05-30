@@ -63,6 +63,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::config::get_theme,
             commands::config::save_theme,
+            commands::config::get_model_path_setting,
+            commands::config::save_model_path_setting,
             commands::library::select_directory,
             commands::library::get_watched_directories,
             commands::library::add_watched_directory,

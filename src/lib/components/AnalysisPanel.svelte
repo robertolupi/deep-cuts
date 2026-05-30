@@ -107,6 +107,8 @@
   let showModelWarning  = $state(false);
   let hasCopiedCommand  = $state(false);
   let warningDismissed  = $state(false);
+  let configuredModelPath = $state<string | null>(null);
+  let modelPathMessage = $state("");
 
   async function checkModels() {
     isCheckingModels = true;
@@ -126,6 +128,40 @@
     navigator.clipboard.writeText("python3 tools/download_models.py");
     hasCopiedCommand = true;
     setTimeout(() => { hasCopiedCommand = false; }, 2000);
+  }
+
+  async function loadModelPathSetting() {
+    try {
+      configuredModelPath = await invoke<string | null>("get_model_path_setting");
+    } catch (e) {
+      console.error("Failed to load model path setting:", e);
+    }
+  }
+
+  async function chooseModelPath() {
+    modelPathMessage = "";
+    try {
+      const path = await invoke<string | null>("select_directory");
+      if (!path) return;
+      await invoke("save_model_path_setting", { path });
+      configuredModelPath = path;
+      modelPathMessage = "Model folder saved.";
+      await checkModels();
+    } catch (e: any) {
+      modelPathMessage = e?.toString() ?? "Failed to save model folder.";
+    }
+  }
+
+  async function clearModelPath() {
+    modelPathMessage = "";
+    try {
+      await invoke("save_model_path_setting", { path: null });
+      configuredModelPath = null;
+      modelPathMessage = "Using default model locations.";
+      await checkModels();
+    } catch (e: any) {
+      modelPathMessage = e?.toString() ?? "Failed to clear model folder.";
+    }
   }
 
   function dismissWarning() { showModelWarning = false; warningDismissed = true; }
@@ -223,6 +259,7 @@
   onMount(() => {
     invoke<boolean>("is_analysis_running").then(v => { isRunning = v; });
     loadStats();
+    loadModelPathSetting();
     checkModels();
     checkInterval = setInterval(() => {
       if (showModelWarning && !isCheckingModels && !isRunning) checkModels();
@@ -281,6 +318,25 @@
   {#if errorMessage}
     <div class="error-banner">{errorMessage}</div>
   {/if}
+
+  <div class="model-config">
+    <div class="model-path-setting">
+      <div class="model-path-label">Model folder</div>
+      <div class="model-path-value">{configuredModelPath ?? 'Default locations'}</div>
+      <div class="model-path-actions">
+        <button class="action-btn" onclick={chooseModelPath}>Choose Folder</button>
+        {#if configuredModelPath}
+          <button class="action-btn-ghost" onclick={clearModelPath}>Clear</button>
+        {/if}
+        <button class="action-btn-ghost" onclick={checkModels} disabled={isCheckingModels}>
+          {isCheckingModels ? 'Checking…' : 'Re-check Models'}
+        </button>
+      </div>
+      {#if modelPathMessage}
+        <div class="model-path-message">{modelPathMessage}</div>
+      {/if}
+    </div>
+  </div>
 
   <!-- Model warning -->
   {#if showModelWarning && modelStatus}
@@ -572,6 +628,14 @@
     color: #ff6b6b;
   }
 
+  /* ── Model configuration ── */
+  .model-config {
+    padding: 0.75rem 1rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+  }
+
   /* ── Model warning ── */
   .model-warning {
     padding: 1rem;
@@ -685,6 +749,48 @@
     flex-wrap: wrap;
     padding-top: 0.65rem;
     border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .model-path-setting {
+    display: grid;
+    gap: 5px;
+    flex: 1 1 280px;
+    min-width: 260px;
+  }
+
+  .model-path-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--sg-outline, #849495);
+    text-transform: uppercase;
+  }
+
+  .model-path-value {
+    min-height: 24px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    background: rgba(0,0,0,0.22);
+    color: var(--sg-on-surface, #e3e1e9);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .model-path-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .model-path-message {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-primary, #00f0ff);
   }
 
   .cmd-box {

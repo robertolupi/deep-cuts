@@ -53,28 +53,12 @@ impl PipelineConfig {
         let profile = AppleSiliconProfile::discover();
 
         if profile.is_arm64 {
-            #[cfg(feature = "coreml")]
-            {
-                let decode_threads = match profile.p_cores {
-                    16.. => 8,
-                    8..=15 => 4,
-                    _ => 2,
-                };
-                return Self {
-                    use_coreml: true,
-                    decode_threads,
-                    intra_threads: 1,
-                };
-            }
-            #[cfg(not(feature = "coreml"))]
-            {
-                let intra_threads = (profile.p_cores / 2).max(1).min(4);
-                let decode_threads = (profile.p_cores / 2).max(1);
-                Self {
-                    use_coreml: false,
-                    decode_threads,
-                    intra_threads,
-                }
+            let intra_threads = (profile.p_cores / 2).max(1).min(4);
+            let decode_threads = (profile.p_cores / 2).max(1);
+            Self {
+                use_coreml: false,
+                decode_threads,
+                intra_threads,
             }
         } else {
             Self {
