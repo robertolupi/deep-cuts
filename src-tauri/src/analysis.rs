@@ -390,8 +390,19 @@ impl PipelineManager {
     }
 }
 
-/// Runs all pending `essentia` pass jobs sequentially.
+/// Preprocessed spectrogram patches ready for ONNX inference.
+struct PreppedPatches {
+    pass_id: i64,
+    track_id: i64,
+    patches: Vec<Vec<f32>>,
+}
+
+/// Runs pending `essentia` jobs using a producer-consumer pipeline:
+///   - `decode_threads` workers each decode → resample → spectrogram → patches
+///   - 1 inference consumer runs all ONNX sessions and writes results to DB
 fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    let config = crate::hardware::PipelineConfig::auto_tune();
+
     let jobs: Vec<SpoolJob> = {
         let conn = conn_arc.lock().unwrap();
         let mut stmt = match conn.prepare(
@@ -426,26 +437,71 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
         return;
     }
 
-    log::info!("[essentia] Running {} pending jobs", jobs.len());
+    log::info!(
+        "[essentia] {} jobs, {} decode workers",
+        jobs.len(),
+        config.decode_threads
+    );
 
-    for job in jobs {
+    // Channel: preprocessing workers → inference consumer.
+    // Bounded to 2× workers so fast decoders don't get too far ahead of inference.
+    let (tx, rx) = std::sync::mpsc::sync_channel::<PreppedPatches>(config.decode_threads * 2);
+    let queue = Arc::new(Mutex::new(VecDeque::from(jobs)));
+
+    // ── Preprocessing workers (decode + resample + spectrogram) ──────────────
+    let mut prep_handles = Vec::new();
+    for _ in 0..config.decode_threads {
+        let queue_clone = Arc::clone(&queue);
+        let tx_clone = tx.clone();
+
+        prep_handles.push(std::thread::spawn(move || {
+            loop {
+                let job = { queue_clone.lock().unwrap().pop_front() };
+                let job = match job { Some(j) => j, None => break };
+
+                let result = (|| -> Result<Vec<Vec<f32>>, String> {
+                    let (audio, sr) = dsp::decode_audio_to_mono(&job.path)?;
+                    let audio_16k = crate::spectrogram::resample_to_16k(&audio, sr)?;
+                    let mid = audio_16k.len() / 2;
+                    let half = 16_000 * 30;
+                    let start = mid.saturating_sub(half);
+                    let end = (mid + half).min(audio_16k.len());
+                    let spec = crate::spectrogram::compute_log_mel_spectrogram(&audio_16k[start..end])?;
+                    crate::spectrogram::extract_patches(&spec)
+                })();
+
+                match result {
+                    Ok(patches) => {
+                        let _ = tx_clone.send(PreppedPatches {
+                            pass_id: job.pass_id,
+                            track_id: job.track_id,
+                            patches,
+                        });
+                    }
+                    Err(e) => {
+                        log::error!("[essentia] Preprocessing failed for track {}: {}", job.track_id, e);
+                        // Send an empty-patches sentinel so the consumer can record the failure
+                        let _ = tx_clone.send(PreppedPatches {
+                            pass_id: job.pass_id,
+                            track_id: job.track_id,
+                            patches: vec![],
+                        });
+                    }
+                }
+            }
+        }));
+    }
+    drop(tx); // Close sender so the consumer loop terminates when all workers finish
+
+    // ── Inference consumer (single thread — ONNX sessions serialised) ────────
+    for prepped in rx {
         let start = std::time::Instant::now();
 
-        let result = (|| -> Result<crate::classifier::ClassifierResult, String> {
-            let (audio, sr) = dsp::decode_audio_to_mono(&job.path)?;
-            let audio_16k = crate::spectrogram::resample_to_16k(&audio, sr)?;
-
-            // 60-second window centred on the track midpoint
-            let mid = audio_16k.len() / 2;
-            let half = 16_000 * 30;
-            let start_idx = mid.saturating_sub(half);
-            let end_idx = (mid + half).min(audio_16k.len());
-            let window = &audio_16k[start_idx..end_idx];
-
-            let spec = crate::spectrogram::compute_log_mel_spectrogram(window)?;
-            let patches = crate::spectrogram::extract_patches(&spec)?;
-            crate::classifier::run_classifier_inference(&patches, Some(app))
-        })();
+        let result = if prepped.patches.is_empty() {
+            Err("Preprocessing failed".to_string())
+        } else {
+            crate::classifier::run_classifier_inference(&prepped.patches, Some(app))
+        };
 
         let elapsed_ms = start.elapsed().as_millis() as i64;
         let conn = conn_arc.lock().unwrap();
@@ -466,39 +522,32 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                         mood_electronic            = ?10
                      WHERE id = ?11",
                     rusqlite::params![
-                        r.genre,
-                        r.vocal,
-                        r.vocal_confidence,
-                        r.mood_happy,
-                        r.mood_sad,
-                        r.mood_aggressive,
-                        r.mood_relaxed,
-                        r.mood_party,
-                        r.mood_acoustic,
-                        r.mood_electronic,
-                        job.track_id,
+                        r.genre, r.vocal, r.vocal_confidence,
+                        r.mood_happy, r.mood_sad, r.mood_aggressive,
+                        r.mood_relaxed, r.mood_party, r.mood_acoustic,
+                        r.mood_electronic, prepped.track_id,
                     ],
                 );
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                      last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                    rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id],
+                    rusqlite::params![pass_status::DONE, elapsed_ms, prepped.pass_id],
                 );
                 let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
+                    "track_id": prepped.track_id,
                     "pass_name": "essentia",
                     "status": pass_status::DONE,
                 }));
             }
             Err(e) => {
-                log::error!("[essentia] Track {} failed: {}", job.track_id, e);
+                log::error!("[essentia] Track {} failed: {}", prepped.track_id, e);
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
                      last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
+                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, prepped.pass_id],
                 );
                 let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
+                    "track_id": prepped.track_id,
                     "pass_name": "essentia",
                     "status": pass_status::FAILED,
                 }));
@@ -506,5 +555,6 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
         }
     }
 
+    for h in prep_handles { let _ = h.join(); }
     let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "essentia" }));
 }

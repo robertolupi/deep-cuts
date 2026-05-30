@@ -9,6 +9,9 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Local dev performance tuning (target-cpu=native) — not safe for distributed builds
+.cargo/config.toml
+
 # Scratch Files & Folders
 scratch/
 scratch
