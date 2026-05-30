@@ -1,6 +1,8 @@
 use rusqlite::Connection;
 use std::sync::Mutex;
 
+const DESCRIPTION_EMBEDDING_DIM: usize = 384;
+
 #[derive(serde::Serialize)]
 pub struct MappedTrackPoint {
     pub id: i64,
@@ -87,6 +89,27 @@ fn blended_embedding_distance(
     }
 
     Some(clap_distance_sq.sqrt())
+}
+
+fn blended_projection_vector(
+    clap: &[f32],
+    description: Option<&[f32]>,
+    clap_weight: f64,
+) -> Vec<f32> {
+    let norm_clap = l2_normalize(clap);
+    let norm_description = description
+        .map(l2_normalize)
+        .unwrap_or_else(|| vec![0.0; DESCRIPTION_EMBEDDING_DIM]);
+    let description_weight = 1.0 - clap_weight;
+
+    let mut vec = Vec::with_capacity(norm_clap.len() + norm_description.len());
+    for &x in &norm_clap {
+        vec.push(x * clap_weight as f32);
+    }
+    for &x in &norm_description {
+        vec.push(x * description_weight as f32);
+    }
+    vec
 }
 
 #[derive(Debug, PartialEq)]
@@ -325,21 +348,8 @@ pub async fn recompute_projection(
             let clap_embed = bytes_to_floats(&clap_blob);
             let desc_embed_opt = desc_blob_opt.map(|b| bytes_to_floats(&b));
 
-            let blended = if let Some(desc_embed) = desc_embed_opt {
-                let norm_clap = l2_normalize(&clap_embed);
-                let norm_desc = l2_normalize(&desc_embed);
-
-                let mut vec = Vec::with_capacity(norm_clap.len() + norm_desc.len());
-                for &x in &norm_clap {
-                    vec.push(x * blend_weight as f32);
-                }
-                for &x in &norm_desc {
-                    vec.push(x * (1.0 - blend_weight) as f32);
-                }
-                vec
-            } else {
-                l2_normalize(&clap_embed)
-            };
+            let blended =
+                blended_projection_vector(&clap_embed, desc_embed_opt.as_deref(), blend_weight);
 
             ids.push(id);
             vecs.push(blended);
@@ -495,5 +505,16 @@ mod math_tests {
         .unwrap();
 
         assert!((distance - 2.0_f64.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_blended_projection_vector_zero_pads_missing_description() {
+        let clap = vec![3.0, 4.0];
+        let with_description = blended_projection_vector(&clap, Some(&vec![1.0; 384]), 0.5);
+        let without_description = blended_projection_vector(&clap, None, 0.5);
+
+        assert_eq!(with_description.len(), 386);
+        assert_eq!(without_description.len(), 386);
+        assert!(without_description[2..].iter().all(|&v| v == 0.0));
     }
 }

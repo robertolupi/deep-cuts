@@ -32,7 +32,7 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Replace fixed CLAP windows at 25/50/75% with waveform-based loudest-window selection.
 - [x] Version and re-run the CLAP pass when waveform-based windowing lands.
 - [x] Implement blended acoustic/semantic similarity using CLAP plus description embeddings.
-- [ ] Add graceful fallback behavior for tracks missing description embeddings.
+- [x] Add graceful fallback behavior for tracks missing description embeddings.
 
 ## User-Facing Discovery Features
 
