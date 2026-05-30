@@ -241,37 +241,31 @@ describe("FiltersStore — musicOnly filter", () => {
 
   it("shows all tracks when musicOnly is false", () => {
     seedLibrary([
-      createTrack({ id: 1, is_music: 1 }),
-      createTrack({ id: 2, is_music: 0 }),
-      createTrack({ id: 3, is_music: null }),
+      createTrack({ id: 1, detected_genre: "Electronic" }),
+      createTrack({ id: 2, detected_genre: "Non-Music / Speech" }),
+      createTrack({ id: 3, detected_genre: null }),
     ]);
     expect(filters.filteredTracks).toHaveLength(3);
   });
 
-  it("shows only is_music=1 tracks when musicOnly is true", () => {
+  it("excludes tracks classified as Non-Music when musicOnly is true", () => {
     seedLibrary([
-      createTrack({ id: 1, is_music: 1 }),
-      createTrack({ id: 2, is_music: 0 }),
-      createTrack({ id: 3, is_music: null }),
+      createTrack({ id: 1, detected_genre: "Electronic" }),
+      createTrack({ id: 2, detected_genre: "Non-Music / Speech" }),
+      createTrack({ id: 3, detected_genre: null }),
     ]);
     filters.musicOnly = true;
     const ids = filters.filteredTracks.map(t => t.id);
     expect(ids).toContain(1);
     expect(ids).not.toContain(2);
-    expect(ids).not.toContain(3);
-  });
-
-  it("excludes unanalyzed (null) tracks when musicOnly is true", () => {
-    seedLibrary([createTrack({ id: 1, is_music: null })]);
-    filters.musicOnly = true;
-    expect(filters.filteredTracks).toHaveLength(0);
+    expect(ids).toContain(3);
   });
 
   it("combines musicOnly with BPM filter", () => {
     seedLibrary([
-      createTrack({ id: 1, is_music: 1,    bpm: 128 }),
-      createTrack({ id: 2, is_music: 1,    bpm: 60  }),
-      createTrack({ id: 3, is_music: null, bpm: 128 }),
+      createTrack({ id: 1, detected_genre: "Electronic",         bpm: 128 }),
+      createTrack({ id: 2, detected_genre: "Electronic",         bpm: 60  }),
+      createTrack({ id: 3, detected_genre: "Non-Music / Speech", bpm: 128 }),
     ]);
     filters.musicOnly = true;
     filters.minBpm    = 100;
@@ -329,9 +323,9 @@ describe("FiltersStore — vocalFilter", () => {
 
   it("combines vocalFilter with musicOnly", () => {
     seedLibrary([
-      createTrack({ id: 1, is_music: 1,    detected_vocal: "voice" }),
-      createTrack({ id: 2, is_music: 1,    detected_vocal: "instrumental" }),
-      createTrack({ id: 3, is_music: null, detected_vocal: "voice" }),
+      createTrack({ id: 1, detected_genre: "Electronic",         detected_vocal: "voice" }),
+      createTrack({ id: 2, detected_genre: "Electronic",         detected_vocal: "instrumental" }),
+      createTrack({ id: 3, detected_genre: "Non-Music / Speech", detected_vocal: "voice" }),
     ]);
     filters.musicOnly   = true;
     filters.vocalFilter = "voice";

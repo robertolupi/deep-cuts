@@ -1,0 +1,59 @@
+# Deep Cuts Improvement Checklist
+
+This checklist captures concrete follow-up work found during the repository review. Keep items small enough to tackle one by one.
+
+## Correctness & Test Health
+
+- [ ] Add `@types/node` or adjust `tsconfig.json` so `npm run check` has zero warnings.
+- [ ] Add regression tests for `musicOnly` using `detected_genre.startsWith("Non-Music")` as the source of truth.
+- [ ] Add tests for malformed `waveform_data` so the track list cannot crash on corrupt JSON.
+- [ ] Add map command tests proving exposed projection parameters are either honored or intentionally ignored.
+
+## Analysis Pipeline Reliability
+
+- [ ] Mark CLAP preprocessing failures as `FAILED` instead of only logging them; failed prep jobs are currently moved to `IN_PROGRESS` without a consumer sentinel.
+- [ ] Replace `unwrap()` calls in long-running analysis worker paths with recoverable error handling where a poisoned lock or bad row should not kill the whole phase.
+- [ ] Make all phase-level early returns emit enough state for the UI to show a specific failure reason, not just `analysis-complete`.
+- [ ] Add a user-facing recovery action for stuck `IN_PROGRESS` rows beyond implicit reset on the next run.
+- [ ] Review pass reset behavior so each reset clears all derived outputs owned by that pass, including vector-table orphans.
+
+## Music Map Quality
+
+- [ ] Replace min/max projection normalization with percentile-clipped normalization, probably p1-p99.
+- [ ] Either hide projection controls whose parameters are ignored, or implement the requested algorithm/parameter behavior.
+- [ ] Add PCA as a fast deterministic projection option and consider making it the default if it improves global structure.
+- [ ] Persist map settings such as algorithm, blend weight, and normalization percentile in `app_settings`.
+- [ ] Exclude or separately handle non-music tracks during projection so spoken-word/outlier content does not distort the map.
+- [ ] Prototype or implement outlier satellite regions after normalization is fixed.
+
+## Embedding & Similarity Quality
+
+- [ ] Add a silence detection pass storing silence regions and a `has_long_silence` flag.
+- [ ] Replace fixed CLAP windows at 25/50/75% with energy-based non-silent window selection.
+- [ ] Version and re-run the CLAP pass when energy-based windowing lands.
+- [ ] Implement blended acoustic/semantic similarity using CLAP plus description embeddings.
+- [ ] Add graceful fallback behavior for tracks missing description embeddings.
+
+## User-Facing Discovery Features
+
+- [ ] Implement local semantic search over `description_embeddings`.
+- [ ] Add match scores or rank badges for semantic search results.
+- [ ] Add a "Sounds vs Feels" slider in the detail/player area for similarity recommendations.
+- [ ] Add duplicate/remix detection using CLAP similarity thresholds and title/artist heuristics.
+- [ ] Add pathfinding playlists after map quality is improved.
+
+## Frontend Robustness & UX
+
+- [ ] Move `JSON.parse(track.waveform_data)` out of the Svelte render path and use a safe helper/cache.
+- [ ] Add error toasts for failed similarity searches instead of silently clearing loading state.
+- [ ] Keep selected/playing track visible when filters change, or explicitly show when playback is outside the current filter set.
+- [ ] Review icon-only and inline-SVG buttons for consistency with the app design system.
+- [ ] Add focused component tests around `TrackList`, `MusicMap`, and `AnalysisPanel` behavior.
+
+## Build & Configuration
+
+- [ ] Define a `coreml` Cargo feature or remove the stale `#[cfg(feature = "coreml")]` branches.
+- [ ] Fill in `authors` and `repository` metadata in `src-tauri/Cargo.toml`.
+- [ ] Decide whether `ort` should keep `download-binaries` for production builds or vendor/runtime-check model dependencies explicitly.
+- [ ] Add a documented model path setting UI if the intended `app_settings.model_path` flow is still desired.
+
