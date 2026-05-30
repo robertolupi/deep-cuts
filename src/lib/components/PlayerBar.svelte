@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy } from "svelte";
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
@@ -18,7 +18,7 @@
     localStorage.setItem(SPECTROGRAM_KEY, String(showSpectrogram));
   }
 
-  onMount(() => {
+  $effect(() => {
     if (waveformContainer && spectrogramContainer) {
       player.register(waveformContainer, spectrogramContainer);
     }
