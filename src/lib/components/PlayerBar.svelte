@@ -142,7 +142,7 @@
   .player-bar {
     flex-shrink: 0;
     background: var(--bg-player, var(--sg-waveform-bg, #0d1117));
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--sg-surface-high);
   }
 
   /* Full-width when no left column */
@@ -161,7 +161,7 @@
 
   .idle-label {
     font-size: 0.85rem;
-    color: var(--text-muted);
+    color: var(--sg-outline);
   }
 
   /* Hide spectrogram section when toggled off */

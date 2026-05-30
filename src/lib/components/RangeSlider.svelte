@@ -88,7 +88,7 @@
     right: 0;
     height: 4px;
     border-radius: 2px;
-    background: var(--border-color);
+    background: var(--sg-surface-high);
     opacity: 0.8;
     pointer-events: none;
   }
@@ -97,8 +97,8 @@
     position: absolute;
     height: 4px;
     border-radius: 2px;
-    background: var(--color-accent-cyan);
-    box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent-cyan) 40%, transparent);
+    background: var(--sg-primary);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--sg-primary) 40%, transparent);
     pointer-events: none;
   }
 
@@ -136,11 +136,11 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--color-accent-cyan);
+    background: var(--sg-primary);
     pointer-events: all;
     cursor: grab;
-    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
-    border: 2px solid var(--bg-card);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--sg-primary) 50%, transparent);
+    border: 2px solid var(--sg-surface-container);
     transition: transform 0.1s, box-shadow 0.1s;
   }
 
@@ -148,17 +148,17 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--color-accent-cyan);
+    background: var(--sg-primary);
     pointer-events: all;
     cursor: grab;
-    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
-    border: 2px solid var(--bg-card);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--sg-primary) 50%, transparent);
+    border: 2px solid var(--sg-surface-container);
     transition: transform 0.1s, box-shadow 0.1s;
   }
 
   .range-input::-webkit-slider-thumb:hover {
     transform: scale(1.25);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 70%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--sg-primary) 70%, transparent);
   }
 
   .range-input:active::-webkit-slider-thumb {
@@ -167,7 +167,7 @@
   }
 
   .range-input:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-cyan) 20%, transparent), 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sg-primary) 20%, transparent), 0 0 8px color-mix(in srgb, var(--sg-primary) 50%, transparent);
   }
 
   .range-labels {
@@ -179,10 +179,10 @@
   .range-label {
     font-size: 0.7rem;
     font-weight: 700;
-    color: var(--color-accent-cyan);
+    color: var(--sg-primary);
     font-family: 'Outfit', sans-serif;
-    background: color-mix(in srgb, var(--color-accent-cyan) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 22%, transparent);
     padding: 0.1rem 0.42rem;
     border-radius: 3px;
     letter-spacing: 0.02em;

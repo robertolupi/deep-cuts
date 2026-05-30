@@ -65,7 +65,7 @@
                 class="track-row {selectedTrack?.id === track.id ? 'active-pulse' : ''}" 
                 onclick={() => onTrackSelect(track)}
               >
-                <td style="text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                <td style="text-align: center; color: var(--sg-outline); font-size: 0.82rem;">
                   {#if selectedTrack?.id === track.id && isPlaying}
                     <div class="playing-bars-mini">
                       <div class="bar"></div>
@@ -102,10 +102,10 @@
                 <td class="track-text-cell" title={track.album || "Unknown"}>
                   {track.album || "—"}
                 </td>
-                <td style="color: var(--text-secondary); font-size: 0.88rem;">
+                <td style="color: var(--sg-on-surface-variant); font-size: 0.88rem;">
                   {formatDuration(track.duration_seconds)}
                 </td>
-                <td style="color: var(--text-secondary); font-size: 0.82rem; text-align: right; padding-right: 0.75rem;">
+                <td style="color: var(--sg-on-surface-variant); font-size: 0.82rem; text-align: right; padding-right: 0.75rem;">
                   {#if track.bpm}{Math.round(track.bpm)}{:else}—{/if}
                 </td>
                 <td style="font-size: 0.82rem;">
@@ -141,7 +141,7 @@
       </div>
     {:else}
       <div class="empty-search-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--sg-outline)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
@@ -175,8 +175,8 @@
   }
 
   .key-badge {
-    font-family: var(--font-mono, monospace);
-    color: var(--text-primary);
+    font-family: "JetBrains Mono", monospace;
+    color: var(--sg-on-surface);
   }
 
   .col-waveform {
@@ -197,8 +197,8 @@
     border-radius: 1px;
     background: linear-gradient(
       180deg,
-      var(--color-accent-cyan, #00f2fe) 0%,
-      var(--color-primary, #8a2be2) 100%
+      var(--sg-primary, #00f0ff) 0%,
+      var(--sg-primary) 100%
     );
     transition: opacity 0.15s ease;
   }
@@ -234,14 +234,14 @@
     display: flex;
     justify-content: center;
     padding: 1.5rem;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--sg-surface-high);
     background: linear-gradient(180deg, transparent 0%, rgba(10, 11, 16, 0.2) 100%);
   }
 
   .load-more-btn {
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
+    border: 1px solid var(--sg-surface-high);
+    color: var(--sg-on-surface);
     padding: 0.6rem 1.5rem;
     font-size: 0.85rem;
     font-weight: 600;
@@ -256,9 +256,9 @@
 
   .load-more-btn:hover {
     background: rgba(255, 255, 255, 0.08);
-    border-color: var(--color-accent-cyan, #00f2fe);
-    color: var(--color-accent-cyan, #00f2fe);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan, #00f2fe) 15%, transparent);
+    border-color: var(--sg-primary, #00f0ff);
+    color: var(--sg-primary, #00f0ff);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--sg-primary, #00f0ff) 15%, transparent);
     transform: translateY(-1px);
   }
 
