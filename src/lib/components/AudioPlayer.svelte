@@ -1,59 +1,52 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
-  import type { Track } from '../types';
+  import { onMount, onDestroy } from "svelte";
+  import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
 
-  let {
-    selectedTrack,
-    isPlaying = $bindable(),
-    currentTime = $bindable(),
-    duration = $bindable(),
-    showDetails = $bindable(),
-    toggleDetails,
-    formatDuration,
-    formatSize,
-    waveformContainer = $bindable(),
-    spectrogramContainer = $bindable(),
-    togglePlayback,
-    handlePrevTrack,
-    handleNextTrack,
-    onFindSimilar
-  }: {
-    selectedTrack: Track;
-    isPlaying: boolean;
-    currentTime: number;
-    duration: number;
-    showDetails: boolean;
-    toggleDetails: () => void;
-    formatDuration: (sec: number) => string;
-    formatSize: (bytes: number) => string;
-    waveformContainer: HTMLDivElement | null;
-    spectrogramContainer: HTMLDivElement | null;
-    togglePlayback: () => void;
-    handlePrevTrack: () => void;
-    handleNextTrack: () => void;
-    onFindSimilar: () => void;
-  } = $props();
+  // AudioPlayer is purely presentational — all state lives in the player store.
+  // DOM containers are registered with the store on mount so WaveSurfer can
+  // attach to them regardless of when playTrack() is called.
+
+  let waveformContainer    = $state<HTMLDivElement | null>(null);
+  let spectrogramContainer = $state<HTMLDivElement | null>(null);
+
+  // showDetails is still local — it controls the expanded metadata section.
+  // It will move to the UI store in Phase 1.4.
+  let showDetails = $state(false);
+  function toggleDetails() { showDetails = !showDetails; }
+
+  onMount(() => {
+    if (waveformContainer && spectrogramContainer) {
+      player.register(waveformContainer, spectrogramContainer);
+    }
+  });
+
+  onDestroy(() => {
+    player.unregister();
+  });
+
+  // Convenience aliases from the store (reactive via $derived)
+  const selectedTrack = $derived(player.selectedTrack);
+  const isPlaying     = $derived(player.isPlaying);
+  const currentTime   = $derived(player.currentTime);
+  const duration      = $derived(player.duration);
 
   function getRevealLabel(): string {
-    if (typeof navigator !== 'undefined') {
+    if (typeof navigator !== "undefined") {
       const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes('mac')) return 'Reveal in Finder';
-      if (ua.includes('win')) return 'Show in Explorer';
+      if (ua.includes("mac")) return "Reveal in Finder";
+      if (ua.includes("win")) return "Show in Explorer";
     }
-    return 'Show in Files';
+    return "Show in Files";
   }
 
   const revealLabel = getRevealLabel();
 
-  async function handleReveal() {
-    try {
-      await invoke("reveal_in_finder", { path: selectedTrack.path });
-    } catch (e: any) {
-      console.error("Failed to reveal file in system explorer:", e);
-    }
+  function handleReveal() {
+    if (selectedTrack) player.revealInFinder(selectedTrack.path);
   }
 </script>
 
+{#if selectedTrack}
 <div class="audio-player-pane {showDetails ? 'expanded' : ''}">
   <div class="player-upper-row">
     <!-- Left side: Album cover vinyl & Track metadata -->
@@ -96,14 +89,14 @@
       <div class="playback-controls-row">
         <div style="display: flex; gap: 0.75rem; align-items: center;">
           <!-- Skip back -->
-          <button class="player-btn" title="Previous Track" onclick={handlePrevTrack}>
+          <button class="player-btn" title="Previous Track" onclick={() => player.handlePrevTrack([], 'dark')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="19 20 9 12 19 4 19 20"/>
               <rect x="5" y="4" width="2" height="16"/>
             </svg>
           </button>
           <!-- Play/Pause -->
-          <button class="btn-play-pause {isPlaying ? 'playing' : ''}" onclick={togglePlayback}>
+          <button class="btn-play-pause {isPlaying ? 'playing' : ''}" onclick={() => player.togglePlayback()}>
             {#if isPlaying}
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="4" width="4" height="16" rx="1"/>
@@ -116,7 +109,7 @@
             {/if}
           </button>
           <!-- Skip forward -->
-          <button class="player-btn" title="Next Track" onclick={handleNextTrack}>
+          <button class="player-btn" title="Next Track" onclick={() => player.handleNextTrack([], 'dark')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5 4 15 12 5 20 5 4"/>
               <rect x="17" y="4" width="2" height="16"/>
@@ -135,8 +128,8 @@
           <!-- Find similar tracks on the Music Map -->
           <button
             class="btn-secondary"
-            onclick={onFindSimilar}
-            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
+            onclick={() => { /* wired in Phase 1.4 via ui store */ }}
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--sg-radius-sm); display: flex; align-items: center; gap: 0.3rem;"
             title="Find similar tracks on the Music Map"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
@@ -152,7 +145,7 @@
           <button
             class="btn-secondary"
             onclick={handleReveal}
-            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--sg-radius-sm); display: flex; align-items: center; gap: 0.3rem;"
             title={revealLabel}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
@@ -165,7 +158,7 @@
           <button 
             class="btn-secondary {showDetails ? 'pulse-glow-cyan' : ''}" 
             onclick={toggleDetails} 
-            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.3rem;"
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--sg-radius-sm); display: flex; align-items: center; gap: 0.3rem;"
             title="Toggle Multi-column Metadata Details"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
@@ -349,3 +342,4 @@
     </div>
   {/if}
 </div>
+{/if}

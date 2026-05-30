@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Track } from '../types';
   import RangeSlider from './RangeSlider.svelte';
+  import { formatDuration } from '$lib/utils/format';
 
   let {
     tracks,
@@ -12,7 +13,6 @@
     maxBpm = $bindable(250),
     selectedKey = $bindable("All"),
     onTrackSelect,
-    formatDuration,
     activeTab = $bindable()
   }: {
     tracks: Track[];
@@ -24,7 +24,6 @@
     maxBpm: number;
     selectedKey: string;
     onTrackSelect: (track: Track) => void;
-    formatDuration: (sec: number) => string;
     activeTab?: string;
   } = $props();
 

@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
-  import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-  import WaveSurfer from "wavesurfer.js";
-  import Spectrogram from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
+  import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
 
   // Import custom modular components
   import Navbar from "$lib/components/Navbar.svelte";
@@ -14,6 +12,7 @@
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
   import type { WatchedDirectory, Track } from "$lib/types";
   import { library } from "$lib/stores/library.svelte";
+  import { player } from "$lib/stores/player.svelte";
 
   // State managers using Svelte 5 runes
   let currentTheme = $state("system");
@@ -35,7 +34,7 @@
   let isAddLoading = $state(false);
 
   // Resizable Split Pane Heights
-  let topPaneHeight = $state(330); // Default Top Pane height in pixels
+  let topPaneHeight = $state(330);
   let isResizing = $state(false);
   let showDetails = $state(false);
   let preDetailsHeight = 330;
@@ -44,21 +43,11 @@
     showDetails = !showDetails;
     if (showDetails) {
       preDetailsHeight = topPaneHeight;
-      topPaneHeight = 520; // Auto-expand the pane
+      topPaneHeight = 520;
     } else {
-      topPaneHeight = preDetailsHeight; // Restore previous height
+      topPaneHeight = preDetailsHeight;
     }
   }
-
-  // WaveSurfer Bound States
-  let wavesurfer = $state<WaveSurfer | null>(null);
-  let isPlaying = $state(false);
-  let currentTime = $state(0);
-  let duration = $state(0);
-
-  // DOM Container bindings
-  let waveformContainer = $state<HTMLDivElement | null>(null);
-  let spectrogramContainer = $state<HTMLDivElement | null>(null);
 
   // Track Collection Filter States
   let searchQuery = $state("");
@@ -67,7 +56,8 @@
   let maxBpm = $state(250);
   let selectedKey = $state("All");
 
-  let selectedTrack = $state<Track | null>(null);
+  // selectedTrack now lives in the player store
+  const selectedTrack = $derived(player.selectedTrack);
 
   // Derived list of filtered tracks reactively matching search box, genre, key, and BPM selections
   let filteredTracks = $derived.by(() => {
@@ -108,173 +98,6 @@
       return true;
     });
   });
-
-  // Draggable Split Pane Resize Handlers
-  function handleMouseDown(e: MouseEvent) {
-    e.preventDefault();
-    isResizing = true;
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  }
-
-  function handleMouseMove(e: MouseEvent) {
-    if (!isResizing) return;
-    const workspaceElement = document.querySelector(".workspace");
-    if (!workspaceElement) return;
-
-    const rect = workspaceElement.getBoundingClientRect();
-    const relativeY = e.clientY - rect.top;
-
-    // Constrain Top Pane height between 220px and 700px for DAWs
-    if (relativeY >= 220 && relativeY <= 700) {
-      topPaneHeight = relativeY;
-    }
-  }
-
-  function handleMouseUp() {
-    if (isResizing) {
-      isResizing = false;
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    }
-  }
-
-  // Theme-aware WaveSurfer playback launcher
-  async function playTrack(track: Track) {
-    selectedTrack = track;
-    isPlaying = false;
-    currentTime = 0;
-    duration = 0;
-
-    // Destroy existing WaveSurfer instance
-    if (wavesurfer) {
-      wavesurfer.destroy();
-      wavesurfer = null;
-    }
-
-    // Convert absolute filepath to safe WebView asset URL
-    const assetUrl = convertFileSrc(track.path);
-
-    // Wait for Svelte DOM tick to bind containers
-    await tick();
-
-    if (!waveformContainer) {
-      console.error("Waveform container DOM element binding not found.");
-      return;
-    }
-
-    // Build the visualizer
-    wavesurfer = WaveSurfer.create({
-      container: waveformContainer,
-      waveColor: resolvedTheme === "light" ? "rgba(15, 23, 42, 0.08)" : "rgba(255, 255, 255, 0.08)",
-      cursorColor: resolvedTheme === "light" ? "var(--color-primary)" : "#00f2fe",
-      cursorWidth: 2,
-      barWidth: 3,
-      barGap: 2.2,
-      barRadius: 2,
-      height: 75,
-      normalize: true,
-      plugins: [
-        Spectrogram.create({
-          container: spectrogramContainer!,
-          labels: true,
-          fftSamples: 512,
-          height: 75,
-          labelsColor: resolvedTheme === "light" ? "#4b5563" : "#00f2fe",
-        })
-      ]
-    });
-
-    // Theme-Aware Linear Canvas Gradients
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (ctx) {
-      const gradient = ctx.createLinearGradient(0, 0, 800, 0);
-      if (resolvedTheme === "accessible") {
-        wavesurfer.setOptions({ progressColor: "#ffffff" });
-      } else if (resolvedTheme === "light") {
-        gradient.addColorStop(0, "#4f46e5"); // Soft Indigo
-        gradient.addColorStop(0.5, "#7c3aed"); // Soft Purple
-        gradient.addColorStop(1, "#db2777"); // Soft Pink
-        wavesurfer.setOptions({ progressColor: gradient });
-      } else {
-        gradient.addColorStop(0, "#00f2fe"); // Cyber Cyan
-        gradient.addColorStop(0.5, "#8a2be2"); // Indigo
-        gradient.addColorStop(1, "#ff007f"); // Studio Magenta
-        wavesurfer.setOptions({ progressColor: gradient });
-      }
-    }
-
-    wavesurfer.load(assetUrl);
-
-    // Bind event hooks
-    wavesurfer.on("play", () => { isPlaying = true; });
-    wavesurfer.on("pause", () => { isPlaying = false; });
-    
-    wavesurfer.on("timeupdate", (time) => {
-      currentTime = time;
-    });
-
-    wavesurfer.on("ready", () => {
-      if (wavesurfer) {
-        duration = wavesurfer.getDuration();
-        wavesurfer.play(); // Autoplay
-      }
-    });
-
-    wavesurfer.on("finish", () => {
-      isPlaying = false;
-      currentTime = 0;
-      handleNextTrack(); // Auto-advance to next song!
-    });
-  }
-
-  function togglePlayback() {
-    if (!wavesurfer) return;
-    wavesurfer.playPause();
-  }
-
-  function resetPlayer() {
-    if (wavesurfer) {
-      wavesurfer.destroy();
-      wavesurfer = null;
-    }
-    selectedTrack = null;
-    isPlaying = false;
-    currentTime = 0;
-    duration = 0;
-  }
-
-  function handlePrevTrack() {
-    if (!selectedTrack || library.tracks.length === 0) return;
-    const activeList = filteredTracks;
-    const index = activeList.findIndex(t => t.id === selectedTrack!.id);
-    if (index > 0) {
-      playTrack(activeList[index - 1]);
-    } else if (activeList.length > 0) {
-      playTrack(activeList[activeList.length - 1]); // Loop back
-    }
-  }
-
-  async function handleNextTrack() {
-    if (!selectedTrack || library.tracks.length === 0) return;
-    const activeList = filteredTracks;
-    const index = activeList.findIndex(t => t.id === selectedTrack!.id);
-    if (index !== -1 && index < activeList.length - 1) {
-      playTrack(activeList[index + 1]);
-    } else if (activeList.length > 0) {
-      playTrack(activeList[0]); // Loop back to start
-    }
-  }
-
-  function formatDuration(sec: number): string {
-    const mins = Math.floor(sec / 60);
-    const secs = Math.floor(sec % 60);
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  }
-
-  function formatSize(bytes: number): string {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
 
   // Trigger native RFD directory selector in Rust
   async function choosePath() {
@@ -443,34 +266,17 @@
           {#if selectedTrack === null}
             <HeroPanel bind:activeTab />
           {:else}
-            <AudioPlayer
-              {selectedTrack}
-              bind:isPlaying
-              bind:currentTime
-              bind:duration
-              bind:showDetails
-              {toggleDetails}
-              {formatDuration}
-              {formatSize}
-              bind:waveformContainer
-              bind:spectrogramContainer
-              {togglePlayback}
-              {handlePrevTrack}
-              {handleNextTrack}
-              onFindSimilar={() => findSimilar(selectedTrack!.id)}
-            />
+            <AudioPlayer />
           {/if}
         </div>
 
-        <!-- Draggable Resizer Dividers -->
+        <!-- Draggable Resizer Dividers (mouse handlers moved to Phase 1.7) -->
         <div 
           class="split-pane-resizer {isResizing ? 'active' : ''}" 
-          onmousedown={handleMouseDown}
           role="separator"
           aria-valuenow={topPaneHeight}
           aria-valuemin={220}
           aria-valuemax={700}
-          tabindex="0"
         >
           <div class="resizer-knob"></div>
         </div>
@@ -479,14 +285,13 @@
         <TrackList
           tracks={library.tracks}
           {selectedTrack}
-          {isPlaying}
+          isPlaying={player.isPlaying}
           bind:searchQuery
           bind:genreFilter
           bind:minBpm
           bind:maxBpm
           bind:selectedKey
-          onTrackSelect={playTrack}
-          {formatDuration}
+          onTrackSelect={(t) => player.playTrack(t, resolvedTheme, filteredTracks)}
           bind:activeTab
         />
       </div>
