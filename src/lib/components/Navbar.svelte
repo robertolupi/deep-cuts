@@ -1,12 +1,10 @@
 <script lang="ts">
+  import { theme } from "$lib/stores/theme.svelte";
+
   let {
     activeTab = $bindable(),
-    currentTheme = $bindable(),
-    onThemeChange
   }: {
     activeTab: string;
-    currentTheme: string;
-    onThemeChange: (theme: string) => Promise<void>;
   } = $props();
 </script>
 
@@ -49,10 +47,10 @@
   <!-- Theme Selection -->
   <div class="controls">
     <div class="theme-picker">
-      <select 
-        class="theme-select" 
-        value={currentTheme} 
-        onchange={(e) => onThemeChange((e.target as HTMLSelectElement).value)}
+      <select
+        class="theme-select"
+        value={theme.currentTheme}
+        onchange={(e) => theme.setTheme((e.target as HTMLSelectElement).value)}
         aria-label="Theme Selection"
       >
         <option value="system">🌓 System</option>

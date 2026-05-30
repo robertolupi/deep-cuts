@@ -40,6 +40,15 @@ vi.mock("wavesurfer.js/dist/plugins/spectrogram.esm.js", () => ({
   },
 }));
 
+// ── localStorage mock ─────────────────────────────────────────────────────
+const localStorageStore: Record<string, string> = {};
+vi.stubGlobal("localStorage", {
+  getItem: (key: string) => localStorageStore[key] ?? null,
+  setItem: (key: string, value: string) => { localStorageStore[key] = value; },
+  removeItem: (key: string) => { delete localStorageStore[key]; },
+  clear: () => { Object.keys(localStorageStore).forEach(k => delete localStorageStore[k]); },
+});
+
 // ── Canvas mock ────────────────────────────────────────────────────────────────
 // jsdom does not implement canvas; mock getContext so player gradient code is silent
 Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {

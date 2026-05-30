@@ -14,10 +14,9 @@
   import { library } from "$lib/stores/library.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
 
   // State managers using Svelte 5 runes
-  let currentTheme = $state("system");
-  let resolvedTheme = $state("dark");
   let tauriConnected = $state(false);
   let activeTab = $state("dashboard");
   let mapFocusTrackId = $state<number | null>(null);
@@ -144,72 +143,23 @@
     }
   }
 
-  // Check Tauri connectivity and restore theme
+  // Check Tauri connectivity, restore theme, initialize library
   onMount(() => {
-    // Stage 1: Load instantly from localStorage for seamless boot
-    const saved = localStorage.getItem("deep-cuts-theme") || "system";
-    setTheme(saved, false);
-
     async function init() {
-      // Stage 2: Initialize library store cache & scan listeners
       await library.init();
       tauriConnected = library.tauriConnected;
-
-      try {
-        // Query saved theme from Tauri SQLite database
-        const dbTheme = await invoke<string>("get_theme");
-        if (dbTheme && dbTheme !== saved) {
-          await setTheme(dbTheme, false);
-        }
-      } catch (e) {
-        console.warn("Tauri context offline or library database loading.");
-      }
+      await theme.init(tauriConnected);
     }
 
+    const cleanup = theme.initSystemListener();
     init();
-  });
-
-  // Apply theme dynamically to HTML element and persist to storage
-  async function setTheme(theme: string, saveToDb = true) {
-    currentTheme = theme;
-    localStorage.setItem("deep-cuts-theme", theme);
-
-    if (theme === "system") {
-      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      resolvedTheme = isDark ? "dark" : "light";
-      document.documentElement.setAttribute("data-theme", resolvedTheme);
-    } else {
-      resolvedTheme = theme;
-      document.documentElement.setAttribute("data-theme", theme);
-    }
-
-    if (saveToDb && tauriConnected) {
-      try {
-        await invoke("save_theme", { theme });
-      } catch (e) {
-        console.error("Failed to save theme in Tauri database:", e);
-      }
-    }
-  }
-
-  // Svelte 5 effect listening for system theme changes if theme is set to 'system'
-  $effect(() => {
-    if (currentTheme !== "system") return;
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => {
-      resolvedTheme = e.matches ? "dark" : "light";
-      document.documentElement.setAttribute("data-theme", resolvedTheme);
-    };
-
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
+    return cleanup;
   });
 </script>
 
 <div class="app-layout">
   <!-- Top Glass Navigation Bar -->
-  <Navbar bind:activeTab bind:currentTheme onThemeChange={setTheme} />
+  <Navbar bind:activeTab />
 
   <!-- Main Workspace -->
   <main class="workspace">
@@ -240,7 +190,7 @@
           tracks={library.tracks}
           {selectedTrack}
           isPlaying={player.isPlaying}
-          onTrackSelect={(t) => player.playTrack(t, resolvedTheme, filters.filteredTracks)}
+          onTrackSelect={(t) => player.playTrack(t, theme.resolvedTheme, filters.filteredTracks)}
           bind:activeTab
         />
       </div>

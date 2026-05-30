@@ -5,6 +5,7 @@
   import * as d3 from 'd3';
   import type { WatchedDirectory, Track } from '$lib/types';
   import { library } from '$lib/stores/library.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
 
   import { camelotMap, resolveTrackColor } from '$lib/utils/mapMath';
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
@@ -60,24 +61,8 @@
   let successMessage = $state('');
   let toastTimeout: any;
 
-  // Theme detection state
-  let currentThemeStr = $state("dark");
-
-  $effect(() => {
-    const htmlEl = document.documentElement;
-    currentThemeStr = htmlEl.getAttribute("data-theme") || "dark";
-
-    const observer = new MutationObserver(() => {
-      currentThemeStr = htmlEl.getAttribute("data-theme") || "dark";
-    });
-
-    observer.observe(htmlEl, {
-      attributes: true,
-      attributeFilter: ["data-theme"]
-    });
-
-    return () => observer.disconnect();
-  });
+  // Theme detection — read from store instead of MutationObserver
+  const currentThemeStr = $derived(theme.resolvedTheme);
 
   // Dynamically compute the top genres and their colors from the database metadata
   const topGenres = $derived.by(() => {

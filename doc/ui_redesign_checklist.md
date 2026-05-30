@@ -43,13 +43,13 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Remove filter props bound from `+page.svelte` → `TrackList`
 - [x] Update `+page.svelte`: remove filter state
 
-### 1.3 — Theme store (`src/lib/stores/theme.svelte.ts`)
-- [ ] Create `src/lib/stores/theme.svelte.ts`
-- [ ] Move `currentTheme`, `resolvedTheme`, `setTheme()` into store
-- [ ] Move system-preference `$effect` listener into store
-- [ ] Replace `MutationObserver` in `MusicMap.svelte` with theme store import
-- [ ] Update `Navbar.svelte`: remove `currentTheme`/`onThemeChange` props, import store
-- [ ] Update `+page.svelte`: remove theme state, call `theme.init()` in `onMount`
+### 1.3 — Theme store (`src/lib/stores/theme.svelte.ts`) ✅ complete
+- [x] Create `src/lib/stores/theme.svelte.ts`
+- [x] Move `currentTheme`, `resolvedTheme`, `setTheme()` into store
+- [x] Move system-preference `$effect` listener into store
+- [x] Replace `MutationObserver` in `MusicMap.svelte` with theme store import
+- [x] Update `Navbar.svelte`: remove `currentTheme`/`onThemeChange` props, import store
+- [x] Update `+page.svelte`: remove theme state, call `theme.init()` in `onMount`
 
 ### 1.4 — UI store (`src/lib/stores/ui.svelte.ts`)
 - [ ] Create `src/lib/stores/ui.svelte.ts`
