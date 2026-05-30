@@ -13,6 +13,7 @@
   import type { WatchedDirectory, Track } from "$lib/types";
   import { library } from "$lib/stores/library.svelte";
   import { player } from "$lib/stores/player.svelte";
+  import { filters } from "$lib/stores/filters.svelte";
 
   // State managers using Svelte 5 runes
   let currentTheme = $state("system");
@@ -49,55 +50,8 @@
     }
   }
 
-  // Track Collection Filter States
-  let searchQuery = $state("");
-  let genreFilter = $state("");
-  let minBpm = $state(20);
-  let maxBpm = $state(250);
-  let selectedKey = $state("All");
-
   // selectedTrack now lives in the player store
   const selectedTrack = $derived(player.selectedTrack);
-
-  // Derived list of filtered tracks reactively matching search box, genre, key, and BPM selections
-  let filteredTracks = $derived.by(() => {
-    return library.tracks.filter(t => {
-      // 1. Genre filter — partial case-insensitive match against metadata genre or detected_genre
-      if (genreFilter.trim()) {
-        const q = genreFilter.trim().toLowerCase();
-        const metaMatch = t.genre?.toLowerCase().includes(q) ?? false;
-        const detectedMatch = t.detected_genre?.toLowerCase().includes(q) ?? false;
-        if (!metaMatch && !detectedMatch) return false;
-      }
-      
-      // 2. Key filter
-      if (selectedKey !== "All") {
-        if (!t.key || !t.scale) return false;
-        const keyLabel = `${t.key} ${t.scale.toLowerCase()}`;
-        if (keyLabel.toLowerCase() !== selectedKey.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // 3. BPM filter
-      if (minBpm > 20 || maxBpm < 250) {
-        if (t.bpm === null || t.bpm === undefined) return false;
-        if (t.bpm < minBpm || t.bpm > maxBpm) return false;
-      }
-
-      // 4. Search text filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = t.title?.toLowerCase().includes(query) ?? false;
-        const matchesArtist = t.artist?.toLowerCase().includes(query) ?? false;
-        const matchesAlbum = t.album?.toLowerCase().includes(query) ?? false;
-        const matchesFilename = t.filename.toLowerCase().includes(query);
-        return matchesTitle || matchesArtist || matchesAlbum || matchesFilename;
-      }
-      
-      return true;
-    });
-  });
 
   // Trigger native RFD directory selector in Rust
   async function choosePath() {
@@ -286,12 +240,7 @@
           tracks={library.tracks}
           {selectedTrack}
           isPlaying={player.isPlaying}
-          bind:searchQuery
-          bind:genreFilter
-          bind:minBpm
-          bind:maxBpm
-          bind:selectedKey
-          onTrackSelect={(t) => player.playTrack(t, resolvedTheme, filteredTracks)}
+          onTrackSelect={(t) => player.playTrack(t, resolvedTheme, filters.filteredTracks)}
           bind:activeTab
         />
       </div>

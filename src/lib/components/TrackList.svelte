@@ -2,27 +2,18 @@
   import type { Track } from '../types';
   import RangeSlider from './RangeSlider.svelte';
   import { formatDuration } from '$lib/utils/format';
+  import { filters } from '$lib/stores/filters.svelte';
 
   let {
     tracks,
     selectedTrack,
     isPlaying,
-    searchQuery = $bindable(),
-    genreFilter = $bindable(),
-    minBpm = $bindable(20),
-    maxBpm = $bindable(250),
-    selectedKey = $bindable("All"),
     onTrackSelect,
     activeTab = $bindable()
   }: {
     tracks: Track[];
     selectedTrack: Track | null;
     isPlaying: boolean;
-    searchQuery: string;
-    genreFilter: string;
-    minBpm: number;
-    maxBpm: number;
-    selectedKey: string;
     onTrackSelect: (track: Track) => void;
     activeTab?: string;
   } = $props();
@@ -52,13 +43,13 @@
 
   // Suggestions: genres matching the current filter text (max 12)
   let genreSuggestions = $derived.by(() => {
-    const q = genreFilter.trim().toLowerCase();
+    const q = filters.genreFilter.trim().toLowerCase();
     if (!q) return [];
     return allGenres.filter(g => g.toLowerCase().includes(q)).slice(0, 12);
   });
 
   function selectGenreSuggestion(genre: string) {
-    genreFilter = genre;
+    filters.genreFilter = genre;
     isGenreFocused = false;
     genreInputEl?.blur();
   }
@@ -75,63 +66,22 @@
     return ["All", ...Array.from(list).sort()];
   });
 
-  // Derived list of filtered tracks reactively matching search box and genre/key/BPM selections
-  let filteredTracks = $derived.by(() => {
-    return tracks.filter(t => {
-      // 1. Genre filter — partial case-insensitive match against metadata genre or detected_genre
-      if (genreFilter.trim()) {
-        const q = genreFilter.trim().toLowerCase();
-        const metaMatch = t.genre?.toLowerCase().includes(q) ?? false;
-        const detectedMatch = t.detected_genre?.toLowerCase().includes(q) ?? false;
-        if (!metaMatch && !detectedMatch) return false;
-      }
-      
-      // 2. Key filter
-      if (selectedKey !== "All") {
-        if (!t.key || !t.scale) return false;
-        const keyLabel = `${t.key} ${t.scale.toLowerCase()}`;
-        if (keyLabel.toLowerCase() !== selectedKey.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // 3. BPM filter
-      if (minBpm > 20 || maxBpm < 250) {
-        if (t.bpm === null || t.bpm === undefined) return false;
-        if (t.bpm < minBpm || t.bpm > maxBpm) return false;
-      }
-      
-      // 4. Search text filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = t.title?.toLowerCase().includes(query) ?? false;
-        const matchesArtist = t.artist?.toLowerCase().includes(query) ?? false;
-        const matchesAlbum = t.album?.toLowerCase().includes(query) ?? false;
-        const matchesFilename = t.filename.toLowerCase().includes(query);
-        return matchesTitle || matchesArtist || matchesAlbum || matchesFilename;
-      }
-      
-      return true;
-    });
-  });
-
   let displayLimit = $state(150);
 
   $effect(() => {
-    // Reactively reset limit to 150 when filters or search query change
-    searchQuery;
-    genreFilter;
-    selectedKey;
-    minBpm;
-    maxBpm;
+    filters.searchQuery;
+    filters.genreFilter;
+    filters.selectedKey;
+    filters.minBpm;
+    filters.maxBpm;
     displayLimit = 150;
   });
 
-  let displayedTracks = $derived(filteredTracks.slice(0, displayLimit));
+  let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
 
   function setBpmPreset(minVal: number, maxVal: number) {
-    minBpm = minVal;
-    maxBpm = maxVal;
+    filters.minBpm = minVal;
+    filters.maxBpm = maxVal;
   }
 
   function handleWindowClick(e: MouseEvent) {
@@ -153,10 +103,10 @@
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input 
-          type="text" 
-          placeholder="Search tracks by title, artist, album, filename..." 
-          bind:value={searchQuery}
+        <input
+          type="text"
+          placeholder="Search tracks by title, artist, album, filename..."
+          bind:value={filters.searchQuery}
           class="search-input"
         />
       </div>
@@ -171,7 +121,7 @@
           <input
             type="text"
             placeholder="Filter by genre…"
-            bind:value={genreFilter}
+            bind:value={filters.genreFilter}
             bind:this={genreInputEl}
             class="search-input"
             onfocus={() => isGenreFocused = true}
@@ -193,7 +143,7 @@
 
       <!-- Key Filter -->
       <div class="filter-select-wrap">
-        <select bind:value={selectedKey} class="filter-select" aria-label="Key Filter">
+        <select bind:value={filters.selectedKey} class="filter-select" aria-label="Key Filter">
           <option value="All">🎹 All Keys</option>
           {#each keysList.filter(k => k !== "All") as keyItem}
             <option value={keyItem}>{keyItem}</option>
@@ -203,14 +153,14 @@
 
       <!-- BPM Filter Container -->
       <div class="bpm-filter-container" bind:this={bpmContainer}>
-        <button 
-          class="bpm-filter-btn {minBpm > 20 || maxBpm < 250 ? 'active' : ''}" 
+        <button
+          class="bpm-filter-btn {filters.minBpm > 20 || filters.maxBpm < 250 ? 'active' : ''}"
           onclick={() => isBpmPopupOpen = !isBpmPopupOpen}
           type="button"
         >
-          ⏱️ BPM: {minBpm === 20 && maxBpm === 250 ? 'All' : `${Math.round(minBpm)}-${Math.round(maxBpm)}`}
+          ⏱️ BPM: {filters.minBpm === 20 && filters.maxBpm === 250 ? 'All' : `${Math.round(filters.minBpm)}-${Math.round(filters.maxBpm)}`}
         </button>
-        
+
         {#if isBpmPopupOpen}
           <div class="bpm-popup glass-panel">
             <div class="bpm-popup-header">
@@ -222,17 +172,17 @@
                 min={20}
                 max={250}
                 step={1}
-                bind:minValue={minBpm}
-                bind:maxValue={maxBpm}
+                bind:minValue={filters.minBpm}
+                bind:maxValue={filters.maxBpm}
                 unit="BPM"
               />
             </div>
             <div class="bpm-presets">
-              <button class="preset-btn {minBpm === 60 && maxBpm === 90 ? 'active' : ''}" onclick={() => setBpmPreset(60, 90)} type="button">Slow</button>
-              <button class="preset-btn {minBpm === 90 && maxBpm === 125 ? 'active' : ''}" onclick={() => setBpmPreset(90, 125)} type="button">Mid</button>
-              <button class="preset-btn {minBpm === 125 && maxBpm === 150 ? 'active' : ''}" onclick={() => setBpmPreset(125, 150)} type="button">Fast</button>
-              <button class="preset-btn {minBpm === 150 && maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(150, 250)} type="button">V. Fast</button>
-              <button class="preset-btn preset-btn-full {minBpm === 20 && maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(20, 250)} type="button">All</button>
+              <button class="preset-btn {filters.minBpm === 60 && filters.maxBpm === 90 ? 'active' : ''}" onclick={() => setBpmPreset(60, 90)} type="button">Slow</button>
+              <button class="preset-btn {filters.minBpm === 90 && filters.maxBpm === 125 ? 'active' : ''}" onclick={() => setBpmPreset(90, 125)} type="button">Mid</button>
+              <button class="preset-btn {filters.minBpm === 125 && filters.maxBpm === 150 ? 'active' : ''}" onclick={() => setBpmPreset(125, 150)} type="button">Fast</button>
+              <button class="preset-btn {filters.minBpm === 150 && filters.maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(150, 250)} type="button">V. Fast</button>
+              <button class="preset-btn preset-btn-full {filters.minBpm === 20 && filters.maxBpm === 250 ? 'active' : ''}" onclick={() => setBpmPreset(20, 250)} type="button">All</button>
             </div>
           </div>
         {/if}
@@ -241,13 +191,13 @@
 
     <!-- Library metadata count badge -->
     <div class="library-count-badge">
-      <code>{filteredTracks.length} / {tracks.length} tracks</code>
+      <code>{filters.filteredTracks.length} / {tracks.length} tracks</code>
     </div>
   </div>
 
   <!-- Tracks Grid List Table -->
   {#if tracks.length > 0}
-    {#if filteredTracks.length > 0}
+    {#if filters.filteredTracks.length > 0}
       <div class="tracks-table-wrap">
         <table class="tracks-table">
           <thead>
@@ -331,17 +281,17 @@
           </tbody>
         </table>
 
-        {#if filteredTracks.length > displayLimit}
+        {#if filters.filteredTracks.length > displayLimit}
           <div class="load-more-container">
-            <button 
-              class="load-more-btn" 
+            <button
+              class="load-more-btn"
               onclick={() => displayLimit += 150}
               type="button"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="load-more-icon">
                 <path d="m6 9 6 6 6-6"/>
               </svg>
-              Load More Tracks ({filteredTracks.length - displayLimit} remaining)
+              Load More Tracks ({filters.filteredTracks.length - displayLimit} remaining)
             </button>
           </div>
         {/if}

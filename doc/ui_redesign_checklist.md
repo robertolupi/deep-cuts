@@ -35,13 +35,13 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Update `+page.svelte`: remove extracted state, import player store
 - [x] Vitest harness: setup.ts mocks, fixtures.ts, format.test.ts (10), player.test.ts (15) — 25/25 ✓
 
-### 1.2 — Filter store (`src/lib/stores/filters.svelte.ts`)
-- [ ] Create `src/lib/stores/filters.svelte.ts` with state + derived `filteredTracks`
-- [ ] Move `searchQuery`, `genreFilter`, `minBpm`, `maxBpm`, `selectedKey` into store
-- [ ] Move `filteredTracks` `$derived.by(…)` into store
-- [ ] Remove duplicated `filteredTracks` derivation from `TrackList.svelte`
-- [ ] Remove filter props bound from `+page.svelte` → `TrackList`
-- [ ] Update `+page.svelte`: remove filter state
+### 1.2 — Filter store (`src/lib/stores/filters.svelte.ts`) ✅ complete
+- [x] Create `src/lib/stores/filters.svelte.ts` with state + derived `filteredTracks`
+- [x] Move `searchQuery`, `genreFilter`, `minBpm`, `maxBpm`, `selectedKey` into store
+- [x] Move `filteredTracks` `$derived.by(…)` into store
+- [x] Remove duplicated `filteredTracks` derivation from `TrackList.svelte`
+- [x] Remove filter props bound from `+page.svelte` → `TrackList`
+- [x] Update `+page.svelte`: remove filter state
 
 ### 1.3 — Theme store (`src/lib/stores/theme.svelte.ts`)
 - [ ] Create `src/lib/stores/theme.svelte.ts`
