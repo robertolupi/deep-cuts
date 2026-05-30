@@ -1033,6 +1033,35 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                 let ai_instruments_val = data["ai_instruments"].as_str();
                 let description_val = data["description"].as_str();
 
+                // If Qwen returned a valid response but all fields parsed as None, the model
+                // produced output in an unrecognised format (free prose, Chinese, refusal, etc.).
+                // Treat this as a failure so the pass is retried rather than silently skipped.
+                let all_empty = is_music_val.is_none()
+                    && ai_genre_val.is_none()
+                    && ai_mood_val.is_none()
+                    && ai_instruments_val.is_none()
+                    && description_val.is_none();
+
+                if all_empty {
+                    log::warn!("[qwen] Track {} produced no parseable fields — marking FAILED for retry", job.track_id);
+                    let _ = conn.execute(
+                        "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
+                         last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                        rusqlite::params![
+                            pass_status::FAILED,
+                            "Qwen response contained no parseable GENRE/MOOD/INSTRUMENTS/DESCRIPTION fields",
+                            elapsed_ms,
+                            job.pass_id
+                        ],
+                    );
+                    let _ = app.emit("analysis-progress", serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "qwen",
+                        "status": pass_status::FAILED,
+                    }));
+                    continue;
+                }
+
                 let _ = conn.execute(
                     "UPDATE tracks SET
                         is_music = ?1,
@@ -1057,7 +1086,18 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                     rusqlite::params![pass_status::DONE, elapsed_ms,
                         pass_version::QWEN, job.pass_id],
                 );
-                
+
+                // Re-queue the description_embed pass for this track so it runs after the
+                // description is now available. Without this, description_embed marks itself
+                // DONE on first run (when description was null) and never re-processes.
+                if description_val.is_some() {
+                    let _ = conn.execute(
+                        "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP
+                         WHERE track_id = ?2 AND pass_name = 'description_embed'",
+                        rusqlite::params![pass_status::PENDING, job.track_id],
+                    );
+                }
+
                 // Save to sidecar
                 if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
                     log::error!("[qwen] Failed to save sidecar metadata for track {}: {}", job.track_id, e);
