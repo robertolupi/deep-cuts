@@ -9,6 +9,7 @@ pub const SUFFIX: &str = ".dc.json";
 ///   - restore() — add to the UPDATE statement
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SidecarMlMetadata {
+    // --- audio_analysis pass ---
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bpm: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,9 +24,31 @@ pub struct SidecarMlMetadata {
     pub loudness_range: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub waveform_data: Option<String>,
+    // --- clap pass (stored separately as a blob, serialised here as Vec<f32>) ---
     /// 512-d L2-normalised CLAP audio embedding. Persisted to avoid expensive ONNX re-inference.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clap_embedding: Option<Vec<f32>>,
+    // --- essentia pass ---
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detected_genre: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detected_vocal: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detected_vocal_confidence: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_happy: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_sad: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_aggressive: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_relaxed: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_party: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_acoustic: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mood_electronic: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -55,7 +78,10 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
     )?;
 
     let mut ml_metadata: SidecarMlMetadata = conn.query_row(
-        "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data
+        "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
+                detected_genre, detected_vocal, detected_vocal_confidence,
+                mood_happy, mood_sad, mood_aggressive, mood_relaxed,
+                mood_party, mood_acoustic, mood_electronic
          FROM tracks WHERE id = ?1",
         [track_id],
         |row| Ok(SidecarMlMetadata {
@@ -67,6 +93,16 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
             loudness_range: row.get(5)?,
             waveform_data: row.get(6)?,
             clap_embedding: None,
+            detected_genre: row.get(7)?,
+            detected_vocal: row.get(8)?,
+            detected_vocal_confidence: row.get(9)?,
+            mood_happy: row.get(10)?,
+            mood_sad: row.get(11)?,
+            mood_aggressive: row.get(12)?,
+            mood_relaxed: row.get(13)?,
+            mood_party: row.get(14)?,
+            mood_acoustic: row.get(15)?,
+            mood_electronic: row.get(16)?,
         }),
     )?;
 
@@ -107,6 +143,8 @@ pub fn restore(
     };
 
     let m = &sidecar.ml_metadata;
+
+    // Restore audio_analysis fields
     conn.execute(
         "UPDATE tracks SET
             bpm = COALESCE(?1, bpm),
@@ -123,6 +161,36 @@ pub fn restore(
             track_id,
         ],
     )?;
+
+    // Restore essentia fields (only when at least detected_genre is present)
+    if m.detected_genre.is_some() || m.mood_happy.is_some() {
+        conn.execute(
+            "UPDATE tracks SET
+                detected_genre             = COALESCE(?1,  detected_genre),
+                detected_vocal             = COALESCE(?2,  detected_vocal),
+                detected_vocal_confidence  = COALESCE(?3,  detected_vocal_confidence),
+                mood_happy                 = COALESCE(?4,  mood_happy),
+                mood_sad                   = COALESCE(?5,  mood_sad),
+                mood_aggressive            = COALESCE(?6,  mood_aggressive),
+                mood_relaxed               = COALESCE(?7,  mood_relaxed),
+                mood_party                 = COALESCE(?8,  mood_party),
+                mood_acoustic              = COALESCE(?9,  mood_acoustic),
+                mood_electronic            = COALESCE(?10, mood_electronic)
+             WHERE id = ?11",
+            rusqlite::params![
+                m.detected_genre, m.detected_vocal, m.detected_vocal_confidence,
+                m.mood_happy, m.mood_sad, m.mood_aggressive, m.mood_relaxed,
+                m.mood_party, m.mood_acoustic, m.mood_electronic,
+                track_id,
+            ],
+        )?;
+        // Mark essentia pass as DONE so the pipeline skips re-running ONNX inference
+        conn.execute(
+            "UPDATE track_passes SET status = 2, last_run_at = CURRENT_TIMESTAMP
+             WHERE track_id = ?1 AND pass_name = 'essentia'",
+            [track_id],
+        )?;
+    }
 
     // Restore CLAP embedding into audio_embeddings and mark the pass done to avoid re-processing
     if let Some(floats) = &m.clap_embedding {
