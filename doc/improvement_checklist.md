@@ -52,9 +52,9 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Frontend Robustness & UX
 
-- [ ] Move `JSON.parse(track.waveform_data)` out of the Svelte render path and use a safe helper/cache.
-- [ ] Add error toasts for failed similarity searches instead of silently clearing loading state.
-- [ ] Keep selected/playing track visible when filters change, or explicitly show when playback is outside the current filter set.
+- [x] Move `JSON.parse(track.waveform_data)` out of the Svelte render path and use a safe helper/cache.
+- [x] Add error toasts for failed similarity searches instead of silently clearing loading state.
+- [x] Keep selected/playing track visible when filters change, or explicitly show when playback is outside the current filter set.
 - [ ] Review icon-only and inline-SVG buttons for consistency with the app design system.
 - [ ] Add focused component tests around `TrackList`, `MusicMap`, and `AnalysisPanel` behavior.
 

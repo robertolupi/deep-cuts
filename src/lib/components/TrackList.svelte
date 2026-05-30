@@ -27,11 +27,17 @@
     filters.musicOnly;
     filters.vocalFilter;
     filters.similarToTrack;
-    displayLimit = 150;
+    const idx = selectedTrack
+      ? filters.filteredTracks.findIndex(t => t.id === selectedTrack!.id)
+      : -1;
+    displayLimit = idx >= 150 ? idx + 1 : 150;
   });
 
   let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
   const allTracks = $derived(library.tracks);
+  const isSelectedOutsideFilter = $derived(
+    !!selectedTrack && !filters.filteredTracks.some(t => t.id === selectedTrack!.id)
+  );
 </script>
 
 <div class="track-list-view">
@@ -41,6 +47,14 @@
       <code>{filters.filteredTracks.length} / {allTracks.length} tracks</code>
     </div>
   </div>
+
+  <!-- Selected track outside filter banner -->
+  {#if isSelectedOutsideFilter}
+    <div class="outside-filter-banner">
+      <span>"{selectedTrack!.title || selectedTrack!.filename}" is hidden by active filters.</span>
+      <button class="outside-filter-clear" onclick={() => filters.clearAll()}>Clear filters</button>
+    </div>
+  {/if}
 
   <!-- Tracks Grid List Table -->
   {#if allTracks.length > 0}
@@ -277,6 +291,40 @@
 
   .load-more-btn:hover .load-more-icon {
     transform: translateY(1px);
+  }
+
+  .outside-filter-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 200, 0, 0.07);
+    border-bottom: 1px solid rgba(255, 200, 0, 0.2);
+    font-size: 0.8rem;
+    color: var(--sg-on-surface-variant, #a0a0b0);
+  }
+
+  .outside-filter-banner span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .outside-filter-clear {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid rgba(255, 200, 0, 0.35);
+    color: rgba(255, 200, 0, 0.85);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .outside-filter-clear:hover {
+    background: rgba(255, 200, 0, 0.12);
   }
 
 </style>

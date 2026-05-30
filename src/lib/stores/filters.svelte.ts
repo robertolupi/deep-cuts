@@ -1,5 +1,6 @@
 import type { Track } from "$lib/types";
 import { library } from "$lib/stores/library.svelte";
+import { ui } from "$lib/stores/ui.svelte";
 import { invoke } from "@tauri-apps/api/core";
 
 export type ScaleFilter = "all" | "major" | "minor";
@@ -112,6 +113,8 @@ function createFiltersStore() {
         );
         similarTrackIds = new Set(results.map(r => r.id));
         similarToTrack  = track;
+      } catch (err: any) {
+        ui.showToast(`Similarity search failed: ${err?.toString() ?? 'unknown error'}`, 'error');
       } finally {
         isSimilarLoading = false;
       }
@@ -128,6 +131,20 @@ function createFiltersStore() {
         : [...selectedKeys, key];
     },
     clearKeys() { selectedKeys = []; },
+
+    clearAll() {
+      searchQuery          = "";
+      genreFilter          = "";
+      minBpm               = 20;
+      maxBpm               = 250;
+      selectedKeys         = [];
+      selectedScale        = "all";
+      musicOnly            = false;
+      vocalFilter          = "all";
+      selectedDirectoryIds = [];
+      similarToTrack       = null;
+      similarTrackIds      = new Set();
+    },
   };
 }
 
