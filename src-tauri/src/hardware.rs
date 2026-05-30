@@ -23,7 +23,11 @@ impl AppleSiliconProfile {
             .map(|v| v as usize)
             .unwrap_or(0);
 
-        Self { is_arm64, p_cores, e_cores }
+        Self {
+            is_arm64,
+            p_cores,
+            e_cores,
+        }
     }
 
     fn query_sysctl_u32(key: &str) -> Option<u32> {

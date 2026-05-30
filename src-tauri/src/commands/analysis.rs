@@ -1,7 +1,7 @@
-use std::sync::Mutex;
-use rusqlite::Connection;
-use crate::database::pass_status;
 use crate::analysis;
+use crate::database::pass_status;
+use rusqlite::Connection;
+use std::sync::Mutex;
 
 #[derive(serde::Serialize)]
 pub struct PassError {
@@ -42,14 +42,6 @@ pub fn get_pass_stats(
 ) -> Result<Vec<PassStats>, String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
 
-    if !analysis::PipelineManager::is_running() {
-        let _ = conn.execute(
-            "UPDATE track_passes SET status = ?1, log = NULL, last_run_at = NULL
-             WHERE status = ?2",
-            rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS],
-        );
-    }
-
     let mut counts_stmt = conn
         .prepare(
             "SELECT pass_name,
@@ -66,7 +58,17 @@ pub fn get_pass_stats(
         .map_err(|e| e.to_string())?;
 
     let count_rows: Vec<(String, i64, i64, i64, i64, i64, Option<f64>)> = counts_stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)))
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+            ))
+        })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -81,30 +83,71 @@ pub fn get_pass_stats(
         )
         .map_err(|e| e.to_string())?;
 
-    let error_rows: Vec<(String, String, Option<String>, Option<String>, Option<i64>)> = errors_stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+    let error_rows: Vec<(String, String, Option<String>, Option<String>, Option<i64>)> =
+        errors_stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
     let stats = count_rows
         .into_iter()
-        .map(|(pass_name, pending, in_progress, done, failed, total, avg_duration_ms)| {
-            let errors = error_rows
-                .iter()
-                .filter(|(p, _, _, _, _)| p == &pass_name)
-                .map(|(_, path, log, last_run_at, duration_ms)| PassError {
-                    path: path.clone(),
-                    log: log.clone(),
-                    duration_ms: *duration_ms,
-                    last_run_at: last_run_at.clone(),
-                })
-                .collect();
-            PassStats { pass_name, pending, in_progress, done, failed, total, avg_duration_ms, errors }
-        })
+        .map(
+            |(pass_name, pending, in_progress, done, failed, total, avg_duration_ms)| {
+                let errors = error_rows
+                    .iter()
+                    .filter(|(p, _, _, _, _)| p == &pass_name)
+                    .map(|(_, path, log, last_run_at, duration_ms)| PassError {
+                        path: path.clone(),
+                        log: log.clone(),
+                        duration_ms: *duration_ms,
+                        last_run_at: last_run_at.clone(),
+                    })
+                    .collect();
+                PassStats {
+                    pass_name,
+                    pending,
+                    in_progress,
+                    done,
+                    failed,
+                    total,
+                    avg_duration_ms,
+                    errors,
+                }
+            },
+        )
         .collect();
 
     Ok(stats)
+}
+
+#[tauri::command]
+pub fn recover_stuck_passes(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<usize, String> {
+    if analysis::PipelineManager::is_running() {
+        return Err("Cannot recover stuck passes while analysis is running.".to_string());
+    }
+
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    let changed = conn
+        .execute(
+            "UPDATE track_passes SET status = ?1,
+             log = 'Recovered after interrupted analysis run',
+             last_run_at = NULL
+         WHERE status = ?2",
+            rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS],
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(changed)
 }
 
 #[tauri::command]
@@ -117,9 +160,27 @@ pub fn reset_pass(
         "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
          last_run_at = NULL, duration_ms = NULL WHERE pass_name = ?2",
         rusqlite::params![pass_status::PENDING, &pass_name],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
+    if pass_name == "audio_analysis" {
+        conn.execute(
+            "UPDATE tracks SET
+                waveform_data = NULL,
+                bpm = NULL,
+                bpm_raw = NULL,
+                key = NULL,
+                scale = NULL,
+                key_strength = NULL,
+                loudness_lufs = NULL,
+                loudness_range = NULL",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     if pass_name == "clap" {
         conn.execute("DELETE FROM audio_embeddings", [])
+            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM track_coords", [])
             .map_err(|e| e.to_string())?;
     }
     if pass_name == "essentia" {
@@ -130,14 +191,16 @@ pub fn reset_pass(
                 mood_relaxed = NULL, mood_party = NULL, mood_acoustic = NULL,
                 mood_electronic = NULL",
             [],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
     // bpm_correction and bpm_refinement: restore bpm from bpm_raw so re-running is idempotent
     if pass_name == "bpm_correction" || pass_name == "bpm_refinement" {
         conn.execute(
             "UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL",
             [],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
     if pass_name == "qwen" {
         conn.execute(
@@ -148,14 +211,16 @@ pub fn reset_pass(
                 ai_instruments = NULL,
                 description = NULL",
             [],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM description_embeddings", [])
             .map_err(|e| e.to_string())?;
         conn.execute(
             "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
              last_run_at = NULL, duration_ms = NULL WHERE pass_name = 'description_embed'",
             [pass_status::PENDING],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
     if pass_name == "description_embed" {
         conn.execute("DELETE FROM description_embeddings", [])
@@ -165,44 +230,69 @@ pub fn reset_pass(
 }
 
 #[tauri::command]
-pub fn reset_all_passes(
-    conn_state: tauri::State<'_, Mutex<Connection>>,
-) -> Result<(), String> {
+pub fn reset_all_passes(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<(), String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
          last_run_at = NULL, duration_ms = NULL",
         [pass_status::PENDING],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM audio_embeddings", [])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM description_embeddings", [])
         .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM track_coords", [])
+        .map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE tracks SET
+            waveform_data = NULL,
+            bpm = NULL,
+            bpm_raw = NULL,
+            key = NULL,
+            scale = NULL,
+            key_strength = NULL,
+            loudness_lufs = NULL,
+            loudness_range = NULL,
+            detected_genre = NULL,
+            detected_vocal = NULL,
+            detected_vocal_confidence = NULL,
+            mood_happy = NULL,
+            mood_sad = NULL,
+            mood_aggressive = NULL,
+            mood_relaxed = NULL,
+            mood_party = NULL,
+            mood_acoustic = NULL,
+            mood_electronic = NULL,
             is_music = NULL,
             ai_genre = NULL,
             ai_mood = NULL,
             ai_instruments = NULL,
             description = NULL",
         [],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    let qwen_model = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(&app));
-    let qwen_mmproj = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(&app));
+    let qwen_model =
+        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(&app));
+    let qwen_mmproj =
+        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(&app));
     let sentence_model = crate::embeddings::get_model_path("all-minilm-l6-v2.onnx", Some(&app));
-    let sentence_tok = crate::embeddings::get_model_path("all-minilm-l6-v2-tokenizer.json", Some(&app));
+    let sentence_tok =
+        crate::embeddings::get_model_path("all-minilm-l6-v2-tokenizer.json", Some(&app));
     let clap_model = crate::embeddings::get_model_path("clap_audio_encoder.onnx", Some(&app));
     let clap_mel = crate::embeddings::get_model_path("clap_mel_weights.bin", Some(&app));
 
     // Essentia models
-    let essentia_base = crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.onnx", Some(&app));
-    let essentia_base_json = crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.json", Some(&app));
-    
+    let essentia_base =
+        crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.onnx", Some(&app));
+    let essentia_base_json =
+        crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.json", Some(&app));
+
     // Check all head files
     let heads = [
         "genre_discogs400-discogs-effnet-1",
@@ -228,7 +318,8 @@ pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, St
     let qwen_exists = qwen_model.exists() && qwen_mmproj.exists();
     let sentence_exists = sentence_model.exists() && sentence_tok.exists();
     let clap_exists = clap_model.exists() && clap_mel.exists();
-    let essentia_exists = essentia_base.exists() && essentia_base_json.exists() && essentia_heads_exist;
+    let essentia_exists =
+        essentia_base.exists() && essentia_base_json.exists() && essentia_heads_exist;
 
     let all_exist = qwen_exists && sentence_exists && clap_exists && essentia_exists;
 

@@ -106,11 +106,10 @@ pub fn load(track_path: &str) -> Option<SidecarData> {
 
 /// Writes a sidecar file next to `track_id`'s audio file, persisting its ML metadata.
 pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::Error>> {
-    let path: String = conn.query_row(
-        "SELECT path FROM tracks WHERE id = ?1",
-        [track_id],
-        |row| row.get(0),
-    )?;
+    let path: String =
+        conn.query_row("SELECT path FROM tracks WHERE id = ?1", [track_id], |row| {
+            row.get(0)
+        })?;
 
     let mut ml_metadata: SidecarMlMetadata = conn.query_row(
         "SELECT bpm, key, scale, key_strength, loudness_lufs, loudness_range, waveform_data,
@@ -120,32 +119,34 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
                 is_music, ai_genre, ai_mood, ai_instruments, description
          FROM tracks WHERE id = ?1",
         [track_id],
-        |row| Ok(SidecarMlMetadata {
-            bpm: row.get(0)?,
-            key: row.get(1)?,
-            scale: row.get(2)?,
-            key_strength: row.get(3)?,
-            loudness_lufs: row.get(4)?,
-            loudness_range: row.get(5)?,
-            waveform_data: row.get(6)?,
-            clap_embedding: None,
-            detected_genre: row.get(7)?,
-            detected_vocal: row.get(8)?,
-            detected_vocal_confidence: row.get(9)?,
-            mood_happy: row.get(10)?,
-            mood_sad: row.get(11)?,
-            mood_aggressive: row.get(12)?,
-            mood_relaxed: row.get(13)?,
-            mood_party: row.get(14)?,
-            mood_acoustic: row.get(15)?,
-            mood_electronic: row.get(16)?,
-            is_music: row.get(17)?,
-            ai_genre: row.get(18)?,
-            ai_mood: row.get(19)?,
-            ai_instruments: row.get(20)?,
-            description: row.get(21)?,
-            description_embedding: None,
-        }),
+        |row| {
+            Ok(SidecarMlMetadata {
+                bpm: row.get(0)?,
+                key: row.get(1)?,
+                scale: row.get(2)?,
+                key_strength: row.get(3)?,
+                loudness_lufs: row.get(4)?,
+                loudness_range: row.get(5)?,
+                waveform_data: row.get(6)?,
+                clap_embedding: None,
+                detected_genre: row.get(7)?,
+                detected_vocal: row.get(8)?,
+                detected_vocal_confidence: row.get(9)?,
+                mood_happy: row.get(10)?,
+                mood_sad: row.get(11)?,
+                mood_aggressive: row.get(12)?,
+                mood_relaxed: row.get(13)?,
+                mood_party: row.get(14)?,
+                mood_acoustic: row.get(15)?,
+                mood_electronic: row.get(16)?,
+                is_music: row.get(17)?,
+                ai_genre: row.get(18)?,
+                ai_mood: row.get(19)?,
+                ai_instruments: row.get(20)?,
+                description: row.get(21)?,
+                description_embedding: None,
+            })
+        },
     )?;
 
     // Read CLAP embedding blob from audio_embeddings and deserialise to Vec<f32>
@@ -197,7 +198,11 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         pass_versions.insert(pass_name, version);
     }
 
-    let sidecar = SidecarData { version: 1, pass_versions, ml_metadata };
+    let sidecar = SidecarData {
+        version: 1,
+        pass_versions,
+        ml_metadata,
+    };
     let json = serde_json::to_string_pretty(&sidecar)?;
     std::fs::write(path_for(&path), json)?;
     Ok(())
@@ -236,8 +241,13 @@ pub fn restore(
                 waveform_data = COALESCE(?7, waveform_data)
              WHERE id = ?8",
             rusqlite::params![
-                m.bpm, m.key, m.scale, m.key_strength,
-                m.loudness_lufs, m.loudness_range, m.waveform_data,
+                m.bpm,
+                m.key,
+                m.scale,
+                m.key_strength,
+                m.loudness_lufs,
+                m.loudness_range,
+                m.waveform_data,
                 track_id,
             ],
         )?;
@@ -282,9 +292,16 @@ pub fn restore(
                 mood_electronic            = COALESCE(?10, mood_electronic)
              WHERE id = ?11",
             rusqlite::params![
-                m.detected_genre, m.detected_vocal, m.detected_vocal_confidence,
-                m.mood_happy, m.mood_sad, m.mood_aggressive, m.mood_relaxed,
-                m.mood_party, m.mood_acoustic, m.mood_electronic,
+                m.detected_genre,
+                m.detected_vocal,
+                m.detected_vocal_confidence,
+                m.mood_happy,
+                m.mood_sad,
+                m.mood_aggressive,
+                m.mood_relaxed,
+                m.mood_party,
+                m.mood_acoustic,
+                m.mood_electronic,
                 track_id,
             ],
         )?;
@@ -306,7 +323,11 @@ pub fn restore(
                 description = COALESCE(?5, description)
              WHERE id = ?6",
             rusqlite::params![
-                m.is_music, m.ai_genre, m.ai_mood, m.ai_instruments, m.description,
+                m.is_music,
+                m.ai_genre,
+                m.ai_mood,
+                m.ai_instruments,
+                m.description,
                 track_id,
             ],
         )?;
@@ -428,7 +449,8 @@ mod tests {
             "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
              VALUES (1, 'audio_analysis', 10, 2, ?1)",
             rusqlite::params![pass_version::AUDIO_ANALYSIS],
-        ).unwrap();
+        )
+        .unwrap();
 
         save(&conn, 1).unwrap();
         let loaded = load(&track_path).expect("sidecar should be loadable after save");
@@ -471,7 +493,8 @@ mod tests {
             "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
              VALUES (1, 'audio_analysis', 10, 2, ?1)",
             rusqlite::params![pass_version::AUDIO_ANALYSIS],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Save to disk, then wipe DB fields and the pass row, then restore from disk
         save(&conn, 1).unwrap();
@@ -479,16 +502,19 @@ mod tests {
             "UPDATE tracks SET bpm = NULL, key = NULL, scale = NULL, key_strength = NULL,
              loudness_lufs = NULL, loudness_range = NULL, waveform_data = NULL WHERE id = 1",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "UPDATE track_passes SET status = 0 WHERE track_id = 1 AND pass_name = 'audio_analysis'",
             [],
         ).unwrap();
         restore(&conn, 1, &track_path).unwrap();
 
-        let (bpm, key, scale): (Option<f64>, Option<String>, Option<String>) = conn.query_row(
-            "SELECT bpm, key, scale FROM tracks WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-        ).unwrap();
+        let (bpm, key, scale): (Option<f64>, Option<String>, Option<String>) = conn
+            .query_row("SELECT bpm, key, scale FROM tracks WHERE id = 1", [], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .unwrap();
         assert_eq!(bpm, Some(120.0));
         assert_eq!(key.as_deref(), Some("C"));
         assert_eq!(scale.as_deref(), Some("major"));
@@ -498,8 +524,15 @@ mod tests {
             "SELECT status, pass_version FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'",
             [], |r| Ok((r.get(0)?, r.get(1)?)),
         ).unwrap();
-        assert_eq!(status, 2, "audio_analysis pass should be DONE after restore");
-        assert_eq!(version, pass_version::AUDIO_ANALYSIS, "restored pass_version should match current constant");
+        assert_eq!(
+            status, 2,
+            "audio_analysis pass should be DONE after restore"
+        );
+        assert_eq!(
+            version,
+            pass_version::AUDIO_ANALYSIS,
+            "restored pass_version should match current constant"
+        );
 
         cleanup(&dir, &track_path);
     }
@@ -509,14 +542,16 @@ mod tests {
         let (dir, track_path) = temp_track("stale_version");
 
         // Write a sidecar with pass_version 0 — below every current constant
-        let stale = r#"{"version":1,"pass_versions":{"audio_analysis":0},"ml_metadata":{"bpm":99.0}}"#;
+        let stale =
+            r#"{"version":1,"pass_versions":{"audio_analysis":0},"ml_metadata":{"bpm":99.0}}"#;
         std::fs::write(path_for(&track_path), stale).unwrap();
 
         let conn = setup_test_db();
         conn.execute(
             "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
             [dir.to_string_lossy().as_ref()],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
              VALUES (1, 1, ?1, 'song.mp3', 5, 0, 0)",
@@ -526,14 +561,15 @@ mod tests {
             "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
              VALUES (1, 'audio_analysis', 10, 0, 0)",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         restore(&conn, 1, &track_path).unwrap();
 
         // BPM should NOT have been restored — sidecar version was stale
-        let bpm: Option<f64> = conn.query_row(
-            "SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0)
-        ).unwrap();
+        let bpm: Option<f64> = conn
+            .query_row("SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(bpm, None, "stale pass version should prevent restore");
 
         // Pass should remain PENDING
@@ -558,7 +594,8 @@ mod tests {
         conn.execute(
             "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
             [dir.to_string_lossy().as_ref()],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
              VALUES (1, 1, ?1, 'song.mp3', 5, 0, 0)",
@@ -569,10 +606,13 @@ mod tests {
         let result = restore(&conn, 1, &track_path);
         assert!(result.is_ok());
 
-        let bpm: Option<f64> = conn.query_row(
-            "SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(bpm, None, "old sidecar without pass_versions should not restore any fields");
+        let bpm: Option<f64> = conn
+            .query_row("SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            bpm, None,
+            "old sidecar without pass_versions should not restore any fields"
+        );
 
         cleanup(&dir, &track_path);
     }

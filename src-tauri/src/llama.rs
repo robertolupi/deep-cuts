@@ -1,7 +1,7 @@
 use std::process::Child;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
 use std::time::{Duration, Instant};
+use tauri::{AppHandle, Manager};
 
 pub const LLAMA_PORT: u16 = 10086;
 
@@ -17,18 +17,16 @@ pub struct LlamaServerGuard<'a> {
 impl<'a> Drop for LlamaServerGuard<'a> {
     fn drop(&mut self) {
         if self.killed_on_drop {
-            log::info!("[llama-server] LlamaServerGuard dropped. Terminating background process...");
+            log::info!(
+                "[llama-server] LlamaServerGuard dropped. Terminating background process..."
+            );
             terminate_llama_server(self.app);
         }
     }
 }
 
 /// Spawns the llama-server executable. Tries common system and homebrew paths.
-fn spawn_llama_server(
-    model_path: &str,
-    mmproj_path: &str,
-    port: u16,
-) -> Result<Child, String> {
+fn spawn_llama_server(model_path: &str, mmproj_path: &str, port: u16) -> Result<Child, String> {
     let executables = vec![
         "/opt/homebrew/bin/llama-server",
         "/usr/local/bin/llama-server",
@@ -52,7 +50,10 @@ fn spawn_llama_server(
 
         match child {
             Ok(c) => {
-                log::info!("[llama-server] Successfully spawned background llama-server via: {}", exec);
+                log::info!(
+                    "[llama-server] Successfully spawned background llama-server via: {}",
+                    exec
+                );
                 return Ok(c);
             }
             Err(e) => {
@@ -87,7 +88,10 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
     };
 
     if already_running {
-        return Ok(LlamaServerGuard { app, killed_on_drop: true });
+        return Ok(LlamaServerGuard {
+            app,
+            killed_on_drop: true,
+        });
     }
 
     // Try pinging the health endpoint in case llama-server was started externally
@@ -95,17 +99,25 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
     let check_existing = ureq::get(&health_url)
         .timeout(Duration::from_millis(150))
         .call();
-    
+
     if let Ok(resp) = check_existing {
         if resp.status() == 200 {
-            log::info!("[llama-server] Server already running externally on port {}", LLAMA_PORT);
-            return Ok(LlamaServerGuard { app, killed_on_drop: false });
+            log::info!(
+                "[llama-server] Server already running externally on port {}",
+                LLAMA_PORT
+            );
+            return Ok(LlamaServerGuard {
+                app,
+                killed_on_drop: false,
+            });
         }
     }
 
     // Resolve Qwen2-Audio model paths via the unified model manager in embeddings.rs
-    let model_path_buf = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(app));
-    let mmproj_path_buf = crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(app));
+    let model_path_buf =
+        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(app));
+    let mmproj_path_buf =
+        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(app));
 
     if !model_path_buf.exists() || !mmproj_path_buf.exists() {
         return Err(format!(
@@ -132,12 +144,15 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
     log::info!("[llama-server] Waiting for background server to load weights...");
     let start_time = Instant::now();
     let max_duration = Duration::from_secs(120); // allow up to 120s slow CPU boot
-    
+
     while start_time.elapsed() < max_duration {
         // Double check if child crashed early
         if let Some(ref mut c) = *lock {
             if let Ok(Some(status)) = c.try_wait() {
-                return Err(format!("[llama-server] Server process exited prematurely with status: {}", status));
+                return Err(format!(
+                    "[llama-server] Server process exited prematurely with status: {}",
+                    status
+                ));
             }
         }
 
@@ -149,7 +164,10 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
             Ok(resp) => {
                 if resp.status() == 200 {
                     log::info!("[llama-server] Server is healthy and fully ready!");
-                    return Ok(LlamaServerGuard { app, killed_on_drop: true });
+                    return Ok(LlamaServerGuard {
+                        app,
+                        killed_on_drop: true,
+                    });
                 }
             }
             Err(_) => {

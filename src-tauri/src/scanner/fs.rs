@@ -30,7 +30,9 @@ pub fn is_supported_audio(path: &Path) -> bool {
 
 /// Recursively scans a root directory path and returns a list of discovered files.
 /// Returns Ok(None) if the directory is dismounted or inaccessible.
-pub fn walk_directory(directory_path: &str) -> Result<Option<Vec<DiscoveredFile>>, Box<dyn std::error::Error + Send + Sync>> {
+pub fn walk_directory(
+    directory_path: &str,
+) -> Result<Option<Vec<DiscoveredFile>>, Box<dyn std::error::Error + Send + Sync>> {
     let root_path = Path::new(directory_path);
 
     // Drive Dismount Safety Check:
@@ -46,15 +48,16 @@ pub fn walk_directory(directory_path: &str) -> Result<Option<Vec<DiscoveredFile>
         let path = entry.path();
         if path.is_file() && is_supported_audio(path) {
             let abs_path = path.to_string_lossy().into_owned();
-            
+
             let metadata = match fs::metadata(path) {
                 Ok(m) => m,
                 Err(_) => continue,
             };
 
             let size_bytes = metadata.len() as i64;
-            
-            let last_modified = metadata.modified()
+
+            let last_modified = metadata
+                .modified()
                 .unwrap_or_else(|_| SystemTime::now())
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap_or_default()

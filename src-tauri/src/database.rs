@@ -73,7 +73,8 @@ pub struct Track {
 
 impl WatchedDirectory {
     pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = conn.prepare("SELECT id, name, path FROM watched_directories ORDER BY id DESC")?;
+        let mut stmt =
+            conn.prepare("SELECT id, name, path FROM watched_directories ORDER BY id DESC")?;
         let rows = stmt.query_map([], |row| {
             Ok(Self {
                 id: row.get(0)?,
@@ -197,7 +198,7 @@ impl DbManager {
             .path()
             .app_data_dir()
             .expect("Failed to resolve standard OS App Data Directory");
-        
+
         // Ensure path exists
         if !app_data_dir.exists() {
             fs::create_dir_all(&app_data_dir).expect("Failed to create App Data Directory");
@@ -255,7 +256,8 @@ pub fn setup_test_db() -> Connection {
         )));
     }
     let mut conn = Connection::open_in_memory().unwrap();
-    conn.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
+    conn.busy_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
     conn.execute("PRAGMA foreign_keys = ON;", []).unwrap();
     let migrations = get_migrations();
     migrations.to_latest(&mut conn).unwrap();
@@ -270,8 +272,11 @@ mod tests {
     fn test_in_memory_migrations_boot_successfully() {
         let conn = setup_test_db();
 
-        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table'").unwrap();
-        let table_names: Vec<String> = stmt.query_map([], |row| row.get(0))
+        let mut stmt = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+            .unwrap();
+        let table_names: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
@@ -282,11 +287,13 @@ mod tests {
         assert!(table_names.contains(&"track_passes".to_string()));
 
         // Migrations must seed default theme setting
-        let theme: String = conn.query_row(
-            "SELECT value FROM app_settings WHERE key = 'theme'",
-            [],
-            |row| row.get(0),
-        ).expect("theme setting missing after migrations");
+        let theme: String = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'theme'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("theme setting missing after migrations");
         assert_eq!(theme, "system");
 
         // Verify CRUD on watched_directories
@@ -295,17 +302,19 @@ mod tests {
             [],
         ).unwrap();
 
-        let dir: WatchedDirectory = conn.query_row(
-            "SELECT id, name, path FROM watched_directories WHERE name = 'My Music'",
-            [],
-            |row| {
-                Ok(WatchedDirectory {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    path: row.get(2)?,
-                })
-            },
-        ).unwrap();
+        let dir: WatchedDirectory = conn
+            .query_row(
+                "SELECT id, name, path FROM watched_directories WHERE name = 'My Music'",
+                [],
+                |row| {
+                    Ok(WatchedDirectory {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        path: row.get(2)?,
+                    })
+                },
+            )
+            .unwrap();
         assert_eq!(dir.name, "My Music");
         assert_eq!(dir.path, "/Users/rlupi/Music");
 
@@ -321,10 +330,12 @@ mod tests {
                 'My Song', 'My Artist', 'My Album', 'Rock', 2026, 3
             )",
             rusqlite::params![dir.id],
-        ).unwrap();
+        )
+        .unwrap();
 
-        let track: Track = conn.query_row(
-            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
+        let track: Track = conn
+            .query_row(
+                "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
                     duration_seconds, sample_rate, bitrate, channels, bit_depth,
                     title, artist, album, genre, year, track_number, track_total,
                     disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
@@ -334,58 +345,59 @@ mod tests {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description
              FROM tracks WHERE title = 'My Song'",
-            [],
-            |row| {
-                Ok(Track {
-                    id: row.get(0)?,
-                    watched_directory_id: row.get(1)?,
-                    path: row.get(2)?,
-                    filename: row.get(3)?,
-                    size_bytes: row.get(4)?,
-                    last_modified: row.get(5)?,
-                    duration_seconds: row.get(6)?,
-                    sample_rate: row.get(7)?,
-                    bitrate: row.get(8)?,
-                    channels: row.get(9)?,
-                    bit_depth: row.get(10)?,
-                    title: row.get(11)?,
-                    artist: row.get(12)?,
-                    album: row.get(13)?,
-                    genre: row.get(14)?,
-                    year: row.get(15)?,
-                    track_number: row.get(16)?,
-                    track_total: row.get(17)?,
-                    disc_number: row.get(18)?,
-                    disc_total: row.get(19)?,
-                    album_artist: row.get(20)?,
-                    composer: row.get(21)?,
-                    comment: row.get(22)?,
-                    bpm: row.get(23)?,
-                    lyrics: row.get(24)?,
-                    waveform_data: row.get(25)?,
-                    key: row.get(26)?,
-                    scale: row.get(27)?,
-                    key_strength: row.get(28)?,
-                    loudness_lufs: row.get(29)?,
-                    loudness_range: row.get(30)?,
-                    detected_genre: row.get(31)?,
-                    detected_vocal: row.get(32)?,
-                    detected_vocal_confidence: row.get(33)?,
-                    mood_happy: row.get(34)?,
-                    mood_sad: row.get(35)?,
-                    mood_aggressive: row.get(36)?,
-                    mood_relaxed: row.get(37)?,
-                    mood_party: row.get(38)?,
-                    mood_acoustic: row.get(39)?,
-                    mood_electronic: row.get(40)?,
-                    is_music: row.get(41)?,
-                    ai_genre: row.get(42)?,
-                    ai_mood: row.get(43)?,
-                    ai_instruments: row.get(44)?,
-                    description: row.get(45)?,
-                })
-            },
-        ).unwrap();
+                [],
+                |row| {
+                    Ok(Track {
+                        id: row.get(0)?,
+                        watched_directory_id: row.get(1)?,
+                        path: row.get(2)?,
+                        filename: row.get(3)?,
+                        size_bytes: row.get(4)?,
+                        last_modified: row.get(5)?,
+                        duration_seconds: row.get(6)?,
+                        sample_rate: row.get(7)?,
+                        bitrate: row.get(8)?,
+                        channels: row.get(9)?,
+                        bit_depth: row.get(10)?,
+                        title: row.get(11)?,
+                        artist: row.get(12)?,
+                        album: row.get(13)?,
+                        genre: row.get(14)?,
+                        year: row.get(15)?,
+                        track_number: row.get(16)?,
+                        track_total: row.get(17)?,
+                        disc_number: row.get(18)?,
+                        disc_total: row.get(19)?,
+                        album_artist: row.get(20)?,
+                        composer: row.get(21)?,
+                        comment: row.get(22)?,
+                        bpm: row.get(23)?,
+                        lyrics: row.get(24)?,
+                        waveform_data: row.get(25)?,
+                        key: row.get(26)?,
+                        scale: row.get(27)?,
+                        key_strength: row.get(28)?,
+                        loudness_lufs: row.get(29)?,
+                        loudness_range: row.get(30)?,
+                        detected_genre: row.get(31)?,
+                        detected_vocal: row.get(32)?,
+                        detected_vocal_confidence: row.get(33)?,
+                        mood_happy: row.get(34)?,
+                        mood_sad: row.get(35)?,
+                        mood_aggressive: row.get(36)?,
+                        mood_relaxed: row.get(37)?,
+                        mood_party: row.get(38)?,
+                        mood_acoustic: row.get(39)?,
+                        mood_electronic: row.get(40)?,
+                        is_music: row.get(41)?,
+                        ai_genre: row.get(42)?,
+                        ai_mood: row.get(43)?,
+                        ai_instruments: row.get(44)?,
+                        description: row.get(45)?,
+                    })
+                },
+            )
+            .unwrap();
 
         assert_eq!(track.watched_directory_id, dir.id);
         assert_eq!(track.path, "/Users/rlupi/Music/song.mp3");

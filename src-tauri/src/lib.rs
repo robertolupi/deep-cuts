@@ -1,17 +1,17 @@
 #![recursion_limit = "512"]
 
+mod analysis;
+mod bpm;
+mod classifier;
+mod commands;
 mod database;
 mod dsp;
 mod embeddings;
-mod spectrogram;
-mod classifier;
-mod bpm;
-mod scanner;
-mod analysis;
-mod commands;
-mod llama;
 pub mod error;
 pub mod hardware;
+mod llama;
+mod scanner;
+mod spectrogram;
 
 use database::DbManager;
 use std::sync::Mutex;
@@ -38,7 +38,7 @@ pub fn run() {
                         file_name: Some("deep-cuts".into()),
                     }),
                 ])
-                .build()
+                .build(),
         )
         .setup(|app| {
             // Initialize database manager and bootstrap SQLite
@@ -52,10 +52,12 @@ pub fn run() {
                     log::error!("Database initialization failed: {}", err);
                 }
             }
-            
+
             // Manage the thread-safe llama-server background child process
-            app.manage(llama::LlamaServerState { child: Mutex::new(None) });
-            
+            app.manage(llama::LlamaServerState {
+                child: Mutex::new(None),
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -74,6 +76,7 @@ pub fn run() {
             commands::analysis::run_analysis_pipeline,
             commands::analysis::is_analysis_running,
             commands::analysis::get_pass_stats,
+            commands::analysis::recover_stuck_passes,
             commands::analysis::reset_pass,
             commands::analysis::reset_all_passes,
             commands::analysis::check_models_exist,
@@ -84,13 +87,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
-        match event {
-            tauri::RunEvent::Exit => {
-                log::info!("[tauri] Deep Cuts application exiting. Cleaning up processes...");
-                llama::terminate_llama_server(app_handle);
-            }
-            _ => {}
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::Exit => {
+            log::info!("[tauri] Deep Cuts application exiting. Cleaning up processes...");
+            llama::terminate_llama_server(app_handle);
         }
+        _ => {}
     });
 }

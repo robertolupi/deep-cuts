@@ -1,12 +1,13 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{AppHandle, Emitter};
-use rusqlite::Connection;
 use crate::database::{pass_status, DbManager};
 use crate::scanner::sidecar::pass_version;
 use crate::{dsp, embeddings};
+use rusqlite::Connection;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+use tauri::{AppHandle, Emitter};
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
 
@@ -30,7 +31,7 @@ impl SleepPreventer {
             .sleep(true)
             .reason("Deep Cuts Backend Analysis")
             .create();
-        
+
         match handle {
             Ok(h) => {
                 log::info!("[sleep-preventer] Sleep prevention active across all platforms!");
@@ -50,6 +51,27 @@ struct SpoolJob {
     path: String,
 }
 
+fn emit_pipeline_error(app: &tauri::AppHandle, phase: &str, message: impl Into<String>) {
+    let message = message.into();
+    log::error!("[pipeline] {} failed: {}", phase, message);
+    let _ = app.emit(
+        "analysis-error",
+        serde_json::json!({
+            "phase": phase,
+            "message": message,
+        }),
+    );
+}
+
+fn lock_analysis_conn<'a>(
+    conn_arc: &'a Arc<Mutex<Connection>>,
+    phase: &str,
+) -> Result<MutexGuard<'a, Connection>, String> {
+    conn_arc
+        .lock()
+        .map_err(|e| format!("[{}] database lock poisoned: {}", phase, e))
+}
+
 pub struct PipelineManager;
 
 impl PipelineManager {
@@ -61,7 +83,10 @@ impl PipelineManager {
     /// Runs the audio analysis and embedding pipeline concurrently.
     pub fn run(app: AppHandle, conn_mutex: &Mutex<Connection>) -> Result<(), String> {
         log::info!("[pipeline] run() called");
-        if ANALYSIS_ACTIVE.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        if ANALYSIS_ACTIVE
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
             log::warn!("[pipeline] already running, rejecting");
             return Err("Analysis is already running".to_string());
         }
@@ -75,95 +100,134 @@ impl PipelineManager {
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL, last_run_at = NULL
                  WHERE status IN (?2, ?3)",
-                rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS, pass_status::FAILED],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::IN_PROGRESS,
+                    pass_status::FAILED
+                ],
+            )
+            .map_err(|e| e.to_string())?;
 
             // Reset DONE rows whose pass_version is below the current algorithm version.
             // This forces re-inference when a model or algorithm is updated.
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'audio_analysis' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::AUDIO_ANALYSIS],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::DONE,
+                    pass_version::AUDIO_ANALYSIS
+                ],
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'clap' AND status = ?2 AND pass_version < ?3",
                 rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::CLAP],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'qwen' AND status = ?2 AND pass_version < ?3",
                 rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::QWEN],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'description_embed' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::DESCRIPTION_EMBED],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::DONE,
+                    pass_version::DESCRIPTION_EMBED
+                ],
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'essentia' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::ESSENTIA],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::DONE,
+                    pass_version::ESSENTIA
+                ],
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'bpm_correction' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::BPM_CORRECTION],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::DONE,
+                    pass_version::BPM_CORRECTION
+                ],
+            )
+            .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE track_passes SET status = ?1, log = NULL
                  WHERE pass_name = 'bpm_refinement' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::BPM_REFINEMENT],
-            ).map_err(|e| e.to_string())?;
+                rusqlite::params![
+                    pass_status::PENDING,
+                    pass_status::DONE,
+                    pass_version::BPM_REFINEMENT
+                ],
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill: insert a row for every track that doesn't have one yet
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'audio_analysis', 10, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill bpm_correction pass (priority 15 — runs after audio_analysis)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'bpm_correction', 15, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill clap pass (priority 20 — runs after bpm_correction)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'clap', 20, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill qwen pass (priority 30 — runs after clap)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'qwen', 30, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill description_embed pass (priority 40 — runs after qwen)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'description_embed', 40, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill essentia pass (priority 50 — runs after description_embed)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'essentia', 50, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             // Backfill bpm_refinement pass (priority 55 — runs after essentia)
             conn.execute(
                 "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
                  SELECT id, 'bpm_refinement', 55, ?1 FROM tracks",
                 [pass_status::PENDING],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
             let mut stmt = conn
                 .prepare(
@@ -203,13 +267,15 @@ impl PipelineManager {
         // Check if there is any pending work across all passes
         let has_pending_passes = {
             let conn = conn_mutex.lock().map_err(|e| e.to_string())?;
-            let pending_counts: Vec<(String, i64)> = {
-                let mut stmt = conn.prepare(
-                    "SELECT pass_name, COUNT(*) FROM track_passes WHERE status = ?1 GROUP BY pass_name"
-                ).unwrap();
-                stmt.query_map([pass_status::PENDING], |row| Ok((row.get(0)?, row.get(1)?)))
-                    .unwrap().filter_map(|r| r.ok()).collect()
-            };
+            let pending_counts: Vec<(String, i64)> = conn
+                .prepare(
+                    "SELECT pass_name, COUNT(*) FROM track_passes WHERE status = ?1 GROUP BY pass_name",
+                )
+                .map_err(|e| e.to_string())?
+                .query_map([pass_status::PENDING], |row| Ok((row.get(0)?, row.get(1)?)))
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect();
             log::info!("[pipeline] pending counts: {:?}", pending_counts);
             !pending_counts.is_empty()
         };
@@ -218,14 +284,19 @@ impl PipelineManager {
             log::info!("[pipeline] nothing to do, returning early");
             return Ok(());
         }
-        log::info!("[pipeline] proceeding — has_pending_passes={}", has_pending_passes);
+        log::info!(
+            "[pipeline] proceeding — has_pending_passes={}",
+            has_pending_passes
+        );
 
         let concurrency = crate::hardware::PipelineConfig::auto_tune().decode_threads;
 
         let queue = Arc::new(Mutex::new(VecDeque::from(pending)));
         let conn_arc = Arc::new(Mutex::new({
             let db_manager = DbManager::new(&app);
-            db_manager.connect_and_migrate().map_err(|e| e.to_string())?
+            db_manager
+                .connect_and_migrate()
+                .map_err(|e| e.to_string())?
         }));
 
         let mut handles = Vec::new();
@@ -238,8 +309,13 @@ impl PipelineManager {
                 handles.push(std::thread::spawn(move || {
                     loop {
                         let job = {
-                            let mut q = queue_clone.lock().unwrap();
-                            q.pop_front()
+                            match queue_clone.lock() {
+                                Ok(mut q) => q.pop_front(),
+                                Err(e) => {
+                                    log::error!("[audio_analysis] queue lock poisoned: {}", e);
+                                    break;
+                                }
+                            }
                         };
                         let job = match job {
                             Some(j) => j,
@@ -250,7 +326,17 @@ impl PipelineManager {
                         let result = dsp::run_audio_analysis(&job.path);
                         let elapsed_ms = start.elapsed().as_millis() as i64;
 
-                        let conn = conn_clone.lock().unwrap();
+                        let conn = match conn_clone.lock() {
+                            Ok(conn) => conn,
+                            Err(e) => {
+                                log::error!("[audio_analysis] database lock poisoned: {}", e);
+                                let _ = app_clone.emit("analysis-error", serde_json::json!({
+                                    "phase": "audio_analysis",
+                                    "message": format!("Database lock poisoned: {}", e),
+                                }));
+                                break;
+                            }
+                        };
                         match result {
                             Ok(analysis) => {
                                 let _ = conn.execute(
@@ -318,7 +404,10 @@ impl PipelineManager {
                 let _ = h.join();
             }
             log::info!("[pipeline] audio_analysis done");
-            let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "audio_analysis" }));
+            let _ = app.emit(
+                "analysis-phase-complete",
+                serde_json::json!({ "pass": "audio_analysis" }),
+            );
 
             // ── Phase 1b: BPM correction (coarse metadata genre) ──────────────
             log::info!("[pipeline] starting bpm_correction phase");
@@ -328,14 +417,27 @@ impl PipelineManager {
             // ── Phase 2: CLAP — producer-consumer with seek-aware parallel preprocessing ──
             let config = crate::hardware::PipelineConfig::auto_tune();
 
-            if let Err(e) = embeddings::configure_session(config.use_coreml, config.intra_threads, Some(&app)) {
-                eprintln!("[clap] Failed to configure ONNX session: {}", e);
+            if let Err(e) =
+                embeddings::configure_session(config.use_coreml, config.intra_threads, Some(&app))
+            {
+                emit_pipeline_error(
+                    &app,
+                    "clap",
+                    format!("Failed to configure ONNX session: {}", e),
+                );
                 let _ = app.emit("analysis-complete", ());
                 return;
             }
 
             let clap_pending: Vec<SpoolJob> = {
-                let conn = conn_arc.lock().unwrap();
+                let conn = match lock_analysis_conn(&conn_arc, "clap") {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        emit_pipeline_error(&app, "clap", e);
+                        let _ = app.emit("analysis-complete", ());
+                        return;
+                    }
+                };
                 let mut stmt = match conn.prepare(
                     "SELECT tp.id, tp.track_id, t.path
                      FROM track_passes tp
@@ -345,7 +447,11 @@ impl PipelineManager {
                 ) {
                     Ok(s) => s,
                     Err(e) => {
-                        eprintln!("[clap] Failed to prepare clap query: {}", e);
+                        emit_pipeline_error(
+                            &app,
+                            "clap",
+                            format!("Failed to prepare clap query: {}", e),
+                        );
                         let _ = app.emit("analysis-complete", ());
                         return;
                     }
@@ -372,10 +478,12 @@ impl PipelineManager {
             struct PreppedSpectrogram {
                 pass_id: i64,
                 track_id: i64,
-                mel_windows: [Vec<f32>; 3],
+                result: Result<[Vec<f32>; 3], String>,
+                elapsed_ms: i64,
             }
 
-            let (tx, rx) = std::sync::mpsc::sync_channel::<PreppedSpectrogram>(config.decode_threads * 2);
+            let (tx, rx) =
+                std::sync::mpsc::sync_channel::<PreppedSpectrogram>(config.decode_threads * 2);
             let clap_jobs_queue = Arc::new(Mutex::new(VecDeque::from(clap_pending)));
 
             let mut prep_workers = Vec::new();
@@ -384,36 +492,64 @@ impl PipelineManager {
                 let tx_clone = tx.clone();
                 let app_clone = app.clone();
 
-                prep_workers.push(std::thread::spawn(move || {
-                    loop {
-                        let job = {
-                            let mut q = queue_clone.lock().unwrap();
-                            q.pop_front()
-                        };
-                        let job = match job {
-                            Some(j) => j,
-                            None => break,
-                        };
-
-                        let result = (|| -> Result<[Vec<f32>; 3], String> {
-                            Ok([
-                                embeddings::preprocess_window_at_pct(&job.path, 0.25, Some(&app_clone))?,
-                                embeddings::preprocess_window_at_pct(&job.path, 0.50, Some(&app_clone))?,
-                                embeddings::preprocess_window_at_pct(&job.path, 0.75, Some(&app_clone))?,
-                            ])
-                        })();
-
-                        match result {
-                            Ok(mel_windows) => {
-                                let _ = tx_clone.send(PreppedSpectrogram {
-                                    pass_id: job.pass_id,
-                                    track_id: job.track_id,
-                                    mel_windows,
-                                });
-                            }
+                prep_workers.push(std::thread::spawn(move || loop {
+                    let job = {
+                        match queue_clone.lock() {
+                            Ok(mut q) => q.pop_front(),
                             Err(e) => {
-                                log::error!("[clap] Preprocessing failed for track {}: {}", job.track_id, e);
+                                log::error!("[clap] queue lock poisoned: {}", e);
+                                break;
                             }
+                        }
+                    };
+                    let job = match job {
+                        Some(j) => j,
+                        None => break,
+                    };
+
+                    let start = std::time::Instant::now();
+                    let result = (|| -> Result<[Vec<f32>; 3], String> {
+                        Ok([
+                            embeddings::preprocess_window_at_pct(
+                                &job.path,
+                                0.25,
+                                Some(&app_clone),
+                            )?,
+                            embeddings::preprocess_window_at_pct(
+                                &job.path,
+                                0.50,
+                                Some(&app_clone),
+                            )?,
+                            embeddings::preprocess_window_at_pct(
+                                &job.path,
+                                0.75,
+                                Some(&app_clone),
+                            )?,
+                        ])
+                    })();
+                    let elapsed_ms = start.elapsed().as_millis() as i64;
+
+                    match result {
+                        Ok(mel_windows) => {
+                            let _ = tx_clone.send(PreppedSpectrogram {
+                                pass_id: job.pass_id,
+                                track_id: job.track_id,
+                                result: Ok(mel_windows),
+                                elapsed_ms,
+                            });
+                        }
+                        Err(e) => {
+                            log::error!(
+                                "[clap] Preprocessing failed for track {}: {}",
+                                job.track_id,
+                                e
+                            );
+                            let _ = tx_clone.send(PreppedSpectrogram {
+                                pass_id: job.pass_id,
+                                track_id: job.track_id,
+                                result: Err(e),
+                                elapsed_ms,
+                            });
                         }
                     }
                 }));
@@ -421,14 +557,30 @@ impl PipelineManager {
             drop(tx);
 
             for prepped in rx {
-                let start = std::time::Instant::now();
-                let result = embeddings::run_clap_inference_pooled(prepped.mel_windows);
-                let elapsed_ms = start.elapsed().as_millis() as i64;
+                let (result, elapsed_ms) = match prepped.result {
+                    Ok(mel_windows) => {
+                        let start = std::time::Instant::now();
+                        let result = embeddings::run_clap_inference_pooled(mel_windows);
+                        (result, start.elapsed().as_millis() as i64)
+                    }
+                    Err(e) => (
+                        Err(format!("Preprocessing failed: {}", e)),
+                        prepped.elapsed_ms,
+                    ),
+                };
 
-                let conn = conn_arc.lock().unwrap();
+                let conn = match lock_analysis_conn(&conn_arc, "clap") {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        emit_pipeline_error(&app, "clap", e);
+                        let _ = app.emit("analysis-complete", ());
+                        return;
+                    }
+                };
                 match result {
                     Ok(embedding) => {
-                        let blob: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
+                        let blob: Vec<u8> =
+                            embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
                         let _ = conn.execute(
                             "INSERT OR REPLACE INTO audio_embeddings (track_id, embedding) VALUES (?1, ?2)",
                             rusqlite::params![prepped.track_id, blob],
@@ -436,14 +588,21 @@ impl PipelineManager {
                         let _ = conn.execute(
                             "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                              pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                            rusqlite::params![pass_status::DONE, elapsed_ms,
-                                pass_version::CLAP, prepped.pass_id],
+                            rusqlite::params![
+                                pass_status::DONE,
+                                elapsed_ms,
+                                pass_version::CLAP,
+                                prepped.pass_id
+                            ],
                         );
-                        let _ = app.emit("analysis-progress", serde_json::json!({
-                            "track_id": prepped.track_id,
-                            "pass_name": "clap",
-                            "status": pass_status::DONE,
-                        }));
+                        let _ = app.emit(
+                            "analysis-progress",
+                            serde_json::json!({
+                                "track_id": prepped.track_id,
+                                "pass_name": "clap",
+                                "status": pass_status::DONE,
+                            }),
+                        );
                     }
                     Err(e) => {
                         let _ = conn.execute(
@@ -451,11 +610,14 @@ impl PipelineManager {
                              last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
                             rusqlite::params![pass_status::FAILED, e, elapsed_ms, prepped.pass_id],
                         );
-                        let _ = app.emit("analysis-progress", serde_json::json!({
-                            "track_id": prepped.track_id,
-                            "pass_name": "clap",
-                            "status": pass_status::FAILED,
-                        }));
+                        let _ = app.emit(
+                            "analysis-progress",
+                            serde_json::json!({
+                                "track_id": prepped.track_id,
+                                "pass_name": "clap",
+                                "status": pass_status::FAILED,
+                            }),
+                        );
                     }
                 }
             }
@@ -464,7 +626,10 @@ impl PipelineManager {
                 let _ = h.join();
             }
 
-            let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "clap" }));
+            let _ = app.emit(
+                "analysis-phase-complete",
+                serde_json::json!({ "pass": "clap" }),
+            );
 
             // ── Phase 3: Qwen listener (sequential, single-threaded) ──────────────
             run_qwen_phase(&app, &conn_arc);
@@ -499,7 +664,13 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
     let config = crate::hardware::PipelineConfig::auto_tune();
 
     let jobs: Vec<SpoolJob> = {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "essentia") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "essentia", e);
+                return;
+            }
+        };
         let mut stmt = match conn.prepare(
             "SELECT tp.id, tp.track_id, t.path
              FROM track_passes tp
@@ -509,13 +680,21 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
         ) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[essentia] Failed to query pending jobs: {}", e);
+                emit_pipeline_error(
+                    app,
+                    "essentia",
+                    format!("Failed to query pending jobs: {}", e),
+                );
                 return;
             }
         };
         let rows: Vec<SpoolJob> = stmt
             .query_map([pass_status::PENDING], |row| {
-                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+                Ok(SpoolJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    path: row.get(2)?,
+                })
             })
             .map(|r| r.filter_map(|x| x.ok()).collect())
             .unwrap_or_default();
@@ -551,8 +730,19 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
 
         prep_handles.push(std::thread::spawn(move || {
             loop {
-                let job = { queue_clone.lock().unwrap().pop_front() };
-                let job = match job { Some(j) => j, None => break };
+                let job = {
+                    match queue_clone.lock() {
+                        Ok(mut q) => q.pop_front(),
+                        Err(e) => {
+                            log::error!("[essentia] queue lock poisoned: {}", e);
+                            break;
+                        }
+                    }
+                };
+                let job = match job {
+                    Some(j) => j,
+                    None => break,
+                };
 
                 let result = (|| -> Result<Vec<Vec<f32>>, String> {
                     let (audio, sr) = dsp::decode_audio_to_mono(&job.path)?;
@@ -561,7 +751,8 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                     let half = 16_000 * 30;
                     let start = mid.saturating_sub(half);
                     let end = (mid + half).min(audio_16k.len());
-                    let spec = crate::spectrogram::compute_log_mel_spectrogram(&audio_16k[start..end])?;
+                    let spec =
+                        crate::spectrogram::compute_log_mel_spectrogram(&audio_16k[start..end])?;
                     crate::spectrogram::extract_patches(&spec)
                 })();
 
@@ -574,7 +765,11 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                         });
                     }
                     Err(e) => {
-                        log::error!("[essentia] Preprocessing failed for track {}: {}", job.track_id, e);
+                        log::error!(
+                            "[essentia] Preprocessing failed for track {}: {}",
+                            job.track_id,
+                            e
+                        );
                         // Send an empty-patches sentinel so the consumer can record the failure
                         let _ = tx_clone.send(PreppedPatches {
                             pass_id: job.pass_id,
@@ -599,7 +794,13 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
         };
 
         let elapsed_ms = start.elapsed().as_millis() as i64;
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "essentia") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "essentia", e);
+                return;
+            }
+        };
 
         match result {
             Ok(r) => {
@@ -617,23 +818,37 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                         mood_electronic            = ?10
                      WHERE id = ?11",
                     rusqlite::params![
-                        r.genre, r.vocal, r.vocal_confidence,
-                        r.mood_happy, r.mood_sad, r.mood_aggressive,
-                        r.mood_relaxed, r.mood_party, r.mood_acoustic,
-                        r.mood_electronic, prepped.track_id,
+                        r.genre,
+                        r.vocal,
+                        r.vocal_confidence,
+                        r.mood_happy,
+                        r.mood_sad,
+                        r.mood_aggressive,
+                        r.mood_relaxed,
+                        r.mood_party,
+                        r.mood_acoustic,
+                        r.mood_electronic,
+                        prepped.track_id,
                     ],
                 );
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                      pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                    rusqlite::params![pass_status::DONE, elapsed_ms,
-                        pass_version::ESSENTIA, prepped.pass_id],
+                    rusqlite::params![
+                        pass_status::DONE,
+                        elapsed_ms,
+                        pass_version::ESSENTIA,
+                        prepped.pass_id
+                    ],
                 );
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": prepped.track_id,
-                    "pass_name": "essentia",
-                    "status": pass_status::DONE,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": prepped.track_id,
+                        "pass_name": "essentia",
+                        "status": pass_status::DONE,
+                    }),
+                );
             }
             Err(e) => {
                 log::error!("[essentia] Track {} failed: {}", prepped.track_id, e);
@@ -642,17 +857,25 @@ fn run_essentia_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>)
                      last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
                     rusqlite::params![pass_status::FAILED, e, elapsed_ms, prepped.pass_id],
                 );
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": prepped.track_id,
-                    "pass_name": "essentia",
-                    "status": pass_status::FAILED,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": prepped.track_id,
+                        "pass_name": "essentia",
+                        "status": pass_status::FAILED,
+                    }),
+                );
             }
         }
     }
 
-    for h in prep_handles { let _ = h.join(); }
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "essentia" }));
+    for h in prep_handles {
+        let _ = h.join();
+    }
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({ "pass": "essentia" }),
+    );
 }
 
 /// Runs pending `bpm_correction` jobs using the coarse metadata `genre` field.
@@ -666,7 +889,13 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     }
 
     let jobs: Vec<BpmJob> = {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "bpm_correction") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "bpm_correction", e);
+                return;
+            }
+        };
         let mut stmt = match conn.prepare(
             "SELECT tp.id, tp.track_id, t.bpm_raw, t.genre
              FROM track_passes tp
@@ -675,12 +904,23 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
              ORDER BY tp.id ASC",
         ) {
             Ok(s) => s,
-            Err(e) => { eprintln!("[bpm_correction] prepare failed: {}", e); return; }
+            Err(e) => {
+                emit_pipeline_error(
+                    app,
+                    "bpm_correction",
+                    format!("Failed to prepare pending jobs query: {}", e),
+                );
+                return;
+            }
         };
         let rows: Vec<BpmJob> = stmt
             .query_map([pass_status::PENDING], |row| {
-                Ok(BpmJob { pass_id: row.get(0)?, track_id: row.get(1)?,
-                            bpm_raw: row.get(2)?, genre: row.get(3)? })
+                Ok(BpmJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    bpm_raw: row.get(2)?,
+                    genre: row.get(3)?,
+                })
             })
             .map(|r| r.filter_map(|x| x.ok()).collect())
             .unwrap_or_default();
@@ -697,17 +937,27 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     let mut corrected = 0usize;
     let mut nulled = 0usize;
 
-    log::info!("[bpm_correction] loaded {} jobs, computing corrections", jobs.len());
+    log::info!(
+        "[bpm_correction] loaded {} jobs, computing corrections",
+        jobs.len()
+    );
 
     // Compute all corrections first (pure CPU, no lock needed)
-    let corrections: Vec<crate::bpm::CorrectResult> = jobs.iter()
+    let corrections: Vec<crate::bpm::CorrectResult> = jobs
+        .iter()
         .map(|job| crate::bpm::correct_bpm(job.bpm_raw, job.genre.as_deref()))
         .collect();
 
     log::info!("[bpm_correction] corrections computed, acquiring DB lock for transaction");
     // Write everything in a single transaction — avoids 1886 individual fsyncs
     {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "bpm_correction") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "bpm_correction", e);
+                return;
+            }
+        };
         log::debug!("[bpm_correction] lock acquired, beginning transaction");
         let begin_result = conn.execute("BEGIN", []);
         log::debug!("[bpm_correction] BEGIN result: {:?}", begin_result);
@@ -715,13 +965,17 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
             match result {
                 crate::bpm::CorrectResult::Corrected(new_bpm) => {
                     corrected += 1;
-                    let _ = conn.execute("UPDATE tracks SET bpm = ?1 WHERE id = ?2",
-                        rusqlite::params![new_bpm, job.track_id]);
+                    let _ = conn.execute(
+                        "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                        rusqlite::params![new_bpm, job.track_id],
+                    );
                 }
                 crate::bpm::CorrectResult::Null => {
                     nulled += 1;
-                    let _ = conn.execute("UPDATE tracks SET bpm = NULL WHERE id = ?1",
-                        rusqlite::params![job.track_id]);
+                    let _ = conn.execute(
+                        "UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                        rusqlite::params![job.track_id],
+                    );
                 }
                 crate::bpm::CorrectResult::Unchanged => {}
             }
@@ -735,11 +989,19 @@ fn run_bpm_correction_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
         log::info!("[bpm_correction] COMMIT result: {:?}", commit_result);
     } // lock released before any emit
 
-    log::info!("[bpm_correction] {} tracks: {} corrected, {} nulled in {:.1}s",
-        jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({
-        "pass": "bpm_correction", "corrected": corrected, "nulled": nulled,
-    }));
+    log::info!(
+        "[bpm_correction] {} tracks: {} corrected, {} nulled in {:.1}s",
+        jobs.len(),
+        corrected,
+        nulled,
+        start_phase.elapsed().as_secs_f32()
+    );
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({
+            "pass": "bpm_correction", "corrected": corrected, "nulled": nulled,
+        }),
+    );
 }
 
 /// Runs pending `bpm_refinement` jobs using the precise Discogs-400 `detected_genre` field.
@@ -752,7 +1014,13 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     }
 
     let jobs: Vec<BpmJob> = {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "bpm_refinement") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "bpm_refinement", e);
+                return;
+            }
+        };
         let mut stmt = match conn.prepare(
             "SELECT tp.id, tp.track_id, t.bpm_raw, t.detected_genre
              FROM track_passes tp
@@ -761,12 +1029,23 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
              ORDER BY tp.id ASC",
         ) {
             Ok(s) => s,
-            Err(e) => { eprintln!("[bpm_refinement] prepare failed: {}", e); return; }
+            Err(e) => {
+                emit_pipeline_error(
+                    app,
+                    "bpm_refinement",
+                    format!("Failed to prepare pending jobs query: {}", e),
+                );
+                return;
+            }
         };
         let rows: Vec<BpmJob> = stmt
             .query_map([pass_status::PENDING], |row| {
-                Ok(BpmJob { pass_id: row.get(0)?, track_id: row.get(1)?,
-                            bpm_raw: row.get(2)?, detected_genre: row.get(3)? })
+                Ok(BpmJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    bpm_raw: row.get(2)?,
+                    detected_genre: row.get(3)?,
+                })
             })
             .map(|r| r.filter_map(|x| x.ok()).collect())
             .unwrap_or_default();
@@ -783,17 +1062,27 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
     let mut corrected = 0usize;
     let mut nulled = 0usize;
 
-    log::info!("[bpm_refinement] loaded {} jobs, computing corrections", jobs.len());
+    log::info!(
+        "[bpm_refinement] loaded {} jobs, computing corrections",
+        jobs.len()
+    );
 
     // Compute all corrections first (pure CPU, no lock needed)
     // bpm_refinement always re-corrects from bpm_raw so the two passes are independent
-    let corrections: Vec<crate::bpm::CorrectResult> = jobs.iter()
+    let corrections: Vec<crate::bpm::CorrectResult> = jobs
+        .iter()
         .map(|job| crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref()))
         .collect();
 
     log::info!("[bpm_refinement] corrections computed, acquiring DB lock for transaction");
     {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "bpm_refinement") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "bpm_refinement", e);
+                return;
+            }
+        };
         log::debug!("[bpm_refinement] lock acquired, beginning transaction");
         let begin_result = conn.execute("BEGIN", []);
         log::debug!("[bpm_refinement] BEGIN result: {:?}", begin_result);
@@ -801,13 +1090,17 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
             match result {
                 crate::bpm::CorrectResult::Corrected(new_bpm) => {
                     corrected += 1;
-                    let _ = conn.execute("UPDATE tracks SET bpm = ?1 WHERE id = ?2",
-                        rusqlite::params![new_bpm, job.track_id]);
+                    let _ = conn.execute(
+                        "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
+                        rusqlite::params![new_bpm, job.track_id],
+                    );
                 }
                 crate::bpm::CorrectResult::Null => {
                     nulled += 1;
-                    let _ = conn.execute("UPDATE tracks SET bpm = NULL WHERE id = ?1",
-                        rusqlite::params![job.track_id]);
+                    let _ = conn.execute(
+                        "UPDATE tracks SET bpm = NULL WHERE id = ?1",
+                        rusqlite::params![job.track_id],
+                    );
                 }
                 crate::bpm::CorrectResult::Unchanged => {}
             }
@@ -821,17 +1114,31 @@ fn run_bpm_refinement_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connect
         log::info!("[bpm_refinement] COMMIT result: {:?}", commit_result);
     } // lock released before any emit
 
-    log::info!("[bpm_refinement] {} tracks: {} corrected, {} nulled in {:.1}s",
-        jobs.len(), corrected, nulled, start_phase.elapsed().as_secs_f32());
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({
-        "pass": "bpm_refinement", "corrected": corrected, "nulled": nulled,
-    }));
+    log::info!(
+        "[bpm_refinement] {} tracks: {} corrected, {} nulled in {:.1}s",
+        jobs.len(),
+        corrected,
+        nulled,
+        start_phase.elapsed().as_secs_f32()
+    );
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({
+            "pass": "bpm_refinement", "corrected": corrected, "nulled": nulled,
+        }),
+    );
 }
 
 /// Sequential, thread-safe listener pass running the Qwen2-Audio model.
 fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
     let jobs: Vec<SpoolJob> = {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "qwen") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "qwen", e);
+                return;
+            }
+        };
         let mut stmt = match conn.prepare(
             "SELECT tp.id, tp.track_id, t.path
              FROM track_passes tp
@@ -841,13 +1148,17 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
         ) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[qwen] Failed to query pending jobs: {}", e);
+                emit_pipeline_error(app, "qwen", format!("Failed to query pending jobs: {}", e));
                 return;
             }
         };
         let rows: Vec<SpoolJob> = stmt
             .query_map([pass_status::PENDING], |row| {
-                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+                Ok(SpoolJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    path: row.get(2)?,
+                })
             })
             .map(|r| r.filter_map(|x| x.ok()).collect())
             .unwrap_or_default();
@@ -864,25 +1175,37 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
         return;
     }
 
-    log::info!("[qwen] loaded {} jobs, checking/booting llama-server", jobs.len());
-    
+    log::info!(
+        "[qwen] loaded {} jobs, checking/booting llama-server",
+        jobs.len()
+    );
+
     // Boot llama-server
     let guard = match crate::llama::ensure_llama_server_running(app) {
         Ok(g) => g,
         Err(err) => {
             log::error!("[qwen] Failed to boot llama-server: {}", err);
             // Mark all jobs as failed
-            let conn = conn_arc.lock().unwrap();
+            let conn = match lock_analysis_conn(conn_arc, "qwen") {
+                Ok(conn) => conn,
+                Err(e) => {
+                    emit_pipeline_error(app, "qwen", e);
+                    return;
+                }
+            };
             for job in jobs {
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = 0, last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
                     rusqlite::params![pass_status::FAILED, err, job.pass_id],
                 );
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
-                    "pass_name": "qwen",
-                    "status": pass_status::FAILED,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "qwen",
+                        "status": pass_status::FAILED,
+                    }),
+                );
             }
             return;
         }
@@ -891,18 +1214,19 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
     // Single-threaded sequential processing (Qwen inference is very heavy)
     for job in jobs {
         let start = std::time::Instant::now();
-        
+
         let result = (|| -> Result<serde_json::Value, String> {
             // 1. Retrieve BPM/Key/Scale/Genre from DB to build prompt
             let track_data: (Option<f64>, Option<String>, Option<String>, Option<String>) = {
-                let conn = conn_arc.lock().unwrap();
+                let conn = lock_analysis_conn(conn_arc, "qwen")?;
                 conn.query_row(
                     "SELECT bpm, key, scale, genre FROM tracks WHERE id = ?1",
                     [job.track_id],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-                ).map_err(|e| e.to_string())?
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .map_err(|e| e.to_string())?
             };
-            
+
             let bpm = track_data.0.unwrap_or(120.0);
             let key = track_data.1.unwrap_or_else(|| "C".to_string());
             let scale = track_data.2.unwrap_or_else(|| "major".to_string());
@@ -911,14 +1235,14 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
             // 2. Decode audio & resample to 16 kHz
             let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&job.path)?;
             let audio_16k_full = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
-            
+
             // 3. Take 30 seconds centered midpoint window (15s on each side)
             let mid_16k = audio_16k_full.len() / 2;
             let half_16k = 16000 * 15;
             let start_idx = mid_16k.saturating_sub(half_16k);
             let end_idx = (mid_16k + half_16k).min(audio_16k_full.len());
             let audio_window = &audio_16k_full[start_idx..end_idx];
-            
+
             // 4. Encode audio to WAV & Base64
             let wav_bytes = crate::dsp::encode_audio_to_wav(audio_window, 16000);
             let base64_audio = crate::dsp::base64_encode(&wav_bytes);
@@ -967,21 +1291,30 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                 ]
             });
 
-            let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", crate::llama::LLAMA_PORT);
+            let api_url = format!(
+                "http://127.0.0.1:{}/v1/chat/completions",
+                crate::llama::LLAMA_PORT
+            );
             log::info!("[qwen] Dispatching audio to local llama-server completions endpoint for track {}...", job.track_id);
-            
+
             let resp = ureq::post(&api_url)
                 .timeout(std::time::Duration::from_secs(120))
                 .send_json(&payload)
                 .map_err(|e| format!("Completions request to llama-server failed: {}", e))?;
-                
-            let resp_json = resp.into_json::<serde_json::Value>()
+
+            let resp_json = resp
+                .into_json::<serde_json::Value>()
                 .map_err(|e| format!("Failed to parse completions response JSON: {}", e))?;
-                
+
             let content = resp_json["choices"][0]["message"]["content"]
                 .as_str()
-                .ok_or_else(|| format!("Unexpected JSON response structure from llama-server: {:?}", resp_json))?;
-                
+                .ok_or_else(|| {
+                    format!(
+                        "Unexpected JSON response structure from llama-server: {:?}",
+                        resp_json
+                    )
+                })?;
+
             // 7. Parse Response
             let mut is_music = None;
             let mut ai_genre = None;
@@ -1002,7 +1335,11 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                     }
                     match key.as_str() {
                         "MUSIC" => {
-                            is_music = Some(if val.to_lowercase().contains("yes") { 1 } else { 0 });
+                            is_music = Some(if val.to_lowercase().contains("yes") {
+                                1
+                            } else {
+                                0
+                            });
                         }
                         "GENRE" => ai_genre = Some(val),
                         "MOOD" => ai_mood = Some(val),
@@ -1023,7 +1360,13 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
         })();
 
         let elapsed_ms = start.elapsed().as_millis() as i64;
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "qwen") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "qwen", e);
+                return;
+            }
+        };
 
         match result {
             Ok(data) => {
@@ -1043,7 +1386,10 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                     && description_val.is_none();
 
                 if all_empty {
-                    log::warn!("[qwen] Track {} produced no parseable fields — marking FAILED for retry", job.track_id);
+                    log::warn!(
+                        "[qwen] Track {} produced no parseable fields — marking FAILED for retry",
+                        job.track_id
+                    );
                     let _ = conn.execute(
                         "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
                          last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
@@ -1054,11 +1400,14 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                             job.pass_id
                         ],
                     );
-                    let _ = app.emit("analysis-progress", serde_json::json!({
-                        "track_id": job.track_id,
-                        "pass_name": "qwen",
-                        "status": pass_status::FAILED,
-                    }));
+                    let _ = app.emit(
+                        "analysis-progress",
+                        serde_json::json!({
+                            "track_id": job.track_id,
+                            "pass_name": "qwen",
+                            "status": pass_status::FAILED,
+                        }),
+                    );
                     continue;
                 }
 
@@ -1083,8 +1432,12 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                      pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                    rusqlite::params![pass_status::DONE, elapsed_ms,
-                        pass_version::QWEN, job.pass_id],
+                    rusqlite::params![
+                        pass_status::DONE,
+                        elapsed_ms,
+                        pass_version::QWEN,
+                        job.pass_id
+                    ],
                 );
 
                 // Re-queue the description_embed pass for this track so it runs after the
@@ -1100,14 +1453,21 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
 
                 // Save to sidecar
                 if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
-                    log::error!("[qwen] Failed to save sidecar metadata for track {}: {}", job.track_id, e);
+                    log::error!(
+                        "[qwen] Failed to save sidecar metadata for track {}: {}",
+                        job.track_id,
+                        e
+                    );
                 }
 
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
-                    "pass_name": "qwen",
-                    "status": pass_status::DONE,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "qwen",
+                        "status": pass_status::DONE,
+                    }),
+                );
             }
             Err(e) => {
                 log::error!("[qwen] Track {} failed: {}", job.track_id, e);
@@ -1116,23 +1476,35 @@ fn run_qwen_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
                      last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
                     rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
                 );
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
-                    "pass_name": "qwen",
-                    "status": pass_status::FAILED,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "qwen",
+                        "status": pass_status::FAILED,
+                    }),
+                );
             }
         }
     }
 
     drop(guard); // Automatic sequential termination of llama-server
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "qwen" }));
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({ "pass": "qwen" }),
+    );
 }
 
 /// Description embedding pass utilizing all-MiniLM-L6-v2.
 fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
     let jobs: Vec<SpoolJob> = {
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "description_embed") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "description_embed", e);
+                return;
+            }
+        };
         let mut stmt = match conn.prepare(
             "SELECT tp.id, tp.track_id, t.path
              FROM track_passes tp
@@ -1142,13 +1514,21 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
         ) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[description_embed] Failed to query pending jobs: {}", e);
+                emit_pipeline_error(
+                    app,
+                    "description_embed",
+                    format!("Failed to query pending jobs: {}", e),
+                );
                 return;
             }
         };
         let rows: Vec<SpoolJob> = stmt
             .query_map([pass_status::PENDING], |row| {
-                Ok(SpoolJob { pass_id: row.get(0)?, track_id: row.get(1)?, path: row.get(2)? })
+                Ok(SpoolJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    path: row.get(2)?,
+                })
             })
             .map(|r| r.filter_map(|x| x.ok()).collect())
             .unwrap_or_default();
@@ -1165,15 +1545,24 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
         return;
     }
 
-    log::info!("[description_embed] loaded {} jobs, starting sentence embeddings", jobs.len());
+    log::info!(
+        "[description_embed] loaded {} jobs, starting sentence embeddings",
+        jobs.len()
+    );
 
     for job in jobs {
         let start = std::time::Instant::now();
 
         let result = (|| -> Result<Option<Vec<f32>>, String> {
             // Retrieve description and other Qwen columns
-            let track_data: (Option<i64>, Option<String>, Option<String>, Option<String>, Option<String>) = {
-                let conn = conn_arc.lock().unwrap();
+            let track_data: (
+                Option<i64>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            ) = {
+                let conn = lock_analysis_conn(conn_arc, "description_embed")?;
                 conn.query_row(
                     "SELECT is_music, description, ai_genre, ai_mood, ai_instruments FROM tracks WHERE id = ?1",
                     [job.track_id],
@@ -1189,7 +1578,10 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
 
             // If not music, skip entirely
             if let Some(0) = is_music {
-                log::info!("[description_embed] Track {} marked as non-music. Skipping embedding.", job.track_id);
+                log::info!(
+                    "[description_embed] Track {} marked as non-music. Skipping embedding.",
+                    job.track_id
+                );
                 return Ok(None);
             }
 
@@ -1222,7 +1614,13 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
         })();
 
         let elapsed_ms = start.elapsed().as_millis() as i64;
-        let conn = conn_arc.lock().unwrap();
+        let conn = match lock_analysis_conn(conn_arc, "description_embed") {
+            Ok(conn) => conn,
+            Err(e) => {
+                emit_pipeline_error(app, "description_embed", e);
+                return;
+            }
+        };
 
         match result {
             Ok(emb_opt) => {
@@ -1237,20 +1635,31 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
                 let _ = conn.execute(
                     "UPDATE track_passes SET status = ?1, duration_ms = ?2,
                      pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                    rusqlite::params![pass_status::DONE, elapsed_ms,
-                        pass_version::DESCRIPTION_EMBED, job.pass_id],
+                    rusqlite::params![
+                        pass_status::DONE,
+                        elapsed_ms,
+                        pass_version::DESCRIPTION_EMBED,
+                        job.pass_id
+                    ],
                 );
 
                 // Save sidecar
                 if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
-                    log::error!("[description_embed] Failed to save sidecar metadata for track {}: {}", job.track_id, e);
+                    log::error!(
+                        "[description_embed] Failed to save sidecar metadata for track {}: {}",
+                        job.track_id,
+                        e
+                    );
                 }
 
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
-                    "pass_name": "description_embed",
-                    "status": pass_status::DONE,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "description_embed",
+                        "status": pass_status::DONE,
+                    }),
+                );
             }
             Err(e) => {
                 log::error!("[description_embed] Track {} failed: {}", job.track_id, e);
@@ -1259,14 +1668,20 @@ fn run_description_embed_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Conn
                      last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
                     rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id],
                 );
-                let _ = app.emit("analysis-progress", serde_json::json!({
-                    "track_id": job.track_id,
-                    "pass_name": "description_embed",
-                    "status": pass_status::FAILED,
-                }));
+                let _ = app.emit(
+                    "analysis-progress",
+                    serde_json::json!({
+                        "track_id": job.track_id,
+                        "pass_name": "description_embed",
+                        "status": pass_status::FAILED,
+                    }),
+                );
             }
         }
     }
 
-    let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": "description_embed" }));
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({ "pass": "description_embed" }),
+    );
 }

@@ -1,14 +1,20 @@
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::fs::File;
 use std::path::Path;
 use symphonia::core::audio::{AudioBufferRef, Signal};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
-use rustfft::{FftPlanner, num_complex::Complex};
 
 // Krumhansl-Schmuckler key profiles (root = index 0)
-const KS_MAJOR: [f64; 12] = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
-const KS_MINOR: [f64; 12] = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
-const KEY_NAMES: [&str; 12] = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const KS_MAJOR: [f64; 12] = [
+    6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88,
+];
+const KS_MINOR: [f64; 12] = [
+    6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
+];
+const KEY_NAMES: [&str; 12] = [
+    "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B",
+];
 
 pub struct AudioAnalysisResult {
     pub duration_seconds: u64,
@@ -164,7 +170,9 @@ pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
     let track = probed.format.default_track().ok_or("No default track")?;
     let track_id = track.id;
     let codec_params = track.codec_params.clone();
-    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+    let sample_rate = codec_params
+        .sample_rate
+        .ok_or("No sample rate in codec params")?;
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&codec_params, &Default::default())
@@ -205,14 +213,19 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
     let track = probed.format.default_track().ok_or("No default track")?;
     let track_id = track.id;
     let codec_params = track.codec_params.clone();
-    let sample_rate = codec_params.sample_rate.ok_or("No sample rate in codec params")?;
+    let sample_rate = codec_params
+        .sample_rate
+        .ok_or("No sample rate in codec params")?;
 
     // Derive duration from container metadata when available; count samples as fallback
-    let container_duration: Option<u64> = codec_params.time_base.zip(codec_params.n_frames)
-        .map(|(tb, n)| {
-            let t = tb.calc_time(n);
-            (t.seconds as f64 + t.frac).round() as u64
-        });
+    let container_duration: Option<u64> =
+        codec_params
+            .time_base
+            .zip(codec_params.n_frames)
+            .map(|(tb, n)| {
+                let t = tb.calc_time(n);
+                (t.seconds as f64 + t.frac).round() as u64
+            });
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&codec_params, &Default::default())
@@ -235,12 +248,12 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
 
         if let Some((stereo, mono, frames)) = extract_samples_as_f32(&decoded) {
             let _ = meter.add_frames_f32(&stereo);
-            
+
             let mut packet_sum_sq = 0.0f64;
             for &s in &mono {
                 packet_sum_sq += (s * s) as f64;
             }
-            
+
             mono_samples.extend(mono);
             if frames > 0 {
                 rms_energies.push((packet_sum_sq / frames as f64).sqrt() as f32);
@@ -251,10 +264,12 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
     let duration_seconds = container_duration
         .unwrap_or_else(|| (mono_samples.len() as f64 / sample_rate as f64).round() as u64);
 
-    let loudness_lufs = meter.loudness_global()
+    let loudness_lufs = meter
+        .loudness_global()
         .map(|v| (v * 100.0).round() / 100.0)
         .unwrap_or(f64::NEG_INFINITY);
-    let loudness_range = meter.loudness_range()
+    let loudness_range = meter
+        .loudness_range()
         .map(|v| (v * 100.0).round() / 100.0)
         .unwrap_or(0.0);
 
@@ -310,12 +325,17 @@ fn downsample_profile(raw: &[f32], target: usize) -> Vec<f32> {
         .collect()
 }
 
-fn compute_key_from_mono(samples: &[f32], sample_rate: u32) -> Result<(String, String, f64), String> {
+fn compute_key_from_mono(
+    samples: &[f32],
+    sample_rate: u32,
+) -> Result<(String, String, f64), String> {
     const FFT_SIZE: usize = 4096;
     const HOP_SIZE: usize = 2048;
 
     let hann: Vec<f32> = (0..FFT_SIZE)
-        .map(|n| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos()))
+        .map(|n| {
+            0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos())
+        })
         .collect();
 
     let mut planner = FftPlanner::<f32>::new();
@@ -372,8 +392,16 @@ fn compute_key_from_mono(samples: &[f32], sample_rate: u32) -> Result<(String, S
     for root in 0..12usize {
         let r_major = pearson_with_rotation(&suppressed, &KS_MAJOR, root);
         let r_minor = pearson_with_rotation(&suppressed, &KS_MINOR, root);
-        if r_major > best_corr { best_corr = r_major; best_key = root; best_scale = "major"; }
-        if r_minor > best_corr { best_corr = r_minor; best_key = root; best_scale = "minor"; }
+        if r_major > best_corr {
+            best_corr = r_major;
+            best_key = root;
+            best_scale = "major";
+        }
+        if r_minor > best_corr {
+            best_corr = r_minor;
+            best_key = root;
+            best_scale = "minor";
+        }
     }
 
     Ok((
@@ -388,7 +416,9 @@ fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, Strin
     const HOP_SIZE: usize = 512;
 
     let hann: Vec<f32> = (0..FFT_SIZE)
-        .map(|n| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos()))
+        .map(|n| {
+            0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos())
+        })
         .collect();
 
     let mut planner = FftPlanner::<f32>::new();
@@ -409,7 +439,9 @@ fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, Strin
         for k in 0..FFT_SIZE / 2 {
             let mag = (buf[k].re as f64).hypot(buf[k].im as f64) as f32;
             let diff = mag - prev_mag[k];
-            if diff > 0.0 { flux += diff; }
+            if diff > 0.0 {
+                flux += diff;
+            }
             prev_mag[k] = mag;
         }
         onset.push(flux);
@@ -434,7 +466,11 @@ fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, Strin
             .map(|i| (onset[i] - mean) as f64 * (onset[i + lag] - mean) as f64)
             .sum();
         let bpm_at_lag = fps * 60.0 / lag as f64;
-        let pref = if (80.0..=160.0).contains(&bpm_at_lag) { 1.2 } else { 1.0 };
+        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
+            1.2
+        } else {
+            1.0
+        };
         if ac * pref > best_score {
             best_score = ac * pref;
             best_lag = lag;
@@ -443,12 +479,18 @@ fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, Strin
 
     // Check if double tempo (half lag) has a strong enough score
     let ac_fn = |l: usize| -> f64 {
-        if l < lag_min || l > lag_max { return 0.0; }
+        if l < lag_min || l > lag_max {
+            return 0.0;
+        }
         let ac: f64 = (0..n - l)
             .map(|i| (onset[i] - mean) as f64 * (onset[i + l] - mean) as f64)
             .sum();
         let bpm_at_lag = fps * 60.0 / l as f64;
-        let pref = if (80.0..=160.0).contains(&bpm_at_lag) { 1.2 } else { 1.0 };
+        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
+            1.2
+        } else {
+            1.0
+        };
         ac * pref
     };
 
@@ -460,7 +502,9 @@ fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, Strin
     // Sub-sample refinement via parabolic interpolation
     let refined_lag = if best_lag > lag_min && best_lag < lag_max {
         let ac = |l: usize| -> f64 {
-            (0..n - l).map(|i| (onset[i] - mean) as f64 * (onset[i + l] - mean) as f64).sum()
+            (0..n - l)
+                .map(|i| (onset[i] - mean) as f64 * (onset[i + l] - mean) as f64)
+                .sum()
         };
         let y0 = ac(best_lag - 1);
         let y1 = ac(best_lag);
@@ -486,12 +530,29 @@ fn pearson_with_rotation(chroma: &[f64; 12], profile: &[f64; 12], root: usize) -
     let num: f64 = (0..12)
         .map(|i| (chroma[(i + root) % 12] - mean_c) * (profile[i] - mean_p))
         .sum();
-    let den_c = chroma.iter().map(|&x| (x - mean_c).powi(2)).sum::<f64>().sqrt();
-    let den_p = profile.iter().map(|&x| (x - mean_p).powi(2)).sum::<f64>().sqrt();
-    if den_c * den_p == 0.0 { 0.0 } else { num / (den_c * den_p) }
+    let den_c = chroma
+        .iter()
+        .map(|&x| (x - mean_c).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    let den_p = profile
+        .iter()
+        .map(|&x| (x - mean_p).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    if den_c * den_p == 0.0 {
+        0.0
+    } else {
+        num / (den_c * den_p)
+    }
 }
 
-fn create_wav_header(num_samples: usize, sample_rate: u32, num_channels: u16, bits_per_sample: u16) -> Vec<u8> {
+fn create_wav_header(
+    num_samples: usize,
+    sample_rate: u32,
+    num_channels: u16,
+    bits_per_sample: u16,
+) -> Vec<u8> {
     let mut header = Vec::with_capacity(44);
     let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample / 8) as u32;
     let block_align = num_channels * (bits_per_sample / 8);
@@ -501,7 +562,7 @@ fn create_wav_header(num_samples: usize, sample_rate: u32, num_channels: u16, bi
     header.extend_from_slice(b"RIFF");
     header.extend_from_slice(&(file_size as u32).to_le_bytes());
     header.extend_from_slice(b"WAVE");
-    
+
     header.extend_from_slice(b"fmt ");
     header.extend_from_slice(&16u32.to_le_bytes());
     header.extend_from_slice(&1u16.to_le_bytes());
@@ -616,8 +677,16 @@ mod tests {
         let path = fixture("(From Zombie) Re_ Brain Supply Issue.mp3");
         let result = run_audio_analysis(&path).expect("mp3 analysis failed");
         assert!(result.duration_seconds > 0, "duration should be non-zero");
-        assert!((40.0..=220.0).contains(&result.bpm), "bpm {} out of range", result.bpm);
-        assert!(KEY_NAMES.contains(&result.key.as_str()), "unexpected key: {}", result.key);
+        assert!(
+            (40.0..=220.0).contains(&result.bpm),
+            "bpm {} out of range",
+            result.bpm
+        );
+        assert!(
+            KEY_NAMES.contains(&result.key.as_str()),
+            "unexpected key: {}",
+            result.key
+        );
         assert!(result.scale == "major" || result.scale == "minor");
         assert!(result.loudness_lufs < 0.0, "LUFS should be negative");
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
@@ -629,7 +698,11 @@ mod tests {
         let path = fixture("(Tuesday) Men In The Machine.wav");
         let result = run_audio_analysis(&path).expect("wav analysis failed");
         assert!(result.duration_seconds > 0);
-        assert!((40.0..=220.0).contains(&result.bpm), "bpm {} out of range", result.bpm);
+        assert!(
+            (40.0..=220.0).contains(&result.bpm),
+            "bpm {} out of range",
+            result.bpm
+        );
         assert!(KEY_NAMES.contains(&result.key.as_str()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
@@ -641,7 +714,11 @@ mod tests {
         let path = fixture("AI Steering Committee.flac");
         let result = run_audio_analysis(&path).expect("flac analysis failed");
         assert!(result.duration_seconds > 0);
-        assert!((40.0..=220.0).contains(&result.bpm), "bpm {} out of range", result.bpm);
+        assert!(
+            (40.0..=220.0).contains(&result.bpm),
+            "bpm {} out of range",
+            result.bpm
+        );
         assert!(KEY_NAMES.contains(&result.key.as_str()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
@@ -653,7 +730,11 @@ mod tests {
         let path = fixture("Digital Echoes.m4a");
         let result = run_audio_analysis(&path).expect("m4a analysis failed");
         assert!(result.duration_seconds > 0);
-        assert!((40.0..=220.0).contains(&result.bpm), "bpm {} out of range", result.bpm);
+        assert!(
+            (40.0..=220.0).contains(&result.bpm),
+            "bpm {} out of range",
+            result.bpm
+        );
         assert!(KEY_NAMES.contains(&result.key.as_str()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();

@@ -100,11 +100,9 @@ pub fn get_track_ids_by_paths(
 ) -> std::collections::HashMap<String, i64> {
     let mut map = std::collections::HashMap::new();
     for path in paths {
-        if let Ok(id) = conn.query_row(
-            "SELECT id FROM tracks WHERE path = ?1",
-            [path],
-            |row| row.get::<_, i64>(0),
-        ) {
+        if let Ok(id) = conn.query_row("SELECT id FROM tracks WHERE path = ?1", [path], |row| {
+            row.get::<_, i64>(0)
+        }) {
             map.insert(path.to_string(), id);
         }
     }
@@ -161,7 +159,7 @@ mod tests {
     #[test]
     fn test_upsert_and_cache_queries() {
         let mut conn = setup_test_db();
-        
+
         conn.execute(
             "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/rlupi/Music')",
             [],
@@ -273,7 +271,9 @@ mod tests {
 
         upsert_tracks_transactional(&mut conn, &tracks).unwrap();
 
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0)).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, 2);
 
         let mut active_paths = HashSet::new();
@@ -282,15 +282,18 @@ mod tests {
         let deleted = reconcile_deleted_tracks(&mut conn, 1, &active_paths).unwrap();
         assert_eq!(deleted, 1);
 
-        let remaining_count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0)).unwrap();
+        let remaining_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(remaining_count, 1);
 
-        let stay_exists: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = '/Users/rlupi/Music/stay.mp3')",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        let stay_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = '/Users/rlupi/Music/stay.mp3')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert!(stay_exists);
     }
 }
-

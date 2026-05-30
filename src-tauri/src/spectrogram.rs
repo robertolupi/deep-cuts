@@ -31,9 +31,8 @@ pub fn resample_to_16k(input: &[f32], source_rate: u32) -> Result<Vec<f32>, Stri
     use rubato::{FftFixedInOut, Resampler};
 
     let chunk_size = 1024usize;
-    let mut resampler =
-        FftFixedInOut::<f32>::new(source_rate as usize, 16_000, chunk_size, 1)
-            .map_err(|e| e.to_string())?;
+    let mut resampler = FftFixedInOut::<f32>::new(source_rate as usize, 16_000, chunk_size, 1)
+        .map_err(|e| e.to_string())?;
 
     let mut output = Vec::new();
     let mut read_idx = 0;
@@ -42,7 +41,9 @@ pub fn resample_to_16k(input: &[f32], source_rate: u32) -> Result<Vec<f32>, Stri
         let mut chan = vec![0.0f32; needed];
         let copy = (input.len() - read_idx).min(needed);
         chan[..copy].copy_from_slice(&input[read_idx..read_idx + copy]);
-        let processed = resampler.process(&[chan], None).map_err(|e| e.to_string())?;
+        let processed = resampler
+            .process(&[chan], None)
+            .map_err(|e| e.to_string())?;
         if let Some(ch) = processed.first() {
             output.extend_from_slice(ch);
         }
@@ -68,8 +69,7 @@ pub fn compute_log_mel_spectrogram(audio_16k: &[f32]) -> Result<Array2<f32>, Str
 
     let hann: Vec<f32> = (0..FFT_SIZE)
         .map(|n| {
-            0.5 * (1.0
-                - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos())
+            0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos())
         })
         .collect();
 

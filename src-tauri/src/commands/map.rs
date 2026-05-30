@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use rusqlite::Connection;
+use std::sync::Mutex;
 
 #[derive(serde::Serialize)]
 pub struct MappedTrackPoint {
@@ -36,7 +36,11 @@ fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
 
 fn l2_normalize(vec: &[f32]) -> Vec<f32> {
     let norm = vec.iter().map(|&x| x * x).sum::<f32>().sqrt();
-    if norm == 0.0 { vec.to_vec() } else { vec.iter().map(|&x| x / norm).collect() }
+    if norm == 0.0 {
+        vec.to_vec()
+    } else {
+        vec.iter().map(|&x| x / norm).collect()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -54,21 +58,25 @@ fn effective_projection_config(
     // rag-umap exposes no tuning surface here yet. Keep accepted UI parameters
     // intentionally ignored until alternate projection algorithms are implemented.
     let _ = (algorithm, n_neighbors, min_dist, perplexity);
-    EffectiveProjectionConfig { clap_weight: clap_weight.unwrap_or(0.5) }
+    EffectiveProjectionConfig {
+        clap_weight: clap_weight.unwrap_or(0.5),
+    }
 }
 
 fn standardize_to_100(coords: &[(f64, f64)]) -> Vec<(f64, f64)> {
-    if coords.is_empty() { return Vec::new(); }
+    if coords.is_empty() {
+        return Vec::new();
+    }
     let x_min = coords.iter().map(|p| p.0).fold(f64::MAX, f64::min);
     let x_max = coords.iter().map(|p| p.0).fold(f64::MIN, f64::max);
     let y_min = coords.iter().map(|p| p.1).fold(f64::MAX, f64::min);
     let y_max = coords.iter().map(|p| p.1).fold(f64::MIN, f64::max);
     let xs = if x_max == x_min { 1.0 } else { x_max - x_min };
     let ys = if y_max == y_min { 1.0 } else { y_max - y_min };
-    coords.iter().map(|&(x, y)| (
-        (x - x_min) / xs * 100.0,
-        (y - y_min) / ys * 100.0,
-    )).collect()
+    coords
+        .iter()
+        .map(|&(x, y)| ((x - x_min) / xs * 100.0, (y - y_min) / ys * 100.0))
+        .collect()
 }
 
 /// Returns the stored 2D UMAP coordinates joined with basic track metadata.
@@ -87,19 +95,21 @@ pub fn get_projection_coordinates(
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| Ok(MappedTrackPoint {
-            id:                   row.get(0)?,
-            x:                    row.get(1)?,
-            y:                    row.get(2)?,
-            watched_directory_id: row.get(3)?,
-            title:                row.get(4)?,
-            filename:             row.get(5)?,
-            artist:               row.get(6)?,
-            genre:                row.get(7)?,
-            bpm:                  row.get(8)?,
-            key:                  row.get(9)?,
-            scale:                row.get(10)?,
-        }))
+        .query_map([], |row| {
+            Ok(MappedTrackPoint {
+                id: row.get(0)?,
+                x: row.get(1)?,
+                y: row.get(2)?,
+                watched_directory_id: row.get(3)?,
+                title: row.get(4)?,
+                filename: row.get(5)?,
+                artist: row.get(6)?,
+                genre: row.get(7)?,
+                bpm: row.get(8)?,
+                key: row.get(9)?,
+                scale: row.get(10)?,
+            })
+        })
         .map_err(|e| e.to_string())?;
     rows.map(|r| r.map_err(|e| e.to_string())).collect()
 }
@@ -124,38 +134,47 @@ pub fn search_similar_tracks_audio(
 
     // Build valid track ID set, optionally scoped to a directory
     let valid_ids: std::collections::HashSet<i64> = if let Some(dir_id) = directory_id {
-        let mut s = conn.prepare("SELECT id FROM tracks WHERE watched_directory_id = ?1")
+        let mut s = conn
+            .prepare("SELECT id FROM tracks WHERE watched_directory_id = ?1")
             .map_err(|e| e.to_string())?;
-        let rows = s.query_map([dir_id], |r| r.get(0))
+        let rows = s
+            .query_map([dir_id], |r| r.get(0))
             .map_err(|e| e.to_string())?;
         rows.filter_map(|r| r.ok()).collect()
     } else {
-        let mut s = conn.prepare("SELECT id FROM tracks").map_err(|e| e.to_string())?;
-        let rows = s.query_map([], |r| r.get(0))
+        let mut s = conn
+            .prepare("SELECT id FROM tracks")
             .map_err(|e| e.to_string())?;
+        let rows = s.query_map([], |r| r.get(0)).map_err(|e| e.to_string())?;
         rows.filter_map(|r| r.ok()).collect()
     };
 
-    let k = if directory_id.is_some() { 500i64 } else { (valid_ids.len() + 1) as i64 };
+    let k = if directory_id.is_some() {
+        500i64
+    } else {
+        (valid_ids.len() + 1) as i64
+    };
     let knn_sql = format!(
         "SELECT ae.track_id, ae.distance, t.title, t.artist, t.bpm, t.key, t.scale
          FROM audio_embeddings ae
          JOIN tracks t ON t.id = ae.track_id
          WHERE ae.embedding MATCH ?1 AND k = {}
          ORDER BY ae.distance ASC",
-         k
+        k
     );
     let mut stmt = conn.prepare(&knn_sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(rusqlite::params![blob], |row| Ok(AudioSimilarityResult {
-            id:       row.get(0)?,
-            distance: row.get(1)?,
-            title:    row.get(2)?,
-            artist:   row.get(3)?,
-            bpm:      row.get(4)?,
-            key:      row.get(5)?,
-            scale:    row.get(6)?,
-        }))
+        .query_map(rusqlite::params![blob], |row| {
+            Ok(AudioSimilarityResult {
+                id: row.get(0)?,
+                distance: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                bpm: row.get(4)?,
+                key: row.get(5)?,
+                scale: row.get(6)?,
+            })
+        })
         .map_err(|e| e.to_string())?;
 
     let mut list: Vec<AudioSimilarityResult> = rows
@@ -179,13 +198,8 @@ pub async fn recompute_projection(
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<usize, String> {
     use tauri::Emitter;
-    let effective_config = effective_projection_config(
-        clap_weight,
-        &algorithm,
-        n_neighbors,
-        min_dist,
-        perplexity,
-    );
+    let effective_config =
+        effective_projection_config(clap_weight, &algorithm, n_neighbors, min_dist, perplexity);
 
     // Collect all CLAP and description embeddings
     let (track_ids, blended_vectors) = {
@@ -195,7 +209,7 @@ pub async fn recompute_projection(
                 "SELECT t.id, ae.embedding, de.embedding
                  FROM tracks t
                  JOIN audio_embeddings ae ON ae.track_id = t.id
-                 LEFT JOIN description_embeddings de ON de.track_id = t.id"
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id",
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
@@ -218,7 +232,7 @@ pub async fn recompute_projection(
             let blended = if let Some(desc_embed) = desc_embed_opt {
                 let norm_clap = l2_normalize(&clap_embed);
                 let norm_desc = l2_normalize(&desc_embed);
-                
+
                 let mut vec = Vec::with_capacity(norm_clap.len() + norm_desc.len());
                 for &x in &norm_clap {
                     vec.push(x * blend_weight as f32);
@@ -238,21 +252,31 @@ pub async fn recompute_projection(
     };
 
     if blended_vectors.is_empty() {
-        return Err("No tracks with CLAP embeddings found. Run the analysis pipeline first.".to_string());
+        return Err(
+            "No tracks with CLAP embeddings found. Run the analysis pipeline first.".to_string(),
+        );
     }
 
     let n = blended_vectors.len();
     let coords: Vec<(f64, f64)> = if n < 4 {
         // Too few points for UMAP — spread evenly on a horizontal line
-        (0..n).map(|i| {
-            let x = if n > 1 { i as f64 / (n - 1) as f64 * 100.0 } else { 50.0 };
-            (x, 50.0)
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let x = if n > 1 {
+                    i as f64 / (n - 1) as f64 * 100.0
+                } else {
+                    50.0
+                };
+                (x, 50.0)
+            })
+            .collect()
     } else {
         let raw = rag_umap::convert_to_2d(blended_vectors)
             .map_err(|e| format!("UMAP projection failed: {:?}", e))?;
         standardize_to_100(
-            &raw.iter().map(|v| (v[0] as f64, v[1] as f64)).collect::<Vec<_>>(),
+            &raw.iter()
+                .map(|v| (v[0] as f64, v[1] as f64))
+                .collect::<Vec<_>>(),
         )
     };
 
@@ -260,11 +284,12 @@ pub async fn recompute_projection(
     {
         let mut conn = conn_state.lock().map_err(|e| e.to_string())?;
         let tx = conn.transaction().map_err(|e| e.to_string())?;
-        tx.execute("DELETE FROM track_coords", []).map_err(|e| e.to_string())?;
+        tx.execute("DELETE FROM track_coords", [])
+            .map_err(|e| e.to_string())?;
         {
-            let mut ins = tx.prepare(
-                "INSERT INTO track_coords (track_id, x, y) VALUES (?1, ?2, ?3)",
-            ).map_err(|e| e.to_string())?;
+            let mut ins = tx
+                .prepare("INSERT INTO track_coords (track_id, x, y) VALUES (?1, ?2, ?3)")
+                .map_err(|e| e.to_string())?;
             for (i, &(x, y)) in coords.iter().enumerate() {
                 ins.execute(rusqlite::params![track_ids[i], x, y])
                     .map_err(|e| e.to_string())?;

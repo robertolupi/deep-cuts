@@ -1,4 +1,4 @@
-pub mod library;
 pub mod analysis;
 pub mod config;
+pub mod library;
 pub mod map;

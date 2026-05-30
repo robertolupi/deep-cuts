@@ -3,8 +3,8 @@ pub mod fs;
 pub mod metadata;
 pub mod sidecar;
 
-use std::collections::HashSet;
 use rusqlite::Connection;
+use std::collections::HashSet;
 use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, serde::Serialize)]
@@ -116,7 +116,9 @@ impl LibraryScanner {
         let mut cache_hits_count = 0;
 
         for file in all_discovered_files {
-            if let Some((cached_size, cached_modified)) = db::get_cached_track_details(conn, &file.path) {
+            if let Some((cached_size, cached_modified)) =
+                db::get_cached_track_details(conn, &file.path)
+            {
                 if cached_size == file.size_bytes && cached_modified == file.last_modified {
                     cache_hits_count += 1;
                     continue;
@@ -221,9 +223,7 @@ impl LibraryScanner {
 }
 
 #[tauri::command]
-pub async fn scan_all_libraries(
-    app_handle: AppHandle,
-) -> Result<String, String> {
+pub async fn scan_all_libraries(app_handle: AppHandle) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let db_manager = crate::database::DbManager::new(&app_handle);
         let mut conn = match db_manager.connect_and_migrate() {
@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn test_library_scanner_empty_dir() {
         let mut conn = setup_test_db();
-        
+
         // Setup a watched directory
         conn.execute(
             "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Empty Collection', '/non_existent_path_to_force_empty')",
@@ -280,10 +280,9 @@ mod tests {
         // Verify start and end progress reports
         assert!(payloads[0].is_scanning);
         assert_eq!(payloads[0].current_file, "Initializing scanner...");
-        
+
         let last_payload = payloads.last().unwrap();
         assert!(!last_payload.is_scanning);
         assert_eq!(last_payload.progress, 100.0);
     }
 }
-

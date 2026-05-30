@@ -38,10 +38,12 @@ pub struct ParsedAudioTags {
     pub lyrics: Option<String>,
 }
 
-pub fn parse_single_file(file: &DiscoveredFile) -> Result<ParsedAudioTags, Box<dyn std::error::Error + Send + Sync>> {
+pub fn parse_single_file(
+    file: &DiscoveredFile,
+) -> Result<ParsedAudioTags, Box<dyn std::error::Error + Send + Sync>> {
     let path = Path::new(&file.path);
     let options = ParseOptions::new().parsing_mode(ParsingMode::Relaxed);
-    
+
     // Initialize properties with default values to ensure files are indexed even if lofty fails
     let mut duration_seconds = 0;
     let mut sample_rate = None;
@@ -75,26 +77,62 @@ pub fn parse_single_file(file: &DiscoveredFile) -> Result<ParsedAudioTags, Box<d
             channels = properties.channels().map(|v| v as i64);
 
             for tag in tagged_file.tags() {
-                if title.is_none() { title = tag.title().map(|s| s.into_owned()); }
-                if artist.is_none() { artist = tag.artist().map(|s| s.into_owned()); }
-                if album.is_none() { album = tag.album().map(|s| s.into_owned()); }
-                if genre.is_none() { genre = tag.genre().map(|s| s.into_owned()); }
-                if year.is_none() { year = tag.year().map(|v| v as i64); }
-                if track_number.is_none() { track_number = tag.track().map(|v| v as i64); }
-                if track_total.is_none() { track_total = tag.track_total().map(|v| v as i64); }
-                if disc_number.is_none() { disc_number = tag.disk().map(|v| v as i64); }
-                if disc_total.is_none() { disc_total = tag.disk_total().map(|v| v as i64); }
-                if comment.is_none() { comment = tag.comment().map(|s| s.into_owned()); }
-                if album_artist.is_none() { album_artist = tag.get_string(&ItemKey::AlbumArtist).map(|s| s.to_owned()); }
-                if composer.is_none() { composer = tag.get_string(&ItemKey::Composer).map(|s| s.to_owned()); }
-                if lyrics.is_none() { lyrics = tag.get_string(&ItemKey::Lyrics).map(|s| s.to_owned()); }
-                if bpm.is_none() { bpm = tag.get_string(&ItemKey::IntegerBpm).and_then(|s| s.trim().parse::<i64>().ok()); }
+                if title.is_none() {
+                    title = tag.title().map(|s| s.into_owned());
+                }
+                if artist.is_none() {
+                    artist = tag.artist().map(|s| s.into_owned());
+                }
+                if album.is_none() {
+                    album = tag.album().map(|s| s.into_owned());
+                }
+                if genre.is_none() {
+                    genre = tag.genre().map(|s| s.into_owned());
+                }
+                if year.is_none() {
+                    year = tag.year().map(|v| v as i64);
+                }
+                if track_number.is_none() {
+                    track_number = tag.track().map(|v| v as i64);
+                }
+                if track_total.is_none() {
+                    track_total = tag.track_total().map(|v| v as i64);
+                }
+                if disc_number.is_none() {
+                    disc_number = tag.disk().map(|v| v as i64);
+                }
+                if disc_total.is_none() {
+                    disc_total = tag.disk_total().map(|v| v as i64);
+                }
+                if comment.is_none() {
+                    comment = tag.comment().map(|s| s.into_owned());
+                }
+                if album_artist.is_none() {
+                    album_artist = tag.get_string(&ItemKey::AlbumArtist).map(|s| s.to_owned());
+                }
+                if composer.is_none() {
+                    composer = tag.get_string(&ItemKey::Composer).map(|s| s.to_owned());
+                }
+                if lyrics.is_none() {
+                    lyrics = tag.get_string(&ItemKey::Lyrics).map(|s| s.to_owned());
+                }
+                if bpm.is_none() {
+                    bpm = tag
+                        .get_string(&ItemKey::IntegerBpm)
+                        .and_then(|s| s.trim().parse::<i64>().ok());
+                }
             }
         } else {
-            eprintln!("Warning: lofty failed to read tags for '{}'. Indexing with empty metadata.", file.path);
+            eprintln!(
+                "Warning: lofty failed to read tags for '{}'. Indexing with empty metadata.",
+                file.path
+            );
         }
     } else {
-        eprintln!("Warning: lofty failed to probe file '{}'. Indexing with empty metadata.", file.path);
+        eprintln!(
+            "Warning: lofty failed to probe file '{}'. Indexing with empty metadata.",
+            file.path
+        );
     }
 
     Ok(ParsedAudioTags {
@@ -130,7 +168,10 @@ pub fn parse_single_file_safe(file: &DiscoveredFile) -> Option<ParsedAudioTags> 
     match parse_single_file(file) {
         Ok(tags) => Some(tags),
         Err(e) => {
-            eprintln!("Warning: Failed to parse metadata for file '{}': {:?}", file.path, e);
+            eprintln!(
+                "Warning: Failed to parse metadata for file '{}': {:?}",
+                file.path, e
+            );
             None
         }
     }
@@ -138,7 +179,8 @@ pub fn parse_single_file_safe(file: &DiscoveredFile) -> Option<ParsedAudioTags> 
 
 /// Parses metadata for a list of files in parallel using all available CPU threads (via Rayon).
 pub fn parse_multiple_files_parallel(files: &[DiscoveredFile]) -> Vec<ParsedAudioTags> {
-    files.par_iter()
+    files
+        .par_iter()
         .filter_map(|file| parse_single_file_safe(file))
         .collect()
 }

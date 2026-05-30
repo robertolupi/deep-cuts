@@ -11,11 +11,11 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Analysis Pipeline Reliability
 
-- [ ] Mark CLAP preprocessing failures as `FAILED` instead of only logging them; failed prep jobs are currently moved to `IN_PROGRESS` without a consumer sentinel.
-- [ ] Replace `unwrap()` calls in long-running analysis worker paths with recoverable error handling where a poisoned lock or bad row should not kill the whole phase.
-- [ ] Make all phase-level early returns emit enough state for the UI to show a specific failure reason, not just `analysis-complete`.
-- [ ] Add a user-facing recovery action for stuck `IN_PROGRESS` rows beyond implicit reset on the next run.
-- [ ] Review pass reset behavior so each reset clears all derived outputs owned by that pass, including vector-table orphans.
+- [x] Mark CLAP preprocessing failures as `FAILED` instead of only logging them; failed prep jobs are currently moved to `IN_PROGRESS` without a consumer sentinel.
+- [x] Replace `unwrap()` calls in long-running analysis worker paths with recoverable error handling where a poisoned lock or bad row should not kill the whole phase.
+- [x] Make all phase-level early returns emit enough state for the UI to show a specific failure reason, not just `analysis-complete`.
+- [x] Add a user-facing recovery action for stuck `IN_PROGRESS` rows beyond implicit reset on the next run.
+- [x] Review pass reset behavior so each reset clears all derived outputs owned by that pass, including vector-table orphans.
 
 ## Music Map Quality
 

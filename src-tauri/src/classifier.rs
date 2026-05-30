@@ -1,3 +1,6 @@
+use ort::session::Session;
+use ort::{inputs, value::Tensor};
+use serde::{Deserialize, Serialize};
 /// Essentia Discogs-Effnet classifier — genre, mood, and voice/instrumental.
 ///
 /// Architecture:
@@ -10,17 +13,13 @@
 ///      Predictions are averaged across patches.
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
-use ort::session::Session;
-use ort::{inputs, value::Tensor};
-use serde::{Deserialize, Serialize};
 
 use crate::embeddings::get_model_path;
 
 // ── Session caches (initialised once per process) ─────────────────────────────
 
 static BASE_SESSION: OnceLock<Result<Mutex<Session>, String>> = OnceLock::new();
-static HEAD_SESSIONS: OnceLock<HashMap<String, Result<Mutex<Session>, String>>> =
-    OnceLock::new();
+static HEAD_SESSIONS: OnceLock<HashMap<String, Result<Mutex<Session>, String>>> = OnceLock::new();
 static LABELS_CACHE: OnceLock<HashMap<String, Result<Vec<String>, String>>> = OnceLock::new();
 
 // ── Public result type ────────────────────────────────────────────────────────
@@ -48,46 +47,39 @@ struct LabelsJson {
 
 fn label_filename(key: &str) -> Option<&'static str> {
     match key {
-        "effnet_discogs"     => Some("discogs-effnet-bsdynamic-1.json"),
-        "genre_discogs400"   => Some("genre_discogs400-discogs-effnet-1.json"),
-        "mood_happy"         => Some("mood_happy-discogs-effnet-1.json"),
-        "mood_sad"           => Some("mood_sad-discogs-effnet-1.json"),
-        "mood_aggressive"    => Some("mood_aggressive-discogs-effnet-1.json"),
-        "mood_relaxed"       => Some("mood_relaxed-discogs-effnet-1.json"),
-        "mood_party"         => Some("mood_party-discogs-effnet-1.json"),
-        "mood_acoustic"      => Some("mood_acoustic-discogs-effnet-1.json"),
-        "mood_electronic"    => Some("mood_electronic-discogs-effnet-1.json"),
+        "effnet_discogs" => Some("discogs-effnet-bsdynamic-1.json"),
+        "genre_discogs400" => Some("genre_discogs400-discogs-effnet-1.json"),
+        "mood_happy" => Some("mood_happy-discogs-effnet-1.json"),
+        "mood_sad" => Some("mood_sad-discogs-effnet-1.json"),
+        "mood_aggressive" => Some("mood_aggressive-discogs-effnet-1.json"),
+        "mood_relaxed" => Some("mood_relaxed-discogs-effnet-1.json"),
+        "mood_party" => Some("mood_party-discogs-effnet-1.json"),
+        "mood_acoustic" => Some("mood_acoustic-discogs-effnet-1.json"),
+        "mood_electronic" => Some("mood_electronic-discogs-effnet-1.json"),
         "voice_instrumental" => Some("voice_instrumental-discogs-effnet-1.json"),
         _ => None,
     }
 }
 
-fn load_labels(
-    key: &str,
-    app: Option<&tauri::AppHandle>,
-) -> Result<Vec<String>, String> {
+fn load_labels(key: &str, app: Option<&tauri::AppHandle>) -> Result<Vec<String>, String> {
     let cache = LABELS_CACHE.get_or_init(HashMap::new);
     if let Some(res) = cache.get(key) {
         return res.clone();
     }
-    let fname = label_filename(key)
-        .ok_or_else(|| format!("Unknown labels key: {key}"))?;
+    let fname = label_filename(key).ok_or_else(|| format!("Unknown labels key: {key}"))?;
     let path = get_model_path(fname, app);
     if !path.exists() {
         return Err(format!("Labels JSON missing: {path:?}"));
     }
-    let text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Cannot read {path:?}: {e}"))?;
-    let parsed: LabelsJson = serde_json::from_str(&text)
-        .map_err(|e| format!("Cannot parse {path:?}: {e}"))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("Cannot read {path:?}: {e}"))?;
+    let parsed: LabelsJson =
+        serde_json::from_str(&text).map_err(|e| format!("Cannot parse {path:?}: {e}"))?;
     Ok(parsed.classes)
 }
 
 // ── Session loaders ───────────────────────────────────────────────────────────
 
-fn get_base_session(
-    app: Option<&tauri::AppHandle>,
-) -> Result<&'static Mutex<Session>, String> {
+fn get_base_session(app: Option<&tauri::AppHandle>) -> Result<&'static Mutex<Session>, String> {
     let res = BASE_SESSION.get_or_init(|| {
         let path = get_model_path("discogs-effnet-bsdynamic-1.onnx", app);
         if !path.exists() {
@@ -107,14 +99,14 @@ fn get_base_session(
 
 fn head_filename(key: &str) -> Option<&'static str> {
     match key {
-        "genre_discogs400"   => Some("genre_discogs400-discogs-effnet-1.onnx"),
-        "mood_happy"         => Some("mood_happy-discogs-effnet-1.onnx"),
-        "mood_sad"           => Some("mood_sad-discogs-effnet-1.onnx"),
-        "mood_aggressive"    => Some("mood_aggressive-discogs-effnet-1.onnx"),
-        "mood_relaxed"       => Some("mood_relaxed-discogs-effnet-1.onnx"),
-        "mood_party"         => Some("mood_party-discogs-effnet-1.onnx"),
-        "mood_acoustic"      => Some("mood_acoustic-discogs-effnet-1.onnx"),
-        "mood_electronic"    => Some("mood_electronic-discogs-effnet-1.onnx"),
+        "genre_discogs400" => Some("genre_discogs400-discogs-effnet-1.onnx"),
+        "mood_happy" => Some("mood_happy-discogs-effnet-1.onnx"),
+        "mood_sad" => Some("mood_sad-discogs-effnet-1.onnx"),
+        "mood_aggressive" => Some("mood_aggressive-discogs-effnet-1.onnx"),
+        "mood_relaxed" => Some("mood_relaxed-discogs-effnet-1.onnx"),
+        "mood_party" => Some("mood_party-discogs-effnet-1.onnx"),
+        "mood_acoustic" => Some("mood_acoustic-discogs-effnet-1.onnx"),
+        "mood_electronic" => Some("mood_electronic-discogs-effnet-1.onnx"),
         "voice_instrumental" => Some("voice_instrumental-discogs-effnet-1.onnx"),
         _ => None,
     }
@@ -164,9 +156,9 @@ fn get_head_session(
         map
     });
     match cache.get(key) {
-        Some(Ok(s))  => Ok(s),
+        Some(Ok(s)) => Ok(s),
         Some(Err(e)) => Err(e.clone()),
-        None         => Err(format!("Head session '{key}' not in cache")),
+        None => Err(format!("Head session '{key}' not in cache")),
     }
 }
 
@@ -202,9 +194,8 @@ pub fn run_classifier_inference(
         .lock()
         .map_err(|e| format!("Base session lock error: {e}"))?;
 
-    let input_tensor =
-        Tensor::from_array(([n_patches, PATCH_SIZE, N_BANDS], input_data))
-            .map_err(|e| format!("Failed to create input tensor: {e}"))?;
+    let input_tensor = Tensor::from_array(([n_patches, PATCH_SIZE, N_BANDS], input_data))
+        .map_err(|e| format!("Failed to create input tensor: {e}"))?;
 
     let base_out = base
         .run(inputs!["melspectrogram" => input_tensor])
@@ -236,9 +227,8 @@ pub fn run_classifier_inference(
             .lock()
             .map_err(|e| format!("Head '{key}' lock error: {e}"))?;
 
-        let emb_tensor =
-            Tensor::from_array(([n_patches, EMBEDDING_DIM], embeddings.clone()))
-                .map_err(|e| format!("Failed to create embedding tensor: {e}"))?;
+        let emb_tensor = Tensor::from_array(([n_patches, EMBEDDING_DIM], embeddings.clone()))
+            .map_err(|e| format!("Failed to create embedding tensor: {e}"))?;
 
         let out = session
             .run(inputs![input_node => emb_tensor])
@@ -310,12 +300,12 @@ pub fn run_classifier_inference(
         genre: best_genre,
         vocal: best_vocal,
         vocal_confidence,
-        mood_happy:      binary_mood("mood_happy",      "happy"),
-        mood_sad:        binary_mood("mood_sad",        "sad"),
+        mood_happy: binary_mood("mood_happy", "happy"),
+        mood_sad: binary_mood("mood_sad", "sad"),
         mood_aggressive: binary_mood("mood_aggressive", "aggressive"),
-        mood_relaxed:    binary_mood("mood_relaxed",    "relaxed"),
-        mood_party:      binary_mood("mood_party",      "party"),
-        mood_acoustic:   binary_mood("mood_acoustic",   "acoustic"),
+        mood_relaxed: binary_mood("mood_relaxed", "relaxed"),
+        mood_party: binary_mood("mood_party", "party"),
+        mood_acoustic: binary_mood("mood_acoustic", "acoustic"),
         mood_electronic: binary_mood("mood_electronic", "electronic"),
     })
 }

@@ -1,12 +1,12 @@
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
 use ort::session::Session;
 use ort::{inputs, value::Tensor};
-use rustfft::{num_complex::Complex, FftPlanner};
-use tokenizers::{Tokenizer, TruncationParams, TruncationDirection, TruncationStrategy};
 use rubato::{
     Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
 };
+use rustfft::{num_complex::Complex, FftPlanner};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use tokenizers::{Tokenizer, TruncationDirection, TruncationParams, TruncationStrategy};
 
 // ── CLAP mel spectrogram constants ────────────────────────────────────────────
 
@@ -141,9 +141,8 @@ fn resample_audio(audio: &[f32], from_sr: u32, to_sr: u32) -> Result<Vec<f32>, S
         window: WindowFunction::BlackmanHarris2,
     };
     let chunk_size = audio.len().max(1);
-    let mut resampler =
-        SincFixedIn::<f32>::new(ratio, 2.0, params, chunk_size, 1)
-            .map_err(|e| format!("Failed to create resampler: {}", e))?;
+    let mut resampler = SincFixedIn::<f32>::new(ratio, 2.0, params, chunk_size, 1)
+        .map_err(|e| format!("Failed to create resampler: {}", e))?;
 
     let input = vec![audio.to_vec()];
     let output = resampler
@@ -284,10 +283,8 @@ pub fn preprocess_window_at_pct(
 /// Runs ONNX inference on pre-computed mel features (thread-safe, concurrent reads).
 /// Requires `configure_session` to have been called first.
 pub fn run_clap_inference_only(mel_flat: Vec<f32>) -> Result<Vec<f32>, String> {
-    let input_t = Tensor::from_array(
-        ([1usize, 1, CLAP_MAX_FRAMES, CLAP_N_MELS], mel_flat),
-    )
-    .map_err(|e| e.to_string())?;
+    let input_t = Tensor::from_array(([1usize, 1, CLAP_MAX_FRAMES, CLAP_N_MELS], mel_flat))
+        .map_err(|e| e.to_string())?;
 
     let mut guard = SESSION_CLAP_AUDIO
         .lock()
@@ -361,7 +358,10 @@ pub fn run_clap_audio_embed(
 static SESSION_SENTENCE: OnceLock<Result<Mutex<Session>, String>> = OnceLock::new();
 static SENTENCE_TOKENIZER: OnceLock<Result<Tokenizer, String>> = OnceLock::new();
 
-fn load_sentence_session(model_file: &str, app: Option<&tauri::AppHandle>) -> Result<Mutex<Session>, String> {
+fn load_sentence_session(
+    model_file: &str,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Mutex<Session>, String> {
     let path = get_model_path(model_file, app);
     if !path.exists() {
         return Err(format!(
@@ -369,8 +369,7 @@ fn load_sentence_session(model_file: &str, app: Option<&tauri::AppHandle>) -> Re
             path
         ));
     }
-    let builder = Session::builder()
-        .map_err(|e| format!("ORT builder error: {}", e))?;
+    let builder = Session::builder().map_err(|e| format!("ORT builder error: {}", e))?;
 
     let mut configured = builder
         .with_intra_threads(1)
@@ -410,9 +409,9 @@ fn load_tokenizer(
 }
 
 fn get_sentence_tokenizer(app: Option<&tauri::AppHandle>) -> Result<&'static Tokenizer, String> {
-    match SENTENCE_TOKENIZER.get_or_init(|| {
-        load_tokenizer("all-minilm-l6-v2-tokenizer.json", 512, app)
-    }) {
+    match SENTENCE_TOKENIZER
+        .get_or_init(|| load_tokenizer("all-minilm-l6-v2-tokenizer.json", 512, app))
+    {
         Ok(t) => Ok(t),
         Err(e) => Err(e.clone()),
     }
@@ -431,10 +430,7 @@ fn tokenize(tokenizer: &Tokenizer, text: &str) -> Result<(Vec<i64>, Vec<i64>, Ve
 }
 
 /// Generates a 384-d L2-normalised sentence embedding using all-MiniLM-L6-v2.
-pub fn run_sentence_embed(
-    text: &str,
-    app: Option<&tauri::AppHandle>,
-) -> Result<Vec<f32>, String> {
+pub fn run_sentence_embed(text: &str, app: Option<&tauri::AppHandle>) -> Result<Vec<f32>, String> {
     let tokenizer = get_sentence_tokenizer(app)?;
     let (ids, mask, type_ids) = tokenize(tokenizer, text)?;
     let seq_len = ids.len();
@@ -463,7 +459,7 @@ pub fn run_sentence_embed(
         .map_err(|e| format!("Failed to extract MiniLM output: {}", e))?;
 
     let embedding: Vec<f32> = data.iter().copied().take(384).collect();
-    
+
     // L2 normalization
     let l2_norm = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
     if l2_norm > 1e-8 {
@@ -521,7 +517,8 @@ mod tests {
             .map(|i| (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / sr as f32).sin())
             .collect();
 
-        let mel_flat = compute_clap_log_mel(&signal, filterbank).expect("spectrogram extraction failed");
+        let mel_flat =
+            compute_clap_log_mel(&signal, filterbank).expect("spectrogram extraction failed");
         assert_eq!(mel_flat.len(), CLAP_MAX_FRAMES * CLAP_N_MELS);
         assert!(mel_flat.iter().all(|&v| v.is_finite()));
     }

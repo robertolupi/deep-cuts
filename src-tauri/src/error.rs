@@ -57,4 +57,3 @@ impl From<Box<dyn std::error::Error>> for AppError {
         AppError::Generic(err.to_string())
     }
 }
-

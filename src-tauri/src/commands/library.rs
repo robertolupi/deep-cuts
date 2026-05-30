@@ -1,8 +1,8 @@
-use std::sync::Mutex;
-use rusqlite::Connection;
-use crate::database::{WatchedDirectory, Track};
-use crate::scanner;
+use crate::database::{Track, WatchedDirectory};
 use crate::error::AppError;
+use crate::scanner;
+use rusqlite::Connection;
+use std::sync::Mutex;
 
 /// Spawns a native directory picker dialog using rfd and returns selected path.
 #[tauri::command]
@@ -10,7 +10,7 @@ pub fn select_directory() -> Result<Option<String>, AppError> {
     let folder = rfd::FileDialog::new()
         .set_title("Select Music Folder")
         .pick_folder();
-    
+
     if let Some(path_buf) = folder {
         Ok(Some(path_buf.to_string_lossy().into_owned()))
     } else {
@@ -23,7 +23,9 @@ pub fn select_directory() -> Result<Option<String>, AppError> {
 pub fn get_watched_directories(
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<WatchedDirectory>, AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     let dirs = WatchedDirectory::find_all(&conn)?;
     Ok(dirs)
 }
@@ -37,12 +39,16 @@ pub fn add_watched_directory(
 ) -> Result<(), AppError> {
     let trimmed_name = name.trim();
     let trimmed_path = path.trim();
-    
+
     if trimmed_name.is_empty() || trimmed_path.is_empty() {
-        return Err(AppError::Generic("Collection name and directory path cannot be empty.".to_string()));
+        return Err(AppError::Generic(
+            "Collection name and directory path cannot be empty.".to_string(),
+        ));
     }
-    
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     let dir = WatchedDirectory {
         id: 0,
         name: trimmed_name.to_string(),
@@ -51,7 +57,9 @@ pub fn add_watched_directory(
     dir.insert(&conn).map_err(|e| {
         let err_str = e.to_string();
         if err_str.contains("UNIQUE constraint failed") {
-            AppError::Generic("This folder path is already registered under another collection.".to_string())
+            AppError::Generic(
+                "This folder path is already registered under another collection.".to_string(),
+            )
         } else {
             AppError::Database(e)
         }
@@ -65,27 +73,29 @@ pub fn remove_watched_directory(
     id: i64,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<(), AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     WatchedDirectory::delete(&conn, id)?;
     Ok(())
 }
 
 /// Queries the total number of track records in the database.
 #[tauri::command]
-pub fn get_track_count(
-    conn_state: tauri::State<'_, Mutex<Connection>>,
-) -> Result<i64, AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+pub fn get_track_count(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<i64, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     let count = Track::count(&conn)?;
     Ok(count)
 }
 
 /// Retrieve all indexed tracks from the database.
 #[tauri::command]
-pub fn get_tracks(
-    conn_state: tauri::State<'_, Mutex<Connection>>,
-) -> Result<Vec<Track>, AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+pub fn get_tracks(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<Vec<Track>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     let tracks = Track::find_all(&conn)?;
     Ok(tracks)
 }
@@ -96,7 +106,9 @@ pub fn save_sidecar(
     track_id: i64,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<(), AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     scanner::sidecar::save(&conn, track_id)?;
     Ok(())
 }
@@ -104,10 +116,10 @@ pub fn save_sidecar(
 /// Writes .dc.json sidecar files for every track in the database.
 /// Returns the number of files written successfully.
 #[tauri::command]
-pub fn export_sidecars(
-    conn_state: tauri::State<'_, Mutex<Connection>>,
-) -> Result<usize, AppError> {
-    let conn = conn_state.lock().map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+pub fn export_sidecars(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<usize, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
     let count = scanner::sidecar::export_all(&conn)?;
     Ok(count)
 }
@@ -133,9 +145,7 @@ pub fn reveal_in_finder(path: String) -> Result<(), AppError> {
         let parent = std::path::Path::new(&path)
             .parent()
             .ok_or_else(|| AppError::Generic("Could not determine parent directory".to_string()))?;
-        std::process::Command::new("xdg-open")
-            .arg(parent)
-            .spawn()?;
+        std::process::Command::new("xdg-open").arg(parent).spawn()?;
     }
     Ok(())
 }

@@ -163,6 +163,10 @@
     for (const pass of stats) totalMs += etaForPass(pass);
     return totalMs;
   });
+  const stuckPassCount = $derived.by(() => {
+    if (isRunning) return 0;
+    return stats.reduce((sum, pass) => sum + pass.in_progress, 0);
+  });
 
   function formatEta(ms: number): string {
     if (ms <= 0) return "";
@@ -201,6 +205,14 @@
     catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
   }
 
+  async function recoverStuckPasses() {
+    errorMessage = "";
+    try {
+      await invoke<number>("recover_stuck_passes");
+      await loadStats();
+    } catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
+  }
+
   async function resetPass(passName: string) {
     try { await invoke("reset_pass", { passName }); await loadStats(); }
     catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
@@ -217,6 +229,12 @@
     }, 5000);
     listen("analysis-progress", () => loadStats()).then(u => unlisteners.push(u));
     listen("analysis-complete", () => { isRunning = false; loadStats(); }).then(u => unlisteners.push(u));
+    listen<{ phase: string; message: string }>("analysis-error", (event) => {
+      const payload = event.payload;
+      errorMessage = `${payload.phase}: ${payload.message}`;
+      isRunning = false;
+      loadStats();
+    }).then(u => unlisteners.push(u));
   });
 
   onDestroy(() => {
@@ -248,6 +266,11 @@
           </svg>
           Run Analysis
         </button>
+        {#if stuckPassCount > 0}
+          <button class="action-btn" onclick={recoverStuckPasses}>
+            Recover {stuckPassCount} Stuck
+          </button>
+        {/if}
         {#if stats.length > 0}
           <button class="action-btn" onclick={resetAll}>Reset All</button>
         {/if}

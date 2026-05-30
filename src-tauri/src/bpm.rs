@@ -16,10 +16,17 @@ pub fn genre_bpm_range(genre: &str) -> Option<(f64, f64)> {
     let g = genre.to_lowercase();
 
     // --- Non-music: NULL out entirely (signal via (0,0) sentinel) ---
-    if g.starts_with("non-music") || g.contains("audiobook") || g.contains("spoken")
-        || g.contains("podcast") || g.contains("comedy") || g.contains("dialogue")
-        || g.contains("interview") || g.contains("monolog") || g.contains("radioplay")
-        || g.contains("religious") || g.contains("poetry")
+    if g.starts_with("non-music")
+        || g.contains("audiobook")
+        || g.contains("spoken")
+        || g.contains("podcast")
+        || g.contains("comedy")
+        || g.contains("dialogue")
+        || g.contains("interview")
+        || g.contains("monolog")
+        || g.contains("radioplay")
+        || g.contains("religious")
+        || g.contains("poetry")
     {
         return Some((0.0, 0.0)); // sentinel: NULL out bpm
     }
@@ -43,13 +50,19 @@ pub fn genre_bpm_range(genre: &str) -> Option<(f64, f64)> {
     if g.contains("techno") || g.contains("trance") || g.contains("psy-trance") {
         return Some((130.0, 160.0));
     }
-    if g.contains("house") || g.contains("deep house") || g.contains("tech house")
-        || g.contains("dance-pop") || g.contains("euro house")
+    if g.contains("house")
+        || g.contains("deep house")
+        || g.contains("tech house")
+        || g.contains("dance-pop")
+        || g.contains("euro house")
     {
         return Some((118.0, 138.0));
     }
-    if g.contains("downtempo") || g.contains("trip hop") || g.contains("chillout")
-        || g.contains("new age") || g.contains("acid jazz")
+    if g.contains("downtempo")
+        || g.contains("trip hop")
+        || g.contains("chillout")
+        || g.contains("new age")
+        || g.contains("acid jazz")
     {
         return Some((55.0, 100.0));
     }
@@ -74,8 +87,12 @@ pub fn genre_bpm_range(genre: &str) -> Option<(f64, f64)> {
     if g.contains("trap") {
         return Some((60.0, 90.0)); // trap is typically written at half-time
     }
-    if g.contains("hip hop") || g.contains("hip-hop") || g.contains("rap")
-        || g.contains("rnb") || g.contains("r&b") || g.contains("r'n'b")
+    if g.contains("hip hop")
+        || g.contains("hip-hop")
+        || g.contains("rap")
+        || g.contains("rnb")
+        || g.contains("r&b")
+        || g.contains("r'n'b")
     {
         return Some((70.0, 115.0));
     }
@@ -102,9 +119,15 @@ pub fn genre_bpm_range(genre: &str) -> Option<(f64, f64)> {
     if g.contains("baroque") || g.contains("renaissance") {
         return Some((50.0, 160.0));
     }
-    if g.contains("classical") || g.contains("orchestral") || g.contains("opera")
-        || g.contains("romantic") || g.contains("impressionist") || g.contains("modern")
-        || g.contains("contemporary") || g.contains("score") || g.contains("soundtrack")
+    if g.contains("classical")
+        || g.contains("orchestral")
+        || g.contains("opera")
+        || g.contains("romantic")
+        || g.contains("impressionist")
+        || g.contains("modern")
+        || g.contains("contemporary")
+        || g.contains("score")
+        || g.contains("soundtrack")
     {
         return Some((40.0, 200.0));
     }
@@ -120,10 +143,18 @@ pub fn genre_bpm_range(genre: &str) -> Option<(f64, f64)> {
     }
 
     // --- Folk / World / Country ---
-    if g.contains("folk") || g.contains("country") || g.contains("world")
-        || g.contains("latin") || g.contains("forró") || g.contains("forro")
-        || g.contains("laïkó") || g.contains("laiko") || g.contains("éntekhno")
-        || g.contains("celtic") || g.contains("bluegrass") || g.contains("gospel")
+    if g.contains("folk")
+        || g.contains("country")
+        || g.contains("world")
+        || g.contains("latin")
+        || g.contains("forró")
+        || g.contains("forro")
+        || g.contains("laïkó")
+        || g.contains("laiko")
+        || g.contains("éntekhno")
+        || g.contains("celtic")
+        || g.contains("bluegrass")
+        || g.contains("gospel")
     {
         return Some((60.0, 160.0));
     }
@@ -210,66 +241,123 @@ mod tests {
     #[test]
     fn test_halves_double_tempo() {
         // 206.7 BPM Classical Baroque → should halve to ~103.3
-        assert_eq!(correct_bpm(Some(206.7), Some("Classical---Baroque")), CorrectResult::Corrected(103.4));
+        assert_eq!(
+            correct_bpm(Some(206.7), Some("Classical---Baroque")),
+            CorrectResult::Corrected(103.4)
+        );
     }
 
     #[test]
     fn test_doubles_half_tempo() {
         // 65 BPM Electronic House → should double to 130
-        assert_eq!(correct_bpm(Some(65.0), Some("Electronic---House")), CorrectResult::Corrected(130.0));
+        assert_eq!(
+            correct_bpm(Some(65.0), Some("Electronic---House")),
+            CorrectResult::Corrected(130.0)
+        );
     }
 
     #[test]
     fn test_in_range_unchanged() {
-        assert_eq!(correct_bpm(Some(128.0), Some("Electronic---House")), CorrectResult::Unchanged);
-        assert_eq!(correct_bpm(Some(170.0), Some("Electronic---Drum n Bass")), CorrectResult::Unchanged);
+        assert_eq!(
+            correct_bpm(Some(128.0), Some("Electronic---House")),
+            CorrectResult::Unchanged
+        );
+        assert_eq!(
+            correct_bpm(Some(170.0), Some("Electronic---Drum n Bass")),
+            CorrectResult::Unchanged
+        );
     }
 
     #[test]
     fn test_non_music_nulled() {
-        assert_eq!(correct_bpm(Some(207.0), Some("Non-Music---Audiobook")), CorrectResult::Null);
-        assert_eq!(correct_bpm(Some(207.0), Some("Non-Music---Spoken Word")), CorrectResult::Null);
-        assert_eq!(correct_bpm(Some(100.0), Some("Non-Music---Radioplay")), CorrectResult::Null);
+        assert_eq!(
+            correct_bpm(Some(207.0), Some("Non-Music---Audiobook")),
+            CorrectResult::Null
+        );
+        assert_eq!(
+            correct_bpm(Some(207.0), Some("Non-Music---Spoken Word")),
+            CorrectResult::Null
+        );
+        assert_eq!(
+            correct_bpm(Some(100.0), Some("Non-Music---Radioplay")),
+            CorrectResult::Null
+        );
     }
 
     #[test]
     fn test_garbage_bpm_nulled() {
-        assert_eq!(correct_bpm(Some(5.0), Some("Rock---Hard Rock")), CorrectResult::Null);
-        assert_eq!(correct_bpm(Some(350.0), Some("Electronic---House")), CorrectResult::Null);
+        assert_eq!(
+            correct_bpm(Some(5.0), Some("Rock---Hard Rock")),
+            CorrectResult::Null
+        );
+        assert_eq!(
+            correct_bpm(Some(350.0), Some("Electronic---House")),
+            CorrectResult::Null
+        );
     }
 
     #[test]
     fn test_none_bpm_unchanged() {
-        assert_eq!(correct_bpm(None, Some("Classical---Baroque")), CorrectResult::Unchanged);
+        assert_eq!(
+            correct_bpm(None, Some("Classical---Baroque")),
+            CorrectResult::Unchanged
+        );
     }
 
     #[test]
     fn test_unknown_genre_unchanged() {
-        assert_eq!(correct_bpm(Some(207.0), Some("Polka---Oompa")), CorrectResult::Unchanged);
+        assert_eq!(
+            correct_bpm(Some(207.0), Some("Polka---Oompa")),
+            CorrectResult::Unchanged
+        );
         assert_eq!(correct_bpm(Some(207.0), None), CorrectResult::Unchanged);
     }
 
     #[test]
     fn test_single_step_only() {
         // 414 > 300 → Null (garbage, before any correction)
-        assert_eq!(correct_bpm(Some(414.0), Some("Classical---Baroque")), CorrectResult::Null);
+        assert_eq!(
+            correct_bpm(Some(414.0), Some("Classical---Baroque")),
+            CorrectResult::Null
+        );
         // 207 → 103.5 for Rock (one halve, lands in 70–180)
-        assert_eq!(correct_bpm(Some(207.0), Some("Rock---Hard Rock")), CorrectResult::Corrected(103.5));
+        assert_eq!(
+            correct_bpm(Some(207.0), Some("Rock---Hard Rock")),
+            CorrectResult::Corrected(103.5)
+        );
         // 200 for DnB (155–185): 200/2=100 still out of range → Null (not infinite loop)
-        assert_eq!(correct_bpm(Some(200.0), Some("Electronic---Drum n Bass")), CorrectResult::Null);
+        assert_eq!(
+            correct_bpm(Some(200.0), Some("Electronic---Drum n Bass")),
+            CorrectResult::Null
+        );
         // 200 for House (118–138): 200/2=100 still out of range → Null
-        assert_eq!(correct_bpm(Some(200.0), Some("Electronic---House")), CorrectResult::Null);
+        assert_eq!(
+            correct_bpm(Some(200.0), Some("Electronic---House")),
+            CorrectResult::Null
+        );
     }
 
     #[test]
     fn test_doom_metal_low_range() {
-        assert_eq!(correct_bpm(Some(120.0), Some("Rock---Doom Metal")), CorrectResult::Corrected(60.0));
-        assert_eq!(correct_bpm(Some(60.0), Some("Rock---Doom Metal")), CorrectResult::Unchanged);
+        assert_eq!(
+            correct_bpm(Some(120.0), Some("Rock---Doom Metal")),
+            CorrectResult::Corrected(60.0)
+        );
+        assert_eq!(
+            correct_bpm(Some(60.0), Some("Rock---Doom Metal")),
+            CorrectResult::Unchanged
+        );
     }
 
     #[test]
     fn test_dnb_high_range() {
-        assert_eq!(correct_bpm(Some(85.0), Some("Electronic---Drum n Bass")), CorrectResult::Corrected(170.0));
-        assert_eq!(correct_bpm(Some(170.0), Some("Electronic---Drum n Bass")), CorrectResult::Unchanged);
+        assert_eq!(
+            correct_bpm(Some(85.0), Some("Electronic---Drum n Bass")),
+            CorrectResult::Corrected(170.0)
+        );
+        assert_eq!(
+            correct_bpm(Some(170.0), Some("Electronic---Drum n Bass")),
+            CorrectResult::Unchanged
+        );
     }
 }
