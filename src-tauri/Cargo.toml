@@ -2,9 +2,9 @@
 name = "deep-cuts"
 version = "0.1.0"
 description = "Desktop Audio Intelligence Platform"
-authors = ["you"]
+authors = ["Riccardo Lupi"]
 license = "AGPL-3.0"
-repository = ""
+repository = "https://github.com/robertolupi/deep-cuts"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -37,6 +37,8 @@ symphonia = { version = "0.5.4", features = ["all"] }
 ebur128 = "0.1"
 rustfft = "6"
 rag-umap = "0.0.0"
+# Keep `download-binaries` for now so local and packaged builds have a pinned ONNX Runtime.
+# Revisit this if the app vendors ORT explicitly or adds a runtime installer/check.
 ort = { version = "2.0.0-rc.9", default-features = false, features = ["copy-dylibs", "std", "ndarray", "download-binaries", "tls-native"] }
 rubato = "0.15"
 ndarray = { version = "0.15", features = ["serde"] }
