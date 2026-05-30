@@ -25,7 +25,7 @@ Last session: 2026-05-30
 
 Each item is a separate commit on `main`. App looks and behaves identically throughout.
 
-### 1.1 — Player store (`src/lib/stores/player.svelte.ts`)
+### 1.1 — Player store (`src/lib/stores/player.svelte.ts`) ✅ commit 85822ff
 - [x] Create `src/lib/utils/format.ts` (`formatDuration`, `formatSize`)
 - [x] Create `src/lib/stores/player.svelte.ts` with state + methods
 - [x] Move `selectedTrack`, `isPlaying`, `currentTime`, `duration` into store
@@ -33,6 +33,7 @@ Each item is a separate commit on `main`. App looks and behaves identically thro
 - [x] Move `playTrack()`, `togglePlayback()`, `resetPlayer()`, `handlePrevTrack()`, `handleNextTrack()` into store
 - [x] Update `AudioPlayer.svelte`: remove all bindable props, import store, bind DOM refs on mount
 - [x] Update `+page.svelte`: remove extracted state, import player store
+- [x] Vitest harness: setup.ts mocks, fixtures.ts, format.test.ts (10), player.test.ts (15) — 25/25 ✓
 
 ### 1.2 — Filter store (`src/lib/stores/filters.svelte.ts`)
 - [ ] Create `src/lib/stores/filters.svelte.ts` with state + derived `filteredTracks`
