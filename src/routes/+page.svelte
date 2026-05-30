@@ -1,7 +1,5 @@
 <script lang="ts">
   import Navbar from "$lib/components/Navbar.svelte";
-  import HeroPanel from "$lib/components/HeroPanel.svelte";
-  import AudioPlayer from "$lib/components/AudioPlayer.svelte";
   import TrackList from "$lib/components/TrackList.svelte";
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
@@ -18,26 +16,12 @@
 
   <main class="workspace">
     {#if ui.activeView === 'table'}
-      <div class="dashboard-split-layout">
-        <div class="top-pane-resizable glass-panel">
-          {#if selectedTrack === null}
-            <HeroPanel />
-          {:else}
-            <AudioPlayer />
-          {/if}
-        </div>
-
-        <div class="split-pane-resizer" role="separator" aria-valuenow={330} aria-valuemin={220} aria-valuemax={700}>
-          <div class="resizer-knob"></div>
-        </div>
-
-        <TrackList
-          tracks={library.tracks}
-          {selectedTrack}
-          isPlaying={player.isPlaying}
-          onTrackSelect={(t) => player.playTrack(t)}
-        />
-      </div>
+      <TrackList
+        tracks={library.tracks}
+        {selectedTrack}
+        isPlaying={player.isPlaying}
+        onTrackSelect={(t) => player.playTrack(t)}
+      />
 
     {:else if ui.activeView === 'analysis'}
       <AnalysisPanel />
