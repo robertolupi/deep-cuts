@@ -38,6 +38,7 @@
   .app-shell-content {
     flex: 1;
     min-height: 0;
+    height: 0;
     overflow: hidden;
   }
 </style>

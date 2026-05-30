@@ -505,7 +505,7 @@ html[data-theme="accessible"] .shimmer-text {
 
 /* --- 4. REFACTORED COMPONENT STYLES (MIGRATED FROM +PAGE.SVELTE) --- */
 .app-layout {
-    height: 100vh;
+    height: 100%;
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
