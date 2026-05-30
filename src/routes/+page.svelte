@@ -5,7 +5,6 @@
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
-  import { library } from "$lib/stores/library.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
@@ -20,7 +19,6 @@
       <div class="table-view-layout">
         <FilterSidebar />
         <TrackList
-          tracks={library.tracks}
           {selectedTrack}
           isPlaying={player.isPlaying}
           onTrackSelect={(t) => player.playTrack(t)}

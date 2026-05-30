@@ -1,19 +1,17 @@
 <script lang="ts">
-  import type { Track } from '../types';
   import { formatDuration } from '$lib/utils/format';
   import { filters } from '$lib/stores/filters.svelte';
+  import { library } from '$lib/stores/library.svelte';
   import { ui } from '$lib/stores/ui.svelte';
 
   let {
-    tracks,
     selectedTrack,
     isPlaying,
     onTrackSelect,
   }: {
-    tracks: Track[];
-    selectedTrack: Track | null;
+    selectedTrack: import('../types').Track | null;
     isPlaying: boolean;
-    onTrackSelect: (track: Track) => void;
+    onTrackSelect: (track: import('../types').Track) => void;
   } = $props();
 
   let displayLimit = $state(150);
@@ -29,18 +27,19 @@
   });
 
   let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
+  const allTracks = $derived(library.tracks);
 </script>
 
-<div class="bottom-pane-scroller glass-panel">
+<div class="track-list-view">
   <!-- Track count badge -->
   <div class="tracks-toolbar">
     <div class="library-count-badge">
-      <code>{filters.filteredTracks.length} / {tracks.length} tracks</code>
+      <code>{filters.filteredTracks.length} / {allTracks.length} tracks</code>
     </div>
   </div>
 
   <!-- Tracks Grid List Table -->
-  {#if tracks.length > 0}
+  {#if allTracks.length > 0}
     {#if filters.filteredTracks.length > 0}
       <div class="tracks-table-wrap">
         <table class="tracks-table">
@@ -163,6 +162,15 @@
 </div>
 
 <style>
+  .track-list-view {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--sg-surface, #0d1117);
+  }
+
   .key-badge {
     font-family: var(--font-mono, monospace);
     color: var(--text-primary);
