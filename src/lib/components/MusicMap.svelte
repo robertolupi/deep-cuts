@@ -449,6 +449,12 @@
             <span class="ht-badge ht-score">{Math.round(score)}%</span>
           {/if}
         {/if}
+        {#if filters.clapQuery.trim() && filters.clapTrackScores.has(hoveredTrack.id)}
+          {@const score = filters.clapTrackScores.get(hoveredTrack.id)}
+          {#if score !== undefined}
+            <span class="ht-badge ht-score-clap">{Math.round(score)}%</span>
+          {/if}
+        {/if}
         {#if hoveredTrack.genre}<span class="ht-badge ht-genre">{hoveredTrack.genre}</span>{/if}
         {#if hoveredTrack.bpm}<span class="ht-badge">{Math.round(hoveredTrack.bpm)} BPM</span>{/if}
         {#if hoveredTrack.key}
@@ -678,6 +684,13 @@
     border-color: rgba(0, 240, 255, 0.45);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0, 240, 255, 0.12);
+    font-weight: 700;
+  }
+
+  .ht-score-clap {
+    border-color: rgba(254, 0, 254, 0.45);
+    color: var(--sg-secondary, #fe00fe);
+    background: rgba(254, 0, 254, 0.12);
     font-weight: 700;
   }
 </style>

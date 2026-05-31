@@ -572,6 +572,89 @@ pub fn run_sentence_embed(text: &str, app: Option<&tauri::AppHandle>) -> Result<
     }
 }
 
+// ── CLAP Text Embedding (laion/clap-htsat-unfused text encoder) ────────────────
+
+static SESSION_CLAP_TEXT: OnceLock<Result<Mutex<Session>, String>> = OnceLock::new();
+static CLAP_TEXT_TOKENIZER: OnceLock<Result<Tokenizer, String>> = OnceLock::new();
+
+fn load_clap_text_session(
+    model_file: &str,
+    app: Option<&tauri::AppHandle>,
+) -> Result<Mutex<Session>, String> {
+    let path = get_model_path(model_file, app);
+    if !path.exists() {
+        return Err(format!(
+            "CLAP text encoder model missing: {:?}. Run tools/export_clap_onnx.py first.",
+            path
+        ));
+    }
+    let builder = Session::builder().map_err(|e| format!("ORT builder error: {}", e))?;
+
+    let mut configured = builder
+        .with_intra_threads(1)
+        .and_then(|b| b.with_inter_threads(1))
+        .map_err(|e| format!("Failed to configure CLAP text threading: {}", e))?;
+
+    configured
+        .commit_from_file(&path)
+        .map(Mutex::new)
+        .map_err(|e| format!("Failed to load {}: {}", model_file, e))
+}
+
+fn get_clap_text_session(app: Option<&tauri::AppHandle>) -> Result<&'static Mutex<Session>, String> {
+    match SESSION_CLAP_TEXT.get_or_init(|| load_clap_text_session("clap_text_encoder.onnx", app)) {
+        Ok(s) => Ok(s),
+        Err(e) => Err(e.clone()),
+    }
+}
+
+fn get_clap_text_tokenizer(app: Option<&tauri::AppHandle>) -> Result<&'static Tokenizer, String> {
+    match CLAP_TEXT_TOKENIZER
+        .get_or_init(|| load_tokenizer("clap-tokenizer.json", 512, app))
+    {
+        Ok(t) => Ok(t),
+        Err(e) => Err(e.clone()),
+    }
+}
+
+/// Generates a 512-d L2-normalised CLAP text embedding using clap_text_encoder.onnx.
+pub fn run_clap_text_embed(text: &str, app: Option<&tauri::AppHandle>) -> Result<Vec<f32>, String> {
+    let tokenizer = get_clap_text_tokenizer(app)?;
+    let (ids, mask, _type_ids) = tokenize(tokenizer, text)?;
+    let seq_len = ids.len();
+
+    let ids_t = Tensor::from_array(([1, seq_len], ids)).map_err(|e| e.to_string())?;
+    let mask_t = Tensor::from_array(([1, seq_len], mask)).map_err(|e| e.to_string())?;
+
+    let session_mutex = get_clap_text_session(app)?;
+    let mut session = session_mutex.lock().map_err(|e| e.to_string())?;
+
+    let outputs = session
+        .run(inputs![
+            "input_ids"      => ids_t,
+            "attention_mask" => mask_t
+        ])
+        .map_err(|e| format!("CLAP text inference failed: {}", e))?;
+
+    let out = outputs
+        .get("text_embedding")
+        .ok_or("CLAP text output 'text_embedding' missing")?;
+
+    let (_, data) = out
+        .try_extract_tensor::<f32>()
+        .map_err(|e| format!("Failed to extract CLAP text output: {}", e))?;
+
+    let embedding: Vec<f32> = data.iter().copied().take(512).collect();
+
+    // L2 normalization
+    let l2_norm = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
+    if l2_norm > 1e-8 {
+        Ok(embedding.iter().map(|&x| x / l2_norm).collect())
+    } else {
+        Ok(embedding)
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -648,5 +731,17 @@ mod tests {
             DEFAULT_CLAP_WINDOW_PCTS
         );
         assert_eq!(select_clap_window_pcts(None, 120), DEFAULT_CLAP_WINDOW_PCTS);
+    }
+
+    #[test]
+    fn test_clap_text_embed_returns_512d_vector() {
+        let result = run_clap_text_embed("heavy techno beat", None).expect("CLAP text embed failed");
+        assert_eq!(result.len(), 512, "expected 512-d embedding");
+        assert!(
+            result.iter().all(|v| v.is_finite()),
+            "embedding contains non-finite values"
+        );
+        let norm_sq: f32 = result.iter().map(|&v| v * v).sum();
+        assert!((norm_sq - 1.0).abs() < 1e-4, "embedding norm² = {}, expected ~1.0", norm_sq);
     }
 }

@@ -239,6 +239,79 @@ pub async fn search_semantic_tracks(
     Ok(results)
 }
 
+/// Perform a local sonic vector search over audio_embeddings table using sqlite-vec MATCH and CLAP text encoder.
+#[tauri::command]
+pub async fn search_clap_tracks(
+    query: String,
+    limit: Option<usize>,
+    app_handle: tauri::AppHandle,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<SemanticSearchResult>, AppError> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // 1. Generate CLAP text embedding for the query string
+    let embedding = crate::embeddings::run_clap_text_embed(trimmed, Some(&app_handle))
+        .map_err(|e| AppError::Generic(format!("Failed to generate CLAP text embedding: {}", e)))?;
+
+    // 2. Convert Vec<f32> embedding to a little-endian byte array Vec<u8>
+    let bytes: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+    // 3. Acquire DB lock and execute sqlite-vec MATCH vector query on audio_embeddings
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let max_k = limit.unwrap_or(40) as i64;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT ae.track_id, t.title, t.filename, t.artist, t.genre, t.bpm, t.key, t.scale, ae.distance
+             FROM audio_embeddings ae
+             JOIN tracks t ON t.id = ae.track_id
+             WHERE ae.embedding MATCH ?1 AND k = ?2
+             ORDER BY ae.distance ASC",
+        )
+        .map_err(AppError::Database)?;
+
+    let rows = stmt
+        .query_map(rusqlite::params![bytes, max_k], |row| {
+            let id: i64 = row.get(0)?;
+            let title: Option<String> = row.get(1)?;
+            let filename: String = row.get(2)?;
+            let artist: Option<String> = row.get(3)?;
+            let genre: Option<String> = row.get(4)?;
+            let bpm: Option<f64> = row.get(5)?;
+            let key: Option<String> = row.get(6)?;
+            let scale: Option<String> = row.get(7)?;
+            let distance: f64 = row.get(8)?;
+
+            let d_sq = distance * distance;
+            let score = ((1.0_f64 - d_sq / 2.0_f64) * 100.0_f64).clamp(0.0_f64, 100.0_f64);
+
+            Ok(SemanticSearchResult {
+                id,
+                title,
+                filename,
+                artist,
+                genre,
+                bpm,
+                key,
+                scale,
+                score,
+            })
+        })
+        .map_err(AppError::Database)?;
+
+    let results: Vec<SemanticSearchResult> = rows
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(results)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,6 +394,62 @@ mod tests {
         assert_eq!(results[0].0, 1);
         assert!((results[0].1 - 0.0).abs() < 1e-9);
         // Track 2 should be further
+        assert_eq!(results[1].0, 2);
+        assert!(results[1].1 > 0.0);
+    }
+
+    #[test]
+    fn test_sqlite_vec_clap_match_query() {
+        let conn = setup_test_db();
+
+        // Setup prerequisites (watched directories + tracks) to prevent constraint errors
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test', '/test')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, 1, '/test/a.mp3', 'a.mp3', 100, 100, 10),
+                    (2, 1, '/test/b.mp3', 'b.mp3', 100, 100, 10)",
+            [],
+        ).unwrap();
+
+        // Seed audio_embeddings (CLAP is 512-dimensional)
+        let vec1 = vec![0.05f32; 512];
+        let bytes1: Vec<u8> = vec1.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        let vec2 = vec![0.1f32; 512];
+        let bytes2: Vec<u8> = vec2.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        conn.execute(
+            "INSERT INTO audio_embeddings (track_id, embedding) VALUES (1, ?1)",
+            [bytes1]
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO audio_embeddings (track_id, embedding) VALUES (2, ?1)",
+            [bytes2]
+        ).unwrap();
+
+        // Query identical to Track 1
+        let query_vec = vec![0.05f32; 512];
+        let q_bytes: Vec<u8> = query_vec.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        let mut stmt = conn.prepare(
+            "SELECT ae.track_id, ae.distance
+             FROM audio_embeddings ae
+             WHERE ae.embedding MATCH ?1 AND k = 2
+             ORDER BY ae.distance ASC"
+        ).unwrap();
+
+        let results: Vec<(i64, f64)> = stmt.query_map([q_bytes], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).unwrap().map(|r| r.unwrap()).collect();
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].0, 1);
+        assert!((results[0].1 - 0.0).abs() < 1e-9);
         assert_eq!(results[1].0, 2);
         assert!(results[1].1 > 0.0);
     }

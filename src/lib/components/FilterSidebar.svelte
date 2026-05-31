@@ -40,6 +40,7 @@
   const hasActiveFilters = $derived(
     filters.searchQuery !== "" ||
     filters.semanticQuery !== "" ||
+    filters.clapQuery !== "" ||
     filters.genreFilter !== "" ||
     filters.selectedDirectoryIds.length > 0 ||
     filters.selectedKeys.length > 0 ||
@@ -54,6 +55,7 @@
   function clearAll() {
     filters.searchQuery   = "";
     filters.semanticQuery = "";
+    filters.clapQuery     = "";
     filters.genreFilter   = "";
     filters.clearDirectories();
     filters.clearKeys();
@@ -126,6 +128,32 @@
             <button class="clear-x" onclick={() => filters.semanticQuery = ""}>×</button>
           {/if}
         </div>
+
+        <!-- Sonic Search (AI Sound) -->
+        <div class="search-wrap clap-wrap">
+          {#if filters.isClapLoading}
+            <!-- Spinner -->
+            <svg class="search-icon ai-spinner-clap" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="32" class="spinner-circle" />
+            </svg>
+          {:else}
+            <!-- Music note -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+          {/if}
+          <input
+            type="text"
+            placeholder="AI Sound: acoustic texture, genre…"
+            bind:value={filters.clapQuery}
+            class="search-input clap-search-input"
+          />
+          {#if filters.clapQuery}
+            <button class="clear-x" onclick={() => filters.clapQuery = ""}>×</button>
+          {/if}
+        </div>
       </div>
     </div>
 
@@ -148,6 +176,11 @@
         {#if filters.semanticQuery}
           <button class="chip chip-active chip-semantic" onclick={() => filters.semanticQuery = ""}>
             ✨ {filters.semanticQuery} ×
+          </button>
+        {/if}
+        {#if filters.clapQuery}
+          <button class="chip chip-active chip-clap" onclick={() => filters.clapQuery = ""}>
+            🎵 {filters.clapQuery} ×
           </button>
         {/if}
         {#each filters.selectedKeys as k}
@@ -696,6 +729,34 @@
   .spinner-circle {
     stroke-linecap: round;
     opacity: 0.75;
+  }
+
+  .chip-clap {
+    border-color: rgba(254, 0, 254, 0.45) !important;
+    background: rgba(254, 0, 254, 0.08) !important;
+    color: var(--sg-secondary, #fe00fe) !important;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .clap-wrap .search-icon {
+    color: var(--sg-secondary, #fe00fe);
+  }
+
+  .clap-search-input {
+    border-color: rgba(254, 0, 254, 0.15) !important;
+  }
+
+  .clap-search-input:focus {
+    border-color: var(--sg-secondary, #fe00fe) !important;
+    box-shadow: 0 0 8px rgba(254, 0, 254, 0.15);
+  }
+
+  .ai-spinner-clap {
+    animation: spin 0.8s linear infinite;
+    color: var(--sg-secondary, #fe00fe) !important;
   }
 
   /* ── Key filter ── */

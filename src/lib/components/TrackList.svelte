@@ -99,6 +99,12 @@
                       <span class="semantic-score-badge">{Math.round(score)}%</span>
                     {/if}
                   {/if}
+                  {#if filters.clapQuery.trim() && filters.clapTrackScores.has(track.id)}
+                    {@const score = filters.clapTrackScores.get(track.id)}
+                    {#if score !== undefined}
+                      <span class="clap-score-badge">{Math.round(score)}%</span>
+                    {/if}
+                  {/if}
                 </td>
                 <td class="col-waveform">
                   {#if track.waveform_data}
@@ -342,6 +348,20 @@
     border: 1px solid rgba(0, 240, 255, 0.3);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0, 240, 255, 0.08);
+    margin-left: 6px;
+    vertical-align: middle;
+    display: inline-block;
+  }
+
+  .clap-score-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(254, 0, 254, 0.3);
+    color: var(--sg-secondary, #fe00fe);
+    background: rgba(254, 0, 254, 0.08);
     margin-left: 6px;
     vertical-align: middle;
     display: inline-block;

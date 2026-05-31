@@ -75,6 +75,7 @@ pub fn run() {
             commands::library::save_sidecar,
             commands::library::export_sidecars,
             commands::library::search_semantic_tracks,
+            commands::library::search_clap_tracks,
             scanner::scan_all_libraries,
             commands::analysis::run_analysis_pipeline,
             commands::analysis::is_analysis_running,
