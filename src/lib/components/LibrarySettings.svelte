@@ -304,7 +304,7 @@
       with no cloud dependency.
     </p>
     <div class="about-meta">
-      <span class="about-copyright">© 2025 Roberto Lupi</span>
+      <span class="about-copyright">© 2025 <a class="about-link" href="https://www.rlupi.com" target="_blank" rel="noopener noreferrer">Roberto Lupi</a></span>
       <span class="about-sep">·</span>
       <span class="about-license">GNU AGPL v3</span>
     </div>
@@ -714,6 +714,18 @@
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
     color: var(--sg-outline, #849495);
+  }
+
+  .about-link {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(132, 148, 149, 0.4);
+    transition: color 0.15s, text-decoration-color 0.15s;
+  }
+  .about-link:hover {
+    color: var(--sg-primary, #00f0ff);
+    text-decoration-color: var(--sg-primary, #00f0ff);
   }
 
   .about-sep { opacity: 0.4; }
