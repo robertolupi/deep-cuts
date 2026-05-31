@@ -19,7 +19,7 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Analysis Pass Code Organization
 
-- [ ] Split `src-tauri/src/analysis.rs` into per-pass modules, keeping orchestration separate from pass implementation details.
+- [x] Split `src-tauri/src/analysis.rs` into per-pass modules, keeping orchestration separate from pass implementation details.
 - [ ] Introduce a single pass registry/spec for pass name, priority, version, dependencies, owned outputs, and reset behavior.
 - [ ] Extract shared `track_passes` lifecycle helpers for backfill, stale-version invalidation, pending-job loading, in-progress marking, DONE/FAILED updates, progress events, and sidecar saves.
 - [ ] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements.
