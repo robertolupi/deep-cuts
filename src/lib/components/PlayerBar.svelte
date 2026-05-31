@@ -93,15 +93,13 @@
           class="btn-secondary"
           onclick={() => ui.focusMapTrack(selectedTrack.id)}
           style="font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: var(--sg-radius-sm); display: flex; align-items: center; gap: 0.3rem;"
-          title="Find similar tracks on the Music Map"
+          title="Locate this track on the Music Map"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            <line x1="11" y1="8" x2="11" y2="14"/>
-            <line x1="8" y1="11" x2="14" y2="11"/>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
           </svg>
-          <span style="vertical-align: middle;">Similar</span>
+          <span style="vertical-align: middle;">Locate on Map</span>
         </button>
 
         <button
