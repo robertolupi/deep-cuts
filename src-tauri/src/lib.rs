@@ -56,6 +56,7 @@ pub fn run() {
             // Manage the thread-safe llama-server background child process
             app.manage(llama::LlamaServerState {
                 child: Mutex::new(None),
+                port: Mutex::new(None),
             });
 
             Ok(())

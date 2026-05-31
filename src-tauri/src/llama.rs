@@ -1,12 +1,18 @@
+use std::net::TcpListener;
 use std::process::Child;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
-pub const LLAMA_PORT: u16 = 10086;
-
 pub struct LlamaServerState {
     pub child: Mutex<Option<Child>>,
+    pub port: Mutex<Option<u16>>,
+}
+
+fn find_free_port() -> Result<u16, String> {
+    TcpListener::bind("127.0.0.1:0")
+        .map_err(|e| format!("Failed to bind ephemeral port: {}", e))
+        .map(|l| l.local_addr().unwrap().port())
 }
 
 pub struct LlamaServerGuard<'a> {
@@ -68,18 +74,28 @@ fn spawn_llama_server(model_path: &str, mmproj_path: &str, port: u16) -> Result<
     ))
 }
 
-/// Assures the background llama-server is active and healthy on port 10086.
-/// If an external server is already running, uses it instead and returns Guard with killed_on_drop=false.
+pub fn get_llama_port(app: &AppHandle) -> Option<u16> {
+    app.state::<LlamaServerState>()
+        .port
+        .lock()
+        .ok()
+        .and_then(|g| *g)
+}
+
+/// Assures the background llama-server is active and healthy on a dynamically-chosen port.
+/// If an external server is already running on the stored port, uses it instead and returns Guard with killed_on_drop=false.
 pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'_>, String> {
     let state = app.state::<LlamaServerState>();
     let mut lock = state.child.lock().map_err(|e| e.to_string())?;
+    let mut port_lock = state.port.lock().map_err(|e| e.to_string())?;
 
     // Check if child is still running
     let already_running = if let Some(ref mut child) = *lock {
         match child.try_wait() {
             Ok(None) => true, // Still running
             _ => {
-                *lock = None; // Exited or errored, reset
+                *lock = None;
+                *port_lock = None;
                 false
             }
         }
@@ -94,8 +110,13 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
         });
     }
 
-    // Try pinging the health endpoint in case llama-server was started externally
-    let health_url = format!("http://127.0.0.1:{}/health", LLAMA_PORT);
+    // Bind an ephemeral port now; the listener is dropped immediately so llama-server can reuse it.
+    // There is a small TOCTOU window, but it's negligible for a local loopback process.
+    let port = find_free_port()?;
+    *port_lock = Some(port);
+
+    // Try pinging the health endpoint in case llama-server was started externally on this port
+    let health_url = format!("http://127.0.0.1:{}/health", port);
     let check_existing = ureq::get(&health_url)
         .timeout(Duration::from_millis(150))
         .call();
@@ -104,7 +125,7 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
         if resp.status() == 200 {
             log::info!(
                 "[llama-server] Server already running externally on port {}",
-                LLAMA_PORT
+                port
             );
             return Ok(LlamaServerGuard {
                 app,
@@ -131,11 +152,11 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
 
     log::info!(
         "[llama-server] Spawning background server on port {} with model: {}",
-        LLAMA_PORT,
+        port,
         model_path
     );
 
-    let child = spawn_llama_server(&model_path, &mmproj_path, LLAMA_PORT)?;
+    let child = spawn_llama_server(&model_path, &mmproj_path, port)?;
 
     // Store child handle
     *lock = Some(child);

@@ -248,26 +248,41 @@ impl super::AnalysisPass for ClapPass {
                         duration_seconds: 0,
                         waveform_data: None,
                     };
-                    self.save_result(&conn, &job_placeholder, embedding, elapsed_ms)?;
-                    let _ = conn.execute(
-                        "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                         pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
-                        rusqlite::params![
-                            pass_status::DONE,
-                            elapsed_ms,
-                            pass_version::CLAP,
-                            raw_result,
-                            prepped.pass_id
-                        ],
-                    );
-                    let _ = app.emit(
-                        "analysis-progress",
-                        serde_json::json!({
-                            "track_id": prepped.track_id,
-                            "pass_name": self.name(),
-                            "status": pass_status::DONE,
-                        }),
-                    );
+                    match self.save_result(&conn, &job_placeholder, embedding, elapsed_ms) {
+                        Err(e) => {
+                            log::error!(
+                                "[clap] save_result failed for track_id={}: {}",
+                                prepped.track_id, e
+                            );
+                            let _ = conn.execute(
+                                "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                                rusqlite::params![pass_status::FAILED, e, elapsed_ms, prepped.pass_id],
+                            );
+                            let _ = app.emit("analysis-progress", serde_json::json!({
+                                "track_id": prepped.track_id,
+                                "pass_name": self.name(),
+                                "status": pass_status::FAILED,
+                            }));
+                        }
+                        Ok(()) => {
+                            let _ = conn.execute(
+                                "UPDATE track_passes SET status = ?1, duration_ms = ?2,
+                                 pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
+                                rusqlite::params![
+                                    pass_status::DONE,
+                                    elapsed_ms,
+                                    pass_version::CLAP,
+                                    raw_result,
+                                    prepped.pass_id
+                                ],
+                            );
+                            let _ = app.emit("analysis-progress", serde_json::json!({
+                                "track_id": prepped.track_id,
+                                "pass_name": self.name(),
+                                "status": pass_status::DONE,
+                            }));
+                        }
+                    }
                 }
                 Err(e) => {
                     let _ = conn.execute(

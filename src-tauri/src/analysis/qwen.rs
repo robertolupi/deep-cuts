@@ -104,7 +104,7 @@ impl super::AnalysisPass for QwenPass {
 
     fn execute_job(
         &self,
-        _app: &tauri::AppHandle,
+        app: &tauri::AppHandle,
         job: &Self::Job,
     ) -> Result<Self::Output, String> {
         let bpm = job.bpm.unwrap_or(120.0);
@@ -170,10 +170,9 @@ impl super::AnalysisPass for QwenPass {
             ]
         });
 
-        let api_url = format!(
-            "http://127.0.0.1:{}/v1/chat/completions",
-            crate::llama::LLAMA_PORT
-        );
+        let port = crate::llama::get_llama_port(app)
+            .ok_or_else(|| "[qwen] llama-server port not available; was ensure_llama_server_running called?".to_string())?;
+        let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
         log::info!(
             "[qwen] Dispatching audio to local llama-server completions endpoint for track {}...",
             job.track_id
@@ -206,7 +205,7 @@ impl super::AnalysisPass for QwenPass {
 
         // Preemptively save the raw completions response to the database
         // so that it is persisted and inspectable even if structured parsing downstream fails!
-        if let Some(conn_mutex) = _app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+        if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
             if let Ok(conn) = conn_mutex.lock() {
                 let _ = conn.execute(
                     "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'qwen'",

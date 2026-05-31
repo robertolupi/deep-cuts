@@ -100,6 +100,16 @@ impl WatchedDirectory {
     }
 
     pub fn delete(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+        // Virtual tables (vec0) don't support FK constraints, so manually delete
+        // embeddings for all tracks in this directory before the cascade fires.
+        conn.execute(
+            "DELETE FROM audio_embeddings WHERE track_id IN (SELECT id FROM tracks WHERE watched_directory_id = ?1)",
+            [id],
+        )?;
+        conn.execute(
+            "DELETE FROM description_embeddings WHERE track_id IN (SELECT id FROM tracks WHERE watched_directory_id = ?1)",
+            [id],
+        )?;
         conn.execute("DELETE FROM watched_directories WHERE id = ?1", [id])?;
         Ok(())
     }

@@ -158,21 +158,39 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
             match result {
                 Ok(output) => {
                     let raw = self.raw_result_json(&output);
-                    self.save_result(&conn, &job, output, duration_ms)?;
-                    conn.execute(
-                        "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
-                        rusqlite::params![pass_status::DONE, duration_ms, self.version(), raw, job.pass_id()],
-                    ).map_err(|e| e.to_string())?;
-                    if !self.owned_columns().is_empty() {
-                        if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id()) {
-                            log::error!("[{}] sidecar save failed for track {}: {}", self.name(), job.track_id(), e);
+                    match self.save_result(&conn, &job, output, duration_ms) {
+                        Err(e) => {
+                            log::error!(
+                                "[{}] save_result failed for track_id={}: {}",
+                                self.name(), job.track_id(), e
+                            );
+                            conn.execute(
+                                "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                                rusqlite::params![pass_status::FAILED, e, duration_ms, job.pass_id()],
+                            ).map_err(|e| e.to_string())?;
+                            let _ = app.emit("analysis-progress", serde_json::json!({
+                                "track_id": job.track_id(),
+                                "pass_name": self.name(),
+                                "status": pass_status::FAILED,
+                            }));
+                        }
+                        Ok(()) => {
+                            conn.execute(
+                                "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
+                                rusqlite::params![pass_status::DONE, duration_ms, self.version(), raw, job.pass_id()],
+                            ).map_err(|e| e.to_string())?;
+                            if !self.owned_columns().is_empty() {
+                                if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id()) {
+                                    log::error!("[{}] sidecar save failed for track {}: {}", self.name(), job.track_id(), e);
+                                }
+                            }
+                            let _ = app.emit("analysis-progress", serde_json::json!({
+                                "track_id": job.track_id(),
+                                "pass_name": self.name(),
+                                "status": pass_status::DONE,
+                            }));
                         }
                     }
-                    let _ = app.emit("analysis-progress", serde_json::json!({
-                        "track_id": job.track_id(),
-                        "pass_name": self.name(),
-                        "status": pass_status::DONE,
-                    }));
                 }
                 Err(e) => {
                     conn.execute(

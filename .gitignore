@@ -22,3 +22,4 @@ scratch
 
 # Private planning docs
 doc/private/
+tools/.venv
