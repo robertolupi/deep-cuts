@@ -7,6 +7,24 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tauri::Emitter;
 
+pub struct AudioPass;
+
+impl AudioPass {
+    pub const SPEC: super::PassSpec = super::PassSpec {
+        name: "audio_analysis",
+        priority: 10,
+        version: pass_version::AUDIO_ANALYSIS,
+        dependencies: &[],
+        owned_columns: &[
+            "waveform_data", "bpm", "bpm_raw", "key", "scale",
+            "key_strength", "loudness_lufs", "loudness_range",
+            "silence_regions", "has_long_silence"
+        ],
+        owned_tables: &[],
+        custom_reset: None,
+    };
+}
+
 pub fn run_audio_analysis_phase(
     app: &tauri::AppHandle,
     conn_arc: &Arc<Mutex<Connection>>,

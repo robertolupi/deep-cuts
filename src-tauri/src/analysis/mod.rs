@@ -1,5 +1,4 @@
 use crate::database::{pass_status, DbManager};
-use crate::scanner::sidecar::pass_version;
 use rusqlite::Connection;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -78,6 +77,120 @@ pub(crate) fn lock_analysis_conn<'a>(
         .map_err(|e| format!("[{}] database lock poisoned: {}", phase, e))
 }
 
+// ── Traits Definitions ─────────────────────────────────────────────────────
+
+pub trait PassJob {
+    fn pass_id(&self) -> i64;
+    fn track_id(&self) -> i64;
+}
+
+#[allow(dead_code)]
+pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
+    type Job: PassJob + Send + 'static;
+    type Output: Send + 'static;
+
+    // Static Specs
+    fn name(&self) -> &'static str;
+    fn priority(&self) -> i32;
+    fn version(&self) -> u32;
+    fn dependencies(&self) -> &'static [&'static str];
+    fn owned_columns(&self) -> &'static [&'static str];
+    fn owned_tables(&self) -> &'static [&'static str];
+    fn custom_reset(&self, _conn: &Connection) -> Result<(), String> {
+        Ok(())
+    }
+
+    // Dynamic Operations
+    fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String>;
+    fn execute_job(&self, app: &tauri::AppHandle<R>, job: &Self::Job) -> Result<Self::Output, String>;
+    fn save_result(
+        &self,
+        conn: &Connection,
+        job: &Self::Job,
+        output: Self::Output,
+        duration_ms: i64,
+    ) -> Result<(), String>;
+
+    // Setup & Teardown optional hooks
+    fn setup(&self, _app: &tauri::AppHandle<R>) -> Result<(), String> {
+        Ok(())
+    }
+    fn teardown(&self, _app: &tauri::AppHandle<R>) -> Result<(), String> {
+        Ok(())
+    }
+
+    // Default Sequential Execution Loop
+    fn run_pass(
+        &self,
+        app: &tauri::AppHandle<R>,
+        conn_arc: &Arc<Mutex<Connection>>,
+    ) -> Result<(), String> {
+        let jobs = {
+            let conn = lock_analysis_conn(conn_arc, self.name())?;
+            let spooled = self.load_jobs(&conn)?;
+            for job in &spooled {
+                conn.execute(
+                    "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                    rusqlite::params![pass_status::IN_PROGRESS, job.pass_id()],
+                ).map_err(|e| e.to_string())?;
+            }
+            spooled
+        };
+
+        if jobs.is_empty() {
+            return Ok(());
+        }
+
+        self.setup(app)?;
+
+        for job in jobs {
+            let start = std::time::Instant::now();
+            let result = self.execute_job(app, &job);
+            let duration_ms = start.elapsed().as_millis() as i64;
+
+            let conn = lock_analysis_conn(conn_arc, self.name())?;
+            match result {
+                Ok(output) => {
+                    self.save_result(&conn, &job, output, duration_ms)?;
+                    conn.execute(
+                        "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                        rusqlite::params![pass_status::DONE, duration_ms, self.version(), job.pass_id()],
+                    ).map_err(|e| e.to_string())?;
+                    let _ = app.emit("analysis-progress", serde_json::json!({
+                        "track_id": job.track_id(),
+                        "pass_name": self.name(),
+                        "status": pass_status::DONE,
+                    }));
+                }
+                Err(e) => {
+                    conn.execute(
+                        "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                        rusqlite::params![pass_status::FAILED, e, duration_ms, job.pass_id()],
+                    ).map_err(|e| e.to_string())?;
+                    let _ = app.emit("analysis-progress", serde_json::json!({
+                        "track_id": job.track_id(),
+                        "pass_name": self.name(),
+                        "status": pass_status::FAILED,
+                    }));
+                }
+            }
+        }
+
+        self.teardown(app)?;
+        let _ = app.emit("analysis-phase-complete", serde_json::json!({ "pass": self.name() }));
+        Ok(())
+    }
+}
+
+// Generic Runner Execution
+pub fn run_pass_pipeline<R: tauri::Runtime, P: AnalysisPass<R>>(
+    app: &tauri::AppHandle<R>,
+    conn_arc: &Arc<Mutex<Connection>>,
+    pass: P,
+) -> Result<(), String> {
+    pass.run_pass(app, conn_arc)
+}
+
 // ── Pass Specification & Registry ──────────────────────────────────────────
 
 #[allow(dead_code)]
@@ -92,87 +205,13 @@ pub struct PassSpec {
 }
 
 pub static PASS_REGISTRY: &[PassSpec] = &[
-    PassSpec {
-        name: "audio_analysis",
-        priority: 10,
-        version: pass_version::AUDIO_ANALYSIS,
-        dependencies: &[],
-        owned_columns: &[
-            "waveform_data", "bpm", "bpm_raw", "key", "scale",
-            "key_strength", "loudness_lufs", "loudness_range",
-            "silence_regions", "has_long_silence"
-        ],
-        owned_tables: &[],
-        custom_reset: None,
-    },
-    PassSpec {
-        name: "bpm_correction",
-        priority: 15,
-        version: pass_version::BPM_CORRECTION,
-        dependencies: &["audio_analysis"],
-        owned_columns: &["bpm"],
-        owned_tables: &[],
-        custom_reset: Some(|conn| {
-            conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
-                .map_err(|e| e.to_string())?;
-            Ok(())
-        }),
-    },
-    PassSpec {
-        name: "clap",
-        priority: 20,
-        version: pass_version::CLAP,
-        dependencies: &["audio_analysis"],
-        owned_columns: &[],
-        owned_tables: &["audio_embeddings", "track_coords"],
-        custom_reset: None,
-    },
-    PassSpec {
-        name: "qwen",
-        priority: 30,
-        version: pass_version::QWEN,
-        dependencies: &["audio_analysis", "bpm_correction"],
-        owned_columns: &[
-            "is_music", "ai_genre", "ai_mood", "ai_instruments", "description"
-        ],
-        owned_tables: &["description_embeddings"],
-        custom_reset: None,
-    },
-    PassSpec {
-        name: "description_embed",
-        priority: 40,
-        version: pass_version::DESCRIPTION_EMBED,
-        dependencies: &["qwen"],
-        owned_columns: &[],
-        owned_tables: &["description_embeddings"],
-        custom_reset: None,
-    },
-    PassSpec {
-        name: "essentia",
-        priority: 50,
-        version: pass_version::ESSENTIA,
-        dependencies: &["audio_analysis"],
-        owned_columns: &[
-            "detected_genre", "detected_vocal", "detected_vocal_confidence",
-            "mood_happy", "mood_sad", "mood_aggressive", "mood_relaxed",
-            "mood_party", "mood_acoustic", "mood_electronic"
-        ],
-        owned_tables: &[],
-        custom_reset: None,
-    },
-    PassSpec {
-        name: "bpm_refinement",
-        priority: 55,
-        version: pass_version::BPM_REFINEMENT,
-        dependencies: &["essentia"],
-        owned_columns: &["bpm"],
-        owned_tables: &[],
-        custom_reset: Some(|conn| {
-            conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
-                .map_err(|e| e.to_string())?;
-            Ok(())
-        }),
-    },
+    audio::AudioPass::SPEC,
+    bpm_correction::BpmCorrectionPass::SPEC,
+    clap::ClapPass::SPEC,
+    qwen::QwenPass::SPEC,
+    description_embed::DescriptionEmbedPass::SPEC,
+    essentia::EssentiaPass::SPEC,
+    bpm_refinement::BpmRefinementPass::SPEC,
 ];
 
 // ── Generic Lifecycle Helpers ──────────────────────────────────────────────
@@ -399,39 +438,195 @@ impl PipelineManager {
                 serde_json::json!({ "pass": "audio_analysis" }),
             );
 
-            // ── Phase 1b: BPM correction (coarse metadata genre) ──────────────
+            // ── Phase 1b: BPM correction ──────────────────────────────────────
             log::info!("[pipeline] starting bpm_correction phase");
-            bpm_correction::run_bpm_correction_phase(&app, &conn_arc);
-            log::info!("[pipeline] bpm_correction phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_correction::BpmCorrectionPass) {
+                emit_pipeline_error(&app, "bpm_correction", e);
+            }
 
             // ── Phase 2: CLAP ─────────────────────────────────────────────────
             log::info!("[pipeline] starting clap phase");
-            clap::run_clap_phase(&app, &conn_arc);
-            log::info!("[pipeline] clap phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, clap::ClapPass) {
+                emit_pipeline_error(&app, "clap", e);
+            }
 
             // ── Phase 3: Qwen listener ────────────────────────────────────────
             log::info!("[pipeline] starting qwen phase");
-            qwen::run_qwen_phase(&app, &conn_arc);
-            log::info!("[pipeline] qwen phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, qwen::QwenPass) {
+                emit_pipeline_error(&app, "qwen", e);
+            }
 
             // ── Phase 4: Description embedding ────────────────────────────────
             log::info!("[pipeline] starting description_embed phase");
-            description_embed::run_description_embed_phase(&app, &conn_arc);
-            log::info!("[pipeline] description_embed phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, description_embed::DescriptionEmbedPass) {
+                emit_pipeline_error(&app, "description_embed", e);
+            }
 
             // ── Phase 5: Essentia classifier ──────────────────────────────────
             log::info!("[pipeline] starting essentia phase");
-            essentia::run_essentia_phase(&app, &conn_arc);
-            log::info!("[pipeline] essentia phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, essentia::EssentiaPass) {
+                emit_pipeline_error(&app, "essentia", e);
+            }
 
             // ── Phase 6: BPM refinement (precise Discogs-400 genre) ───────────
             log::info!("[pipeline] starting bpm_refinement phase");
-            bpm_refinement::run_bpm_refinement_phase(&app, &conn_arc);
-            log::info!("[pipeline] bpm_refinement phase done");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_refinement::BpmRefinementPass) {
+                emit_pipeline_error(&app, "bpm_refinement", e);
+            }
 
             let _ = app.emit("analysis-complete", ());
         });
 
         Ok(())
+    }
+}
+
+// ── Mock Unit Testing ──────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::setup_test_db;
+
+    struct MockJob {
+        pass_id: i64,
+        track_id: i64,
+        should_fail: bool,
+    }
+
+    impl PassJob for MockJob {
+        fn pass_id(&self) -> i64 {
+            self.pass_id
+        }
+        fn track_id(&self) -> i64 {
+            self.track_id
+        }
+    }
+
+    struct MockPass;
+
+    impl<R: tauri::Runtime> AnalysisPass<R> for MockPass {
+        type Job = MockJob;
+        type Output = String;
+
+        fn name(&self) -> &'static str {
+            "mock_pass"
+        }
+
+        fn priority(&self) -> i32 {
+            99
+        }
+
+        fn version(&self) -> u32 {
+            1
+        }
+
+        fn dependencies(&self) -> &'static [&'static str] {
+            &[]
+        }
+
+        fn owned_columns(&self) -> &'static [&'static str] {
+            &[]
+        }
+
+        fn owned_tables(&self) -> &'static [&'static str] {
+            &[]
+        }
+
+        fn load_jobs(&self, _conn: &Connection) -> Result<Vec<Self::Job>, String> {
+            Ok(vec![
+                MockJob {
+                    pass_id: 101,
+                    track_id: 1,
+                    should_fail: false,
+                },
+                MockJob {
+                    pass_id: 102,
+                    track_id: 2,
+                    should_fail: true,
+                },
+            ])
+        }
+
+        fn execute_job(&self, _app: &tauri::AppHandle<R>, job: &Self::Job) -> Result<Self::Output, String> {
+            if job.should_fail {
+                Err("Injected failure".to_string())
+            } else {
+                Ok("Success result".to_string())
+            }
+        }
+
+        fn save_result(
+            &self,
+            _conn: &Connection,
+            _job: &Self::Job,
+            _output: Self::Output,
+            _duration_ms: i64,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_generic_runner_lifecycle() {
+        let conn = setup_test_db();
+
+        // 1. Seed mock data in watched_directories and tracks tables
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, 1, '/tracks/1.mp3', '1.mp3', 100, 0, 100)",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (2, 1, '/tracks/2.mp3', '2.mp3', 100, 0, 100)",
+            [],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO track_passes (id, track_id, pass_name, priority, status)
+             VALUES (101, 1, 'mock_pass', 99, 0)",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (id, track_id, pass_name, priority, status)
+             VALUES (102, 2, 'mock_pass', 99, 0)",
+            [],
+        ).unwrap();
+
+        let app = tauri::test::mock_app();
+        let conn_arc = Arc::new(Mutex::new(conn));
+
+        // 2. Run generic pipeline
+        let result = run_pass_pipeline(app.handle(), &conn_arc, MockPass);
+        assert!(result.is_ok());
+
+        // 3. Assert DB state updates correctly
+        let conn = conn_arc.lock().unwrap();
+        
+        let (status_101, duration_101): (i64, i64) = conn.query_row(
+            "SELECT status, duration_ms FROM track_passes WHERE id = 101",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+
+        let (status_102, log_102): (i64, Option<String>) = conn.query_row(
+            "SELECT status, log FROM track_passes WHERE id = 102",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+
+        // Pass 101 should be marked DONE (status = 2)
+        assert_eq!(status_101, 2);
+        assert!(duration_101 >= 0);
+
+        // Pass 102 should be marked FAILED (status = 3) with injected error message
+        assert_eq!(status_102, 3);
+        assert_eq!(log_102, Some("Injected failure".to_string()));
     }
 }
