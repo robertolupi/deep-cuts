@@ -149,20 +149,29 @@ fn standardize_to_100(coords: &[(f64, f64)]) -> Vec<(f64, f64)> {
 }
 
 /// Returns the stored 2D UMAP coordinates joined with basic track metadata.
+/// When `music_only` is true, tracks classified as Non-Music by Essentia are excluded,
+/// matching the frontend `musicOnly` filter signal.
 #[tauri::command]
 pub fn get_projection_coordinates(
+    music_only: bool,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<MappedTrackPoint>, String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT tc.track_id, tc.x, tc.y,
-                    t.watched_directory_id, t.title, t.filename, t.artist,
-                    t.genre, t.bpm, t.key, t.scale
-             FROM track_coords tc
-             JOIN tracks t ON t.id = tc.track_id",
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = if music_only {
+        "SELECT tc.track_id, tc.x, tc.y,
+                t.watched_directory_id, t.title, t.filename, t.artist,
+                t.genre, t.bpm, t.key, t.scale
+         FROM track_coords tc
+         JOIN tracks t ON t.id = tc.track_id
+         WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
+    } else {
+        "SELECT tc.track_id, tc.x, tc.y,
+                t.watched_directory_id, t.title, t.filename, t.artist,
+                t.genre, t.bpm, t.key, t.scale
+         FROM track_coords tc
+         JOIN tracks t ON t.id = tc.track_id"
+    };
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
             Ok(MappedTrackPoint {
@@ -304,10 +313,13 @@ pub fn search_similar_tracks_audio(
     Ok(rows)
 }
 
-/// Runs UMAP on all CLAP audio embeddings (and optionally blends description embeddings)
+/// Runs UMAP on CLAP audio embeddings (and optionally blends description embeddings)
 /// and persists the 2D coordinates in `track_coords`. Emits `projection-updated` when done.
+/// When `music_only` is true, tracks classified as Non-Music by Essentia are excluded from
+/// the projection, matching the frontend `musicOnly` filter signal.
 #[tauri::command]
 pub async fn recompute_projection(
+    music_only: bool,
     clap_weight: Option<f64>,
     algorithm: String,
     n_neighbors: i32,
@@ -320,17 +332,22 @@ pub async fn recompute_projection(
     let effective_config =
         effective_projection_config(clap_weight, &algorithm, n_neighbors, min_dist, perplexity);
 
-    // Collect all CLAP and description embeddings
+    // Collect CLAP and description embeddings, optionally excluding non-music tracks
     let (track_ids, blended_vectors) = {
         let conn = conn_state.lock().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT t.id, ae.embedding, de.embedding
-                 FROM tracks t
-                 JOIN audio_embeddings ae ON ae.track_id = t.id
-                 LEFT JOIN description_embeddings de ON de.track_id = t.id",
-            )
-            .map_err(|e| e.to_string())?;
+        let sql = if music_only {
+            "SELECT t.id, ae.embedding, de.embedding
+             FROM tracks t
+             JOIN audio_embeddings ae ON ae.track_id = t.id
+             LEFT JOIN description_embeddings de ON de.track_id = t.id
+             WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
+        } else {
+            "SELECT t.id, ae.embedding, de.embedding
+             FROM tracks t
+             JOIN audio_embeddings ae ON ae.track_id = t.id
+             LEFT JOIN description_embeddings de ON de.track_id = t.id"
+        };
+        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |row| {
                 let id: i64 = row.get(0)?;
@@ -386,7 +403,7 @@ pub async fn recompute_projection(
         )
     };
 
-    // Persist inside a transaction
+    // Persist inside a transaction, recording the music_only scope per row
     {
         let mut conn = conn_state.lock().map_err(|e| e.to_string())?;
         let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -394,10 +411,13 @@ pub async fn recompute_projection(
             .map_err(|e| e.to_string())?;
         {
             let mut ins = tx
-                .prepare("INSERT INTO track_coords (track_id, x, y) VALUES (?1, ?2, ?3)")
+                .prepare(
+                    "INSERT INTO track_coords (track_id, x, y, music_only) VALUES (?1, ?2, ?3, ?4)",
+                )
                 .map_err(|e| e.to_string())?;
+            let music_only_int: i64 = if music_only { 1 } else { 0 };
             for (i, &(x, y)) in coords.iter().enumerate() {
-                ins.execute(rusqlite::params![track_ids[i], x, y])
+                ins.execute(rusqlite::params![track_ids[i], x, y, music_only_int])
                     .map_err(|e| e.to_string())?;
             }
         }

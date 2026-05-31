@@ -105,7 +105,9 @@
   async function loadCoordinates() {
     isLoading = true;
     try {
-      projectedTracks = await invoke<MappedTrackPoint[]>('get_projection_coordinates');
+      projectedTracks = await invoke<MappedTrackPoint[]>('get_projection_coordinates', {
+        musicOnly: filters.musicOnly,
+      });
     } catch (err: any) {
       ui.showToast(err.toString(), 'error');
     } finally {
@@ -118,6 +120,7 @@
     try {
       ui.showToast('Running projection… this may take a few seconds', 'success');
       const count = await invoke<number>('recompute_projection', {
+        musicOnly: filters.musicOnly,
         algorithm: 'umap',
         nNeighbors: 20,
         minDist: 0.1,
@@ -265,13 +268,20 @@
     ui.mapFocusTrackId = null;
   });
 
+  // Re-fetch stored coordinates whenever musicOnly scope changes.
+  // This is a cheap DB read (no UMAP re-run). The user must press
+  // "Recompute Map" to get a truly music-only UMAP layout.
+  $effect(() => {
+    const _scope = filters.musicOnly;
+    loadCoordinates();
+  });
+
   $effect(() => { drawCanvas(); });
 
   let unlistenProj: any;
   let resizeObserver: ResizeObserver;
 
   onMount(async () => {
-    await loadCoordinates();
     initD3Zoom();
 
     unlistenProj = await listen('projection-updated', () => loadCoordinates());

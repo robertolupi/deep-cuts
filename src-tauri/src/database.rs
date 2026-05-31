@@ -250,6 +250,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/10_qwen_columns.sql")),
         M::up(include_str!("../migrations/11_description_embeddings.sql")),
         M::up(include_str!("../migrations/12_silence_columns.sql")),
+        M::up(include_str!("../migrations/13_track_coords_music_only.sql")),
     ])
 }
 

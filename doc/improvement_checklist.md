@@ -31,7 +31,7 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Either hide projection controls whose parameters are ignored, or implement the requested algorithm/parameter behavior.
 - [ ] Add PCA as a fast deterministic projection option and consider making it the default if it improves global structure.
 - [ ] Persist map settings such as algorithm, blend weight, and normalization percentile in `app_settings`.
-- [ ] Exclude or separately handle non-music tracks during projection so spoken-word/outlier content does not distort the map.
+- [x] Exclude or separately handle non-music tracks during projection so spoken-word/outlier content does not distort the map.
 - [ ] Prototype or implement outlier satellite regions after normalization is fixed.
 
 ## Embedding & Similarity Quality
