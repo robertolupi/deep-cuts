@@ -12,23 +12,19 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/add-ipc-command/SKILL.md](skills/add-ipc-command/SKILL.md)
    - **Use when**: Adding or editing Tauri/IPC endpoints between the frontend and Rust backend.
 
-2. **Check Prototype**
-   - **Path**: [skills/check-prototype/SKILL.md](skills/check-prototype/SKILL.md)
-   - **Use when**: Looking up how a feature was implemented in `music-intelligence` or `music-index`.
-
-3. **Database Migrations**
+2. **Database Migrations**
    - **Path**: [skills/db-migration/SKILL.md](skills/db-migration/SKILL.md)
    - **Use when**: Creating, running, or debugging database schema changes.
 
-4. **Development Guidelines**
+3. **Development Guidelines**
    - **Path**: [skills/dev-guidelines/SKILL.md](skills/dev-guidelines/SKILL.md)
    - **Use when**: Onboarding, running the app, or checking general repository conventions.
 
-5. **Querying the Database**
+4. **Querying the Database**
    - **Path**: [skills/query-db/SKILL.md](skills/query-db/SKILL.md)
    - **Use when**: Formulating database queries or interacting with the SQLite database directly.
 
-6. **Adding an Analysis Pass**
+5. **Adding an Analysis Pass**
    - **Path**: [skills/add-analysis-pass/SKILL.md](skills/add-analysis-pass/SKILL.md)
    - **Use when**: Adding a new pass to the analysis pipeline (e.g. essentia, qwen, bpm_correction).
 
