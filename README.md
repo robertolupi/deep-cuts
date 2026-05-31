@@ -188,3 +188,7 @@ The main blocker for packaged releases is bundling the local LLM runtime and add
 ## ⚖️ Licensing
 
 Deep Cuts is open-source software licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. See [LICENSE.md](LICENSE.md) for details.
+
+### License note
+
+Some DSP/MIR implementation work was informed by studying [Essentia](https://essentia.upf.edu/), which is also licensed under AGPLv3. To keep licensing simple and conservative, the application is distributed under AGPLv3.
