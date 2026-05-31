@@ -30,7 +30,7 @@ function createFiltersStore() {
   let isClapLoading = $state(false);
 
   const filteredTracks = $derived.by(() => {
-    return library.tracks.filter((t) => {
+    const results = library.tracks.filter((t) => {
       // Sounds similar filter
       if (similarTrackIds.size > 0 && !similarTrackIds.has(t.id)) return false;
 
@@ -95,6 +95,22 @@ function createFiltersStore() {
 
       return true;
     });
+
+    const hasSemanticScores = semanticQuery.trim() && semanticTrackScores.size > 0;
+    const hasClapScores     = clapQuery.trim()     && clapTrackScores.size > 0;
+    if (hasSemanticScores || hasClapScores) {
+      results.sort((a, b) => {
+        const avgScore = (id: number) => {
+          const scores: number[] = [];
+          if (hasSemanticScores && semanticTrackScores.has(id)) scores.push(semanticTrackScores.get(id)!);
+          if (hasClapScores     && clapTrackScores.has(id))     scores.push(clapTrackScores.get(id)!);
+          return scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
+        };
+        return avgScore(b.id) - avgScore(a.id);
+      });
+    }
+
+    return results;
   });
 
   async function runSemanticSearch(q: string) {
