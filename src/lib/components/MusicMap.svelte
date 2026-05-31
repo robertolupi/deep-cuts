@@ -550,44 +550,6 @@
     color: var(--sg-primary, #00f0ff) !important;
   }
 
-  .toolbar-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    padding: 4px 10px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px;
-    background: rgba(255,255,255,0.02);
-    color: var(--sg-outline, #849495);
-    cursor: pointer;
-    transition: all 0.12s;
-    white-space: nowrap;
-  }
-
-  .toolbar-btn:hover {
-    color: var(--sg-on-surface, #e3e1e9);
-    border-color: rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
-  }
-
-  .toolbar-btn-primary {
-    border-color: rgba(0,240,255,0.35);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
-  }
-
-  .toolbar-btn-primary:hover:not(:disabled) {
-    background: rgba(0,240,255,0.15);
-    border-color: var(--sg-primary, #00f0ff);
-  }
-
-  .toolbar-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
   .toolbar-hint {
     font-family: "JetBrains Mono", monospace;
     font-size: 9px;

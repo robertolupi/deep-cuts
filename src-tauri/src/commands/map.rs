@@ -233,14 +233,14 @@ pub fn get_projection_coordinates(
     let sql = if music_only {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                t.genre, t.bpm, t.key, t.scale, tc.algorithm
+                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id
          WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
     } else {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                t.genre, t.bpm, t.key, t.scale, tc.algorithm
+                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id"
     };
