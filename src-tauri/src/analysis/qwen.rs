@@ -313,8 +313,12 @@ pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
     let mut ai_instruments = None;
     let mut description = None;
 
-    for line in content.lines() {
-        let trimmed = line.trim();
+    // Normalize literal \n escape sequences the model sometimes emits instead of real newlines
+    let normalized = content.replace("\\n", "\n");
+
+    // Split on newlines first, then on semicolons so both delimiter styles are handled
+    for segment in normalized.lines().flat_map(|l| l.split(';')) {
+        let trimmed = segment.trim();
         if trimmed.is_empty() {
             continue;
         }
@@ -401,5 +405,29 @@ mod tests {
         let res = parse_qwen_response(content);
         assert_eq!(res.is_music, Some(1)); // fallback defaults to 1
         assert_eq!(res.description.as_deref(), Some(content));
+    }
+
+    #[test]
+    fn test_parse_literal_escape_newlines() {
+        // Model emits \\n as text instead of real newlines
+        let content = "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: happy, summer\\nINSTRUMENTS: bass, drum\\nDESCRIPTION: A groovy summer track.";
+        let res = parse_qwen_response(content);
+        assert_eq!(res.is_music, Some(1));
+        assert_eq!(res.ai_genre.as_deref(), Some("dance, electronic"));
+        assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
+        assert_eq!(res.ai_instruments.as_deref(), Some("bass, drum"));
+        assert_eq!(res.description.as_deref(), Some("A groovy summer track."));
+    }
+
+    #[test]
+    fn test_parse_semicolon_delimited() {
+        // Model uses semicolons as field separators instead of newlines
+        let content = "MUSIC: yes; GENRE: electronic, house, techno; MOOD: energetic, groovy; INSTRUMENTS: synthesizer, bass, drums; DESCRIPTION: A lively dance track.";
+        let res = parse_qwen_response(content);
+        assert_eq!(res.is_music, Some(1));
+        assert_eq!(res.ai_genre.as_deref(), Some("electronic, house, techno"));
+        assert_eq!(res.ai_mood.as_deref(), Some("energetic, groovy"));
+        assert_eq!(res.ai_instruments.as_deref(), Some("synthesizer, bass, drums"));
+        assert_eq!(res.description.as_deref(), Some("A lively dance track."));
     }
 }
