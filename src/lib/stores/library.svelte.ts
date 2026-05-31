@@ -24,6 +24,11 @@ class LibraryStore {
       await this.fetchTracks();
       this.tauriConnected = true;
 
+      // Reload tracks after each analysis phase completes so extracted data is visible
+      await listen<any>("analysis-phase-complete", () => {
+        this.fetchTracks();
+      });
+
       // Listen for progress updates emitted by the background scanner
       await listen<any>("scan:progress", (event) => {
         const payload = event.payload;
