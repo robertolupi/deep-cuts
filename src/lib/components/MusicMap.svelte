@@ -52,7 +52,7 @@
 
   const topGenres = $derived.by(() => {
     const counts: Record<string, number> = {};
-    for (const t of library.tracks) {
+    for (const t of projectedTracks) {
       const g = t.genre;
       if (g?.trim()) {
         const normalized = g.split(/[---,;/]/)[0].trim();
