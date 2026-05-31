@@ -16,6 +16,9 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Make all phase-level early returns emit enough state for the UI to show a specific failure reason, not just `analysis-complete`.
 - [x] Add a user-facing recovery action for stuck `IN_PROGRESS` rows beyond implicit reset on the next run.
 - [x] Review pass reset behavior so each reset clears all derived outputs owned by that pass, including vector-table orphans.
+- [x] Add `raw_result TEXT` column to `track_passes` and populate it with structured JSON in every pass: audio_analysis (BPM/key/loudness), bpm_correction and bpm_refinement (input + decision + rule), CLAP (window positions + embedding norm), essentia (genre top-3 with scores + patch count), description_embed (embedded text or skip reason), qwen (HTTP response + parse summary).
+- [x] Fix library store not reloading tracks after analysis: add `analysis-phase-complete` listener to `LibraryStore` so extracted fields become visible in the UI without a manual refresh.
+- [x] Robustify Qwen response parser to handle literal `\n` escape sequences (model emits backslash-n instead of real newlines) and semicolon-delimited field separators; both formats previously parsed only the first field.
 
 ## Analysis Pass Code Organization
 
@@ -23,7 +26,7 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Introduce a single pass registry/spec for pass name, priority, version, dependencies, owned outputs, and reset behavior.
 - [x] Extract shared `track_passes` lifecycle helpers for backfill, stale-version invalidation, pending-job loading, in-progress marking, DONE/FAILED updates, progress events, and sidecar saves.
 - [ ] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements.
-- [ ] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical.
+- [~] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical. (Partially done: unified `raw_result` logging, `QwenOutput` struct, typed Output tuples for BPM passes and description_embed. Sidecar save paths and some Output shapes still diverge.)
 
 ## Music Map Quality
 
