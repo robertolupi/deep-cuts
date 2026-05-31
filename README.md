@@ -99,7 +99,7 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 
 ## 🚀 Development & Build
 
-> **Note:** Deep Cuts is currently source-only — no pre-built binaries are distributed yet. You need to build from source.
+> **Note:** Deep Cuts is currently source-only — see [Binary Releases](#-binary-releases) for what's planned. You need to build from source.
 
 ### Prerequisites
 
@@ -169,6 +169,19 @@ npm test
 ```bash
 npm run tauri build
 ```
+
+---
+
+## 📦 Binary Releases
+
+Deep Cuts is currently source-only.
+
+The main blocker for packaged releases is bundling the local LLM runtime and adding a first-run model download flow. Planned binary releases will include:
+
+- Bundled llama.cpp / llama-server runtime
+- In-app model download and verification
+- Selectable analysis profiles
+- Graceful operation without optional AI models
 
 ---
 
