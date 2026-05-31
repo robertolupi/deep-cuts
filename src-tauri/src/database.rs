@@ -307,7 +307,7 @@ mod tests {
 
         // Verify CRUD on watched_directories
         conn.execute(
-            "INSERT INTO watched_directories (name, path) VALUES ('My Music', '/Users/rlupi/Music')",
+            "INSERT INTO watched_directories (name, path) VALUES ('My Music', '/Users/user/Music')",
             [],
         ).unwrap();
 
@@ -325,7 +325,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(dir.name, "My Music");
-        assert_eq!(dir.path, "/Users/rlupi/Music");
+        assert_eq!(dir.path, "/Users/user/Music");
 
         // Verify CRUD on tracks
         conn.execute(
@@ -334,7 +334,7 @@ mod tests {
                 duration_seconds, sample_rate, bitrate, channels, bit_depth,
                 title, artist, album, genre, year, track_number
             ) VALUES (
-                ?1, '/Users/rlupi/Music/song.mp3', 'song.mp3', 5000000, 1780000000,
+                ?1, '/Users/user/Music/song.mp3', 'song.mp3', 5000000, 1780000000,
                 180, 44100, 320, 2, 16,
                 'My Song', 'My Artist', 'My Album', 'Rock', 2026, 3
             )",
@@ -412,7 +412,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(track.watched_directory_id, dir.id);
-        assert_eq!(track.path, "/Users/rlupi/Music/song.mp3");
+        assert_eq!(track.path, "/Users/user/Music/song.mp3");
         assert_eq!(track.filename, "song.mp3");
         assert_eq!(track.size_bytes, 5000000);
         assert_eq!(track.last_modified, 1780000000);

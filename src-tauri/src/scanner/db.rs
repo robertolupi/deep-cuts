@@ -161,13 +161,13 @@ mod tests {
         let mut conn = setup_test_db();
 
         conn.execute(
-            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/rlupi/Music')",
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/user/Music')",
             [],
         ).unwrap();
 
         let track = ParsedAudioTags {
             watched_directory_id: 1,
-            path: "/Users/rlupi/Music/song1.mp3".to_string(),
+            path: "/Users/user/Music/song1.mp3".to_string(),
             filename: "song1.mp3".to_string(),
             size_bytes: 4096,
             last_modified: 1700000000,
@@ -194,14 +194,14 @@ mod tests {
 
         upsert_tracks_transactional(&mut conn, &[track.clone()]).unwrap();
 
-        let cached = get_cached_track_details(&conn, "/Users/rlupi/Music/song1.mp3").unwrap();
+        let cached = get_cached_track_details(&conn, "/Users/user/Music/song1.mp3").unwrap();
         assert_eq!(cached, (4096, 1700000000));
 
-        assert!(get_cached_track_details(&conn, "/Users/rlupi/Music/unknown.mp3").is_none());
+        assert!(get_cached_track_details(&conn, "/Users/user/Music/unknown.mp3").is_none());
 
-        let ids = get_track_ids_by_paths(&conn, &["/Users/rlupi/Music/song1.mp3"]);
-        assert!(ids.contains_key("/Users/rlupi/Music/song1.mp3"));
-        let track_id = ids["/Users/rlupi/Music/song1.mp3"];
+        let ids = get_track_ids_by_paths(&conn, &["/Users/user/Music/song1.mp3"]);
+        assert!(ids.contains_key("/Users/user/Music/song1.mp3"));
+        let track_id = ids["/Users/user/Music/song1.mp3"];
         assert!(track_id > 0);
     }
 
@@ -210,14 +210,14 @@ mod tests {
         let mut conn = setup_test_db();
 
         conn.execute(
-            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Collection', '/Users/rlupi/Music')",
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Collection', '/Users/user/Music')",
             [],
         ).unwrap();
 
         let tracks = vec![
             ParsedAudioTags {
                 watched_directory_id: 1,
-                path: "/Users/rlupi/Music/stay.mp3".to_string(),
+                path: "/Users/user/Music/stay.mp3".to_string(),
                 filename: "stay.mp3".to_string(),
                 size_bytes: 1000,
                 last_modified: 1700000000,
@@ -243,7 +243,7 @@ mod tests {
             },
             ParsedAudioTags {
                 watched_directory_id: 1,
-                path: "/Users/rlupi/Music/delete_me.mp3".to_string(),
+                path: "/Users/user/Music/delete_me.mp3".to_string(),
                 filename: "delete_me.mp3".to_string(),
                 size_bytes: 2000,
                 last_modified: 1700000000,
@@ -277,7 +277,7 @@ mod tests {
         assert_eq!(count, 2);
 
         let mut active_paths = HashSet::new();
-        active_paths.insert("/Users/rlupi/Music/stay.mp3".to_string());
+        active_paths.insert("/Users/user/Music/stay.mp3".to_string());
 
         let deleted = reconcile_deleted_tracks(&mut conn, 1, &active_paths).unwrap();
         assert_eq!(deleted, 1);
@@ -289,7 +289,7 @@ mod tests {
 
         let stay_exists: bool = conn
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = '/Users/rlupi/Music/stay.mp3')",
+                "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = '/Users/user/Music/stay.mp3')",
                 [],
                 |r| r.get(0),
             )

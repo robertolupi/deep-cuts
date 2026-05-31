@@ -369,19 +369,19 @@ mod tests {
         
         // Insert a watched directory to satisfy the foreign key constraint
         conn.execute(
-            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/rlupi/Music')",
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/user/Music')",
             []
         ).unwrap();
         
         // Insert sample tracks
         conn.execute(
             "INSERT INTO tracks (watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
-             VALUES (1, '/Users/rlupi/Music/t1.mp3', 't1.mp3', 100, 1780000000, 100)",
+             VALUES (1, '/Users/user/Music/t1.mp3', 't1.mp3', 100, 1780000000, 100)",
             []
         ).unwrap();
         conn.execute(
             "INSERT INTO tracks (watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
-             VALUES (1, '/Users/rlupi/Music/t2.mp3', 't2.mp3', 100, 1780000000, 100)",
+             VALUES (1, '/Users/user/Music/t2.mp3', 't2.mp3', 100, 1780000000, 100)",
             []
         ).unwrap();
 
