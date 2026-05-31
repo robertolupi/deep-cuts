@@ -13,8 +13,8 @@ The Sonic DNA and Multimodal QA suite represents research-level, cutting-edge au
 * **Database Size Bloat**: A 5-minute song analyzed in 10-second windows with 5-second steps generates **60 embeddings** (instead of just 1 global embedding). For a library of 10,000 tracks, this multiplies database storage sizes by **20x to 50x**, adding gigabytes of database overhead.
 
 ### B. Rust Backend Services
-* **Sliding Window Extractor**: Extend [embeddings.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/embeddings.rs) to split decodings into sequential 10-second buffers, feeding each to the CLAP encoder sequentially.
-* **DSP EQ Filters**: Implement standard digital signal processing IIR/FIR filters (Butterworth low-pass, high-pass, and band-pass) in [dsp.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/dsp.rs) to pre-filter audio buffers.
+* **Sliding Window Extractor**: Extend [embeddings.rs](../../src-tauri/src/embeddings.rs) to split decodings into sequential 10-second buffers, feeding each to the CLAP encoder sequentially.
+* **DSP EQ Filters**: Implement standard digital signal processing IIR/FIR filters (Butterworth low-pass, high-pass, and band-pass) in [dsp.rs](../../src-tauri/src/dsp.rs) to pre-filter audio buffers.
 * **DTW Alignment Engine**: Write a Dynamic Time Warping matrix-search algorithm in Rust to align vector sequences of different lengths.
 * **Multimodal QA Completions Handler**: Inside `llama.rs` and `analysis.rs`, implement a conversational completions coordinator. Since Qwen2-Audio has a specific multimodal prompt structure, we must compile chat history, slice target audio sections into WAV format, encode them as Base64, package them in the LLM completions payload, and stream the text response back.
 

@@ -9,7 +9,7 @@ Local NLP Semantic Search allows users to query their entire music library using
 ## 2. Technical Feasibility & Architecture
 
 ### A. Database Changes
-* **Database Schema**: No new tables are needed. The SQLite schema migration [11_description_embeddings.sql](file:///Users/rlupi/src/deep-cuts/src-tauri/migrations/11_description_embeddings.sql) already sets up a 384-dimensional `vec0` virtual table named `description_embeddings`.
+* **Database Schema**: No new tables are needed. The SQLite schema migration [11_description_embeddings.sql](../../src-tauri/migrations/11_description_embeddings.sql) already sets up a 384-dimensional `vec0` virtual table named `description_embeddings`.
 * **Queries**: Similarity queries will run against the virtual table using `MATCH` syntax:
   ```sql
   SELECT track_id, distance 
@@ -20,7 +20,7 @@ Local NLP Semantic Search allows users to query their entire music library using
   ```
 
 ### B. Rust Backend Services
-* **Model Inference**: We already have `run_sentence_embed(text, app)` fully implemented inside [embeddings.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/embeddings.rs) which leverages the local sentence transformer session (`all-MiniLM-L6-v2.onnx`) to generate L2-normalized 384-d float vectors.
+* **Model Inference**: We already have `run_sentence_embed(text, app)` fully implemented inside [embeddings.rs](../../src-tauri/src/embeddings.rs) which leverages the local sentence transformer session (`all-MiniLM-L6-v2.onnx`) to generate L2-normalized 384-d float vectors.
 * **Tauri Command**: Implement a new IPC command `search_similar_tracks_semantic(query: String, limit: usize)` inside `commands/map.rs` or `commands/analysis.rs` that:
   1. Executes `run_sentence_embed` on the user's query.
   2. Converts the float array into standard bytes.

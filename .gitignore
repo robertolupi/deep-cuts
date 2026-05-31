@@ -19,3 +19,6 @@ src-tauri/deep_cuts.db
 scratch/
 scratch
 *.egg-info/
+
+# Private planning docs
+doc/private/
