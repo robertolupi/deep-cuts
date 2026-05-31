@@ -25,7 +25,7 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Split `src-tauri/src/analysis.rs` into per-pass modules, keeping orchestration separate from pass implementation details.
 - [x] Introduce a single pass registry/spec for pass name, priority, version, dependencies, owned outputs, and reset behavior.
 - [x] Extract shared `track_passes` lifecycle helpers for backfill, stale-version invalidation, pending-job loading, in-progress marking, DONE/FAILED updates, progress events, and sidecar saves.
-- [ ] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements.
+- [x] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements. `sidecar::save` reads fields dynamically from `PassSpec.owned_columns` via `PASS_REGISTRY` (done in the modularization refactor); the framework loop now triggers it automatically for any pass with owned columns.
 - [x] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical. Added `raw_result_json` trait method so the default `run_pass` loop writes raw_result and triggers `sidecar::save` for all passes; custom runners (audio, clap, essentia) handle both inline. Eliminated all hardcoded `pass_name = '...'` strings from persistence SQL.
 
 ## Music Map Quality
