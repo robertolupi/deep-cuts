@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { library } from "$lib/stores/library.svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { onMount } from "svelte";
 
   let name = $state("");
   let path = $state("");
@@ -68,6 +69,45 @@
       ui.showToast(`Exported ${count} sidecar file${count === 1 ? "" : "s"}.`, "success");
     } catch (err: any) { ui.showToast(err.toString(), "error"); }
   }
+
+  let configuredModelPath = $state<string | null>(null);
+  let modelPathMessage = $state("");
+
+  async function loadModelPathSetting() {
+    try {
+      configuredModelPath = await invoke<string | null>("get_model_path_setting");
+    } catch (e) {
+      console.error("Failed to load model path setting:", e);
+    }
+  }
+
+  async function chooseModelPath() {
+    modelPathMessage = "";
+    try {
+      const path = await invoke<string | null>("select_directory");
+      if (!path) return;
+      await invoke("save_model_path_setting", { path });
+      configuredModelPath = path;
+      modelPathMessage = "Model folder saved.";
+    } catch (e: any) {
+      modelPathMessage = e?.toString() ?? "Failed to save model folder.";
+    }
+  }
+
+  async function clearModelPath() {
+    modelPathMessage = "";
+    try {
+      await invoke("save_model_path_setting", { path: null });
+      configuredModelPath = null;
+      modelPathMessage = "Using default model locations.";
+    } catch (e: any) {
+      modelPathMessage = e?.toString() ?? "Failed to clear model folder.";
+    }
+  }
+
+  onMount(() => {
+    loadModelPathSetting();
+  });
 </script>
 
 <div class="settings-layout">
@@ -144,6 +184,31 @@
           <span class="stat-label">Tracks indexed</span>
         </div>
       </div>
+    </div>
+
+    <!-- Model folder card -->
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-title">Model Folder</span>
+        <span class="card-subtitle">Location of neural network model files (requires ~6.3 GB of disk space)</span>
+      </div>
+
+      <div class="field-group">
+        <div class="model-path-value" title={configuredModelPath ?? 'Default locations'}>
+          {configuredModelPath ?? 'Default locations'}
+        </div>
+      </div>
+
+      <div class="model-path-actions">
+        <button class="sg-btn sg-btn-primary" onclick={chooseModelPath}>Choose Folder</button>
+        {#if configuredModelPath}
+          <button class="sg-btn" onclick={clearModelPath}>Clear</button>
+        {/if}
+      </div>
+
+      {#if modelPathMessage}
+        <div class="model-path-message">{modelPathMessage}</div>
+      {/if}
     </div>
   </div>
 
@@ -241,6 +306,34 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .model-path-value {
+    min-height: 24px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    background: rgba(0,0,0,0.22);
+    color: var(--sg-on-surface, #e3e1e9);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  .model-path-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .model-path-message {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-primary, #00f0ff);
   }
 
   /* ── Card ── */
