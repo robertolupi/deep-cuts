@@ -31,6 +31,7 @@ struct PreppedSpectrogram {
     track_id: i64,
     result: Result<[Vec<f32>; 3], String>,
     elapsed_ms: i64,
+    window_pcts: [f64; 3],
 }
 
 impl super::AnalysisPass for ClapPass {
@@ -161,11 +162,11 @@ impl super::AnalysisPass for ClapPass {
                 };
 
                 let start = std::time::Instant::now();
+                let window_pcts = embeddings::select_clap_window_pcts(
+                    job.waveform_data.as_deref(),
+                    job.duration_seconds,
+                );
                 let result = (|| -> Result<[Vec<f32>; 3], String> {
-                    let window_pcts = embeddings::select_clap_window_pcts(
-                        job.waveform_data.as_deref(),
-                        job.duration_seconds,
-                    );
                     Ok([
                         embeddings::preprocess_window_at_pct(
                             &job.path,
@@ -193,6 +194,7 @@ impl super::AnalysisPass for ClapPass {
                             track_id: job.track_id,
                             result: Ok(mel_windows),
                             elapsed_ms,
+                            window_pcts,
                         });
                     }
                     Err(e) => {
@@ -206,6 +208,7 @@ impl super::AnalysisPass for ClapPass {
                             track_id: job.track_id,
                             result: Err(e),
                             elapsed_ms,
+                            window_pcts,
                         });
                     }
                 }
@@ -229,6 +232,15 @@ impl super::AnalysisPass for ClapPass {
             let conn = super::lock_analysis_conn(conn_arc, self.name())?;
             match result {
                 Ok(embedding) => {
+                    let norm: f64 = {
+                        let sq: f32 = embedding.iter().map(|x| x * x).sum();
+                        ((sq.sqrt() as f64) * 10_000.0).round() / 10_000.0
+                    };
+                    let raw_result = serde_json::json!({
+                        "windows_pct": prepped.window_pcts,
+                        "embedding_norm": norm,
+                        "embedding_dim": embedding.len(),
+                    }).to_string();
                     let job_placeholder = ClapJob {
                         pass_id: prepped.pass_id,
                         track_id: prepped.track_id,
@@ -239,11 +251,12 @@ impl super::AnalysisPass for ClapPass {
                     self.save_result(&conn, &job_placeholder, embedding, elapsed_ms)?;
                     let _ = conn.execute(
                         "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                         pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                         pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
                         rusqlite::params![
                             pass_status::DONE,
                             elapsed_ms,
                             pass_version::CLAP,
+                            raw_result,
                             prepped.pass_id
                         ],
                     );

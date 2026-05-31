@@ -28,6 +28,7 @@ struct PreppedPatches {
     pass_id: i64,
     track_id: i64,
     patches: Vec<Vec<f32>>,
+    patch_count: usize,
 }
 
 impl super::AnalysisPass for EssentiaPass {
@@ -193,10 +194,12 @@ impl super::AnalysisPass for EssentiaPass {
 
                     match result {
                         Ok(patches) => {
+                            let patch_count = patches.len();
                             let _ = tx_clone.send(PreppedPatches {
                                 pass_id: job.pass_id,
                                 track_id: job.track_id,
                                 patches,
+                                patch_count,
                             });
                         }
                         Err(e) => {
@@ -209,6 +212,7 @@ impl super::AnalysisPass for EssentiaPass {
                                 pass_id: job.pass_id,
                                 track_id: job.track_id,
                                 patches: vec![],
+                                patch_count: 0,
                             });
                         }
                     }
@@ -231,6 +235,13 @@ impl super::AnalysisPass for EssentiaPass {
 
             match result {
                 Ok(r) => {
+                    let raw_result = serde_json::json!({
+                        "genre": r.genre,
+                        "genre_top3": r.genre_top3,
+                        "vocal": r.vocal,
+                        "vocal_confidence": r.vocal_confidence,
+                        "patch_count": prepped.patch_count,
+                    }).to_string();
                     let job_placeholder = EssentiaJob {
                         pass_id: prepped.pass_id,
                         track_id: prepped.track_id,
@@ -239,11 +250,12 @@ impl super::AnalysisPass for EssentiaPass {
                     self.save_result(&conn, &job_placeholder, r, elapsed_ms)?;
                     let _ = conn.execute(
                         "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                         pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                         pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
                         rusqlite::params![
                             pass_status::DONE,
                             elapsed_ms,
                             pass_version::ESSENTIA,
+                            raw_result,
                             prepped.pass_id
                         ],
                     );

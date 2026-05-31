@@ -22,7 +22,7 @@ pub struct BpmRefinementPass;
 
 impl super::AnalysisPass for BpmRefinementPass {
     type Job = BpmJob;
-    type Output = crate::bpm::CorrectResult;
+    type Output = (crate::bpm::CorrectResult, String);
 
     fn name(&self) -> &'static str {
         "bpm_refinement"
@@ -79,7 +79,27 @@ impl super::AnalysisPass for BpmRefinementPass {
     }
 
     fn execute_job(&self, _app: &tauri::AppHandle, job: &Self::Job) -> Result<Self::Output, String> {
-        Ok(crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref()))
+        let result = crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref());
+        let raw_result = match &result {
+            crate::bpm::CorrectResult::Corrected(v) => serde_json::json!({
+                "bpm_raw": job.bpm_raw,
+                "detected_genre": job.detected_genre,
+                "result": "corrected",
+                "rule": if job.bpm_raw.map_or(false, |b| b > *v) { "halved" } else { "doubled" },
+                "bpm_corrected": v,
+            }),
+            crate::bpm::CorrectResult::Unchanged => serde_json::json!({
+                "bpm_raw": job.bpm_raw,
+                "detected_genre": job.detected_genre,
+                "result": "unchanged",
+            }),
+            crate::bpm::CorrectResult::Null => serde_json::json!({
+                "bpm_raw": job.bpm_raw,
+                "detected_genre": job.detected_genre,
+                "result": "nulled",
+            }),
+        }.to_string();
+        Ok((result, raw_result))
     }
 
     fn save_result(
@@ -89,7 +109,8 @@ impl super::AnalysisPass for BpmRefinementPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        match output {
+        let (result, raw_result) = output;
+        match result {
             crate::bpm::CorrectResult::Corrected(new_bpm) => {
                 conn.execute(
                     "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
@@ -104,6 +125,10 @@ impl super::AnalysisPass for BpmRefinementPass {
             }
             crate::bpm::CorrectResult::Unchanged => {}
         }
+        conn.execute(
+            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'bpm_refinement'",
+            rusqlite::params![raw_result, job.track_id],
+        ).map_err(|e| e.to_string())?;
         Ok(())
     }
 }

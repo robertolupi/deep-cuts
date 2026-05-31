@@ -45,7 +45,13 @@ impl super::AnalysisPass for QwenPass {
     }
 
     fn owned_columns(&self) -> &'static [&'static str] {
-        &["is_music", "ai_genre", "ai_mood", "ai_instruments", "description"]
+        &[
+            "is_music",
+            "ai_genre",
+            "ai_mood",
+            "ai_instruments",
+            "description",
+        ]
     }
 
     fn owned_tables(&self) -> &'static [&'static str] {
@@ -67,33 +73,40 @@ impl super::AnalysisPass for QwenPass {
     }
 
     fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String> {
-        let mut stmt = conn.prepare(
-            "SELECT tp.id, tp.track_id, t.path, t.bpm, t.key, t.scale, t.genre
+        let mut stmt = conn
+            .prepare(
+                "SELECT tp.id, tp.track_id, t.path, t.bpm, t.key, t.scale, t.genre
              FROM track_passes tp
              JOIN tracks t ON t.id = tp.track_id
              WHERE tp.status = ?1 AND tp.pass_name = 'qwen'
              ORDER BY tp.id ASC",
-        ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
-        let rows = stmt.query_map([pass_status::PENDING], |row| {
-            Ok(QwenJob {
-                pass_id: row.get(0)?,
-                track_id: row.get(1)?,
-                path: row.get(2)?,
-                bpm: row.get(3)?,
-                key: row.get(4)?,
-                scale: row.get(5)?,
-                genre: row.get(6)?,
+        let rows = stmt
+            .query_map([pass_status::PENDING], |row| {
+                Ok(QwenJob {
+                    pass_id: row.get(0)?,
+                    track_id: row.get(1)?,
+                    path: row.get(2)?,
+                    bpm: row.get(3)?,
+                    key: row.get(4)?,
+                    scale: row.get(5)?,
+                    genre: row.get(6)?,
+                })
             })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(rows)
     }
 
-    fn execute_job(&self, _app: &tauri::AppHandle, job: &Self::Job) -> Result<Self::Output, String> {
+    fn execute_job(
+        &self,
+        _app: &tauri::AppHandle,
+        job: &Self::Job,
+    ) -> Result<Self::Output, String> {
         let bpm = job.bpm.unwrap_or(120.0);
         let key = job.key.as_deref().unwrap_or("C");
         let scale = job.scale.as_deref().unwrap_or("major");
@@ -127,7 +140,7 @@ impl super::AnalysisPass for QwenPass {
             }
         }
         prompt.push_str(
-            "\nListen carefully and respond using ONLY the following format, one field per line, nothing else:\n\n\
+            "\nListen carefully and respond strictly in English and using ONLY the following format, one field per line, nothing else:\n\n\
             MUSIC: yes or no (is this music, as opposed to speech, podcast, sound effects, or silence?)\n\
             GENRE: genre and subgenre in a few words\n\
             MOOD: mood and emotional feel in a few words\n\
@@ -161,7 +174,10 @@ impl super::AnalysisPass for QwenPass {
             "http://127.0.0.1:{}/v1/chat/completions",
             crate::llama::LLAMA_PORT
         );
-        log::info!("[qwen] Dispatching audio to local llama-server completions endpoint for track {}...", job.track_id);
+        log::info!(
+            "[qwen] Dispatching audio to local llama-server completions endpoint for track {}...",
+            job.track_id
+        );
 
         let resp = ureq::post(&api_url)
             .timeout(std::time::Duration::from_secs(120))
@@ -248,14 +264,40 @@ impl super::AnalysisPass for QwenPass {
                 description_val,
                 job.track_id
             ],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
-        // Persist raw completions response in the newly migrated track_passes table column
+        // Persist raw completions response + parse summary
+        let fields_found: Vec<&str> = [
+            output.parsed.is_music.map(|_| "is_music"),
+            output.parsed.ai_genre.as_ref().map(|_| "genre"),
+            output.parsed.ai_mood.as_ref().map(|_| "mood"),
+            output.parsed.ai_instruments.as_ref().map(|_| "instruments"),
+            output.parsed.description.as_ref().map(|_| "description"),
+        ]
+        .iter()
+        .filter_map(|x| *x)
+        .collect();
+        let all_fields = ["is_music", "genre", "mood", "instruments", "description"];
+        let missing: Vec<&str> = all_fields
+            .iter()
+            .filter(|f| !fields_found.contains(*f))
+            .copied()
+            .collect();
+        let raw_result = serde_json::json!({
+            "parse": {
+                "fields_found": fields_found,
+                "missing": missing,
+            },
+            "http": output.raw_response,
+        })
+        .to_string();
         conn.execute(
             "UPDATE track_passes SET raw_result = ?1
              WHERE track_id = ?2 AND pass_name = 'qwen'",
-            rusqlite::params![output.raw_response, job.track_id],
-        ).map_err(|e| e.to_string())?;
+            rusqlite::params![raw_result, job.track_id],
+        )
+        .map_err(|e| e.to_string())?;
 
         // Re-queue the description_embed pass for this track so it runs after description is available
         if description_val.is_some() {
@@ -263,7 +305,8 @@ impl super::AnalysisPass for QwenPass {
                 "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP
                  WHERE track_id = ?2 AND pass_name = 'description_embed'",
                 rusqlite::params![pass_status::PENDING, job.track_id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
 
         // Save to sidecar
@@ -285,7 +328,13 @@ impl QwenPass {
         priority: 30,
         version: pass_version::QWEN,
         dependencies: &["audio_analysis", "bpm_correction"],
-        owned_columns: &["is_music", "ai_genre", "ai_mood", "ai_instruments", "description"],
+        owned_columns: &[
+            "is_music",
+            "ai_genre",
+            "ai_mood",
+            "ai_instruments",
+            "description",
+        ],
         owned_tables: &["description_embeddings"],
         custom_reset: None,
     };
@@ -377,8 +426,14 @@ mod tests {
         assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("Electronic, Techno"));
         assert_eq!(res.ai_mood.as_deref(), Some("aggressive, driving"));
-        assert_eq!(res.ai_instruments.as_deref(), Some("synthesizer, drum machine"));
-        assert_eq!(res.description.as_deref(), Some("A heavy pounding techno track."));
+        assert_eq!(
+            res.ai_instruments.as_deref(),
+            Some("synthesizer, drum machine")
+        );
+        assert_eq!(
+            res.description.as_deref(),
+            Some("A heavy pounding techno track.")
+        );
     }
 
     #[test]
@@ -392,16 +447,21 @@ mod tests {
 
     #[test]
     fn test_parse_numbered_list_response() {
-        let content = "1. MUSIC: yes\n2. GENRE: Ambient\n3. DESCRIPTION: A very quiet ambient soundscape.";
+        let content =
+            "1. MUSIC: yes\n2. GENRE: Ambient\n3. DESCRIPTION: A very quiet ambient soundscape.";
         let res = parse_qwen_response(content);
         assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("Ambient"));
-        assert_eq!(res.description.as_deref(), Some("A very quiet ambient soundscape."));
+        assert_eq!(
+            res.description.as_deref(),
+            Some("A very quiet ambient soundscape.")
+        );
     }
 
     #[test]
     fn test_parse_fallback_response() {
-        let content = "Just a plain paragraph describing the track completely without headers or colons.";
+        let content =
+            "Just a plain paragraph describing the track completely without headers or colons.";
         let res = parse_qwen_response(content);
         assert_eq!(res.is_music, Some(1)); // fallback defaults to 1
         assert_eq!(res.description.as_deref(), Some(content));
@@ -427,7 +487,10 @@ mod tests {
         assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("electronic, house, techno"));
         assert_eq!(res.ai_mood.as_deref(), Some("energetic, groovy"));
-        assert_eq!(res.ai_instruments.as_deref(), Some("synthesizer, bass, drums"));
+        assert_eq!(
+            res.ai_instruments.as_deref(),
+            Some("synthesizer, bass, drums")
+        );
         assert_eq!(res.description.as_deref(), Some("A lively dance track."));
     }
 }

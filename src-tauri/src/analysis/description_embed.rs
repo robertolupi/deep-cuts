@@ -25,7 +25,7 @@ pub struct DescriptionEmbedPass;
 
 impl super::AnalysisPass for DescriptionEmbedPass {
     type Job = DescriptionJob;
-    type Output = Option<Vec<f32>>;
+    type Output = (Option<Vec<f32>>, String);
 
     fn name(&self) -> &'static str {
         "description_embed"
@@ -85,12 +85,16 @@ impl super::AnalysisPass for DescriptionEmbedPass {
                 "[description_embed] Track {} marked as non-music. Skipping embedding.",
                 job.track_id
             );
-            return Ok(None);
+            let raw = serde_json::json!({"skipped": true, "reason": "non_music"}).to_string();
+            return Ok((None, raw));
         }
 
         let desc = match &job.description {
             Some(d) if !d.trim().is_empty() => d,
-            _ => return Ok(None), // no description, mark done with no embedding
+            _ => {
+                let raw = serde_json::json!({"skipped": true, "reason": "no_description"}).to_string();
+                return Ok((None, raw));
+            }
         };
 
         // Build concatenated text for richer semantic signal
@@ -112,8 +116,14 @@ impl super::AnalysisPass for DescriptionEmbedPass {
         }
         embed_text.push_str(desc);
 
+        let raw = serde_json::json!({
+            "skipped": false,
+            "embed_text_len": embed_text.len(),
+            "embed_text": embed_text,
+        }).to_string();
+
         let embedding = crate::embeddings::run_sentence_embed(&embed_text, Some(app))?;
-        Ok(Some(embedding))
+        Ok((Some(embedding), raw))
     }
 
     fn save_result(
@@ -123,13 +133,18 @@ impl super::AnalysisPass for DescriptionEmbedPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        if let Some(embedding) = output {
-            let blob: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
+        let (embedding, raw_result) = output;
+        if let Some(emb) = embedding {
+            let blob: Vec<u8> = emb.iter().flat_map(|&f| f.to_le_bytes()).collect();
             conn.execute(
                 "INSERT OR REPLACE INTO description_embeddings (track_id, embedding) VALUES (?1, ?2)",
                 rusqlite::params![job.track_id, blob],
             ).map_err(|e| e.to_string())?;
         }
+        conn.execute(
+            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'description_embed'",
+            rusqlite::params![raw_result, job.track_id],
+        ).map_err(|e| e.to_string())?;
 
         // Save sidecar
         if let Err(e) = crate::scanner::sidecar::save(conn, job.track_id) {

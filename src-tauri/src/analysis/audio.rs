@@ -100,13 +100,24 @@ pub fn run_audio_analysis_phase(
                                 job.track_id,
                             ],
                         );
+                        let raw_result = serde_json::json!({
+                            "bpm_raw": analysis.bpm,
+                            "key": analysis.key,
+                            "scale": analysis.scale,
+                            "key_strength": analysis.key_strength,
+                            "loudness_lufs": analysis.loudness_lufs,
+                            "loudness_range": analysis.loudness_range,
+                            "duration_s": analysis.duration_seconds,
+                            "has_long_silence": analysis.has_long_silence,
+                        }).to_string();
                         let _ = conn.execute(
                             "UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                             pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
+                             pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
                             rusqlite::params![
                                 pass_status::DONE,
                                 elapsed_ms,
                                 pass_version::AUDIO_ANALYSIS,
+                                raw_result,
                                 job.pass_id
                             ],
                         );

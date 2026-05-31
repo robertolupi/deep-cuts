@@ -27,6 +27,7 @@ static LABELS_CACHE: OnceLock<HashMap<String, Result<Vec<String>, String>>> = On
 #[derive(Debug, Serialize, Clone)]
 pub struct ClassifierResult {
     pub genre: Option<String>,
+    pub genre_top3: Vec<(String, f64)>,
     pub vocal: Option<String>,
     pub vocal_confidence: Option<f64>,
     pub mood_happy: Option<f64>,
@@ -267,11 +268,14 @@ pub fn run_classifier_inference(
         "PartitionedCall:0",
     )?;
     let genre_labels = load_labels("genre_discogs400", app)?;
-    let best_genre = genre_probs
+    let mut indexed: Vec<(usize, f32)> = genre_probs.iter().cloned().enumerate().collect();
+    indexed.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    let best_genre = indexed.first().and_then(|(i, _)| genre_labels.get(*i).cloned());
+    let genre_top3: Vec<(String, f64)> = indexed
         .iter()
-        .enumerate()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-        .and_then(|(i, _)| genre_labels.get(i).cloned());
+        .take(3)
+        .filter_map(|(i, p)| genre_labels.get(*i).map(|l| (l.clone(), (*p as f64 * 10_000.0).round() / 10_000.0)))
+        .collect();
 
     // ── 5. Voice / Instrumental ───────────────────────────────────────────────
     let vi_probs = run_head("voice_instrumental", "embeddings", "activations")?;
@@ -298,6 +302,7 @@ pub fn run_classifier_inference(
 
     Ok(ClassifierResult {
         genre: best_genre,
+        genre_top3,
         vocal: best_vocal,
         vocal_confidence,
         mood_happy: binary_mood("mood_happy", "happy"),
