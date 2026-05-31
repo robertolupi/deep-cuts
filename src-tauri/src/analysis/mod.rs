@@ -111,6 +111,12 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
         duration_ms: i64,
     ) -> Result<(), String>;
 
+    /// Optional structured JSON string logged to `track_passes.raw_result` on success.
+    /// Called before `save_result` so the output can be borrowed without affecting the move.
+    fn raw_result_json(&self, _output: &Self::Output) -> Option<String> {
+        None
+    }
+
     // Setup & Teardown optional hooks
     fn setup(&self, _app: &tauri::AppHandle<R>) -> Result<(), String> {
         Ok(())
@@ -151,11 +157,17 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
             let conn = lock_analysis_conn(conn_arc, self.name())?;
             match result {
                 Ok(output) => {
+                    let raw = self.raw_result_json(&output);
                     self.save_result(&conn, &job, output, duration_ms)?;
                     conn.execute(
-                        "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                        rusqlite::params![pass_status::DONE, duration_ms, self.version(), job.pass_id()],
+                        "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
+                        rusqlite::params![pass_status::DONE, duration_ms, self.version(), raw, job.pass_id()],
                     ).map_err(|e| e.to_string())?;
+                    if !self.owned_columns().is_empty() {
+                        if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id()) {
+                            log::error!("[{}] sidecar save failed for track {}: {}", self.name(), job.track_id(), e);
+                        }
+                    }
                     let _ = app.emit("analysis-progress", serde_json::json!({
                         "track_id": job.track_id(),
                         "pass_name": self.name(),

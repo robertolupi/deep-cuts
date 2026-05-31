@@ -109,7 +109,7 @@ impl super::AnalysisPass for BpmCorrectionPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        let (result, raw_result) = output;
+        let (result, _) = output;
         match result {
             crate::bpm::CorrectResult::Corrected(new_bpm) => {
                 conn.execute(
@@ -125,11 +125,11 @@ impl super::AnalysisPass for BpmCorrectionPass {
             }
             crate::bpm::CorrectResult::Unchanged => {}
         }
-        conn.execute(
-            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'bpm_correction'",
-            rusqlite::params![raw_result, job.track_id],
-        ).map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
+        Some(output.1.clone())
     }
 }
 

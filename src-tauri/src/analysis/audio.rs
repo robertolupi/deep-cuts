@@ -121,6 +121,9 @@ pub fn run_audio_analysis_phase(
                                 job.pass_id
                             ],
                         );
+                        if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
+                            log::error!("[audio_analysis] sidecar save failed for track {}: {}", job.track_id, e);
+                        }
                         let _ = app_clone.emit("analysis-progress", serde_json::json!({
                             "track_id": job.track_id,
                             "status": pass_status::DONE,

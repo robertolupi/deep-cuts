@@ -133,7 +133,7 @@ impl super::AnalysisPass for DescriptionEmbedPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        let (embedding, raw_result) = output;
+        let (embedding, _) = output;
         if let Some(emb) = embedding {
             let blob: Vec<u8> = emb.iter().flat_map(|&f| f.to_le_bytes()).collect();
             conn.execute(
@@ -141,21 +141,11 @@ impl super::AnalysisPass for DescriptionEmbedPass {
                 rusqlite::params![job.track_id, blob],
             ).map_err(|e| e.to_string())?;
         }
-        conn.execute(
-            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'description_embed'",
-            rusqlite::params![raw_result, job.track_id],
-        ).map_err(|e| e.to_string())?;
-
-        // Save sidecar
-        if let Err(e) = crate::scanner::sidecar::save(conn, job.track_id) {
-            log::error!(
-                "[description_embed] Failed to save sidecar metadata for track {}: {}",
-                job.track_id,
-                e
-            );
-        }
-
         Ok(())
+    }
+
+    fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
+        Some(output.1.clone())
     }
 }
 

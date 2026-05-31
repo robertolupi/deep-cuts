@@ -267,7 +267,20 @@ impl super::AnalysisPass for QwenPass {
         )
         .map_err(|e| e.to_string())?;
 
-        // Persist raw completions response + parse summary
+        // Re-queue the description_embed pass for this track so it runs after description is available
+        if description_val.is_some() {
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP
+                 WHERE track_id = ?2 AND pass_name = 'description_embed'",
+                rusqlite::params![pass_status::PENDING, job.track_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
         let fields_found: Vec<&str> = [
             output.parsed.is_music.map(|_| "is_music"),
             output.parsed.ai_genre.as_ref().map(|_| "genre"),
@@ -284,41 +297,10 @@ impl super::AnalysisPass for QwenPass {
             .filter(|f| !fields_found.contains(*f))
             .copied()
             .collect();
-        let raw_result = serde_json::json!({
-            "parse": {
-                "fields_found": fields_found,
-                "missing": missing,
-            },
+        Some(serde_json::json!({
+            "parse": { "fields_found": fields_found, "missing": missing },
             "http": output.raw_response,
-        })
-        .to_string();
-        conn.execute(
-            "UPDATE track_passes SET raw_result = ?1
-             WHERE track_id = ?2 AND pass_name = 'qwen'",
-            rusqlite::params![raw_result, job.track_id],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // Re-queue the description_embed pass for this track so it runs after description is available
-        if description_val.is_some() {
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP
-                 WHERE track_id = ?2 AND pass_name = 'description_embed'",
-                rusqlite::params![pass_status::PENDING, job.track_id],
-            )
-            .map_err(|e| e.to_string())?;
-        }
-
-        // Save to sidecar
-        if let Err(e) = crate::scanner::sidecar::save(conn, job.track_id) {
-            log::error!(
-                "[qwen] Failed to save sidecar metadata for track {}: {}",
-                job.track_id,
-                e
-            );
-        }
-
-        Ok(())
+        }).to_string())
     }
 }
 

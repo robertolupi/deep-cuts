@@ -259,6 +259,9 @@ impl super::AnalysisPass for EssentiaPass {
                             prepped.pass_id
                         ],
                     );
+                    if let Err(e) = crate::scanner::sidecar::save(&conn, prepped.track_id) {
+                        log::error!("[essentia] sidecar save failed for track {}: {}", prepped.track_id, e);
+                    }
                     let _ = app.emit(
                         "analysis-progress",
                         serde_json::json!({

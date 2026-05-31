@@ -26,7 +26,7 @@ This checklist captures concrete follow-up work found during the repository revi
 - [x] Introduce a single pass registry/spec for pass name, priority, version, dependencies, owned outputs, and reset behavior.
 - [x] Extract shared `track_passes` lifecycle helpers for backfill, stale-version invalidation, pending-job loading, in-progress marking, DONE/FAILED updates, progress events, and sidecar saves.
 - [ ] Move sidecar field ownership closer to pass definitions so adding a new pass does not require hand-updating several unrelated SQL statements.
-- [~] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical. (Partially done: unified `raw_result` logging, `QwenOutput` struct, typed Output tuples for BPM passes and description_embed. Sidecar save paths and some Output shapes still diverge.)
+- [x] Standardize pass job structs and result persistence paths so CLAP, Qwen, Essentia, BPM correction, and description embedding follow the same shape where practical. Added `raw_result_json` trait method so the default `run_pass` loop writes raw_result and triggers `sidecar::save` for all passes; custom runners (audio, clap, essentia) handle both inline. Eliminated all hardcoded `pass_name = '...'` strings from persistence SQL.
 
 ## Music Map Quality
 
