@@ -1,11 +1,13 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { getVersion } from "@tauri-apps/api/app";
   import { library } from "$lib/stores/library.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { onMount } from "svelte";
 
   let name = $state("");
   let path = $state("");
+  let appVersion = $state("");
   let isAddLoading = $state(false);
 
   const directories    = $derived(library.directories);
@@ -105,8 +107,9 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     loadModelPathSetting();
+    appVersion = await getVersion();
   });
 </script>
 
@@ -212,7 +215,8 @@
     </div>
   </div>
 
-  <!-- Right column: folder list -->
+  <!-- Right column: folder list + about -->
+  <div class="right-col">
   <div class="sg-card list-card">
     <div class="list-header">
       <div>
@@ -285,6 +289,27 @@
         <p class="empty-sub">Use the form on the left to add a music directory.</p>
       </div>
     {/if}
+  </div>
+
+  <!-- About card -->
+  <div class="sg-card about-card">
+    <div class="card-header">
+      <span class="card-title">About Deep Cuts</span>
+      {#if appVersion}<span class="card-subtitle">v{appVersion}</span>{/if}
+    </div>
+    <p class="about-desc">
+      A local-first music intelligence desktop app that analyzes your audio library with machine
+      learning — BPM, key, genre, mood, and semantic embeddings — so producers can filter, search,
+      and discover reference tracks by sonic characteristics. Everything runs on your machine,
+      with no cloud dependency.
+    </p>
+    <div class="about-meta">
+      <span class="about-copyright">© 2025 Roberto Lupi</span>
+      <span class="about-sep">·</span>
+      <span class="about-license">GNU AGPL v3</span>
+    </div>
+  </div>
+
   </div>
 </div>
 
@@ -659,4 +684,42 @@
   }
 
   .empty-sub { font-size: 10px !important; opacity: 0.7; }
+
+  /* ── Right column wrapper ── */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* ── About card ── */
+  .about-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .about-desc {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.65;
+    color: var(--sg-on-surface, #e3e1e9);
+    opacity: 0.75;
+  }
+
+  .about-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+  }
+
+  .about-sep { opacity: 0.4; }
+
+  .about-license {
+    color: var(--sg-primary, #00f0ff);
+    opacity: 0.7;
+  }
 </style>
