@@ -33,7 +33,7 @@ from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import SpectralEmbedding, MDS
 from sklearn.preprocessing import StandardScaler
 
-DEFAULT_DB = "/Users/rlupi/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db"
+DEFAULT_DB = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
 DEFAULT_OUT = "tools/projection_comparison.png"
 CLAP_DIM = 512
 DESC_DIM = 384

@@ -20,9 +20,7 @@ import sys
 import numpy as np
 import sqlite_vec
 
-DEFAULT_DB = (
-    "/Users/rlupi/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db"
-)
+DEFAULT_DB = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
 
 EMBEDDING_DIM = 512
 PAIRWISE_SAMPLE = 2000   # max tracks used for pairwise distance sampling

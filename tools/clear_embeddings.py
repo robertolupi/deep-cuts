@@ -10,9 +10,7 @@ import argparse
 import sqlite3
 import sqlite_vec
 
-DEFAULT_DB = (
-    "/Users/rlupi/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db"
-)
+DEFAULT_DB = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
 
 
 def main():

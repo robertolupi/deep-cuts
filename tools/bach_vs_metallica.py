@@ -1,3 +1,4 @@
+import os
 import numpy as np, librosa, torch, torch.nn.functional as F
 from transformers import ClapProcessor, ClapModel
 
@@ -7,7 +8,7 @@ CLAP_SR, CLAP_10S_SAMPLES = 48000, 480_000
 model = ClapModel.from_pretrained(MODEL_ID).eval()
 processor = ClapProcessor.from_pretrained(MODEL_ID)
 
-db_path = '/Users/rlupi/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db'
+db_path = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
 import sqlite3, sqlite_vec
 conn = sqlite3.connect(db_path)
 conn.enable_load_extension(True); sqlite_vec.load(conn); conn.enable_load_extension(False)
