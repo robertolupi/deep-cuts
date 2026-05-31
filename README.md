@@ -91,9 +91,48 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 
 ## 🚀 Development & Build
 
+> **Note:** Deep Cuts is currently source-only — no pre-built binaries are distributed yet. You need to build from source.
+
 ### Prerequisites
 
-Ensure you have [Rust](https://www.rust-lang.org/) and [Node.js](https://nodejs.org/) installed.
+| Requirement | Version | Notes |
+|---|---|---|
+| [Rust](https://rustup.rs/) | ≥ 1.77.2 | Install via `rustup` |
+| [Node.js](https://nodejs.org/) | ≥ 18 | LTS recommended |
+| [Python](https://www.python.org/) | ≥ 3.10 | Required to export ONNX models |
+| [llama.cpp](https://github.com/ggerganov/llama.cpp) | latest | Required for Qwen2-Audio descriptions |
+
+On macOS, install llama.cpp via Homebrew:
+
+```bash
+brew install llama.cpp
+```
+
+### Setting Up Models
+
+The `models/` directory is not committed — you must generate or download model files before running the app. See [models/README.md](models/README.md) for full instructions. Quick start:
+
+```bash
+cd tools
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Generate CLAP and sentence encoder models (~700 MB total)
+python tools/export_clap_onnx.py
+python tools/export_sentence_onnx.py
+```
+
+Then download the Essentia classifier models from the [Essentia model hub](https://essentia.upf.edu/models/) and place them in `models/`. The full list is in [models/README.md](models/README.md).
+
+For the Qwen2-Audio pass, download the GGUF weights:
+
+```
+models/Qwen2-Audio-7B-Instruct.Q4_K_M.gguf
+models/Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf
+```
+
+The Qwen pass is optional — the rest of the analysis pipeline runs without it.
 
 ### Installing Dependencies
 
