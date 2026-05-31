@@ -122,7 +122,7 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
         name: "clap",
         priority: 20,
         version: pass_version::CLAP,
-        dependencies: &["bpm_correction"],
+        dependencies: &["audio_analysis"],
         owned_columns: &[],
         owned_tables: &["audio_embeddings", "track_coords"],
         custom_reset: None,
@@ -131,20 +131,12 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
         name: "qwen",
         priority: 30,
         version: pass_version::QWEN,
-        dependencies: &["clap"],
+        dependencies: &["audio_analysis", "bpm_correction"],
         owned_columns: &[
             "is_music", "ai_genre", "ai_mood", "ai_instruments", "description"
         ],
         owned_tables: &["description_embeddings"],
-        custom_reset: Some(|conn| {
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
-                 last_run_at = NULL, duration_ms = NULL WHERE pass_name = 'description_embed'",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-            Ok(())
-        }),
+        custom_reset: None,
     },
     PassSpec {
         name: "description_embed",
@@ -159,7 +151,7 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
         name: "essentia",
         priority: 50,
         version: pass_version::ESSENTIA,
-        dependencies: &["description_embed"],
+        dependencies: &["audio_analysis"],
         owned_columns: &[
             "detected_genre", "detected_vocal", "detected_vocal_confidence",
             "mood_happy", "mood_sad", "mood_aggressive", "mood_relaxed",
@@ -251,6 +243,19 @@ pub fn reset_pass(conn: &rusqlite::Connection, pass_name: &str) -> Result<(), St
     // 4. Run custom pass reset logic if specified
     if let Some(custom_fn) = spec.custom_reset {
         custom_fn(conn)?;
+    }
+
+    // 5. Find and recursively reset any passes that depend on this pass
+    for other_spec in PASS_REGISTRY {
+        if other_spec.dependencies.contains(&pass_name) {
+            log::info!(
+                "[reset] Pass '{}' is a dependency of '{}'. Recursively resetting '{}'.",
+                pass_name,
+                other_spec.name,
+                other_spec.name
+            );
+            reset_pass(conn, other_spec.name)?;
+        }
     }
 
     Ok(())
