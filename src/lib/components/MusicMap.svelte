@@ -221,10 +221,25 @@
     return nearest;
   }
 
+  /**
+   * Converts a client-space point to canvas-internal pixel coordinates.
+   * Necessary because the canvas HTML `width`/`height` attributes are set from
+   * the mapContainer (which includes the toolbar), while the canvas CSS-renders
+   * at a smaller height. Using raw `clientX - rect.left` coordinates without
+   * this scaling causes the hit target to be shifted upward.
+   */
+  function getCanvasCoords(clientX: number, clientY: number): [number, number] {
+    const rect = canvas!.getBoundingClientRect();
+    return [
+      (clientX - rect.left) * (canvas!.width  / rect.width),
+      (clientY - rect.top)  * (canvas!.height / rect.height),
+    ];
+  }
+
   function handleCanvasClick(event: MouseEvent) {
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const nearest = hitTest(event.clientX - rect.left, event.clientY - rect.top, 5.0);
+    const [cx, cy] = getCanvasCoords(event.clientX, event.clientY);
+    const nearest = hitTest(cx, cy, 5.0);
     if (!nearest) return;
     const fullTrack = library.tracks.find(t => t.id === nearest.id);
     if (fullTrack) player.playTrack(fullTrack);
@@ -232,9 +247,7 @@
 
   function handleCanvasMouseMove(event: MouseEvent) {
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = event.clientX - rect.left;
-    const my = event.clientY - rect.top;
+    const [mx, my] = getCanvasCoords(event.clientX, event.clientY);
     const nearest = hitTest(mx, my, 3.0);
     if (nearest !== hoveredTrack) hoveredTrack = nearest;
     hoverX = event.clientX;
