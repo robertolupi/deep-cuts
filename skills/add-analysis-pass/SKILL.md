@@ -5,8 +5,7 @@ description: Checklist and gotchas for adding a new analysis pass to the deep-cu
 
 # Adding a New Analysis Pass
 
-The analysis pipeline lives in `src-tauri/src/analysis.rs`. Passes run sequentially
-in priority order after `audio_analysis` (priority 10) and `clap` (priority 20).
+The analysis pipeline lives in `src-tauri/src/analysis/` and is orchestrated by the unified `PASS_REGISTRY` spec list inside `src-tauri/src/analysis/mod.rs`.
 
 ---
 
@@ -14,11 +13,13 @@ in priority order after `audio_analysis` (priority 10) and `clap` (priority 20).
 
 | Pass | Priority | File |
 |------|----------|------|
-| `audio_analysis` | 10 | `analysis.rs` Phase 1 |
-| `bpm_correction` | 15 | `analysis.rs` Phase 1b — coarse metadata genre |
-| `clap` | 20 | `analysis.rs` Phase 2 |
-| `essentia` | 50 | `analysis.rs` Phase 3 |
-| `bpm_refinement` | 55 | `analysis.rs` Phase 3b — Discogs-400 detected_genre |
+| `audio_analysis` | 10 | `src-tauri/src/analysis/audio.rs` Phase 1 |
+| `bpm_correction` | 15 | `src-tauri/src/analysis/bpm_correction.rs` Phase 1b — coarse metadata genre |
+| `clap` | 20 | `src-tauri/src/analysis/clap.rs` Phase 2 |
+| `qwen` | 30 | `src-tauri/src/analysis/qwen.rs` Phase 3 |
+| `description_embed` | 40 | `src-tauri/src/analysis/description_embed.rs` Phase 4 |
+| `essentia` | 50 | `src-tauri/src/analysis/essentia.rs` Phase 5 |
+| `bpm_refinement` | 55 | `src-tauri/src/analysis/bpm_refinement.rs` Phase 6 |
 
 Pick a priority that places your pass at the right point in that sequence.
 
@@ -29,69 +30,56 @@ Pick a priority that places your pass at the right point in that sequence.
 ### 1. DB migration
 
 Add columns to `tracks` and/or new tables in a new migration file:
-
 ```
 src-tauri/migrations/NN_your_pass.sql
 ```
-
 Register it in `src-tauri/src/database.rs`:
-
 ```rust
 M::up(include_str!("../migrations/NN_your_pass.sql")),
 ```
 
-### 2. Backfill the pass row — **in `PipelineManager::run()`, alongside the other passes**
+### 2. Register the pass spec in the global `PASS_REGISTRY`
 
-This is critical. Add the `INSERT OR IGNORE` for your new pass in the same block
-as `audio_analysis` and `clap`, **before** the early-exit gate:
-
-```rust
-conn.execute(
-    "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-     SELECT id, 'your_pass', <priority>, ?1 FROM tracks",
-    [pass_status::PENDING],
-).map_err(|e| e.to_string())?;
-```
-
-**⚠️ Do NOT backfill inside your phase function.** If you backfill there, the
-early-exit check fires before your pass rows exist, so "Run Analysis" returns
-immediately when all prior passes are done.
-
-### 3. Update the early-exit gate
-
-The gate in `PipelineManager::run()` currently reads:
+In [analysis/mod.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/analysis/mod.rs), add your pass to the static `PASS_REGISTRY` slice. This automatically handles:
+- **Automatic Backfilling**: Adds pending pass rows for all existing tracks.
+- **Stale Version Invalidation**: Detects algorithm/model updates and automatically resets completed passes if the code version increases.
+- **Generic Cascaded Resets**: Handles column clearing, table deletion, and downstream dependent pass resets automatically when this or upstream passes are reset!
 
 ```rust
-let has_pending_passes = conn.query_row(
-    "SELECT EXISTS(SELECT 1 FROM track_passes WHERE status = ?1)",
-    [pass_status::PENDING],
-    |row| row.get(0),
-).unwrap_or(false);
-
-if total == 0 && !has_pending_passes {
-    return Ok(());
+PassSpec {
+    name: "your_pass",
+    priority: 60, // set appropriate priority
+    version: pass_version::YOUR_PASS, // add to scanner/sidecar pass_version
+    dependencies: &["upstream_pass"], // declare dependent pass names
+    owned_columns: &["your_new_column"], // columns to null on reset
+    owned_tables: &[], // table rows to delete on reset
+    custom_reset: None, // Option<fn(&rusqlite::Connection) -> Result<(), String>>
 }
 ```
 
-This checks all passes generically — no change needed as long as step 2 is done
-(rows exist before the gate fires).
+### 3. Create a dedicated pass submodule
 
-### 4. Add a phase function
-
-Add a `run_your_pass_phase(app, conn_arc)` function and call it from the background
-thread at the end of `PipelineManager::run()`, after the previous phase completes:
+Create a new file `src-tauri/src/analysis/your_pass.rs`. 
+Define the phase function inside it:
 
 ```rust
-run_your_pass_phase(&app, &conn_arc);
-```
+use crate::database::pass_status;
+use crate::scanner::sidecar::pass_version;
+use rusqlite::Connection;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tauri::Emitter;
 
-The phase function pattern:
-
-```rust
-fn run_your_pass_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
-    let jobs: Vec<SpoolJob> = {
-        let conn = conn_arc.lock().unwrap();
-        // query pending jobs, mark IN_PROGRESS
+pub fn run_your_pass_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>) {
+    let jobs: Vec<super::SpoolJob> = {
+        let conn = match super::lock_analysis_conn(conn_arc, "your_pass") {
+            Ok(conn) => conn,
+            Err(e) => {
+                super::emit_pipeline_error(app, "your_pass", e);
+                return;
+            }
+        };
+        // Retrieve jobs and mark as IN_PROGRESS
         ...
     };
 
@@ -99,47 +87,50 @@ fn run_your_pass_phase(app: &tauri::AppHandle, conn_arc: &Arc<Mutex<Connection>>
         let start = std::time::Instant::now();
         let result = /* do work */;
         let elapsed_ms = start.elapsed().as_millis() as i64;
-        let conn = conn_arc.lock().unwrap();
+        let conn = match super::lock_analysis_conn(conn_arc, "your_pass") {
+            Ok(conn) => conn,
+            Err(_) => break,
+        };
 
         match result {
             Ok(data) => {
-                // UPDATE tracks SET ... WHERE id = ?
-                conn.execute("UPDATE track_passes SET status = ?1, duration_ms = ?2,
-                    last_run_at = CURRENT_TIMESTAMP WHERE id = ?3",
-                    rusqlite::params![pass_status::DONE, elapsed_ms, job.pass_id])?;
-                app.emit("analysis-progress", json!({
-                    "track_id": job.track_id,
-                    "pass_name": "your_pass",
-                    "status": pass_status::DONE,
-                })).ok();
+                // Update tracks and mark as DONE
+                conn.execute(
+                    "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3
+                     WHERE id = ?4",
+                    rusqlite::params![pass_status::DONE, elapsed_ms, pass_version::YOUR_PASS, job.pass_id]
+                );
+                app.emit("analysis-progress", ...);
             }
             Err(e) => {
-                conn.execute("UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3,
-                    last_run_at = CURRENT_TIMESTAMP WHERE id = ?4",
-                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id])?;
-                app.emit("analysis-progress", json!({
-                    "track_id": job.track_id,
-                    "pass_name": "your_pass",
-                    "status": pass_status::FAILED,
-                })).ok();
+                // Mark as FAILED
+                conn.execute(
+                    "UPDATE track_passes SET status = ?1, log = ?2, duration_ms = ?3
+                     WHERE id = ?4",
+                    rusqlite::params![pass_status::FAILED, e, elapsed_ms, job.pass_id]
+                );
+                app.emit("analysis-progress", ...);
             }
         }
     }
-
-    app.emit("analysis-phase-complete", json!({ "pass": "your_pass" })).ok();
 }
 ```
 
-### 5. Add `reset_pass` support in `src-tauri/src/commands/analysis.rs`
+### 4. Register and call the phase submodule in the orchestrator
 
-```rust
-if pass_name == "your_pass" {
-    conn.execute("UPDATE tracks SET your_col = NULL, ...", [])
-        .map_err(|e| e.to_string())?;
-}
-```
+1. Declare your new submodule in `src-tauri/src/analysis/mod.rs`:
+   ```rust
+   pub mod your_pass;
+   ```
+2. Call it in sequence inside `PipelineManager::run()` background thread loop:
+   ```rust
+   // ── Phase 7: Your Pass ─────────────────────────────────────────────
+   log::info!("[pipeline] starting your_pass phase");
+   your_pass::run_your_pass_phase(&app, &conn_arc);
+   log::info!("[pipeline] your_pass phase done");
+   ```
 
-### 6. Build and test
+### 5. Build and test
 
 ```bash
 cargo build --manifest-path src-tauri/Cargo.toml
@@ -152,6 +143,5 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
-| Backfill inside phase fn, not in `run()` | "Run Analysis" does nothing when prior passes are done | Move `INSERT OR IGNORE` to `PipelineManager::run()` |
-| Using a pass-specific check in the early-exit gate | New pass skipped when old passes are done | Use the generic `WHERE status = ?1` check (no pass_name filter) |
+| Forgetting to register in `PASS_REGISTRY` | Pass is skipped entirely during runs and resets | Append your pass to `PASS_REGISTRY` in `analysis/mod.rs` |
 | Not marking jobs `IN_PROGRESS` before processing | Jobs re-queued if app restarts mid-run | Set `status = IN_PROGRESS` when loading the job batch |
