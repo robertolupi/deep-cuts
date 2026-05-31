@@ -39,6 +39,7 @@
 
   const hasActiveFilters = $derived(
     filters.searchQuery !== "" ||
+    filters.semanticQuery !== "" ||
     filters.genreFilter !== "" ||
     filters.selectedDirectoryIds.length > 0 ||
     filters.selectedKeys.length > 0 ||
@@ -52,6 +53,7 @@
 
   function clearAll() {
     filters.searchQuery   = "";
+    filters.semanticQuery = "";
     filters.genreFilter   = "";
     filters.clearDirectories();
     filters.clearKeys();
@@ -83,20 +85,47 @@
     <!-- Search -->
     <div class="sidebar-section">
       <span class="section-label">SEARCH</span>
-      <div class="search-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Title, artist, album…"
-          bind:value={filters.searchQuery}
-          class="search-input"
-        />
-        {#if filters.searchQuery}
-          <button class="clear-x" onclick={() => filters.searchQuery = ""}>×</button>
-        {/if}
+      <div class="search-inputs-container">
+        <!-- Keyword Search -->
+        <div class="search-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Keyword: Title, artist, album…"
+            bind:value={filters.searchQuery}
+            class="search-input"
+          />
+          {#if filters.searchQuery}
+            <button class="clear-x" onclick={() => filters.searchQuery = ""}>×</button>
+          {/if}
+        </div>
+
+        <!-- Semantic Search (AI Vibes) -->
+        <div class="search-wrap semantic-wrap">
+          {#if filters.isSemanticLoading}
+            <!-- Spinner -->
+            <svg class="search-icon ai-spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="32" class="spinner-circle" />
+            </svg>
+          {:else}
+            <!-- Sparkles -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M12 7a5 5 0 0 0 0 10 5 5 0 0 0 0-10z" />
+            </svg>
+          {/if}
+          <input
+            type="text"
+            placeholder="AI Vibe: description, mood…"
+            bind:value={filters.semanticQuery}
+            class="search-input semantic-search-input"
+          />
+          {#if filters.semanticQuery}
+            <button class="clear-x" onclick={() => filters.semanticQuery = ""}>×</button>
+          {/if}
+        </div>
       </div>
     </div>
 
@@ -114,6 +143,11 @@
         {#if filters.genreFilter}
           <button class="chip chip-active" onclick={() => filters.genreFilter = ""}>
             {filters.genreFilter} ×
+          </button>
+        {/if}
+        {#if filters.semanticQuery}
+          <button class="chip chip-active chip-semantic" onclick={() => filters.semanticQuery = ""}>
+            ✨ {filters.semanticQuery} ×
           </button>
         {/if}
         {#each filters.selectedKeys as k}
@@ -618,6 +652,50 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .chip-semantic {
+    border-color: rgba(0, 240, 255, 0.45) !important;
+    background: rgba(0, 240, 255, 0.08) !important;
+    color: var(--sg-primary, #00f0ff) !important;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-inputs-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .semantic-wrap .search-icon {
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .semantic-search-input {
+    border-color: rgba(0, 240, 255, 0.15) !important;
+  }
+
+  .semantic-search-input:focus {
+    border-color: var(--sg-primary, #00f0ff) !important;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.15);
+  }
+
+  /* Spinner Animation */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .ai-spinner {
+    animation: spin 0.8s linear infinite;
+    color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  .spinner-circle {
+    stroke-linecap: round;
+    opacity: 0.75;
   }
 
   /* ── Key filter ── */

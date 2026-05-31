@@ -443,6 +443,12 @@
         <span class="ht-artist">{hoveredTrack.artist}</span>
       {/if}
       <div class="ht-badges">
+        {#if filters.semanticQuery.trim() && filters.semanticTrackScores.has(hoveredTrack.id)}
+          {@const score = filters.semanticTrackScores.get(hoveredTrack.id)}
+          {#if score !== undefined}
+            <span class="ht-badge ht-score">{Math.round(score)}%</span>
+          {/if}
+        {/if}
         {#if hoveredTrack.genre}<span class="ht-badge ht-genre">{hoveredTrack.genre}</span>{/if}
         {#if hoveredTrack.bpm}<span class="ht-badge">{Math.round(hoveredTrack.bpm)} BPM</span>{/if}
         {#if hoveredTrack.key}
@@ -666,5 +672,12 @@
     border-color: rgba(0,240,255,0.25);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0,240,255,0.07);
+  }
+
+  .ht-score {
+    border-color: rgba(0, 240, 255, 0.45);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0, 240, 255, 0.12);
+    font-weight: 700;
   }
 </style>

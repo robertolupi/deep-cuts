@@ -7,6 +7,7 @@ export type ScaleFilter = "all" | "major" | "minor";
 
 function createFiltersStore() {
   let searchQuery  = $state("");
+  let semanticQuery = $state("");
   let genreFilter  = $state("");
   let minBpm       = $state(20);
   let maxBpm       = $state(250);
@@ -18,6 +19,10 @@ function createFiltersStore() {
   let similarToTrack = $state<{ id: number; title: string } | null>(null);
   let similarTrackIds = $state<Set<number>>(new Set());
   let isSimilarLoading = $state(false);
+
+  let semanticTrackIds = $state<Set<number>>(new Set());
+  let semanticTrackScores = $state<Map<number, number>>(new Map());
+  let isSemanticLoading = $state(false);
 
   const filteredTracks = $derived.by(() => {
     return library.tracks.filter((t) => {
@@ -63,23 +68,64 @@ function createFiltersStore() {
         if (t.bpm < minBpm || t.bpm > maxBpm) return false;
       }
 
-      // Full-text search
+      // Full-text search (Keyword)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesTitle    = t.title?.toLowerCase().includes(query) ?? false;
         const matchesArtist   = t.artist?.toLowerCase().includes(query) ?? false;
         const matchesAlbum    = t.album?.toLowerCase().includes(query) ?? false;
         const matchesFilename = t.filename.toLowerCase().includes(query);
-        return matchesTitle || matchesArtist || matchesAlbum || matchesFilename;
+        if (!matchesTitle && !matchesArtist && !matchesAlbum && !matchesFilename) return false;
+      }
+
+      // Semantic AI search
+      if (semanticQuery.trim()) {
+        if (!semanticTrackIds.has(t.id)) return false;
       }
 
       return true;
     });
   });
 
+  async function runSemanticSearch(q: string) {
+    const queryText = q.trim();
+    if (!queryText) {
+      semanticTrackIds = new Set();
+      semanticTrackScores = new Map();
+      return;
+    }
+    isSemanticLoading = true;
+    try {
+      const results = await invoke<{ id: number; score: number }[]>(
+        "search_semantic_tracks", { query: queryText }
+      );
+      semanticTrackIds = new Set(results.map(r => r.id));
+      semanticTrackScores = new Map(results.map(r => [r.id, r.score]));
+    } catch (err: any) {
+      ui.showToast(`Semantic search failed: ${err?.toString() ?? "unknown error"}`, "error");
+      semanticTrackIds = new Set();
+      semanticTrackScores = new Map();
+    } finally {
+      isSemanticLoading = false;
+    }
+  }
+
+  let debounceTimeout: any;
+  function debouncedSearch(v: string) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+      runSemanticSearch(v);
+    }, 350);
+  }
+
   return {
     get searchQuery()   { return searchQuery; },
     set searchQuery(v)  { searchQuery = v; },
+    get semanticQuery()   { return semanticQuery; },
+    set semanticQuery(v)  {
+      semanticQuery = v;
+      debouncedSearch(v);
+    },
     get genreFilter()   { return genreFilter; },
     set genreFilter(v)  { genreFilter = v; },
     get minBpm()        { return minBpm; },
@@ -104,6 +150,8 @@ function createFiltersStore() {
     get similarToTrack()   { return similarToTrack; },
     get isSimilarLoading() { return isSimilarLoading; },
     get filteredTracks()   { return filteredTracks; },
+    get isSemanticLoading() { return isSemanticLoading; },
+    get semanticTrackScores() { return semanticTrackScores; },
 
     async setSimilarTo(track: { id: number; title: string; }) {
       isSimilarLoading = true;
@@ -134,6 +182,7 @@ function createFiltersStore() {
 
     clearAll() {
       searchQuery          = "";
+      semanticQuery        = "";
       genreFilter          = "";
       minBpm               = 20;
       maxBpm               = 250;
@@ -144,6 +193,8 @@ function createFiltersStore() {
       selectedDirectoryIds = [];
       similarToTrack       = null;
       similarTrackIds      = new Set();
+      semanticTrackIds     = new Set();
+      semanticTrackScores  = new Map();
     },
   };
 }
