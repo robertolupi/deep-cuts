@@ -40,11 +40,7 @@
   }
 
   function displayName(pair: DuplicatePair, side: 'a' | 'b'): string {
-    const title  = side === 'a' ? pair.title_a  : pair.title_b;
-    const artist = side === 'a' ? pair.artist_a : pair.artist_b;
-    const file   = side === 'a' ? pair.filename_a : pair.filename_b;
-    if (title && artist) return `${artist} — ${title}`;
-    if (title) return title;
+    const file = side === 'a' ? pair.filename_a : pair.filename_b;
     return file.split('/').pop() ?? file;
   }
 
