@@ -219,6 +219,9 @@
       .scaleExtent([0.5, 12])
       .on('zoom', (event) => { transform = event.transform; });
     d3.select(canvas).call(zoomBehavior);
+    
+    // Restore current transform so zoom doesn't jump
+    zoomBehavior.transform(d3.select(canvas), transform);
   }
 
   function resetZoom() {
@@ -308,12 +311,16 @@
 
   $effect(() => { drawCanvas(); });
 
+  $effect(() => {
+    if (canvas) {
+      initD3Zoom();
+    }
+  });
+
   let unlistenProj: any;
   let resizeObserver: ResizeObserver;
 
   onMount(async () => {
-    initD3Zoom();
-
     unlistenProj = await listen('projection-updated', () => loadCoordinates());
 
     resizeObserver = new ResizeObserver((entries) => {
