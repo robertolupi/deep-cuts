@@ -6,6 +6,14 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
 
 ---
 
+## Screenshots
+
+![Track index with sidebar filters](screenshots/track-index.png)
+
+![Music Map — UMAP projection of CLAP embeddings](screenshots/music-map.png)
+
+---
+
 ## ✨ Features
 
 ### Library Management
