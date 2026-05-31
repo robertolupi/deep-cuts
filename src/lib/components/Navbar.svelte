@@ -3,10 +3,11 @@
   import { ui } from "$lib/stores/ui.svelte";
 
   const views: { id: typeof ui.activeView; label: string }[] = [
-    { id: 'table',    label: 'Library' },
-    { id: 'map',      label: 'Map'     },
-    { id: 'analysis', label: 'Analyze' },
-    { id: 'settings', label: 'Settings'},
+    { id: 'table',      label: 'Library'    },
+    { id: 'map',        label: 'Map'        },
+    { id: 'duplicates', label: 'Duplicates' },
+    { id: 'analysis',   label: 'Analyze'    },
+    { id: 'settings',   label: 'Settings'   },
   ];
 </script>
 
@@ -32,6 +33,10 @@
             <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
             <line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/>
             <line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/>
+          </svg>
+        {:else if v.id === 'duplicates'}
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
         {:else if v.id === 'analysis'}
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

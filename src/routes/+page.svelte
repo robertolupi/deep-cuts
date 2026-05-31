@@ -5,6 +5,7 @@
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
+  import DuplicatesPanel from "$lib/components/DuplicatesPanel.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
@@ -28,6 +29,9 @@
           <MusicMap />
         {/if}
       </div>
+
+    {:else if ui.activeView === 'duplicates'}
+      <DuplicatesPanel />
 
     {:else if ui.activeView === 'analysis'}
       <AnalysisPanel />

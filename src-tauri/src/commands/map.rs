@@ -387,6 +387,141 @@ pub fn search_similar_tracks_audio(
     Ok(rows)
 }
 
+#[derive(serde::Serialize)]
+pub struct DuplicatePair {
+    pub id_a: i64,
+    pub id_b: i64,
+    pub title_a: Option<String>,
+    pub title_b: Option<String>,
+    pub artist_a: Option<String>,
+    pub artist_b: Option<String>,
+    pub filename_a: String,
+    pub filename_b: String,
+    pub distance: f64,
+}
+
+/// Computes pairwise CLAP cosine similarity across all analysed tracks and returns
+/// pairs whose L2 distance is at or below `threshold`, sorted ascending by distance.
+///
+/// For L2-normalised vectors: dist(i,j) = sqrt(2 − 2·dot(i,j)).
+/// Complexity: O(n² · dim) time, O(n · dim) memory for the normalised matrix.
+/// Emits `duplicate-scan-progress` per row-block and `duplicate-scan-done` on finish.
+#[tauri::command]
+pub async fn find_duplicate_pairs(
+    threshold: f64,
+    app: tauri::AppHandle,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<DuplicatePair>, String> {
+    use tauri::Emitter;
+
+    // Collect raw rows (id, title, artist, filename, blob) while holding the lock,
+    // then decode blobs after releasing it so the MutexGuard doesn't cross an await.
+    type RawRow = (i64, Option<String>, Option<String>, String, Vec<u8>);
+    let raw_rows: Vec<RawRow> = {
+        let conn = conn_state.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT t.id, t.title, t.artist, t.filename, ae.embedding
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Vec<u8>>(4)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    struct TrackEmb {
+        id: i64,
+        title: Option<String>,
+        artist: Option<String>,
+        filename: String,
+        clap: Vec<f32>,
+    }
+
+    let tracks: Vec<TrackEmb> = raw_rows
+        .into_iter()
+        .map(|(id, title, artist, filename, blob)| TrackEmb {
+            id,
+            title,
+            artist,
+            filename,
+            clap: bytes_to_floats(&blob),
+        })
+        .filter(|t| !t.clap.is_empty())
+        .collect();
+
+    let n = tracks.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+
+    app.emit("duplicate-scan-progress", serde_json::json!({ "stage": "normalising", "n": n })).ok();
+
+    // Build L2-normalised matrix A (n × dim, f64).
+    // Peak memory: n × dim × 8 bytes (10K tracks × 512 dim ≈ 40 MB).
+    let dim = tracks[0].clap.len();
+    let a = Mat::<f64>::from_fn(n, dim, |i, j| {
+        let row = &tracks[i].clap;
+        let norm: f32 = row.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm == 0.0 { 0.0 } else { (row[j] / norm) as f64 }
+    });
+
+    // Blocked matmul: each chunk computes sim_chunk = A[chunk] @ Aᵀ (faer SIMD path).
+    // For L2-normalised vectors: dist(i,j) = sqrt(2 − 2·cosim).
+    // BLOCK=512 keeps the sim chunk at ≤ 512 × n × 8 bytes ≈ 40 MB at n=10K.
+    const BLOCK: usize = 512;
+    let threshold_sq = (threshold * threshold).min(2.0);
+    let mut pairs: Vec<DuplicatePair> = Vec::new();
+
+    for chunk_start in (0..n).step_by(BLOCK) {
+        let chunk_end = (chunk_start + BLOCK).min(n);
+        let chunk_rows = chunk_end - chunk_start;
+
+        // sim_chunk[ci, j] = dot(A[chunk_start+ci], A[j])  shape: chunk_rows × n
+        let sim_chunk = a.as_ref().subrows(chunk_start, chunk_rows) * a.as_ref().transpose();
+
+        for ci in 0..chunk_rows {
+            let i = chunk_start + ci;
+            for j in (i + 1)..n {
+                let cosim = sim_chunk[(ci, j)].clamp(-1.0, 1.0);
+                let dist_sq = (2.0 - 2.0 * cosim).max(0.0);
+                if dist_sq <= threshold_sq {
+                    pairs.push(DuplicatePair {
+                        id_a: tracks[i].id,
+                        id_b: tracks[j].id,
+                        title_a: tracks[i].title.clone(),
+                        title_b: tracks[j].title.clone(),
+                        artist_a: tracks[i].artist.clone(),
+                        artist_b: tracks[j].artist.clone(),
+                        filename_a: tracks[i].filename.clone(),
+                        filename_b: tracks[j].filename.clone(),
+                        distance: dist_sq.sqrt(),
+                    });
+                }
+            }
+        }
+        app.emit("duplicate-scan-progress", serde_json::json!({
+            "stage": "computing",
+            "done": chunk_end,
+            "total": n,
+        })).ok();
+    }
+
+    pairs.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
+    app.emit("duplicate-scan-done", serde_json::json!({ "count": pairs.len() })).ok();
+    Ok(pairs)
+}
+
 /// Runs UMAP on CLAP audio embeddings (and optionally blends description embeddings)
 /// and persists the 2D coordinates in `track_coords`. Emits `projection-updated` when done.
 /// When `music_only` is true, tracks classified as Non-Music by Essentia are excluded from

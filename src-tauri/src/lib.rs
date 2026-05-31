@@ -87,6 +87,7 @@ pub fn run() {
             commands::map::get_projection_coordinates,
             commands::map::search_similar_tracks_audio,
             commands::map::recompute_projection,
+            commands::map::find_duplicate_pairs,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
