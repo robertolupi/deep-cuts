@@ -1,9 +1,21 @@
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
+
+  let coverArt = $state<string | null>(null);
+
+  $effect(() => {
+    const path = track?.path;
+    coverArt = null;
+    if (!path) return;
+    invoke<string | null>('get_cover_art', { path }).then(result => {
+      if (track?.path === path) coverArt = result;
+    }).catch(() => {});
+  });
 
   const moods = $derived(track ? [
     { label: "Happy",      value: track.mood_happy,      color: "var(--sg-primary, #00f0ff)" },
@@ -35,8 +47,12 @@
 
       <!-- Vinyl + title -->
       <div class="track-header">
-        <div class="vinyl-wrap" class:spinning={isPlaying}>
-          <img src="/deep_cuts_transparent.png" alt="Now playing" />
+        <div class="vinyl-wrap" class:spinning={isPlaying && !coverArt} class:cover={!!coverArt}>
+          {#if coverArt}
+            <img src={coverArt} alt="Album art" />
+          {:else}
+            <img src="/deep_cuts_transparent.png" alt="Now playing" />
+          {/if}
         </div>
         <div class="track-title-block">
           <span class="format-badge">{ext}</span>
@@ -363,6 +379,10 @@
 
   .vinyl-wrap.spinning img {
     animation: spin 4s linear infinite;
+  }
+
+  .vinyl-wrap.cover {
+    border-radius: 4px;
   }
 
   @keyframes spin {

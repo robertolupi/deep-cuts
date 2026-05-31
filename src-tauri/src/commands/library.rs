@@ -312,6 +312,34 @@ pub async fn search_clap_tracks(
     Ok(results)
 }
 
+#[tauri::command]
+pub fn get_cover_art(path: String) -> Result<Option<String>, String> {
+    use base64::Engine as _;
+    use lofty::config::ParseOptions;
+    use lofty::prelude::*;
+    use lofty::probe::Probe;
+    use std::path::Path;
+
+    let tagged = Probe::open(Path::new(&path))
+        .map_err(|e| e.to_string())?
+        .options(ParseOptions::new())
+        .read()
+        .map_err(|e| e.to_string())?;
+
+    for tag in tagged.tags() {
+        for picture in tag.pictures() {
+            let mime = picture
+                .mime_type()
+                .map(|m| m.as_str())
+                .unwrap_or("image/jpeg");
+            let b64 = base64::engine::general_purpose::STANDARD.encode(picture.data());
+            return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+        }
+    }
+
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
