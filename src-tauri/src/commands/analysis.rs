@@ -156,127 +156,13 @@ pub fn reset_pass(
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<(), String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
-         last_run_at = NULL, duration_ms = NULL WHERE pass_name = ?2",
-        rusqlite::params![pass_status::PENDING, &pass_name],
-    )
-    .map_err(|e| e.to_string())?;
-    if pass_name == "audio_analysis" {
-        conn.execute(
-            "UPDATE tracks SET
-                waveform_data = NULL,
-                bpm = NULL,
-                bpm_raw = NULL,
-                key = NULL,
-                scale = NULL,
-                key_strength = NULL,
-                loudness_lufs = NULL,
-                loudness_range = NULL,
-                silence_regions = NULL,
-                has_long_silence = 0",
-            [],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    if pass_name == "clap" {
-        conn.execute("DELETE FROM audio_embeddings", [])
-            .map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM track_coords", [])
-            .map_err(|e| e.to_string())?;
-    }
-    if pass_name == "essentia" {
-        conn.execute(
-            "UPDATE tracks SET
-                detected_genre = NULL, detected_vocal = NULL, detected_vocal_confidence = NULL,
-                mood_happy = NULL, mood_sad = NULL, mood_aggressive = NULL,
-                mood_relaxed = NULL, mood_party = NULL, mood_acoustic = NULL,
-                mood_electronic = NULL",
-            [],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    // bpm_correction and bpm_refinement: restore bpm from bpm_raw so re-running is idempotent
-    if pass_name == "bpm_correction" || pass_name == "bpm_refinement" {
-        conn.execute(
-            "UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL",
-            [],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    if pass_name == "qwen" {
-        conn.execute(
-            "UPDATE tracks SET
-                is_music = NULL,
-                ai_genre = NULL,
-                ai_mood = NULL,
-                ai_instruments = NULL,
-                description = NULL",
-            [],
-        )
-        .map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM description_embeddings", [])
-            .map_err(|e| e.to_string())?;
-        conn.execute(
-            "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
-             last_run_at = NULL, duration_ms = NULL WHERE pass_name = 'description_embed'",
-            [pass_status::PENDING],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    if pass_name == "description_embed" {
-        conn.execute("DELETE FROM description_embeddings", [])
-            .map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    analysis::reset_pass(&conn, &pass_name)
 }
 
 #[tauri::command]
 pub fn reset_all_passes(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<(), String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
-         last_run_at = NULL, duration_ms = NULL",
-        [pass_status::PENDING],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM audio_embeddings", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM description_embeddings", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM track_coords", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE tracks SET
-            waveform_data = NULL,
-            bpm = NULL,
-            bpm_raw = NULL,
-            key = NULL,
-            scale = NULL,
-            key_strength = NULL,
-            loudness_lufs = NULL,
-            loudness_range = NULL,
-            silence_regions = NULL,
-            has_long_silence = 0,
-            detected_genre = NULL,
-            detected_vocal = NULL,
-            detected_vocal_confidence = NULL,
-            mood_happy = NULL,
-            mood_sad = NULL,
-            mood_aggressive = NULL,
-            mood_relaxed = NULL,
-            mood_party = NULL,
-            mood_acoustic = NULL,
-            mood_electronic = NULL,
-            is_music = NULL,
-            ai_genre = NULL,
-            ai_mood = NULL,
-            ai_instruments = NULL,
-            description = NULL",
-        [],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    analysis::reset_all_passes(&conn)
 }
 
 #[tauri::command]

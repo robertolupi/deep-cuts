@@ -78,6 +78,193 @@ pub(crate) fn lock_analysis_conn<'a>(
         .map_err(|e| format!("[{}] database lock poisoned: {}", phase, e))
 }
 
+// ── Pass Specification & Registry ──────────────────────────────────────────
+
+#[allow(dead_code)]
+pub struct PassSpec {
+    pub name: &'static str,
+    pub priority: i32,
+    pub version: u32,
+    pub dependencies: &'static [&'static str],
+    pub owned_columns: &'static [&'static str],
+    pub owned_tables: &'static [&'static str],
+    pub custom_reset: Option<fn(&rusqlite::Connection) -> Result<(), String>>,
+}
+
+pub static PASS_REGISTRY: &[PassSpec] = &[
+    PassSpec {
+        name: "audio_analysis",
+        priority: 10,
+        version: pass_version::AUDIO_ANALYSIS,
+        dependencies: &[],
+        owned_columns: &[
+            "waveform_data", "bpm", "bpm_raw", "key", "scale",
+            "key_strength", "loudness_lufs", "loudness_range",
+            "silence_regions", "has_long_silence"
+        ],
+        owned_tables: &[],
+        custom_reset: None,
+    },
+    PassSpec {
+        name: "bpm_correction",
+        priority: 15,
+        version: pass_version::BPM_CORRECTION,
+        dependencies: &["audio_analysis"],
+        owned_columns: &["bpm"],
+        owned_tables: &[],
+        custom_reset: Some(|conn| {
+            conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
+                .map_err(|e| e.to_string())?;
+            Ok(())
+        }),
+    },
+    PassSpec {
+        name: "clap",
+        priority: 20,
+        version: pass_version::CLAP,
+        dependencies: &["bpm_correction"],
+        owned_columns: &[],
+        owned_tables: &["audio_embeddings", "track_coords"],
+        custom_reset: None,
+    },
+    PassSpec {
+        name: "qwen",
+        priority: 30,
+        version: pass_version::QWEN,
+        dependencies: &["clap"],
+        owned_columns: &[
+            "is_music", "ai_genre", "ai_mood", "ai_instruments", "description"
+        ],
+        owned_tables: &["description_embeddings"],
+        custom_reset: Some(|conn| {
+            conn.execute(
+                "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
+                 last_run_at = NULL, duration_ms = NULL WHERE pass_name = 'description_embed'",
+                [pass_status::PENDING],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        }),
+    },
+    PassSpec {
+        name: "description_embed",
+        priority: 40,
+        version: pass_version::DESCRIPTION_EMBED,
+        dependencies: &["qwen"],
+        owned_columns: &[],
+        owned_tables: &["description_embeddings"],
+        custom_reset: None,
+    },
+    PassSpec {
+        name: "essentia",
+        priority: 50,
+        version: pass_version::ESSENTIA,
+        dependencies: &["description_embed"],
+        owned_columns: &[
+            "detected_genre", "detected_vocal", "detected_vocal_confidence",
+            "mood_happy", "mood_sad", "mood_aggressive", "mood_relaxed",
+            "mood_party", "mood_acoustic", "mood_electronic"
+        ],
+        owned_tables: &[],
+        custom_reset: None,
+    },
+    PassSpec {
+        name: "bpm_refinement",
+        priority: 55,
+        version: pass_version::BPM_REFINEMENT,
+        dependencies: &["essentia"],
+        owned_columns: &["bpm"],
+        owned_tables: &[],
+        custom_reset: Some(|conn| {
+            conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
+                .map_err(|e| e.to_string())?;
+            Ok(())
+        }),
+    },
+];
+
+// ── Generic Lifecycle Helpers ──────────────────────────────────────────────
+
+pub fn invalidate_stale_versions(conn: &rusqlite::Connection) -> Result<(), String> {
+    for spec in PASS_REGISTRY {
+        conn.execute(
+            "UPDATE track_passes SET status = ?1, log = NULL
+             WHERE pass_name = ?2 AND status = ?3 AND pass_version < ?4",
+            rusqlite::params![
+                pass_status::PENDING,
+                spec.name,
+                pass_status::DONE,
+                spec.version
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn backfill_track_passes(conn: &rusqlite::Connection) -> Result<(), String> {
+    for spec in PASS_REGISTRY {
+        conn.execute(
+            "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
+             SELECT id, ?1, ?2, ?3 FROM tracks",
+            rusqlite::params![spec.name, spec.priority, pass_status::PENDING],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn reset_pass(conn: &rusqlite::Connection, pass_name: &str) -> Result<(), String> {
+    let spec = PASS_REGISTRY
+        .iter()
+        .find(|s| s.name == pass_name)
+        .ok_or_else(|| format!("Unknown pass name: {}", pass_name))?;
+
+    // 1. Reset row itself
+    conn.execute(
+        "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
+         last_run_at = NULL, duration_ms = NULL WHERE pass_name = ?2",
+        rusqlite::params![pass_status::PENDING, pass_name],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 2. Clear owned column metrics
+    if !spec.owned_columns.is_empty() {
+        let mut set_clauses = Vec::new();
+        for col in spec.owned_columns {
+            if *col == "has_long_silence" {
+                set_clauses.push(format!("{} = 0", col));
+            } else {
+                set_clauses.push(format!("{} = NULL", col));
+            }
+        }
+        let query = format!("UPDATE tracks SET {}", set_clauses.join(", "));
+        conn.execute(&query, []).map_err(|e| e.to_string())?;
+    }
+
+    // 3. Delete owned dependent tables (e.g. vector embedding tables)
+    for table in spec.owned_tables {
+        let query = format!("DELETE FROM {}", table);
+        conn.execute(&query, []).map_err(|e| e.to_string())?;
+    }
+
+    // 4. Run custom pass reset logic if specified
+    if let Some(custom_fn) = spec.custom_reset {
+        custom_fn(conn)?;
+    }
+
+    Ok(())
+}
+
+pub fn reset_all_passes(conn: &rusqlite::Connection) -> Result<(), String> {
+    for spec in PASS_REGISTRY {
+        reset_pass(conn, spec.name)?;
+    }
+    Ok(())
+}
+
+// ── Orchestrator ───────────────────────────────────────────────────────────
+
 pub struct PipelineManager;
 
 impl PipelineManager {
@@ -114,126 +301,11 @@ impl PipelineManager {
             )
             .map_err(|e| e.to_string())?;
 
-            // Reset DONE rows whose pass_version is below the current algorithm version.
-            // This forces re-inference when a model or algorithm is updated.
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'audio_analysis' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![
-                    pass_status::PENDING,
-                    pass_status::DONE,
-                    pass_version::AUDIO_ANALYSIS
-                ],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'clap' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::CLAP],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'qwen' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![pass_status::PENDING, pass_status::DONE, pass_version::QWEN],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'description_embed' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![
-                    pass_status::PENDING,
-                    pass_status::DONE,
-                    pass_version::DESCRIPTION_EMBED
-                ],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'essentia' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![
-                    pass_status::PENDING,
-                    pass_status::DONE,
-                    pass_version::ESSENTIA
-                ],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'bpm_correction' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![
-                    pass_status::PENDING,
-                    pass_status::DONE,
-                    pass_version::BPM_CORRECTION
-                ],
-            )
-            .map_err(|e| e.to_string())?;
-            conn.execute(
-                "UPDATE track_passes SET status = ?1, log = NULL
-                 WHERE pass_name = 'bpm_refinement' AND status = ?2 AND pass_version < ?3",
-                rusqlite::params![
-                    pass_status::PENDING,
-                    pass_status::DONE,
-                    pass_version::BPM_REFINEMENT
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+            // Invalidate stale versions generics
+            invalidate_stale_versions(&conn)?;
 
-            // Backfill: insert a row for every track that doesn't have one yet
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'audio_analysis', 10, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill bpm_correction pass (priority 15 — runs after audio_analysis)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'bpm_correction', 15, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill clap pass (priority 20 — runs after bpm_correction)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'clap', 20, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill qwen pass (priority 30 — runs after clap)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'qwen', 30, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill description_embed pass (priority 40 — runs after qwen)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'description_embed', 40, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill essentia pass (priority 50 — runs after description_embed)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'essentia', 50, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
-
-            // Backfill bpm_refinement pass (priority 55 — runs after essentia)
-            conn.execute(
-                "INSERT OR IGNORE INTO track_passes (track_id, pass_name, priority, status)
-                 SELECT id, 'bpm_refinement', 55, ?1 FROM tracks",
-                [pass_status::PENDING],
-            )
-            .map_err(|e| e.to_string())?;
+            // Backfill track passes generics
+            backfill_track_passes(&conn)?;
 
             let mut stmt = conn
                 .prepare(
