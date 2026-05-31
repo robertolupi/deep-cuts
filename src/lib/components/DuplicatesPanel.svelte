@@ -15,6 +15,8 @@
     artist_b: string | null;
     filename_a: string;
     filename_b: string;
+    path_a: string;
+    path_b: string;
     distance: number;
   }
 
@@ -44,6 +46,12 @@
     if (title && artist) return `${artist} — ${title}`;
     if (title) return title;
     return file.split('/').pop() ?? file;
+  }
+
+  function folderPath(pair: DuplicatePair, side: 'a' | 'b'): string {
+    const full = side === 'a' ? pair.path_a : pair.path_b;
+    const lastSlash = full.lastIndexOf('/');
+    return lastSlash >= 0 ? full.slice(0, lastSlash) : full;
   }
 
   function playTrack(id: number) {
@@ -182,9 +190,7 @@
           <tr>
             <th>Match</th>
             <th>Track A</th>
-            <th></th>
             <th>Track B</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -194,25 +200,13 @@
               <td class="dup-sim">
                 <span class="sim-badge" style="--sim: {sim}%">{sim}%</span>
               </td>
-              <td class="dup-track">
+              <td class="dup-track" onclick={() => playTrack(pair.id_a)}>
                 <span class="dup-track-name">{displayName(pair, 'a')}</span>
+                <span class="dup-track-path">{folderPath(pair, 'a')}</span>
               </td>
-              <td class="dup-play">
-                <button class="play-btn" onclick={() => playTrack(pair.id_a)} title="Play">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                </button>
-              </td>
-              <td class="dup-track">
+              <td class="dup-track" onclick={() => playTrack(pair.id_b)}>
                 <span class="dup-track-name">{displayName(pair, 'b')}</span>
-              </td>
-              <td class="dup-play">
-                <button class="play-btn" onclick={() => playTrack(pair.id_b)} title="Play">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                </button>
+                <span class="dup-track-path">{folderPath(pair, 'b')}</span>
               </td>
             </tr>
           {/each}
@@ -408,6 +402,11 @@
   .dup-track {
     padding: 8px 8px;
     max-width: 320px;
+    cursor: pointer;
+  }
+
+  .dup-track:hover .dup-track-name {
+    color: var(--sg-primary, #00f0ff);
   }
 
   .dup-track-name {
@@ -416,30 +415,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--sg-on-surface, #e3e1e9);
+    transition: color 0.12s;
   }
 
-  .dup-play {
-    padding: 8px 4px;
-    width: 28px;
-  }
-
-  .play-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.06);
+  .dup-track-path {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
     color: var(--sg-outline, #849495);
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-  }
-
-  .play-btn:hover {
-    background: rgba(0,240,255,0.15);
-    color: var(--sg-primary, #00f0ff);
+    opacity: 0.6;
+    margin-top: 2px;
   }
 
   /* ── Spinner ── */

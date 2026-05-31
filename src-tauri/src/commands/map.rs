@@ -397,6 +397,8 @@ pub struct DuplicatePair {
     pub artist_b: Option<String>,
     pub filename_a: String,
     pub filename_b: String,
+    pub path_a: String,
+    pub path_b: String,
     pub distance: f64,
 }
 
@@ -414,14 +416,14 @@ pub async fn find_duplicate_pairs(
 ) -> Result<Vec<DuplicatePair>, String> {
     use tauri::Emitter;
 
-    // Collect raw rows (id, title, artist, filename, blob) while holding the lock,
+    // Collect raw rows (id, title, artist, filename, path, blob) while holding the lock,
     // then decode blobs after releasing it so the MutexGuard doesn't cross an await.
-    type RawRow = (i64, Option<String>, Option<String>, String, Vec<u8>);
+    type RawRow = (i64, Option<String>, Option<String>, String, String, Vec<u8>);
     let raw_rows: Vec<RawRow> = {
         let conn = conn_state.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
-                "SELECT t.id, t.title, t.artist, t.filename, ae.embedding
+                "SELECT t.id, t.title, t.artist, t.filename, t.path, ae.embedding
                  FROM tracks t
                  JOIN audio_embeddings ae ON ae.track_id = t.id",
             )
@@ -433,7 +435,8 @@ pub async fn find_duplicate_pairs(
                     row.get::<_, Option<String>>(1)?,
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, String>(3)?,
-                    row.get::<_, Vec<u8>>(4)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Vec<u8>>(5)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
@@ -445,16 +448,18 @@ pub async fn find_duplicate_pairs(
         title: Option<String>,
         artist: Option<String>,
         filename: String,
+        path: String,
         clap: Vec<f32>,
     }
 
     let tracks: Vec<TrackEmb> = raw_rows
         .into_iter()
-        .map(|(id, title, artist, filename, blob)| TrackEmb {
+        .map(|(id, title, artist, filename, path, blob)| TrackEmb {
             id,
             title,
             artist,
             filename,
+            path,
             clap: bytes_to_floats(&blob),
         })
         .filter(|t| !t.clap.is_empty())
@@ -505,6 +510,8 @@ pub async fn find_duplicate_pairs(
                         artist_b: tracks[j].artist.clone(),
                         filename_a: tracks[i].filename.clone(),
                         filename_b: tracks[j].filename.clone(),
+                        path_a: tracks[i].path.clone(),
+                        path_b: tracks[j].path.clone(),
                         distance: dist_sq.sqrt(),
                     });
                 }
