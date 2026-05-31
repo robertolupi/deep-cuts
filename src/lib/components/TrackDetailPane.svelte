@@ -146,11 +146,25 @@
           {/if}
           {#if track.ai_genre || track.ai_mood || track.ai_instruments}
             <div class="ai-tags">
-              {#if track.ai_genre}<span class="ai-tag ai-tag-genre">{track.ai_genre}</span>{/if}
-              {#if track.ai_mood}<span class="ai-tag ai-tag-mood">{track.ai_mood}</span>{/if}
+              {#if track.ai_genre}
+                {#each track.ai_genre.split(',') as genre}
+                  {#if genre.trim()}
+                    <span class="ai-tag ai-tag-genre">{genre.trim()}</span>
+                  {/if}
+                {/each}
+              {/if}
+              {#if track.ai_mood}
+                {#each track.ai_mood.split(',') as mood}
+                  {#if mood.trim()}
+                    <span class="ai-tag ai-tag-mood">{mood.trim()}</span>
+                  {/if}
+                {/each}
+              {/if}
               {#if track.ai_instruments}
-                {#each track.ai_instruments.split(',').slice(0,3) as inst}
-                  <span class="ai-tag ai-tag-instrument">{inst.trim()}</span>
+                {#each track.ai_instruments.split(',') as inst}
+                  {#if inst.trim()}
+                    <span class="ai-tag ai-tag-instrument">{inst.trim()}</span>
+                  {/if}
                 {/each}
               {/if}
             </div>
