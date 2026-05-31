@@ -193,7 +193,7 @@ impl super::AnalysisPass for QwenPass {
                 continue;
             }
             if let Some(pos) = trimmed.find(':') {
-                let key = trimmed[..pos].trim().to_uppercase();
+                let key = trimmed[..pos].trim().replace('*', "").to_uppercase();
                 let val = trimmed[pos + 1..].trim().to_string();
                 if val.is_empty() {
                     continue;
