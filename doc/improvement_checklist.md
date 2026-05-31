@@ -27,7 +27,7 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## Music Map Quality
 
-- [ ] Replace min/max projection normalization with percentile-clipped normalization, probably p1-p99.
+- [x] Replace min/max projection normalization with percentile-clipped normalization, probably p1-p99.
 - [x] Either hide projection controls whose parameters are ignored, or implement the requested algorithm/parameter behavior.
 - [ ] Add PCA as a fast deterministic projection option and consider making it the default if it improves global structure.
 - [ ] Persist map settings such as algorithm, blend weight, and normalization percentile in `app_settings`.

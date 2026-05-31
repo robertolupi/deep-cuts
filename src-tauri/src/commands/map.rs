@@ -132,19 +132,40 @@ fn effective_projection_config(
     }
 }
 
+/// Returns the value at percentile `p` (0–100) of a pre-sorted slice.
+fn percentile_value(sorted: &[f64], p: f64) -> f64 {
+    let idx = ((sorted.len() - 1) as f64 * p / 100.0).round() as usize;
+    sorted[idx.min(sorted.len() - 1)]
+}
+
+/// Normalises raw UMAP coordinates into the [0, 100] canvas range using
+/// percentile-clipped (p1–p99) scaling. The 1st and 99th percentiles
+/// anchor the scale so that extreme outliers are clamped to the canvas
+/// edges rather than compressing the dense cluster into a small region.
 fn standardize_to_100(coords: &[(f64, f64)]) -> Vec<(f64, f64)> {
     if coords.is_empty() {
         return Vec::new();
     }
-    let x_min = coords.iter().map(|p| p.0).fold(f64::MAX, f64::min);
-    let x_max = coords.iter().map(|p| p.0).fold(f64::MIN, f64::max);
-    let y_min = coords.iter().map(|p| p.1).fold(f64::MAX, f64::min);
-    let y_max = coords.iter().map(|p| p.1).fold(f64::MIN, f64::max);
-    let xs = if x_max == x_min { 1.0 } else { x_max - x_min };
-    let ys = if y_max == y_min { 1.0 } else { y_max - y_min };
+    let mut xs: Vec<f64> = coords.iter().map(|p| p.0).collect();
+    let mut ys: Vec<f64> = coords.iter().map(|p| p.1).collect();
+    xs.sort_by(|a, b| a.total_cmp(b));
+    ys.sort_by(|a, b| a.total_cmp(b));
+
+    let x_lo = percentile_value(&xs, 1.0);
+    let x_hi = percentile_value(&xs, 99.0);
+    let y_lo = percentile_value(&ys, 1.0);
+    let y_hi = percentile_value(&ys, 99.0);
+
+    let x_span = if x_hi == x_lo { 1.0 } else { x_hi - x_lo };
+    let y_span = if y_hi == y_lo { 1.0 } else { y_hi - y_lo };
+
     coords
         .iter()
-        .map(|&(x, y)| ((x - x_min) / xs * 100.0, (y - y_min) / ys * 100.0))
+        .map(|&(x, y)| {
+            let nx = ((x - x_lo) / x_span * 100.0).clamp(0.0, 100.0);
+            let ny = ((y - y_lo) / y_span * 100.0).clamp(0.0, 100.0);
+            (nx, ny)
+        })
         .collect()
 }
 
@@ -464,10 +485,42 @@ mod math_tests {
 
     #[test]
     fn test_standardize_to_100_scaling() {
+        // With 2 points p1 == min and p99 == max, so behaviour matches old min/max.
         let coords = vec![(10.0, 5.0), (20.0, 15.0)];
         let standardized = standardize_to_100(&coords);
         assert_eq!(standardized[0], (0.0, 0.0));
         assert_eq!(standardized[1], (100.0, 100.0));
+    }
+
+    #[test]
+    fn test_standardize_to_100_outliers_are_clamped() {
+        // 100 points: 2 extreme outliers bracketing 98 points in [0, 97].
+        // Under min/max the cluster maps to only ~50–55 % of the canvas.
+        // Under p1-p99 the cluster should fill 0–100 and outliers clamp to edges.
+        let mut coords = vec![(-1000.0_f64, -1000.0_f64), (1000.0, 1000.0)];
+        for i in 0..98_i64 {
+            coords.push((i as f64, i as f64));
+        }
+        let result = standardize_to_100(&coords);
+
+        // Every output value must stay within [0, 100].
+        for &(x, y) in &result {
+            assert!((0.0..=100.0).contains(&x), "x={x} out of bounds");
+            assert!((0.0..=100.0).contains(&y), "y={y} out of bounds");
+        }
+
+        // The top of the main cluster (input 97) should map to 100.0,
+        // proving the cluster fills the canvas rather than being squashed.
+        let top_cluster = result
+            .iter()
+            .zip(coords.iter())
+            .find(|(_, &(cx, _))| cx == 97.0)
+            .map(|(&(rx, _), _)| rx)
+            .expect("point at x=97 must exist");
+        assert!(
+            (top_cluster - 100.0).abs() < 1e-9,
+            "top of cluster should map to 100.0, got {top_cluster}"
+        );
     }
 
     #[test]
