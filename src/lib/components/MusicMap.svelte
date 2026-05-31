@@ -18,6 +18,7 @@
   let projectedTracks = $state<MappedTrackPoint[]>([]);
   let isRecomputing   = $state(false);
   let isLoading       = $state(false);
+  let algorithm       = $state<'pca' | 'umap'>('pca');
 
   let colorCoding = $state<'genre' | 'camelot' | 'bpm'>('genre');
 
@@ -108,6 +109,15 @@
       projectedTracks = await invoke<MappedTrackPoint[]>('get_projection_coordinates', {
         musicOnly: filters.musicOnly,
       });
+      if (projectedTracks.length > 0) {
+        const storedAlgo = projectedTracks[0].algorithm;
+        if (storedAlgo === 'umap' || storedAlgo === 'pca') {
+          algorithm = storedAlgo;
+        }
+      } else if (!isRecomputing) {
+        // Automatically compute map coordinates (defaulting to fast PCA) if none exist
+        runProjectionRecompute('pca');
+      }
     } catch (err: any) {
       ui.showToast(err.toString(), 'error');
     } finally {
@@ -115,18 +125,25 @@
     }
   }
 
-  async function runProjectionRecompute() {
+  async function runProjectionRecompute(algoOverride?: 'pca' | 'umap') {
+    if (algoOverride) {
+      algorithm = algoOverride;
+    }
     isRecomputing = true;
     try {
-      ui.showToast('Running projection… this may take a few seconds', 'success');
+      if (algorithm === 'umap') {
+        ui.showToast('Running UMAP projection… this may take a few seconds', 'success');
+      } else {
+        ui.showToast('Running PCA projection…', 'success');
+      }
       const count = await invoke<number>('recompute_projection', {
         musicOnly: filters.musicOnly,
-        algorithm: 'umap',
+        algorithm,
         nNeighbors: 20,
         minDist: 0.1,
         perplexity: 30,
       });
-      ui.showToast(`Projected ${count} tracks into 2D space`, 'success');
+      ui.showToast(`Projected ${count} tracks into 2D space using ${algorithm.toUpperCase()}`, 'success');
       await loadCoordinates();
     } catch (err: any) {
       ui.showToast(err.toString(), 'error');
@@ -316,9 +333,21 @@
 <div class="map-view" bind:this={mapContainer}>
   <!-- Floating toolbar -->
   <div class="map-toolbar">
-    <!-- Track count -->
-    <div class="toolbar-badge">
-      <code>{visibleTracks.length} / {projectedTracks.length} tracks</code>
+    <!-- Track count and active algorithm -->
+    <div class="toolbar-badge" style="display: flex; align-items: center; gap: 6px;">
+      {#if isRecomputing}
+        <span class="spin-icon" style="color: var(--sg-primary, #00f0ff);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+        </span>
+      {/if}
+      <code>
+        {visibleTracks.length} / {projectedTracks.length} tracks
+        {#if projectedTracks.length > 0}
+          · {algorithm.toUpperCase()}
+        {/if}
+      </code>
     </div>
 
     <!-- Color coding -->
@@ -335,26 +364,36 @@
       </div>
     </div>
 
-    <!-- Recompute -->
-    <button
-      class="toolbar-btn toolbar-btn-primary"
-      onclick={runProjectionRecompute}
-      disabled={isRecomputing || isLoading}
-    >
-      {#if isRecomputing}
-        <span class="spin-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-        </span>
-        Computing…
-      {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.51"/>
-        </svg>
-        Recompute Map
-      {/if}
-    </button>
+    <!-- Algorithm toggle -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">PROJECTION</span>
+      <div class="toolbar-toggle">
+        <button
+          class="ttog-btn"
+          class:ttog-active={algorithm === 'pca'}
+          onclick={() => {
+            if (algorithm !== 'pca') {
+              runProjectionRecompute('pca');
+            }
+          }}
+          disabled={isRecomputing || isLoading}
+        >
+          PCA
+        </button>
+        <button
+          class="ttog-btn"
+          class:ttog-active={algorithm === 'umap'}
+          onclick={() => {
+            if (algorithm !== 'umap') {
+              runProjectionRecompute('umap');
+            }
+          }}
+          disabled={isRecomputing || isLoading}
+        >
+          UMAP
+        </button>
+      </div>
+    </div>
 
     <!-- Hint -->
     <span class="toolbar-hint">Scroll to zoom · Drag to pan · Click dot to play</span>
@@ -372,10 +411,7 @@
     </div>
   {:else if projectedTracks.length === 0}
     <div class="map-empty">
-      <p>No projection data yet.</p>
-      <button class="toolbar-btn toolbar-btn-primary" onclick={runProjectionRecompute} disabled={isRecomputing}>
-        Compute Map Now
-      </button>
+      <p>No audio features analysed yet. Go to the Library and click "Start Analysis" to generate embeddings.</p>
     </div>
   {:else}
     <canvas

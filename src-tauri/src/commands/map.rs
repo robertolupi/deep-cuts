@@ -1,5 +1,6 @@
 use rusqlite::Connection;
 use std::sync::Mutex;
+use faer::Mat;
 
 const DESCRIPTION_EMBEDDING_DIM: usize = 384;
 
@@ -16,6 +17,7 @@ pub struct MappedTrackPoint {
     pub bpm: Option<f64>,
     pub key: Option<String>,
     pub scale: Option<String>,
+    pub algorithm: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -112,9 +114,59 @@ fn blended_projection_vector(
     vec
 }
 
+fn compute_pca_2d(blended_vectors: &[Vec<f32>]) -> Result<Vec<(f64, f64)>, String> {
+    let n = blended_vectors.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    let d = blended_vectors[0].len();
+
+    // 1. Calculate column means
+    let mut column_means = vec![0.0f64; d];
+    for row in blended_vectors {
+        for (j, &val) in row.iter().enumerate() {
+            column_means[j] += val as f64;
+        }
+    }
+    for mean in &mut column_means {
+        *mean /= n as f64;
+    }
+
+    // 2. Build centered matrix Mat<f64>
+    let mat = Mat::from_fn(n, d, |i, j| {
+        blended_vectors[i][j] as f64 - column_means[j]
+    });
+
+    // 3. Compute Thin SVD
+    let svd = mat.as_ref().thin_svd()
+        .map_err(|e| format!("SVD projection failed to converge: {:?}", e))?;
+
+    // 4. Projection
+    let u = svd.U();
+    let s = svd.S().column_vector();
+
+    let s_vals: Vec<f64> = s.iter().copied().collect();
+    if s_vals.len() < 2 {
+        return Err("Not enough dimensions or singular values for 2D PCA projection.".to_string());
+    }
+
+    let s0 = s_vals[0];
+    let s1 = s_vals[1];
+
+    let col0: Vec<f64> = u.col(0).iter().copied().collect();
+    let col1: Vec<f64> = u.col(1).iter().copied().collect();
+
+    let projected: Vec<(f64, f64)> = (0..n)
+        .map(|i| (col0[i] * s0, col1[i] * s1))
+        .collect();
+
+    Ok(projected)
+}
+
 #[derive(Debug, PartialEq)]
 struct EffectiveProjectionConfig {
     clap_weight: f64,
+    algorithm: String,
 }
 
 fn effective_projection_config(
@@ -124,11 +176,11 @@ fn effective_projection_config(
     min_dist: f64,
     perplexity: f64,
 ) -> EffectiveProjectionConfig {
-    // rag-umap exposes no tuning surface here yet. Keep accepted UI parameters
-    // intentionally ignored until alternate projection algorithms are implemented.
-    let _ = (algorithm, n_neighbors, min_dist, perplexity);
+    // UMAP parameters n_neighbors, min_dist, perplexity are ignored by rag-umap for now
+    let _ = (n_neighbors, min_dist, perplexity);
     EffectiveProjectionConfig {
         clap_weight: clap_weight.unwrap_or(0.5),
+        algorithm: algorithm.to_string(),
     }
 }
 
@@ -181,14 +233,14 @@ pub fn get_projection_coordinates(
     let sql = if music_only {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                t.genre, t.bpm, t.key, t.scale
+                t.genre, t.bpm, t.key, t.scale, tc.algorithm
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id
          WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
     } else {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                t.genre, t.bpm, t.key, t.scale
+                t.genre, t.bpm, t.key, t.scale, tc.algorithm
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id"
     };
@@ -207,6 +259,7 @@ pub fn get_projection_coordinates(
                 bpm: row.get(8)?,
                 key: row.get(9)?,
                 scale: row.get(10)?,
+                algorithm: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -403,7 +456,7 @@ pub async fn recompute_projection(
 
     let n = blended_vectors.len();
     let coords: Vec<(f64, f64)> = if n < 4 {
-        // Too few points for UMAP — spread evenly on a horizontal line
+        // Too few points for UMAP/PCA — spread evenly on a horizontal line
         (0..n)
             .map(|i| {
                 let x = if n > 1 {
@@ -415,13 +468,21 @@ pub async fn recompute_projection(
             })
             .collect()
     } else {
-        let raw = rag_umap::convert_to_2d(blended_vectors)
-            .map_err(|e| format!("UMAP projection failed: {:?}", e))?;
-        standardize_to_100(
-            &raw.iter()
-                .map(|v| (v[0] as f64, v[1] as f64))
-                .collect::<Vec<_>>(),
-        )
+        match effective_config.algorithm.as_str() {
+            "pca" => {
+                let raw = compute_pca_2d(&blended_vectors)?;
+                standardize_to_100(&raw)
+            }
+            _ => {
+                let raw = rag_umap::convert_to_2d(blended_vectors)
+                    .map_err(|e| format!("UMAP projection failed: {:?}", e))?;
+                standardize_to_100(
+                    &raw.iter()
+                        .map(|v| (v[0] as f64, v[1] as f64))
+                        .collect::<Vec<_>>(),
+                )
+            }
+        }
     };
 
     // Persist inside a transaction, recording the music_only scope per row
@@ -433,13 +494,19 @@ pub async fn recompute_projection(
         {
             let mut ins = tx
                 .prepare(
-                    "INSERT INTO track_coords (track_id, x, y, music_only) VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT INTO track_coords (track_id, x, y, music_only, algorithm) VALUES (?1, ?2, ?3, ?4, ?5)",
                 )
                 .map_err(|e| e.to_string())?;
             let music_only_int: i64 = if music_only { 1 } else { 0 };
             for (i, &(x, y)) in coords.iter().enumerate() {
-                ins.execute(rusqlite::params![track_ids[i], x, y, music_only_int])
-                    .map_err(|e| e.to_string())?;
+                ins.execute(rusqlite::params![
+                    track_ids[i],
+                    x,
+                    y,
+                    music_only_int,
+                    effective_config.algorithm
+                ])
+                .map_err(|e| e.to_string())?;
             }
         }
         tx.commit().map_err(|e| e.to_string())?;
@@ -535,12 +602,30 @@ mod math_tests {
         let default_umap = effective_projection_config(Some(0.7), "umap", 20, 0.1, 30.0);
         let requested_tsne = effective_projection_config(Some(0.7), "tsne", 90, 0.8, 5.0);
 
-        assert_eq!(default_umap, requested_tsne);
+        assert_eq!(default_umap.clap_weight, requested_tsne.clap_weight);
+        assert_eq!(default_umap.algorithm, "umap");
+        assert_eq!(requested_tsne.algorithm, "tsne");
         assert_eq!(default_umap.clap_weight, 0.7);
         assert_eq!(
             effective_projection_config(None, "pca", 5, 0.0, 100.0).clap_weight,
             0.5,
         );
+    }
+
+    #[test]
+    fn test_compute_pca_2d_returns_two_dimensions() {
+        let vectors = vec![
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![4.0, 3.0, 2.0, 1.0],
+            vec![5.0, 6.0, 7.0, 8.0],
+            vec![8.0, 7.0, 6.0, 5.0],
+        ];
+        let coords = compute_pca_2d(&vectors).unwrap();
+        assert_eq!(coords.len(), 4);
+        for &(x, y) in &coords {
+            assert!(x.is_finite());
+            assert!(y.is_finite());
+        }
     }
 
     #[test]

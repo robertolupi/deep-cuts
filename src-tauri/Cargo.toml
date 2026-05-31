@@ -37,6 +37,7 @@ symphonia = { version = "0.5.4", features = ["all"] }
 ebur128 = "0.1"
 rustfft = "6"
 rag-umap = "0.0.0"
+faer = "0.24"
 # Keep `download-binaries` for now so local and packaged builds have a pinned ONNX Runtime.
 # Revisit this if the app vendors ORT explicitly or adds a runtime installer/check.
 ort = { version = "2.0.0-rc.9", default-features = false, features = ["copy-dylibs", "std", "ndarray", "download-binaries", "tls-native"] }

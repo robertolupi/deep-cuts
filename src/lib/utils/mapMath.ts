@@ -12,6 +12,7 @@ export interface MappedTrackPoint {
   bpm: number | null;
   key: string | null;
   scale: string | null;
+  algorithm?: string | null;
 }
 
 export const camelotMap: { [key: string]: { code: string; color: string } } = {
