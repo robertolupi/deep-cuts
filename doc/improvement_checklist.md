@@ -44,8 +44,8 @@ This checklist captures concrete follow-up work found during the repository revi
 
 ## User-Facing Discovery Features
 
-- [ ] Implement local semantic search over `description_embeddings`.
-- [ ] Add match scores or rank badges for semantic search results.
+- [x] Implement local semantic search over `description_embeddings`.
+- [x] Add match scores or rank badges for semantic search results.
 - [ ] Add a "Sounds vs Feels" slider in the detail/player area for similarity recommendations.
 - [ ] Add duplicate/remix detection using CLAP similarity thresholds and title/artist heuristics.
 - [ ] Add pathfinding playlists after map quality is improved.
