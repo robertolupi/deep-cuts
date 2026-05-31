@@ -337,6 +337,77 @@ pub struct ParsedQwenResponse {
     pub description: Option<String>,
 }
 
+/// Keywords that introduce a new field. Longer variants must come before shorter ones
+/// so that e.g. "in mood" is matched before "mood".
+const FIELD_KEYWORDS: &[&str] = &[
+    "instruments",
+    "instrument",
+    "description",
+    "is music",
+    "in mood",
+    "genres",
+    "genre",
+    "music",
+    "moods",
+    "mood",
+    "desc",
+];
+
+/// Within a single segment that may contain multiple comma/period-separated fields
+/// (e.g. "MUSIC: yes, genres: pop, in mood: happy. Description: …"), split it into
+/// one sub-segment per field boundary. Returns the original segment unchanged when
+/// no additional boundaries are found.
+fn split_segment_on_keywords(segment: &str) -> Vec<&str> {
+    let lower = segment.to_lowercase();
+    let mut cut_points: Vec<usize> = vec![0];
+
+    for kw in FIELD_KEYWORDS {
+        let pat = format!("{}:", kw);
+        let mut from = 0;
+        while let Some(rel) = lower[from..].find(pat.as_str()) {
+            let kw_start = from + rel;
+            if kw_start > 0 {
+                // Only cut here if the keyword is preceded by a field delimiter
+                let preceding = lower[..kw_start].trim_end();
+                if let Some(last) = preceding.chars().last() {
+                    if last == ',' || last == '.' || last == ';' {
+                        cut_points.push(kw_start);
+                    }
+                }
+            }
+            from = kw_start + 1;
+        }
+    }
+
+    if cut_points.len() <= 1 {
+        return vec![segment];
+    }
+    cut_points.sort_unstable();
+    cut_points.dedup();
+
+    let last_start = *cut_points.last().unwrap();
+    let non_last: Vec<&str> = cut_points
+        .windows(2)
+        .map(|w| {
+            segment[w[0]..w[1]]
+                .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
+                .trim()
+                // Strip trailing field delimiters (comma, period, semicolon) from
+                // non-final segments — these are separators, not sentence punctuation.
+                .trim_end_matches(|c: char| c == ',' || c == '.' || c == ';')
+                .trim()
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+    let last = segment[last_start..]
+        .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
+        .trim();
+    non_last
+        .into_iter()
+        .chain(std::iter::once(last).filter(|s| !s.is_empty()))
+        .collect()
+}
+
 pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
     let mut is_music = None;
     let mut ai_genre = None;
@@ -347,32 +418,40 @@ pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
     // Normalize literal \n escape sequences the model sometimes emits instead of real newlines
     let normalized = content.replace("\\n", "\n");
 
-    // Split on newlines first, then on semicolons so both delimiter styles are handled
-    for segment in normalized.lines().flat_map(|l| l.split(';')) {
+    // Primary split: newlines then semicolons.
+    // Secondary split: within each segment, split further at ", keyword:" or ". keyword:"
+    // boundaries so that single-line comma-separated responses are also handled.
+    let segments: Vec<&str> = normalized
+        .lines()
+        .flat_map(|l| l.split(';'))
+        .flat_map(|seg| split_segment_on_keywords(seg))
+        .collect();
+
+    for segment in segments {
         let trimmed = segment.trim();
         if trimmed.is_empty() {
             continue;
         }
         if let Some(pos) = trimmed.find(':') {
             let key_upper = trimmed[..pos].to_uppercase();
-            let val = trimmed[pos + 1..].trim().to_string();
+            let val = trimmed[pos + 1..]
+                .trim()
+                .trim_end_matches(|c: char| c == ',' || c == ';')
+                .trim()
+                .to_string();
             if val.is_empty() {
                 continue;
             }
             if key_upper.contains("MUSIC") {
-                is_music = Some(if val.to_lowercase().contains("yes") {
-                    1
-                } else {
-                    0
-                });
+                is_music = is_music.or(Some(if val.to_lowercase().contains("yes") { 1 } else { 0 }));
             } else if key_upper.contains("GENRE") {
-                ai_genre = Some(val);
+                ai_genre = ai_genre.or(Some(val));
             } else if key_upper.contains("MOOD") {
-                ai_mood = Some(val);
-            } else if key_upper.contains("INSTRUMENTS") {
-                ai_instruments = Some(val);
-            } else if key_upper.contains("DESCRIPTION") {
-                description = Some(val);
+                ai_mood = ai_mood.or(Some(val));
+            } else if key_upper.contains("INSTRUMENT") {
+                ai_instruments = ai_instruments.or(Some(val));
+            } else if key_upper.contains("DESCRIPTION") || key_upper.trim() == "DESC" {
+                description = description.or(Some(val));
             }
         }
     }
@@ -474,5 +553,77 @@ mod tests {
             Some("synthesizer, bass, drums")
         );
         assert_eq!(res.description.as_deref(), Some("A lively dance track."));
+    }
+
+    /// Runs parse_qwen_response against every real Qwen response captured from
+    /// the production database. The fixture file is generated by querying
+    /// track_passes.raw_result and is committed alongside the test.
+    ///
+    /// Assertions per case:
+    ///   - is_music is Some (always parseable; the fallback guarantees description)
+    ///   - description is Some and non-empty
+    ///   - ai_genre / ai_mood / ai_instruments are Some when the raw response
+    ///     contains the expected English header (flagged as expect_* in the fixture)
+    #[test]
+    fn test_parse_all_real_qwen_responses() {
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            filename: String,
+            content: String,
+            expect_genre: bool,
+            expect_mood: bool,
+            expect_instruments: bool,
+        }
+
+        let fixtures: Vec<Fixture> = serde_json::from_str(
+            include_str!("qwen_test_fixtures.json")
+        ).expect("failed to parse qwen_test_fixtures.json");
+
+        let mut failures = Vec::new();
+
+        for f in &fixtures {
+            let res = parse_qwen_response(&f.content);
+
+            if res.is_music.is_none() {
+                failures.push(format!("{}: is_music is None", f.filename));
+            }
+            match &res.description {
+                None => failures.push(format!("{}: description is None", f.filename)),
+                Some(d) if d.trim().is_empty() => {
+                    failures.push(format!("{}: description is empty", f.filename));
+                }
+                _ => {}
+            }
+            if f.expect_genre && res.ai_genre.is_none() {
+                failures.push(format!("{}: ai_genre expected but not parsed", f.filename));
+            }
+            if f.expect_mood && res.ai_mood.is_none() {
+                failures.push(format!("{}: ai_mood expected but not parsed", f.filename));
+            }
+            if f.expect_instruments && res.ai_instruments.is_none() {
+                failures.push(format!("{}: ai_instruments expected but not parsed", f.filename));
+            }
+        }
+
+        if !failures.is_empty() {
+            panic!(
+                "{}/{} cases failed:\n{}",
+                failures.len(),
+                fixtures.len(),
+                failures.join("\n")
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_comma_separated_lowercase_headers() {
+        // Single-line response with comma/period delimiters and mixed-case headers
+        let content = "MUSIC: yes, genres: dance, deephouse, electronic, in mood: happy, summer. Instruments: synth, synth_lead. Description: A dance track perfect for a beach party, with a deep, summer vibe, featuring synthetic instruments and a lead synth that creates a happy mood.";
+        let res = parse_qwen_response(content);
+        assert_eq!(res.is_music, Some(1));
+        assert_eq!(res.ai_genre.as_deref(), Some("dance, deephouse, electronic"));
+        assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
+        assert_eq!(res.ai_instruments.as_deref(), Some("synth, synth_lead"));
+        assert!(res.description.as_deref().unwrap().starts_with("A dance track perfect"));
     }
 }

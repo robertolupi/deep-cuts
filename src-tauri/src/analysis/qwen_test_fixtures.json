@@ -1,0 +1,1290 @@
+[
+  {
+    "filename": "(Gear List) Experiment_ Soundtrack in Ableton + Add Vocal in Suno.mp3",
+    "content": "MUSIC: yes, the music is a pop and folk fusion with a touch of quirkiness.\nGENRE: pop, folk, quirk pop\nMOOD: upbeat, quirky, sweet\nINSTRUMENTS: acoustic guitar, synthesizer, piano\nDESCRIPTION: This music has a catchy melody that combines the mellow tones of the acoustic guitar with the modern sounds of the synthesizer and piano. It has a quirky feel that makes it unique, while still maintaining a sweet and upbeat mood throughout.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "(Remix Me) Urla nel Silenzio.mp3",
+    "content": "MUSIC: yes\\nGENRE: hiphop, rap\\nMOOD: confident, introspective\\nINSTRUMENTS: piano, synthesizer, drums\\nDESCRIPTION: A rhythmic and introspective rap track with a confident mood, featuring piano and synthesizer melodies, and dynamic drum patterns.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "(Tuesday) Men In The Machine.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, indie-rock\\nMOOD: introspective, melancholic\\nINSTRUMENTS: electric guitar, bass guitar, drums, synthesizer\\nDESCRIPTION: A slow-paced indie-rock track in F# minor with a melancholic feel. Features introspective lyrics and a blend of electric guitar, bass guitar, drums, and synthesizer sounds.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "10, 9, 8... Sveglia!.mp3",
+    "content": "MUSIC: yes, genre: pop, subgenre: electronic, mood: upbeat, instruments: synthesizer, bass, drums, description: a high-energy dance track with a catchy melody and a synth-driven beat.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "2026-05-28.aif",
+    "content": "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: happy, summer\\nINSTRUMENTS: bass, drums, synthesizer\\nDESCRIPTION: A light and energetic dance track with a summer vibe featuring bass, drums, and synthesizer.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "2026-05-28.mp3",
+    "content": "MUSIC: yes; GENRE: electronic, ambient, trance; Mood: dreamy, uplifting; INSTRUMENTS: synth, piano, drums; DESCRIPTION: A serene, yet invigorating electronic track that transports the listener to a dream-like state, featuring soothing synth melodies, gentle piano chords, and rhythmic drums that build up to a euphoric, uplifting climax.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "3 A.M. Ain't Sleep (It's a Mirror).mp3",
+    "content": "MUSIC: yes\\nGENRE: chillout, downtempo\\nMood: relaxing, introspective\\nINSTRUMENTS: synth, piano, bass\\nDESCRIPTION: A tranquil, downtempo track with a synth-led melody over a relaxed beat. It features a soothing piano melody and a subtle bassline that complements the chillout mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "A Bull-Like Craving.mp3",
+    "content": "MUSIC: yes\\nGENRE: folk, singer-songwriter\\nMood: reflective, hopeful\\nINSTRUMENTS: acoustic guitar, piano, strings\\nDESCRIPTION: A thoughtful and emotive folk track featuring acoustic guitar and piano with strings. The mood is reflective and hopeful, with a focus on the singer-songwriter's lyrical storytelling.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "AI Steering Committee.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: uplifting, hopeful\nINSTRUMENTS: acoustic guitar, synthesizer, drums\nDESCRIPTION: A lively pop-folk track with an uplifting and hopeful mood. It features a prominent acoustic guitar, supported by synthesizer and drums, creating a dynamic and engaging soundscape.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "AUM Rising.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: calm, reflective\\nINSTRUMENTS: acoustic guitar, violin\\nDESCRIPTION: A soothing pop-folk track with gentle acoustic guitar and heartfelt violin melodies that evoke a sense of calm and reflection.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ade_ Il Silenzio del Sottosuolo (Rap-Metal).mp3",
+    "content": "MUSIC: yes, this is music. Genre: hip-hop and rap. Mood: energetic and intense. Instruments: drums, bass, and synthesizer. Description: This track is a fast-paced hip-hop song with a rap verse. The beat is energetic and intense, with a heavy bass and synthesizer sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Afternoon Lullaby.mp3",
+    "content": "MUSIC: yes\\nGENRE: jazz, soundtrack\\nMOOD: nostalgic, romantic\\nINSTRUMENTS: piano, saxophone\\nDESCRIPTION: A classic jazz soundtrack piece reminiscent of romantic  film scenes, featuring a piano and saxophone duet with a warm, nostalgic feel.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ajna, Third Eye Chakra.mp3",
+    "content": "MUSIC: yes\nGENRE: electronic, ambient\nMOOD: meditative, relaxing\nINSTRUMENTS: synthesizer, piano\nDESCRIPTION: A serene, ambient electronic track featuring soothing synthesizer and piano melodies that evoke a meditative and relaxing mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Anahata, The Space Between Heartbeats.mp3",
+    "content": "MUSIC: yes\nGENRE: ambient, world, soundtrack\nMOOD: meditative, relaxing\nINSTRUMENTS: synthesizer, sitar, flute\nDESCRIPTION: A world music track blending ambient and soundtrack genres, evoking a meditative and relaxing mood through the use of synthesizer, sitar, and flute sounds.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Another Morning, Another Chance to Fight.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMOOD: upbeat, hopeful\\nINSTRUMENTS: piano, violin\\nDESCRIPTION: A bright and cheerful pop track featuring piano and violin, evoking feelings of optimism and hope.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Apollo, La Tirannia della Luce.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: upbeat, energizing\nINSTRUMENTS: synthesizer, bass, drums\nDESCRIPTION: This track is an electronic pop with an upbeat mood perfect for dancing and working out. It features synthesizer, bass, and drums that create a high-energy sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Artemide, L’Ultima Libertà.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: happy, hopeful\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A light and uplifting pop-folk track with a joyful melody and hopeful lyrics about overcoming adversity.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Audience of Zero.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic, folk\nMOOD: sad, reflective, dreamy\nINSTRUMENTS: piano, synthesizer, acoustic guitar, violin\nDESCRIPTION: A blend of pop, electronic, and folk genres, featuring a melancholic mood with reflective and dreamy elements. The main instruments include piano, synthesizer, acoustic guitar, and violin, creating a haunting yet beautiful soundscape perfect for introspective moments.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Aum Om Mani Pad Me Hum (2).mp3",
+    "content": "MUSIC: yes\nGENRE: ambient, electronic, soundtrack\nMOOD: meditative, relaxing, atmospheric\nINSTRUMENTS: synthesizer, piano, flute\nDESCRIPTION: A serene soundscape that combines synthesized textures with gentle piano and flute melodies, evoking a sense of calm and relaxation.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Aum Om Mani Pad Me Hum (Epic Edition).mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, alternative rock\\nMood: introspective, reflective\\nINSTRUMENTS: guitar, drums, piano\\nDESCRIPTION: A laid-back alternative rock track with introspective lyrics and a reflective mood, featuring guitar, drums, and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Aum Om Mani Pad Me Hum.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: dreamy, melancholic\nINSTRUMENTS: piano, synthesizer, strings\nDESCRIPTION: A pop ballad with a dreamy and melancholic mood, featuring piano, synthesizer, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "BDSM.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic, rock, indie-rock\nMOOD: energetic, inspiring, driving\nINSTRUMENTS: electric guitar, synthesizer, drums\nDESCRIPTION: A high-energy indie-rock track with a blend of pop and electronic elements. It features driving drums, inspiring guitar riffs, and a synthesizer that adds a modern touch.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Bianchi Cadaveri sulle Pareti.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, alternative rock\\nMOOD: introspective, melancholic\\nINSTRUMENTS: electric guitar, piano, drums\\nDESCRIPTION: A slow-paced alternative rock song with introspective lyrics and a melancholic mood. The electric guitar and piano lead the melody, supported by a rhythm section of drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Checkmate Isn’t Peace.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock, post-grunge\nMOOD: melancholic, introspective\nINSTRUMENTS: electric guitar, bass, drums, piano\nDESCRIPTION: A somber yet captivating rock track with elements of alternative and post-grunge. The electric guitar leads with introspective lyrics over a backdrop of steady bass and drums, punctuated by reflective piano notes.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Cinquanta Inverni.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: romantic, uplifting\nINSTRUMENTS: electric guitar, drums, piano, strings\nDESCRIPTION: A rock-pop song about finding love in the midst of chaos and adversity.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "City At 03_17.mp3",
+    "content": "MUSIC: yes; GENRE: pop, electronic; MOOD: upbeat, energetic; INSTRUMENTS: bass, drums, synthesizer, piano; DESCRIPTION: A lively pop-electronic track with a bright and energetic mood. Features a strong bass and drums beat, along with synthesizer and piano melodies that contribute to the overall upbeat feel of the track.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Click, Click... La Regina del Sistema.mp3",
+    "content": "MUSIC: yes\nGENRE: hip-hop, rap\nMOOD: confident, proud\nINSTRUMENTS: synthesizer, drums, bass\nDESCRIPTION: A confident and proud hip-hop track featuring a groovy synthesizer melody, punchy drums, and a solid bass line.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Clockwork Aria.mp3",
+    "content": "MUSIC: yes\nGENRE: hard rock, rock\nMOOD: powerful, epic\nINSTRUMENTS: drums, electric guitar, bass guitar, guitar, synthesizer\nDESCRIPTION: A high-energy rock track with a powerful and epic mood. Features driving drums, electrifying guitar riffs, and a deep bass line.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Consciousness Is Not Computation.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: dreamy, soaring\nINSTRUMENTS: synthesizer, piano, strings\nDESCRIPTION: A dreamy and soaring pop-electronic track, featuring a prominent synthesizer melody, piano accompaniment, and strings adding texture.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Convergence & The Void.mp3",
+    "content": "MUSIC: yes\\nGENRE: industrial, ebm\\nMOOD: aggressive, violent\\nINSTRUMENTS: bass, drums, guitar\\nDESCRIPTION: A fast-paced industrial electronic track with a violent, aggressive mood. The main instruments are bass, drums, and guitar.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Cthulhu, Fhtagn in the Deep.mp3",
+    "content": "MUSIC: yes, this is music.\nGENRE: rock, alternative rock.\nMOOD: introspective, melancholic.\nINSTRUMENTS: electric guitar, bass guitar, drums, synthesizer.\nDESCRIPTION: A slow-paced alternative rock track with introspective lyrics and melancholic tones. The electric guitar leads with a complex chord progression, backed by a bass guitar and drums that provide a steady rhythm. Synthesizer textures fill the background, enhancing the overall mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Cuore Rosso.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: heartwarming, hopeful\nINSTRUMENTS: acoustic guitar, piano, violin\nDESCRIPTION: A heartfelt singer-songwriter track with elements of pop and folk. The acoustic guitar leads the melody with a supporting piano and violin that enhance the hopeful mood of the piece.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Cycle of the Workday Saints.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMood: happy, upbeat\\nINSTRUMENTS: piano, synthesizer, drums\\nDESCRIPTION: A lively pop track with a youthful and energetic vibe. Features a catchy melody with a synthesized piano sound, groovy bassline, and a driving rhythm section.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Dance.mp3",
+    "content": "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: energetic\\nINSTRUMENTS: bass, drum, synthesizer\\nDESCRIPTION: A high-energy dance track in the electronic genre with a synth-driven melody and a rhythmic bassline that creates an inviting and energetic mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Digital Echoes.mp3",
+    "content": "MUSIC: yes\nGENRE: folk, singer-songwriter\nMOOD: introspective, melancholic\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A contemplative singer-songwriter track with introspective lyrics and melancholic melodies, featuring primarily an acoustic guitar, piano, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Diplomatic Toys (Missiles into Dildos_).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: upbeat, nostalgic\nINSTRUMENTS: drums, electric guitar, piano\nDESCRIPTION: A classic rock-pop track with a catchy melody, featuring an upbeat tempo and a nostalgic feel reminiscent of the 90s.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Dirty Minds.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, electronic\\nMOOD: hopeful, optimistic\\nINSTRUMENTS: piano, synthesizer, drums\\nDESCRIPTION: A pop track with a synth-driven melody and a hopeful, optimistic mood. Features piano and drums for added texture.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Don’t Waste Saturday.mp3",
+    "content": "MUSIC: yes,Genre: pop, subgenre: folk, mood: happy, instruments: acoustic guitar, piano, drums, description: A positive and uplifting pop folk track with catchy melodies and a joyful mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Down Spiral.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, folk\\nMOOD: uplifting, inspiring\\nINSTRUMENTS: acoustic guitar, electric guitar, drums\\nDESCRIPTION: A lively folk-rock track that builds up to an inspiring and uplifting mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Dreaming In Ochre Circles.mp3",
+    "content": "MUSIC: yes\\nGENRE: singer-songwriter, folk\\nMood: reflective, poignant\\nINSTRUMENTS: acoustic guitar, piano\\nDESCRIPTION: A singer-songwriter's take on poignant, reflective moments, featuring acoustic guitar and piano to capture the mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Endless Anyway.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, indie-rock\\nMood: upbeat, catchy\\nINSTRUMENTS: vocals, guitar, drums\\nDESCRIPTION: A lively indie rock track with a catchy melody and upbeat tempo that features vocals, guitar, and drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Energy Power-up.mp3",
+    "content": "MUSIC: yes, it's music. GENRE: a mix of pop and electronic, with synthesized sounds. MOOD: bright and upbeat, suitable for advertising or corporate use. INSTRUMENTS: synthesizer, drums, and electric guitar. DESCRIPTION: A lively pop-techno fusion piece, with catchy melodies and a danceable beat. The synthesizer leads with bright and vibrant sounds, complemented by the rhythmic strumming of the electric guitar and the steady pulse of the drums. The mood is upbeat and motivational, making it ideal for advertisements or corporate uses that aim to convey positivity and energy.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Enough Yawning.mp3",
+    "content": "MUSIC: yes, country, pop\nGENRE: country, pop\nMOOD: happy, love\nINSTRUMENTS: piano, guitar, drums\nDESCRIPTION: A happy and loving country pop track with a piano and guitar leading the melody and drums providing a rhythmic foundation.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Era, Il Panopticon dello Sguardo.mp3",
+    "content": "MUSIC: yes, this is music. Genres: Hip hop, rap, and alternative hip hop. Mood: Empowering and confident. Instruments: Drums, bass, synthesizer, and percussion. Description: This track features a blend of rap and alternative hip hop with a focus on an empowering and confident mood. The drums and bass provide a solid foundation, while the synthesizer adds a layer of modernity. Percussion enhances the overall rhythm and drives the track forward.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ermes_ Il Mercante di Frequenze.mp3",
+    "content": "MUSIC: yes\\nGENRE: hiphop, rap\\nMOOD: motivational, confident\\nINSTRUMENTS: piano, synth, drums\\nDESCRIPTION: This track blends hip-hop and rap genres with a motivational and confident mood. The piano adds a melodic backbone while the synth provides a modern texture, and the drums drive the rhythmic energy of the piece.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Esodo_ La Fine delle Trasmissioni.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: ballad, dreamy, epic, love\nINSTRUMENTS: acoustic guitar, bass, drum, electric guitar, piano, synthesizer\nDESCRIPTION: A dreamy and epic ballad about love, with a touch of romance and sentimentality. The acoustic guitar leads the melody, accompanied by a bass, drum, electric guitar, and piano. Synthesizer pads add depth and emotion to the track.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ethereal Music Recipe-1.mp3",
+    "content": "MUSIC: yes\nGENRE: dance, electronic, house\nMOOD: deep, summer\nINSTRUMENTS: bass, drums, synthesizer\nDESCRIPTION: A groovy house track with a deep and summer mood. Features bass, drums, and synthesizer.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ethereal Music Recipe.mp3",
+    "content": "MUSIC: yes\\nGENRE: dance, electronic\\nMood: deep, summer\\nINSTRUMENTS: bass, drums, synthesizer\\nDESCRIPTION: A lively dance track with a deep, summer mood featuring bass, drums, and synthesizer.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Experiment_ Ableton + Suno.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: happy, hopeful\nINSTRUMENTS: piano, acoustic guitar, violin\nDESCRIPTION: A lively folk-pop track with a bright and breezy feel, featuring piano, acoustic guitar, and violin. The mood is one of hope and happiness, making it ideal for brightening up a day.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "FIRE.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: dreamy, reflective\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A singer-songwriter's dreamy and reflective mood is captured through the soft strums of an acoustic guitar, the gentle hum of a piano, and the soothing strains of strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Fatture pagate (Prima della fine dell’universo).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: hopeful, heartfelt\nINSTRUMENTS: acoustic guitar, piano, violin\nDESCRIPTION: A hopeful, heartfelt pop-folk track featuring acoustic guitar, piano, and violin.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Feed the Furnace.mp3",
+    "content": "MUSIC: yes F# minor: mood, subgenre Instruments: drums, guitar, bass, piano, synthesizer, percussion, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums, electric guitar, piano, synthesizer, strings, background vocals, choir, brass, strings, choir, drums",
+    "expect_genre": false,
+    "expect_mood": false,
+    "expect_instruments": false
+  },
+  {
+    "filename": "Fenrir & Gleipnir.mp3",
+    "content": "MUSIC: yes\nGENRE: hard rock, rock\nMOOD: epic, powerful\nINSTRUMENTS: guitar, drums, bass, vocals\nDESCRIPTION: This track is a powerful and epic hard rock song featuring guitar riffs, drums, and a strong bass line. The vocals are intense and convey a sense of power and determination.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Friday, We Become Human Again.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: happy, hopeful\nINSTRUMENTS: guitar, piano, strings\nDESCRIPTION: A light-hearted pop-folk track with a happy, hopeful mood. Features guitar, piano, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Fuori Posto, Fuori Fuoco.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock\nMOOD: uplifting, inspiring\nINSTRUMENTS: guitar, drums, bass, keys\nDESCRIPTION: A lively and energetic alternative rock track that exudes an uplifting and inspiring mood. Featuring a prominent guitar, driving drums, a deep bass line, and dynamic keys, the track is a perfect blend of raw talent and heartfelt expression.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ganesha and The Serpent Belt.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, folk\\nMOOD: reflective, storytelling\\nINSTRUMENTS: acoustic guitar, violin, piano\\nDESCRIPTION: A singer-songwriter piece with a slow tempo, featuring acoustic guitar and strings, telling a reflective story.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Gilded Sun.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, jazz, soul-R&B\nMOOD: easy listening, romantic, smooth\nINSTRUMENTS: piano, saxophone, double bass, drums, guitar\nDESCRIPTION: A smooth jazz track with a warm tone, featuring piano and saxophone in the melody and a double bass and drums rhythm section. The piano leads with soft chords, while the saxophone adds a hint of sultriness. The double bass provides a subtle foundation, and the drums maintain a steady tempo for a relaxed and easy-listening vibe. The overall mood is romantic and smooth, perfect for a relaxed evening or a romantic dinner.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Giove, Il Peso del Fulmine (Progressive Art-Rock Remix).mp3",
+    "content": "MUSIC: yes\nGENRE: rock, hard rock, alternative rock\nMOOD: epic, inspiring\nINSTRUMENTS: electric guitar, bass, drums, vocals\nDESCRIPTION: A powerful rock track with a driving tempo, featuring an epic chorus and inspiring lyrics.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Giovedì, On-Call.mp3",
+    "content": "MUSIC: yes\nGENRE: dance, deephouse, electronic\nMOOD: deep, emotional\nINSTRUMENTS: bass, drums, synthesizer\nDESCRIPTION: A pulsing, rhythmic deephouse track with a emotional undertone, featuring a synth-driven melody, bassline, and percussion.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "HIV Non Rilevabile, Incrollabile.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: sad, hopeful\nINSTRUMENTS: guitar, piano, violin\nDESCRIPTION: A melancholic pop-folk track with a slow tempo. The singer's voice conveys a sense of hopefulness amidst the sadness. The main instruments are a guitar, a piano, and a violin.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "History Became Myth (80s-90s computers nostalgia).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: upbeat, hopeful\nINSTRUMENTS: piano, electric guitar, drums, bass\nDESCRIPTION: A pop-rock track with an upbeat tempo and a hopeful mood. Features piano, electric guitar, drums, and bass.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Human Error (And That’s Okay).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: sad, poignant\nINSTRUMENTS: guitar, piano\nDESCRIPTION: A heartfelt pop-folk track with a melancholic mood. The main instruments are a guitar and a piano, with the vocals delivering a poignant message.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "I'm with stupid tonight.mp3",
+    "content": "MUSIC: yes\\nGENRE: country, folk\\nMOOD: hopeful, storytelling\\nINSTRUMENTS: acoustic guitar, banjo, fiddle\\nDESCRIPTION: A heartfelt country folk track with acoustic guitar and banjo leading the melody, accompanied by a fiddle that adds a hopeful, storytelling mood to the composition.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "IP over Birds (RFC 1149).mp3",
+    "content": "MUSIC: yes, Genres: country, folk, singer-songwriter, Mood: hopeful, optimistic, Emotions: heartwarming, relatable, Instruments: acoustic guitar, banjo, fiddle, harmonica, mandolin, vocals, plain prose: This is a heartfelt country folk track with a singer-songwriter vibe. Its mood is hopeful and optimistic, evoking feelings of warmth and positivity. The main instruments include the acoustic guitar, banjo, fiddle, harmonica, and mandolin, which contribute to the overall relatable and heartwarming atmosphere of the track.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "If It Survives Today....mp3",
+    "content": "MUSIC: yes\\nGENRE: electronic, dance\\nMood: energetic, party\\nINSTRUMENTS: synthesizer, bass\\nDESCRIPTION: A high-energy electronic dance track with a driving beat and a party atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Il Manuale Non C’è.mp3",
+    "content": "MUSIC: yes基因:爵士,民谣流派:爵士,电影配乐,民谣电影原声带情绪:浪漫,电影风格,轻松,柔和乐器:萨克斯,钢琴,低音提琴,吉他,长笛,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓,木吉他,曼陀林,竖琴,中提琴,小提琴,大提琴,木吉他,低音提琴,鼓",
+    "expect_genre": false,
+    "expect_mood": false,
+    "expect_instruments": false
+  },
+  {
+    "filename": "Il Miracolo È Questo.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: uplifting, hopeful\\nINSTRUMENTS: acoustic guitar, piano, strings\\nDESCRIPTION: A hopeful pop-folk track with a bright and breezy feel. Features an acoustic guitar and piano that lead into a soaring strings section.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Il Nodo d'Oro_ Venere tra Fuoco e Sangue.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, hard rock\nMOOD: epic, powerful\nINSTRUMENTS: guitar, drums, bass, vocals\nDESCRIPTION: This track is a high-energy rock anthem with a powerful chorus and driving drums. The guitar leads with an epic solo, backed up by a solid bass and thunderous drums. The vocals are soaring, adding to the overall sense of power and grandeur.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Il Valzer della Bilancia.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, singer-songwriter\nMOOD: ballad, emotional\nINSTRUMENTS: piano, acoustic guitar, strings\nDESCRIPTION: A heartfelt ballad with a focus on piano and guitar arpeggios. The strings add depth and emotion to the track.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Illuminati… un po’ ’cecati.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMood: happy, sentimental\\nINSTRUMENTS: acoustic guitar, piano\\nDESCRIPTION: A lively pop-folk track with a warm and uplifting mood. Features acoustic guitar and piano melodies that evoke feelings of happiness and nostalgia.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "In Ordem (Instrumental).mp3",
+    "content": "MUSIC: yes\nGENRE: ambient, atmospheric, progressive rock\nMOOD: epic, inspiring\nINSTRUMENTS: drums, guitar, piano, synthesizer\nDESCRIPTION: A progressive rock piece that builds up gradually from an ambient intro into a full-fledged epic, inspiring mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "In line at the offices.mp3",
+    "content": "MUSIC: yes\\nGENRE: singer-songwriter, folk\\nMood: introspective, melancholic\\nINSTRUMENTS: acoustic guitar, piano\\nDESCRIPTION: A singer-songwriter track with introspective lyrics and melancholic melodies featuring acoustic guitar and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Inner Fire (Steampunk _ Industrial Rock Remix).mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock, progressive rock\nMOOD: motivational, inspiring\nINSTRUMENTS: guitar, drums, bass, piano\nDESCRIPTION: A dynamic and uplifting rock track with alternative and progressive influences featuring guitar, drums, bass, and piano. The mood is motivational and inspiring, perfect for driving or working out.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "It's a Sunny Day.mp3",
+    "content": "MUSIC: yes, pop, rock, indie-rock, alternative rock, g-funk\nGENRE: pop, rock, indie-rock, alternative rock, g-funk\nMOOD: upbeat, nostalgic, reflective, energizing\nINSTRUMENTS: electric guitar, bass guitar, synthesizer, drums, synth drums, piano\nDESCRIPTION: A catchy, upbeat pop track with a groovy g-funk influence, featuring a memorable chorus and reflective lyrics that evoke a sense of nostalgia. The electric guitar and bass guitar blend with a synthesizer and drums to create a full, energetic sound that is both engaging and inspiring.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italia, Italia (versione 🇮🇹).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: uplifting, hopeful\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A pop-folk track that builds an uplifting and hopeful mood through the use of acoustic guitar, piano, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italia, Italia.mp3",
+    "content": "MUSIC: yes, this is music.\nGENRE: industrial, electro-industrial\nMOOD: harsh, mechanical\nINSTRUMENTS: electronic instruments, heavy use of synthesizers\nDESCRIPTION: A harsh, mechanical track with a strong industrial, electro-industrial sound. The track utilizes electronic instruments and heavily features synthesizers, creating a loud, intense atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade - Roma Nord Che Ansima.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, rock\\nMOOD: emotional, inspiring\\nINSTRUMENTS: electric guitar, piano, strings\\nDESCRIPTION: A powerful pop-rock track with a heartfelt message and uplifting mood. The electric guitar leads with a catchy melody, complemented by a piano and strings to create a rich, emotional sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade I - L’Ira della Bionda (Giorgia Mia, Nun Me Scaccià).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: love, sad\nINSTRUMENTS: voice, guitar\nDESCRIPTION: A singer-songwriter track with a melancholic feel, featuring a voice and guitar.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade II - Il Destriero Fermato (Dominus Trenorum).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: happy, inspiring\nINSTRUMENTS: acoustic guitar, violin, piano\nDESCRIPTION: This is an uplifting pop-folk track with a joyful and inspiring mood. The main instruments include an acoustic guitar, a violin, and a piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade III - Il Ciclope di Terni (L'Ascesa).mp3",
+    "content": "MUSIC: yes\nGENRE: rap, hip-hop\nMOOD: aggressive, confrontational\nINSTRUMENTS: synthesizer, drum machine, piano\nDESCRIPTION: A fast-paced, hard-hitting hip-hop track with a heavy use of synthesizer and drum machine. The mood is aggressive and confrontational, reflecting themes of conflict and dominance.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade IV – Reality della Discordia (regia di Matteo con Elly e Giuseppe).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: ballad, reflective\nINSTRUMENTS: voice, acoustic guitar, piano\nDESCRIPTION: A heartfelt ballad about introspection and personal growth, featuring a soothing combination of voice, acoustic guitar, and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade IX - Il Fabbro Spaziale (Made in Italy).mp3",
+    "content": "MUSIC: yes, the track is a pop ballad.\nGENRE: pop, folk.\nMOOD: romantic, heart-touching.\nINSTRUMENTS: acoustic guitar, piano, violin.\nDESCRIPTION: A soft and soothing pop ballad with gentle guitar arpeggios, a flowing piano melody, and a sentimental violin solo.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade V - Il Ponte sull’Infinito.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: uplifting, hopeful\nINSTRUMENTS: acoustic guitar, synth strings, piano\nDESCRIPTION: A heartfelt pop-folk track with acoustic guitar leading the melody, accompanied by synth strings for a fuller sound. The piano adds a touch of hopefulness to the overall mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade VI - La Danza Della Venere (Open To Meraviglia, Open To Indagine).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic, dance\nMOOD: upbeat, energetic, danceable\nINSTRUMENTS: synth, bass, drums, electric guitar\nDESCRIPTION: This is an upbeat pop-electronic dance track with a tempo of approximately 125 BPM. It has a synth-driven melody, a bass that adds depth, and a steady drumbeat that keeps the energy high. The electric guitar enhances the danceable mood of the song.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade VII - Dura Lex, ma Con Moderazione (il Sonno Della Ragione).mp3",
+    "content": "MUSIC: yes\nGENRE: folk, celtic\nMOOD: sentimental, peaceful\nINSTRUMENTS: fiddle, flute, acoustic guitar\nDESCRIPTION: A soothing folk and celtic track featuring a fiddle, flute, and acoustic guitar. The melody has a sentimental and peaceful feel to it.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade VIII - Il Generale al Contrario.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, international, Italian\nMOOD: romantic\nINSTRUMENTS: voice, guitar\nDESCRIPTION: A romantic Italian pop song featuring a voice singing over a guitar.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade X - La Profetessa dell'Armocromia (Elly).mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMood: upbeat, inspirational\\nINSTRUMENTS: piano, synthesizers, drums\\nDESCRIPTION: A lively pop track with a bright and energetic feel. Features piano and synthesizers creating a catchy melody, complemented by drums that add a dynamic rhythm. Perfect for motivational content.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade XI - Il CamaleConte.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: upbeat, determined\nINSTRUMENTS: piano, synthesizer, bass, drums\nDESCRIPTION: A lively pop-electronic track with a bright, upbeat mood. It features a determined feel, with a strong bass and drums, and is centered around a piano and synthesizer arrangement.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Italiade XII - L'Apoteosi del Premierato (Finale).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, international, Europe\nMOOD: hopeful, sentimental\nINSTRUMENTS: voice, accordion\nDESCRIPTION: A hopeful, sentimental ballad featuring a heartfelt voice singing over an accordion accompaniment.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Kitchen And Egg.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, alternative rock\\nMood: uplifting, inspiring\\nINSTRUMENTS: guitar, drums, piano\\nDESCRIPTION: A lively alternative rock track with an uplifting mood, featuring guitars, drums, and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "L'Artificio di Vulcano.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, hard rock\nMOOD: epic, powerful\nINSTRUMENTS: guitar, drums, bass, vocals\nDESCRIPTION: A powerful rock track with an epic mood, featuring a guitar lead, strong drums, a deep bass, and passionate vocals.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "L'Estasi delle Menadi (Dionisio).mp3",
+    "content": "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: energetic, motivational\\nINSTRUMENTS: drum machine, synthesizer\\nDESCRIPTION: A high-energy dance track with a driving beat and motivational synthesizer lines that create an energetic mood适合 for workout or dance classes.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "La Coscienza non è Calcolo.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: hopeful, emotional\nINSTRUMENTS: acoustic guitar, piano, violin\nDESCRIPTION: A heartfelt singer-songwriter track with acoustic guitar, piano, and strings. The mood is hopeful and emotional, reflecting themes of love and personal growth.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "La Riga Sottile (Il Debito).mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMood: ballad, story-telling\\nINSTRUMENTS: voice, acoustic guitar\\nDESCRIPTION: A heartfelt ballad with storytelling lyrics over a simple acoustic guitar accompaniment.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "La Scatola dei Cavi Inutili.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock, garage rock\nMOOD: cool, confident, rebellious\nINSTRUMENTS: electric guitar, bass guitar, drums, keyboard\nDESCRIPTION: A cool and confident garage rock track with a rebellious edge.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Le Piante Tifano Per Me.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: upbeat, hopeful, heartfelt\nINSTRUMENTS: acoustic guitar, electric guitar, synthesizer, drums\nDESCRIPTION: A lively folk-pop track with an upbeat tempo and a hopeful, heartfelt mood. The main instruments include an acoustic guitar, electric guitar, synthesizer, and drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Lessons From the Edge of the Light.mp3",
+    "content": "MUSIC: yes, this is music.\nGENRE: pop, folk.\nMOOD: uplifting, hopeful.\nINSTRUMENTS: piano, acoustic guitar, violin.\nDESCRIPTION: A hopeful and uplifting pop-folk track featuring piano, acoustic guitar, and violin, conveying a sense of optimism and positivity.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Life's Anxieties.mp3",
+    "content": "MUSIC: yes\nGENRE: blues, soul-R&B\nMOOD: soulful, expressive\nINSTRUMENTS: piano, guitar, drums, bass\nDESCRIPTION: A soulful and expressive track featuring piano, guitar, drums, and bass that conveys a sense of longing and emotional depth through the singer's vocal performance and the blend of blues and R&B influences.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Like for Like.mp3",
+    "content": "MUSIC: yes\\nGENRE: dubstep, electronic\\nMOOD: heavy, intense\\nINSTRUMENTS: bass, drums, synthesizers\\nDESCRIPTION: A fast-paced electronic dubstep track with heavy synthesizer usage, intense drums, and a bassline that drives the mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Lovecraft Creation Myth.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, hard rock\\nMOOD: epic, powerful\\nINSTRUMENTS: electric guitar, drums, bass\\nDESCRIPTION: A high-intensity rock track featuring an electric guitar playing an epic solo over a driving beat on drums and a deep bassline, creating a powerful and motivational mood.\\n\\nThis track would be perfect for action-packed scenes in movies or video games, as well as sports advertisements.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Lunedì Che Palle (Reggae).mp3",
+    "content": "MUSIC: yes, Genres: rock, folk, singer-songwriter, Key: A major, Mood: sad, Instruments: acoustic guitar, piano, Drums, Voice, Description: A reflective, melancholic rock track with a singer-songwriter feel, featuring acoustic guitar and piano with a touch of sadness.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "MPC.mp3",
+    "content": "MUSIC: yes; GENRE: hip-hop, alternative hip-hop; MOOD: introspective; INSTRUMENTS: piano, synth, drums; DESCRIPTION: A laid-back, introspective hip-hop track with a hint of alternative influence. The piano leads with reflective melodies, complemented by synth textures and rhythmic drums that contribute to a dreamy atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Manipura, City of Inner Fire.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: reflective, hopeful, intimate\nINSTRUMENTS: acoustic guitar, piano, violin\nDESCRIPTION: This is a pop-folk-singer-songwriter track that exudes a reflective and hopeful mood. The main instruments include an acoustic guitar, piano, and violin, which blend smoothly to create an intimate and heartfelt sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Martedì l’è minga mej del lunedì.mp3",
+    "content": "MUSIC: yes\nGENRE: rap, hip hop\nMOOD: motivational, inspiring\nINSTRUMENTS: drums, synthesizer, piano\nDESCRIPTION: A motivational and inspiring hip hop track with a fast-paced tempo featuring drums, synthesizer, and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "May the Pager Remain Silent.mp3",
+    "content": "MUSIC: yes\nGENRE: electronic, dance, electro, house, techno\nMOOD: upbeat, high-energy, party\nINSTRUMENTS: synthesizers, bass, drums, electronic beats\nDESCRIPTION: This track is an electronic dance track with a high-energy vibe, perfect for a party atmosphere. It features synthesizers, a driving bass line, and electronic beats that keep the dance floor moving.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Microseconds (High-Frequency Trading).mp3",
+    "content": "MUSIC: yes\nGENRE: electronic, pop, experimental pop\nMOOD: sad, dreamy\nINSTRUMENTS: synthesizer, piano, strings\nDESCRIPTION: A hauntingly beautiful pop track with a slow tempo. The synthesizer provides a melancholic backdrop, while the piano adds a layer of dreaminess. The strings bring a sense of sadness to the song.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Milano–Ginevra (Principio di Indeterminazione dei Treni).mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk, singer-songwriter\\nMood: sad, reflective\\nINSTRUMENTS: acoustic guitar, piano, strings\\nDESCRIPTION: A singer-songwriter track with a melancholic feel, featuring acoustic guitar and piano with sparse strings arrangements.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Miscela 100% Robusta.mp3",
+    "content": "MUSIC: Yes, this is music. Genre: Rock, alternative rock. Mood: Confident, rebellious. Instruments: Electric guitar, bass guitar, drums. Description: A driving, high-energy rock track with an alternative edge, featuring confident vocals and a rebellious mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Move feat Camila Cabello.mp3",
+    "content": "MUSIC: yes基因: pop, electronic流派: electronic, dance, pop风格: upbeat, danceable, energetic, vibrant心情: happy, joyful, positive, optimistic乐器: synthesizer, drums, bass, piano, electric guitar主语: female, energetic, motivational, inspiring, youthful描述: A high-energy pop and electronic dance track with a female lead vocal. The music has a youthful, motivational, and inspiring feel with a synth-driven melody, catchy drums, a groovy bassline, and an electric guitar solo.",
+    "expect_genre": false,
+    "expect_mood": false,
+    "expect_instruments": false
+  },
+  {
+    "filename": "Muladhara Groove.mp3",
+    "content": "MUSIC: yes\nGENRE: easy listening, world music\nMOOD: meditative, relaxing\nINSTRUMENTS: ethnic flute, harp\nDESCRIPTION: A soothing and meditative world music track featuring an ethnic flute and harp.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Music Recipe - Longer.aif",
+    "content": "MUSIC: yes\\nGENRE: electronic, trance\\nMOOD: dreamy, uplifting\\nINSTRUMENTS: synthesizer, piano\\nDESCRIPTION: A dreamy and uplifting electronic trance track featuring a synthesized soundscape and a piano melody that builds into a euphoric state.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Music Recipe - Longer.mp3",
+    "content": "MUSIC: yes\nGENRE: electronic, trance\nMOOD: dreamy, euphoric\nINSTRUMENTS: synthesizer, drum machine\nDESCRIPTION: This is a dreamy and euphoric trance track with a main melody played on a synthesizer. A drum machine provides a steady beat in the background.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Music Recipe.aif",
+    "content": "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: deep, summer\\nINSTRUMENTS: synth\\nDESCRIPTION: A high-energy dance track with a deep synth sound and a summertime mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Music Recipe.mp3",
+    "content": "MUSIC: yes\nGENRE: dance, deephouse, electronic\nMOOD: happy, summer\nINSTRUMENTS: bass, drums, synth\nDESCRIPTION: A groovy dance track with a deephouse feel, conveying a happy and summertime mood. The main instruments are bass, drums, and synth, with a dance beat and a rhythmic bassline that keeps the energy up.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "My GPS Lied to Me.mp3",
+    "content": "MUSIC: yes\nGENRE: country, rock\nMOOD: confident, driving\nINSTRUMENTS: electric guitar, bass, drums\nDESCRIPTION: A driving country rock track with a confident mood. Features prominent electric guitar and bass lines with steady drumming.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ninna Nanna Pre-Registrata.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: hopeful, storytelling\nINSTRUMENTS: piano, acoustic guitar, violin\nDESCRIPTION: A heartfelt pop-folk track with elements of singer-songwriter genre. The mood is hopeful and storytelling-driven. The main instruments include a piano, acoustic guitar, and violin, blending smoothly to create a memorable musical experience.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "No One In A Hurry, Nowhere To Go.aif",
+    "content": "MUSIC: yes, this is music. GENRE: electronic, ambient. Mood: meditative, atmospheric. INSTRUMENTS: synthesizer, piano. DESCRIPTION: A serene and contemplative electronic ambient track featuring a synthesizer and piano, creating a meditative atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "No One In A Hurry, Nowhere To Go.mp3",
+    "content": "MUSIC: yes\nGENRE: electronic, folk, singer-songwriter\nMOOD: dreamy, sad, slow\nINSTRUMENTS: piano, violin, acoustic guitar\nDESCRIPTION: A dreamy and slow-paced electronic folk track with elements of singer-songwriter music. The melancholic mood is conveyed through the use of piano, violin, and acoustic guitar.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "No Reservations Tonight.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: hopeful, dreamy\\nINSTRUMENTS: acoustic guitar, synthesizer, strings\\nDESCRIPTION: A hopeful and dreamy pop-folk track with a bright and breezy feel. Features prominent acoustic guitar and strings, complemented by synthesizer to enhance the dreamy atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Noia di Vivere.mp3",
+    "content": "MUSIC: yes\nGENRE: singer-songwriter, folk\nMOOD: poignant, introspective\nINSTRUMENTS: acoustic guitar, piano\nDESCRIPTION: A poignant singer-songwriter track with introspective lyrics and a soothing blend of acoustic guitar and piano melodies.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Noise.mp3",
+    "content": "MUSIC: yes\nGENRE: ambient, electronic, synthpop\nMOOD: atmospheric, dreamy\nINSTRUMENTS: synthesizer, synth drums\nDESCRIPTION: A dreamy, atmospheric synthpop track with a soothing, ambient feel. Features flowing synthesizer melodies and synth drums that build a hypnotic soundscape.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "O Fortuna.mp3",
+    "content": "MUSIC: yes\\nGENRE: melodic death metal, death metal\\nMOOD: aggressive, intense\\nINSTRUMENTS: guitar, drums, bass, vocals\\nDESCRIPTION: This track is a fast-paced, aggressive piece within the melodic death metal genre. It features a strong emphasis on intense vocals and intricate guitar work, complemented by a driving drumbeat and a deep, resonant bass. The mood is one of intensity and aggression, typical of the death metal genre.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Onanisti dei bits.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: uplifting, hopeful\nINSTRUMENTS: acoustic guitar, piano, violin\nDESCRIPTION: A lively pop-folk track with a bright and breezy feel, featuring a melody carried by an acoustic guitar, supported by a soft piano and a gentle violin. The mood is uplifting and hopeful, perfect for a sunny day or a positive outlook on life.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Pangu (Ying and Yang).mp3",
+    "content": "MUSIC: yes, this is music. Genres: rock, pop punk. Mood: energetic, exciting. Instruments: drums, electric guitar, bass guitar, vocal. Description: This track is a lively pop punk track with a fast tempo. The electric guitar and bass guitar drive the energetic and exciting mood, while the drums and vocals add to the overall excitement of the song.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Perdendo Le Mie Chiavi.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, rock\\nMOOD: ballad, dreamy, epic\\nINSTRUMENTS: acoustic guitar, bass, drum, electric guitar, piano\\nDESCRIPTION: A dreamy and epic pop-rock ballad featuring soothing acoustic guitar, dreamy piano melodies, and powerful drum beats.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Persefone, La Regina Del Consenso.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, experimental pop\nMOOD: sad, introspective\nINSTRUMENTS: synthesizer, electric guitar, piano, drums\nDESCRIPTION: A mournful pop track with introspective lyrics, featuring synthesizer, electric guitar, piano, and drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Pink Elephant Parade.mp3",
+    "content": "MUSIC: yes\\nGENRE: hard rock, rock\\nMOOD: powerful, uplifting\\nINSTRUMENTS: guitar, drums\\nDESCRIPTION: This track is a high-energy hard rock track with a powerful and uplifting mood. The guitar and drums drive the track forward with a dynamic and engaging sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Plea for Peace (From Every Neutral Land).mp3",
+    "content": "MUSIC: Yes, this is music. Genre: Singer-songwriter. Mood: Emotional, reflective. Instruments: Piano, acoustic guitar, violin. Description: The track features a melancholic singer-songwriter who performs with a piano, acoustic guitar, and violin, creating a reflective and emotional mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Poseidone_ L'Abbraccio che Affoga.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, alternative rock\\nMood: introspective, melancholic\\nINSTRUMENTS: electric guitar, bass, drums, piano\\nDESCRIPTION: A rock track with a slow tempo and a melancholic mood. The main instruments are the electric guitar, bass, drums, and piano, playing together to create a reflective and introspective atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Prepotenti al Potere.mp3",
+    "content": "MUSIC: yes\nGENRE: rap, hip hop\nMOOD: sad, introspective\nINSTRUMENTS: piano, drums, synth\nDESCRIPTION: A slow-paced rap song with a melancholic mood, featuring introspective lyrics over piano and drum beats with subtle synth elements.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Proemio_ Il Circo dell'Olimpo.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock\nMOOD: introspective, reflective\nINSTRUMENTS: guitar, drums, piano\nDESCRIPTION: A contemplative alternative rock track with introspective lyrics and a reflective mood, featuring guitar, drums, and piano.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Prompt Recipe (Cheatsheet in comments).mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, pop\\nMOOD: upbeat, energetic\\nINSTRUMENTS: electric guitar, bass, drums\\nDESCRIPTION: A lively pop rock track with an upbeat tempo, featuring electric guitar, bass, and drums. The mood is energetic and perfect for a fun day out with friends.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Prompted Out.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, indie-rock\nMOOD: sad, introspective\nINSTRUMENTS: electric guitar, piano, synthesizer, bass, drums\nDESCRIPTION: A melancholic indie rock track with introspective lyrics and a somber mood. The electric guitar leads with introspective melodies over a blend of electronic and acoustic elements.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Pubblico Zero (versione folk-rock).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: upbeat, energetic\nINSTRUMENTS: electric guitar, drums\nDESCRIPTION: A lively pop-rock track with an upbeat tempo and an energetic feel. The electric guitar leads with catchy riffs and the drums provide a steady beat for the rest of the instruments to follow.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Rain on a Friday Night.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, singer-songwriter\\nMOOD: dreamy, reflective\\nINSTRUMENTS: piano, acoustic guitar, strings\\nDESCRIPTION: A soft, heartfelt pop track with a singer-songwriter vibe. Features piano and acoustic guitar with lush strings creating a dreamy, reflective mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Re_ Brain Supply Issue (From Zombie).mp3",
+    "content": "MUSIC: yes, genre: pop, subgenre: folk; mood: sad, emotional feel: heartbreak; instruments: acoustic guitar, piano, violin; description: A poignant folk-pop song with a tender acoustic guitar arpeggio, a melancholic piano melody, and a soaring violin solo that captures the essence of heartbreak.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Right Now Not Tomorrow.mp3",
+    "content": "MUSIC: yes\\nGENRE: reggae, roots reggae\\nMOOD: easygoing, uplifting\\nINSTRUMENTS: percussion, guitar\\nDESCRIPTION: This track is a roots reggae track with a light, easygoing mood that feels uplifting. The main instruments are percussion and guitar.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Risorsa disumana.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: uplifting, dance\nINSTRUMENTS: synth, bass, drums, piano\nDESCRIPTION: A lively pop-tinged electronic track with a danceable beat, featuring a synthetic lead melody, bass guitar, drums, and piano. The mood is uplifting and perfect for dancing.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sahasrara, Where the Light Has No Edge.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMood: dreamy, hopeful\\nINSTRUMENTS: piano, strings\\nDESCRIPTION: A lush pop ballad with a dreamy melody and soaring strings that evoke feelings of hope and optimism. The piano leads with a gentle arpeggio that sets the emotional tone.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Same Week Again.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: upbeat, energetic\nINSTRUMENTS: piano, synthesizer, drums, bass\nDESCRIPTION: A lively pop-techno fusion with catchy melodies and a danceable beat. Features a dynamic interplay between piano and synthesizer, backed by energetic drums and deep bass.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "San Valentino da Single.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: reflective, heartfelt\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A singer-songwriter track with a warm and reflective mood, featuring acoustic guitar, piano, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sand Devils in the Sky (خذني لرقصة شياطين الرمال).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: sad, dreamy\nINSTRUMENTS: synthesizer, piano, drums\nDESCRIPTION: A dreamy and somewhat sad pop track with electronic elements. Features a haunting synthesizer melody, gentle piano chords, and mellow drums that contribute to a melancholic atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sandman, Stay With Me.mp3",
+    "content": "MUSIC: yes, but no speech, podcast, or sound effects\nGENRE: electronic, ambient, dubstep\nMOOD: contemplative, dark, hypnotic\nINSTRUMENTS: bass, drums, synthesizer\nDESCRIPTION: This electronic dubstep track has a contemplative mood with a dark undertone. It features heavy bass and drums, complemented by atmospheric synthesizer sounds. The hypnotic beat and the deep mood make it ideal for a chill or introspective listening experience.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Search, The Paradox Of Choice.mp3",
+    "content": "MUSIC: yes\\nGENRE: progressive rock, art rock\\nMOOD: introspective, conceptual\\nINSTRUMENTS: piano, electric guitar, bass guitar, drums\\nDESCRIPTION: A complex and atmospheric piece with a focus on introspection and concept-driven themes. The music is characterized by its use of piano and guitar, with a bass guitar and drums providing a rhythmic foundation.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sempre Noi Due (Tempi Incerti).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: heartfelt, hopeful\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A singer-songwriter track with a warm and reflective mood. Features gentle acoustic guitar and piano melodies, accompanied by strings to enhance the emotional feel.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sleepy Morning.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, electronic\nMOOD: sad, dreamy\nINSTRUMENTS: synthesizer, piano, drums\nDESCRIPTION: A dreamy pop track with a sad mood, featuring synthesizer, piano, and drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Slopwright Waltz.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: happy, uplifting\\nINSTRUMENTS: piano, violin, guitar\\nDESCRIPTION: This pop-folk track has a light, bouncy feel that is both happy and uplifting. The main instruments include piano, violin, and guitar, which blend smoothly to create a joyful atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Slow Monday Starts Again.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: love, happy\nINSTRUMENTS: piano, violin, guitar\nDESCRIPTION: A joyful and uplifting pop-folk track featuring piano and violin with a warm guitar strumming in the background. The melody evokes feelings of love and happiness.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sogno Strano in 8K.mp3",
+    "content": "MUSIC: yes\\nGENRE: rap, hip hop\\nMOOD: upbeat, energetic\\nINSTRUMENTS: piano, synthesizer, bass, drums\\nDESCRIPTION: Fast-paced hip-hop track with a catchy melody, featuring a piano playing the main hook and a synthesizer adding texture. The bass and drums provide a steady rhythm to keep the energy high.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Solitudine all'estero.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, rock\\nMOOD: romantic, ballad\\nINSTRUMENTS: acoustic guitar, piano, strings\\nDESCRIPTION: A heartfelt ballad with poignant lyrics and a soothing blend of acoustic guitar and piano. The strings add a layer of emotional depth to the romantic melody.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Stamattina zero sbatti.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMOOD: love, romantic\\nINSTRUMENTS: voice, piano\\nDESCRIPTION: A romantic pop ballad about longing and easy listening.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Staying In Bed.mp3",
+    "content": "MUSIC: yes, it's a music track. GENRE: soul-R&B, subgenre: neo-soul. MOOD: sensual, smooth. INSTRUMENTS: electric guitar, synthesizer, piano, bass, drums. DESCRIPTION: A contemporary R&B track with neo-soul influences, featuring a warm electric guitar and synthesizer, a smooth piano melody, and a groovy bass and drums that create a sensual and smooth mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Suite for Saxophone, Digideridoos, and Triangle (Instrumental).mp3",
+    "content": "MUSIC: yes\nGENRE: ambient, new-age\nMOOD: relaxing, calming, peaceful\nINSTRUMENTS: synthesizer, piano\nDESCRIPTION: A serene and tranquil ambient track featuring calming synthesizer and piano melodies that create a peaceful, relaxing atmosphere.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Sunday Autoplay.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk, singer-songwriter\nMOOD: hopeful, heartfelt\nINSTRUMENTS: acoustic guitar, piano, strings\nDESCRIPTION: A hopeful, heartfelt pop-folk track featuring acoustic guitar, piano, and strings.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Svadhisthana, River of Orange Light.mp3",
+    "content": "MUSIC: yes, this is music. Genres are pop and folk with singer-songwriter elements. The mood is sad and introspective. The main instruments are piano, guitar, and violin. A hauntingly beautiful and emotive piece that tells a personal story through its lyrics and melody.",
+    "expect_genre": false,
+    "expect_mood": false,
+    "expect_instruments": false
+  },
+  {
+    "filename": "Tear, Your Way Back.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop\\nMood: happy, uplifting\\nINSTRUMENTS: piano, violin, synthesizer\\nDESCRIPTION: A joyful pop track with a catchy melody and a positive mood. It features piano and violin melodies, a synthesizer for texture, and a choir for added emotion.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Adjunction.mp3",
+    "content": "MUSIC: yes, pop, electronic, rock, indie-rock, dance, techno, trance, house, electro, dubstep, drum and bass, ambient, experimental pop, synth-pop, post-punk, dream pop, noise pop, indie pop, post-punk, dance pop, electro-punk, techno pop, ambient pop, and experimental pop. \nGENRE: pop, electronic, rock, dance, and ambient. \nMOOD: energetic, uplifting, happy, positive, danceable, euphoric, dreamy, soaring, inspirational, soaring, euphoric, and pulsing. \nINSTRUMENTS: synthesizer, bass, drums, electric guitar, piano, keyboard, and synth pads. \nDESCRIPTION: This track has a fast tempo and a danceable rhythm that makes it perfect for party playlists and club sets. The electronic and pop elements blend with a rock and indie-rock influence, creating a high-energy vibe. Synthesizers, bass, and drums drive the pulse of the track, while electric guitar and piano add melodic flourishes.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Ghost in the Latent Space (Unquantifiable).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: uplifting, hopeful\nINSTRUMENTS: piano, violin, guitar\nDESCRIPTION: A pop-folk fusion that builds an uplifting mood with soaring strings and a catchy melody.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Halfway Rooms (Locrian Remix).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: sad, dreamy\nINSTRUMENTS: piano, violin, synthesizer\nDESCRIPTION: A soft pop-rock track with a sad, dreamy mood. Features piano and violin melodies over a synthesizer background.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Halfway Rooms.mp3",
+    "content": "MUSIC: yes, this is music.\nGENRE: electronic, hip-hop, experimental.\nMOOD: introspective, dark.\nINSTRUMENTS: synthesizer, drums, piano.\nDESCRIPTION: The track is a blend of electronic, hip-hop, and experimental genres, with an introspective and dark mood. It features a synthesizer, drums, and piano, creating a moody soundscape that is both contemplative and mysterious.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Heisenbug.mp3",
+    "content": "MUSIC: yes, a synthpop and electronic track with dance and house elements. \nGENRE: synthpop, electronic \nMOOD: euphoric, upbeat, danceable \nINSTRUMENTS: synthesizer, bass, drums, synth pads, synth keys \nDESCRIPTION: A high-energy, danceable synthpop and electronic track with a euphoric mood. Features a blend of electronic and analog synths, a driving bassline, and punchy drums.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Heist (Went Wrong).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock, indie-rock\nMOOD: upbeat, catchy\nINSTRUMENTS: piano, guitar, drums\nDESCRIPTION: This track is a lively combination of pop and indie-rock genres. It has an upbeat tempo with a catchy melody that makes it hard to ignore. The main instruments are piano, guitar, and drums, contributing to a harmonious blend that is both soothing and energizing.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Last Override (Doomsday Protocol).mp3",
+    "content": "MUSIC: yes\\nGENRE: industrial, ebm\\nMOOD: aggressive, harsh\\nINSTRUMENTS: guitar, bass, drums\\nDESCRIPTION: This track is a fast-paced industrial and electronic body music track in C# minor. Its mood is aggressive and harsh, typically associated with the ebm genre. The primary instruments are a guitar, a bass, and drums, contributing to the overall intensity of the track.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Master's Logic.mp3",
+    "content": "MUSIC: yes\nGENRE: industrial, electronic, rock\nMOOD: intense, dark\nINSTRUMENTS: guitar, synthesizer, bass, drum\nDESCRIPTION: A fast-paced rock track with industrial and electronic influences, featuring heavy guitar and synthesizer riffs, a driving bass line, and a relentless beat on the drums. The mood is intense and dark, evoking a sense of tension and unease.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Multiverse.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock, progressive rock\nMOOD: uplifting, inspiring\nINSTRUMENTS: electric guitar, bass guitar, drums, piano, orchestral elements\nDESCRIPTION: This track is a beautiful blend of rock, alternative rock, and progressive rock. It has a light and uplifting mood that inspires and motivates its listeners. The main instruments include an electric guitar, bass guitar, drums, piano, and orchestral elements that come together to create a rich, textured soundscape.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Music of the Spheres (Pythagoras).mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, electronic\\nMOOD: happy, uplifting\\nINSTRUMENTS: piano, synthesizer, drums\\nDESCRIPTION: A bright and lively pop track with an electronic twist, featuring a bouncy piano melody, synthesized strings, and a driving drum beat that creates a happy and uplifting mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Symbolic Weaver.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMood: uplifting, hopeful\\nINSTRUMENTS: acoustic guitar, violin, piano\\nDESCRIPTION: A heartwarming pop-folk track with gentle acoustic guitar arpeggios, a soaring violin melody, and a comforting piano accompaniment. The mood is uplifting and hopeful, conveying a sense of warmth and reassurance.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Temple of Tone.mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, blues, soul\\nMOOD: feel-good, confident\\nINSTRUMENTS: electric guitar, bass guitar, drums, harmonica\\nDESCRIPTION: A bluesy rock track with a confident mood. Features an electrifying electric guitar, groovy bass guitar, punchy drums, and a soulful harmonica solo.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Ultimatum (The Tail is Wagging the Dog).mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: happy, thoughtful\\nINSTRUMENTS: acoustic guitar, piano, violin\\nDESCRIPTION: A warm and reflective pop-folk track featuring acoustic guitar, piano, and violin. The mood is both happy and reflective, with a touch of introspection.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "The Velvet Current.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, electronic\\nMOOD: uplifting, optimistic\\nINSTRUMENTS: piano, synthesizer, drums\\nDESCRIPTION: A lively pop track with an electronic twist, featuring a piano-led melody, synthesizer accents, and dynamic drum patterns that contribute to an overall uplifting and optimistic mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Thursday, We Start to Run at the Finish Line.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: upbeat, hopeful\\nINSTRUMENTS: guitar, piano\\nDESCRIPTION: A lively pop-folk track with a bright, catchy melody and a hopeful mood that will uplift your spirits.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Ticket 1, Ticket 2, Ticket 3.mp3",
+    "content": "MUSIC: yes,基因: 摇滚,子基因: 美国独立摇滚,心情: 动力,情感: 激情\n乐器: 鼓,贝斯,电吉他,合成器,人声\n描述: 这是一首充满力量和激情的美国独立摇滚音乐,鼓点强劲有力,贝斯和电吉他配合默契,合成器增添了现代感,人声更是增添了一种激励人心的情感。",
+    "expect_genre": false,
+    "expect_mood": false,
+    "expect_instruments": false
+  },
+  {
+    "filename": "Tiny Gods of the Washing Machine.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, experimental pop\\nMOOD: uplifting, optimistic\\nINSTRUMENTS: piano, synthesizers, drums\\nDESCRIPTION: A lively and upbeat pop track with experimental influences, featuring a catchy melody and a positive aura that uplifts the listener's mood.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Trova il tuo Centro.mp3",
+    "content": "MUSIC: yes, genre: pop and electro, mood: upbeat and energizing, instruments: synthesizer, electric guitar, bass, drums, description: a catchy, danceable track with a futuristic sci-fi feel.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Venerdì Sera (Solo Silenzio).mp3",
+    "content": "MUSIC: yes\nGENRE: dance, electronic, house, techno\nMOOD: energetic, powerful, driving\nINSTRUMENTS: synth bass, synth drums, synth keys, synth pads\nDESCRIPTION: A high-energy house and techno track with a driving beat and pulsing synths. Ideal for dance clubs and festivals.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Venere (Afrodite)_ Schiuma e Acciaio.mp3",
+    "content": "MUSIC: yes\\nGENRE: pop, folk\\nMOOD: ballad, heart-touching\\nINSTRUMENTS: acoustic guitar, violin, cello\\nDESCRIPTION: A touching ballad with poignant lyrics and beautiful instrumentation. The acoustic guitar leads with the violin and cello providing a rich harmonic support.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Viaggio nel Vuoto.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock\nMOOD: introspective, melancholic\nINSTRUMENTS: electric guitar, piano, drums\nDESCRIPTION: A rock track with a slow tempo featuring an introspective electric guitar melody over a melancholic piano chord progression and steady drum beats.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Vishuddha, Sky Inside My Voice.mp3",
+    "content": "MUSIC: yes\nGENRE: pop, folk\nMOOD: sad, reflective\nINSTRUMENTS: piano, violin, guitar\nDESCRIPTION: A slow-paced pop-folk track with a sad, reflective mood. The main instruments are piano, violin, and guitar, with a soothing melody that invites introspection.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Waiting, waiting (one more hour).mp3",
+    "content": "MUSIC: yes\\nGENRE: rock, alternative rock\\nMOOD: energetic, driving\\nINSTRUMENTS: electric guitar, bass guitar, drums\\nDESCRIPTION: A dynamic and fast-paced alternative rock track with an energetic drive, featuring electric guitar and bass guitar with a prominent drum beat.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Wednesday, I Wish Work Gave Us Meaning.mp3",
+    "content": "MUSIC: yes; GENRE: pop; Mood: upbeat, positive; INSTRUMENTS: piano, electric guitar, bass, drums, synth; DESCRIPTION: A lively pop track with a catchy melody and a positive mood. The track features a blend of piano and electric guitar melodies, a groovy bass, and energetic drums. Additionally, a synth adds a modern touch to the overall sound.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Weekend Oncall (Cloud Wants Love).mp3",
+    "content": "MUSIC: yes\\nGENRE: electronic, pop, experimental pop\\nMOOD: bold, confident, futuristic\\nINSTRUMENTS: bass, drum machine, synthesizer, piano\\nDESCRIPTION: A lively electronic pop track with a futuristic mood, featuring bold synthesizer lines, confident drum machine beats, and a piano melody that adds a touch of class.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Where Living Is The Meaning  (The Mandala of Life).mp3",
+    "content": "MUSIC: yes\nGENRE: pop, rock\nMOOD: uplifting, hopeful\nINSTRUMENTS: piano, electric guitar, drums, bass\nDESCRIPTION: A lively pop-rock track with a catchy melody and upbeat tempo. It features a piano intro that leads into an electric guitar-driven chorus. The mood is uplifting and hopeful, conveying a sense of optimism and positivity. The track also includes a strong bass line and drums that drive the rhythm forward.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Zero Calorie nell'Anima.mp3",
+    "content": "MUSIC: yes\nGENRE: rock, indie-rock\nMOOD: melancholic, introspective\nINSTRUMENTS: electric guitar, bass, drums, piano\nDESCRIPTION: A slow-tempo, melodic indie-rock track with introspective lyrics and a melancholic mood. The electric guitar leads with the bass, drums, and piano providing a supporting, atmospheric backdrop.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  },
+  {
+    "filename": "Улицы Москвы (Streets of Moscow).mp3",
+    "content": "MUSIC: yes\nGENRE: rock, alternative rock\nMOOD: emotional, introspective\nINSTRUMENTS: electric guitar, bass guitar, drums, piano\nDESCRIPTION: A rock track with a complex chord progression and a mood that feels both emotional and introspective.",
+    "expect_genre": true,
+    "expect_mood": true,
+    "expect_instruments": true
+  }
+]
