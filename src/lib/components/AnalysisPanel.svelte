@@ -5,6 +5,7 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { ui } from "$lib/stores/ui.svelte";
+  import ModelDownloader from "./ModelDownloader.svelte";
 
   interface PassError {
     path: string;
@@ -30,6 +31,10 @@
     sentence_model: boolean;
     sentence_tok: boolean;
     clap_model: boolean;
+    clap_data: boolean;
+    clap_text: boolean;
+    clap_text_data: boolean;
+    clap_tok: boolean;
     clap_mel: boolean;
     essentia_base: boolean;
     essentia_base_json: boolean;
@@ -105,6 +110,15 @@
   let unlisteners: Array<() => void> = [];
 
   let modelStatus       = $state<ModelExistence | null>(null);
+  const missingModelGroups = $derived.by(() => {
+    if (!modelStatus) return [];
+    const missing: string[] = [];
+    if (!modelStatus.essentia_exists) missing.push("essentia");
+    if (!modelStatus.clap_exists) missing.push("clap");
+    if (!modelStatus.qwen_exists) missing.push("qwen");
+    if (!modelStatus.sentence_exists) missing.push("sentence");
+    return missing;
+  });
   let isCheckingModels  = $state(false);
   let showModelWarning  = $state(false);
   let hasCopiedCommand  = $state(false);
@@ -232,6 +246,11 @@
   async function startAnalysis() {
     errorMessage = "";
     throughputBaseline.clear();
+    if (modelStatus && !modelStatus.all_exist) {
+      ui.showToast("Cannot start pipeline: missing neural network model files.", "error");
+      showModelWarning = true;
+      return;
+    }
     try {
       await invoke("run_analysis_pipeline");
       isRunning = true;
@@ -370,7 +389,11 @@
           ]},
           { key: 'clap_exists', label: 'CLAP Embedder', files: [
             { label: 'clap_audio_encoder.onnx', ok: modelStatus.clap_model },
-            { label: 'clap_mel_weights.bin', ok: modelStatus.clap_mel },
+            { label: 'clap_audio_encoder.onnx.data (117 MB)', ok: modelStatus.clap_data },
+            { label: 'clap_text_encoder.onnx', ok: modelStatus.clap_text },
+            { label: 'clap_text_encoder.onnx.data (501 MB)', ok: modelStatus.clap_text_data },
+            { label: 'clap-tokenizer.json', ok: modelStatus.clap_tok },
+            { label: 'clap_mel_weights.bin (compiled)', ok: modelStatus.clap_mel },
           ]},
           { key: 'qwen_exists', label: 'Qwen Audio LLM', files: [
             { label: 'LLM GGUF (4.7 GB)', ok: modelStatus.qwen_model },
@@ -400,14 +423,9 @@
         {/each}
       </div>
 
-      <div class="warning-footer">
-        <div class="cmd-box">
-          <code>python3 tools/download_models.py</code>
-          <button class="cmd-copy" class:copied={hasCopiedCommand} onclick={copyCommand}>
-            {hasCopiedCommand ? '✓ Copied' : 'Copy'}
-          </button>
-        </div>
-        <div class="warning-actions">
+      <div class="warning-footer" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
+        <ModelDownloader models={missingModelGroups} onComplete={checkModels} />
+        <div class="warning-actions" style="margin-top: 0.5rem; justify-content: flex-end; width: 100%;">
           <button class="action-btn" onclick={checkModels} disabled={isCheckingModels}>
             {isCheckingModels ? 'Checking…' : 'Re-check'}
           </button>
@@ -757,45 +775,6 @@
   }
 
 
-
-  .cmd-box {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 4px;
-    padding: 5px 10px;
-    flex: 1;
-    min-width: 240px;
-  }
-
-  .cmd-box code {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    color: #c87800;
-    flex: 1;
-    user-select: all;
-  }
-
-  .cmd-copy {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    padding: 2px 8px;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 3px;
-    background: rgba(255,255,255,0.04);
-    color: var(--sg-outline, #849495);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: all 0.12s;
-  }
-
-  .cmd-copy.copied {
-    border-color: rgba(0,240,255,0.3);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
-  }
 
   .warning-actions {
     display: flex;

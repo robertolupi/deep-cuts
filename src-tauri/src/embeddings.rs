@@ -33,23 +33,23 @@ static CLAP_MEL_FILTERBANK: OnceLock<Result<Vec<f32>, String>> = OnceLock::new()
 pub fn get_model_path(model_filename: &str, app: Option<&tauri::AppHandle>) -> PathBuf {
     use tauri::Manager;
     if let Some(app) = app {
-        // 1. Tauri resource bundle
+        // 1. User-configured model directory from app_settings.model_path (prioritized)
+        if let Some(model_dir) = configured_model_dir(app) {
+            let path = model_dir.join(model_filename);
+            log::info!("[embeddings] Resolved get_model_path for {} in custom folder: {:?}", model_filename, path);
+            return path;
+        }
+
+        // 2. Tauri resource bundle
         if let Ok(res_dir) = app.path().resource_dir() {
             let path = res_dir.join("models").join(model_filename);
             if path.exists() {
                 return path;
             }
         }
-        // 2. Sandboxed App Data directory
+        // 3. Sandboxed App Data directory
         if let Ok(app_dir) = app.path().app_data_dir() {
             let path = app_dir.join("models").join(model_filename);
-            if path.exists() {
-                return path;
-            }
-        }
-        // 3. User-configured model directory from app_settings.model_path
-        if let Some(model_dir) = configured_model_dir(app) {
-            let path = model_dir.join(model_filename);
             if path.exists() {
                 return path;
             }
@@ -71,24 +71,49 @@ pub fn get_model_path(model_filename: &str, app: Option<&tauri::AppHandle>) -> P
 
 fn configured_model_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
     use tauri::Manager;
-    let db_path = app.path().app_data_dir().ok()?.join("deep_cuts.db");
-    if !db_path.exists() {
-        return None;
+    
+    // Try managed state first to prevent SQLite locking busy errors
+    if let Some(conn_state) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+        if let Ok(conn) = conn_state.lock() {
+            let value: Option<String> = conn
+                .query_row(
+                    "SELECT value FROM app_settings WHERE key = 'model_path'",
+                    [],
+                    |row| row.get(0),
+                )
+                .ok();
+            if let Some(val) = value {
+                let trimmed = val.trim();
+                if !trimmed.is_empty() {
+                    return Some(PathBuf::from(trimmed));
+                }
+            }
+        }
     }
-    let conn = rusqlite::Connection::open(db_path).ok()?;
-    let value: String = conn
-        .query_row(
-            "SELECT value FROM app_settings WHERE key = 'model_path'",
-            [],
-            |row| row.get(0),
-        )
-        .ok()?;
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(trimmed))
+
+    // Fallback to manual open if managed state is not available
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        let db_path = app_dir.join("deep_cuts.db");
+        if db_path.exists() {
+            if let Ok(conn) = rusqlite::Connection::open(db_path) {
+                let value: Option<String> = conn
+                    .query_row(
+                        "SELECT value FROM app_settings WHERE key = 'model_path'",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .ok()
+                    .flatten();
+                if let Some(val) = value {
+                    let trimmed = val.trim();
+                    if !trimmed.is_empty() {
+                        return Some(PathBuf::from(trimmed));
+                    }
+                }
+            }
+        }
     }
+    None
 }
 
 // ── Session management ────────────────────────────────────────────────────────
@@ -112,7 +137,8 @@ pub fn configure_session(
         .map_err(|e| format!("ORT builder error: {}", e))?
         .with_intra_threads(intra_threads)
         .and_then(|b| b.with_inter_threads(1))
-        .map_err(|e| format!("Failed to configure CLAP threading: {}", e))?
+        .and_then(|b| b.with_config_entry("session.use_mmap", "0"))
+        .map_err(|e| format!("Failed to configure CLAP session: {}", e))?
         .commit_from_file(&path)
         .map_err(|e| format!("Failed to load clap_audio_encoder.onnx: {}", e))?;
 
@@ -470,6 +496,7 @@ fn load_sentence_session(
     let mut configured = builder
         .with_intra_threads(1)
         .and_then(|b| b.with_inter_threads(1))
+        .and_then(|b| b.with_config_entry("session.use_mmap", "0"))
         .map_err(|e| format!("Failed to configure threading: {}", e))?;
 
     configured

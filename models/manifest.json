@@ -28,6 +28,30 @@
           "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap_audio_encoder.onnx",
           "sha256": "bdb55bc8646e5b51392c5ed6b47c3d07c4296cf63fd953fea8ea9c621e24e27a",
           "size_bytes": 2208026
+        },
+        {
+          "filename": "clap_audio_encoder.onnx.data",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap_audio_encoder.onnx.data",
+          "sha256": "5d636ed289665b51165132f5242c39be8e6acae38d070bf0a7c912621b473af5",
+          "size_bytes": 117178368
+        },
+        {
+          "filename": "clap_text_encoder.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap_text_encoder.onnx",
+          "sha256": "6a383eb6580d11d8d22e16a505df152612a0375b0ba7a464af2f2994883b9fbd",
+          "size_bytes": 1221401
+        },
+        {
+          "filename": "clap_text_encoder.onnx.data",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap_text_encoder.onnx.data",
+          "sha256": "a4cb1ef9cb283dcc63d5cdffe6a0b3273e0092f31553ce8859a2c2580971596d",
+          "size_bytes": 501296128
+        },
+        {
+          "filename": "clap-tokenizer.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap-tokenizer.json",
+          "sha256": "77ef92283d67f0d97e1454909a964afcbfa2019f0fb9f18f8e88d5c25c3ba729",
+          "size_bytes": 2108746
         }
       ]
     },

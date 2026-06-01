@@ -42,37 +42,53 @@ pub struct ModelDirectoryOverride(pub PathBuf);
 pub fn get_model_destination_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
     use tauri::Manager;
     if let Some(dir_override) = app.try_state::<ModelDirectoryOverride>() {
-        return dir_override.0.clone();
+        let path = dir_override.0.clone();
+        log::info!("[download] Model dir override detected: {:?}", path);
+        return path;
     }
-    if let Ok(app_dir) = app.path().app_data_dir() {
-        let db_path = app_dir.join("deep_cuts.db");
-        if db_path.exists() {
-            if let Ok(conn) = rusqlite::Connection::open(db_path) {
-                let value: Option<String> = conn
-                    .query_row(
-                        "SELECT value FROM app_settings WHERE key = 'model_path'",
-                        [],
-                        |row| row.get(0),
-                    )
-                    .ok();
-                if let Some(val) = value {
-                    let trimmed = val.trim();
-                    if !trimmed.is_empty() {
-                        return PathBuf::from(trimmed);
-                    }
+
+    if let Some(conn_state) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+        if let Ok(conn) = conn_state.lock() {
+            let value: Option<String> = conn
+                .query_row(
+                    "SELECT value FROM app_settings WHERE key = 'model_path'",
+                    [],
+                    |row| row.get(0),
+                )
+                .ok();
+            if let Some(val) = value {
+                let trimmed = val.trim();
+                if !trimmed.is_empty() {
+                    let path = PathBuf::from(trimmed);
+                    log::info!("[download] Resolved custom model path from managed DB: {:?}", path);
+                    return path;
                 }
             }
+        } else {
+            log::warn!("[download] Database connection lock poisoned in get_model_destination_dir.");
         }
-        app_dir.join("models")
     } else {
+        log::warn!("[download] Managed database connection state not found.");
+    }
+
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        let path = app_dir.join("models");
+        log::info!("[download] Resolved default model path: {:?}", path);
+        path
+    } else {
+        log::info!("[download] Resolved fallback models folder: models");
         PathBuf::from("models")
     }
 }
 
 async fn verify_sha256(path: &Path, expected_hex: &str) -> bool {
+    log::info!("[download] Starting SHA256 checksum verification for {:?}", path);
     let mut file = match File::open(path) {
         Ok(f) => f,
-        Err(_) => return false,
+        Err(e) => {
+            log::warn!("[download] Failed to open file for verification {:?}: {}", path, e);
+            return false;
+        }
     };
     let mut hasher = Sha256::new();
     let mut buffer = [0; 65536];
@@ -80,12 +96,17 @@ async fn verify_sha256(path: &Path, expected_hex: &str) -> bool {
         match file.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => hasher.update(&buffer[..n]),
-            Err(_) => return false,
+            Err(e) => {
+                log::warn!("[download] Read error during verification of {:?}: {}", path, e);
+                return false;
+            }
         }
     }
     let result = hasher.finalize();
     let hex_result = format!("{:x}", result);
-    hex_result.eq_ignore_ascii_case(expected_hex)
+    let matches = hex_result.eq_ignore_ascii_case(expected_hex);
+    log::info!("[download] SHA256 matches: {} (computed={}, expected={})", matches, hex_result, expected_hex);
+    matches
 }
 
 #[tauri::command]
