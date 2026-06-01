@@ -262,6 +262,34 @@ download progress while still reading other UI.
   model has been replaced. The UI could show an "update available" chip on affected
   pass cards. Deferred to v2.
 
+---
+
+## Integration & Isolated Testing Strategy
+
+To verify all network operations (resumability, preflight checks, cancellation, and corruption handling) without downloading gigabytes of data or hitting Hugging Face servers, we implement an offline mock testing framework.
+
+### 1. Standalone Mock HTTP Server
+Tests spin up a lightweight, local mock HTTP server (e.g., using `wiremock` or a custom TCP listener thread). The base URL of the downloader is parameterized so that tests can route calls locally instead of to Hugging Face.
+
+### 2. Test Fixtures (Low Footprint)
+- **Mock Model File:** A small 10 KB file filled with static, predictable bytes is used in place of the massive actual model files.
+- **Precomputed Hash:** The SHA256 checksum and exact byte size of the 10 KB file are hardcoded into a test manifest that replicates the official schema.
+
+### 3. Key Test Scenarios
+- **Scenario A: Preflight Reachability & Fallback:**
+  - *Standard:* Server returns `200 OK` on `HEAD` request.
+  - *Fallback:* Server returns `405 Method Not Allowed` on `HEAD`. Client falls back to `GET` with `Range: bytes=0-0` and successfully validates reachability.
+  - *Disk Space Check:* Mock the disk utility to report lower than required free space. Verify preflight fails gracefully.
+- **Scenario B: Resumability (Interrupted Stream):**
+  1. *First Run:* Client downloads first 4 KB of the mock file, then triggers cancellation. We assert `.part` file exists and is exactly 4,096 bytes.
+  2. *Second Run:* Client resumes with a `Range: bytes=4096-` header. Server responds with `206 Partial Content` and streams remaining 6 KB. Client appends, calculates SHA256, matches the precomputed checksum, and renames `.part` -> final.
+- **Scenario C: No-Range Server support:**
+  - Client attempts to resume by sending a `Range` header, but mock server returns `200 OK` (unsupported). Client truncates `.part` and successfully downloads the full 10 KB from scratch.
+- **Scenario D: Checksum Corruption:**
+  - Mock server streams modified bytes (corrupted download). Client downloads full size, fails the SHA256 check, deletes the corrupted file, and emits `model-download-error`.
+
+---
+
 ## Notes
 
 **Resume support** is required given the 4.7 GB Qwen file. The download command
