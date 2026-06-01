@@ -185,55 +185,34 @@ any network or parse error. The result is cached in a Svelte store for the lifet
 of the session so all components share the same manifest without redundant IPC calls.
 
 **`preflight_model_download(models: Vec<String>)`**  
-Issues a `HEAD` request for every file in the selected groups before any data is
-transferred. For each file, validates:
-- HTTP 2xx status (URL reachable, not 404/403)
-- `Content-Length`, if present, matches `size_bytes` in the manifest. A missing
-  `Content-Length` (common with chunked CDNs such as HuggingFace) is not an error.
-  A present but mismatched value means the manifest entry is stale or the CDN is
-  serving the wrong file — blocks the automatic download.
-- `Accept-Ranges: bytes` is present (confirms resume will work; warns but does not
-  block if absent)
+Issues a `HEAD` request (with automatic redirect tracking enabled) for every file in the selected groups before any data is transferred. For each file, validates:
+- HTTP 2xx status (URL reachable, not 404/403). If the `HEAD` request fails with a `405 Method Not Allowed` or similar CDN-specific rejection on presigned redirect URLs, the system falls back to a short `GET` request (e.g. using `Range: bytes=0-0`) to confirm reachability and metadata headers.
+- `Content-Length`, if present, matches `size_bytes` in the manifest. A missing `Content-Length` (common with chunked CDNs such as HuggingFace) is not an error. A present but mismatched value means the manifest entry is stale or the CDN is serving the wrong file — blocks the automatic download.
+- `Accept-Ranges: bytes` is present (confirms resume will work; warns but does not block if absent).
+- **Disk Space Verification:** Performs a target volume check using system APIs to ensure the destination volume has enough free space to accommodate the combined size of the selected models, plus a 500 MB safety buffer.
 
-Returns a preflight report: a list of files with `ok: bool`, an optional `error`
-string, and a `manual_url` for any file that fails. The frontend shows this as a
-confirmation step — "4 files reachable, 6.3 GB total. Proceed?" — and for any
-blocked file renders the `manual_url` as a clickable link with a "Download manually"
-label so the user can fetch it from a browser and place it in the model folder.
+Returns a preflight report: a list of files with `ok: bool`, an optional `error` string, disk space check status, and a `manual_url` for any file that fails. The frontend shows this as a confirmation step — "4 files reachable, 6.3 GB total, sufficient disk space. Proceed?" — and for any blocked file renders the `manual_url` as a clickable link with a "Download manually" label so the user can fetch it from a browser and place it in the model folder.
 
 **`download_models(models: Vec<String>)`**  
-Accepts a list of model group keys (e.g. `["qwen", "clap"]`). For each file
-across the selected groups, sequentially:
-1. Resolves the destination path using the configured model folder (or default
-   app data directory).
-2. Issues a `Range: bytes=<offset>-` request if a `.part` file already exists,
-   otherwise a plain GET.
+Accepts a list of model group keys (e.g. `["qwen", "clap"]`). First checks standard Tauri managed `DownloadState` (or active flag) to guarantee that no other download thread is already active, rejecting duplicate triggers. For each file across the selected groups, sequentially:
+1. Resolves the destination path using the configured model folder (or default app data directory).
+2. Issues a `Range: bytes=<offset>-` request if a `.part` file already exists, otherwise a plain GET.
 3. Streams the response to `<filename>.part` in the destination directory.
-4. Emits `model-download-progress { model: String, file: String, bytes_done: u64, bytes_total: u64 }`
-   at regular intervals (~100 ms or every 1 MB, whichever comes first).
+4. Emits `model-download-progress { model: String, file: String, bytes_done: u64, bytes_total: u64 }` at regular intervals (~100 ms or every 1 MB, whichever comes first).
 5. On completion, verifies SHA256. On match, renames `.part` → final filename.
-6. Emits `model-download-complete { model: String, file: String }` or
-   `model-download-error { model: String, file: String, message: String }`.
+6. Emits `model-download-complete { model: String, file: String }` or `model-download-error { model: String, file: String, message: String }`.
 
-Downloads run sequentially within the command (one file at a time) to avoid saturating
-the user's connection. The command itself is spawned async so the UI stays responsive.
+Downloads run sequentially within the command (one file at a time) to avoid saturating the user's connection. The command itself is spawned async so the UI stays responsive.
 
 **`cancel_model_download`**  
-Sets a cancellation flag that the download loop checks between chunks. Partially
-downloaded `.part` files are left on disk intentionally — they are the resume
-anchor for the next download attempt (see Resume support in Notes).
+Sets a cancellation flag that the download loop checks between chunks. Partially downloaded `.part` files are left on disk intentionally — they are the resume anchor for the next download attempt (see Resume support in Notes).
 
 **`check_pending_resume`**  
-Called on app launch. Scans the model folder for any `.part` files and returns their
-names and byte offsets. If any are found the frontend prompts the user: "A previous
-download was interrupted. Resume?" — Yes resumes from the existing offset, No deletes
-the `.part` files and starts fresh.
+Called on app launch. Scans the model folder for any `.part` files and returns their names and byte offsets. If any are found the frontend prompts the user: "A previous download was interrupted. Resume?" — Yes resumes from the existing offset, No deletes the `.part` files and starts fresh.
 
 ### Modifications to existing commands
 
-**`run_analysis_pipeline`**: before queuing passes, call `check_models_exist` and
-remove passes from the queue whose required models are absent. Emit
-`analysis-skipped-passes { passes: Vec<String> }` if any were removed.
+**`run_analysis_pipeline`**: before queuing passes, call `check_models_exist` and dynamically build the skip set by traversing the directed acyclic graph (DAG) of pipeline passes. Any pass whose required models are missing is added to the skipped set, and this propagates transitively to any downstream passes that rely on their data outputs (e.g., skipping `qwen` dynamically skips `description_embed`). Omit all skipped passes from the run queue and emit `analysis-skipped-passes { passes: Vec<String> }` so the UI can flag them.
 
 ---
 
@@ -294,8 +273,5 @@ resumed download — acceptable given that verification happens once and the
 alternative (incremental across sessions) would require storing intermediate hash
 state. The `.part` → final rename only happens after SHA256 passes.
 
-**`download_models` concurrency model**: implemented as a `tauri::async_runtime::spawn`
-call (not a blocking `#[tauri::command]`) so that `cancel_model_download` can set
-the cancellation flag from a separate IPC call while the download loop is running.
-The IPC command returns immediately; progress is communicated entirely via events.
+**`download_models` concurrency model**: implemented as a `tauri::async_runtime::spawn` call (not a blocking `#[tauri::command]`) so that `cancel_model_download` can set the cancellation flag from a separate IPC call while the download loop is running. To coordinate this safely and prevent duplicate parallel download triggers, standard Tauri managed state `DownloadState` (containing `is_running` and `cancel_flag` wrapped in `Arc<AtomicBool>`) is registered. The IPC command returns immediately; progress is communicated entirely via events.
 
