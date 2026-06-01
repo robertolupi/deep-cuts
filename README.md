@@ -192,3 +192,17 @@ Deep Cuts is open-source software licensed under the **GNU Affero General Public
 ### License note
 
 Some DSP/MIR implementation work was informed by studying [Essentia](https://essentia.upf.edu/), which is also licensed under AGPLv3. To keep licensing simple and conservative, the application is distributed under AGPLv3.
+
+### Model licenses
+
+The app code is AGPLv3, but the optional model files it uses have their own licenses. A full "all features enabled" setup includes assets that are **not commercially usable** without reviewing upstream terms:
+
+| Model | License | Notes |
+|---|---|---|
+| LAION CLAP | Apache 2.0 | Free for commercial use |
+| all-MiniLM-L6-v2 | Apache 2.0 | Free for commercial use |
+| Essentia Discogs-Effnet (genre) | [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) | Not commercially distributable |
+| Essentia mood/vocal classifiers | [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) | Not commercially distributable |
+| Qwen2-Audio-7B-Instruct | [Qwen License](https://huggingface.co/Qwen/Qwen2-Audio-7B-Instruct) | Check upstream terms |
+
+**Developers building commercial products or services** that bundle or redistribute these models should review their licenses. Using Deep Cuts as a tool in a professional workflow — including for commercial music production — is fine. The app remains fully functional for BPM, key, loudness, waveform, and CLAP similarity search using only Apache 2.0 models.
