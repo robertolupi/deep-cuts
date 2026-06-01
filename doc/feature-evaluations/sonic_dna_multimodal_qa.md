@@ -11,16 +11,19 @@ The Sonic DNA and Multimodal QA suite represents research-level, cutting-edge au
 ### A. Database Changes
 * **Database Schema**: Massive changes. Storing a continuous sequence of 512-d vectors requires a new virtual table `sonic_dna_embeddings(track_id INTEGER, window_index INTEGER, embedding float[512], PRIMARY KEY(track_id, window_index))`.
 * **Database Size Bloat**: A 5-minute song analyzed in 10-second windows with 5-second steps generates **60 embeddings** (instead of just 1 global embedding). For a library of 10,000 tracks, this multiplies database storage sizes by **20x to 50x**, adding gigabytes of database overhead.
+* **int8 Quantization & Dimension Compression**: To prevent database bloat and keep sliding-window vector footprints compact, we implement int8 quantization (mapping floats to [-128, 127]) and principal component dimensionality reduction (compressing 512-d to 128-d). This reduces database overhead by up to 16x without significant loss in DTW alignment accuracy.
 
 ### B. Rust Backend Services
 * **Sliding Window Extractor**: Extend [embeddings.rs](../../src-tauri/src/embeddings.rs) to split decodings into sequential 10-second buffers, feeding each to the CLAP encoder sequentially.
 * **DSP EQ Filters**: Implement standard digital signal processing IIR/FIR filters (Butterworth low-pass, high-pass, and band-pass) in [dsp.rs](../../src-tauri/src/dsp.rs) to pre-filter audio buffers.
-* **DTW Alignment Engine**: Write a Dynamic Time Warping matrix-search algorithm in Rust to align vector sequences of different lengths.
+* **DTW Alignment Engine**: Write a Dynamic Time Warping matrix-search algorithm in Rust to align vector sequences of different lengths. We employ a **Coarse-to-Fine DTW Alignment** approach to speed up sequential sequence matching in Rust. By downsampling the timelines to perform a coarse matching pass first, we filter out poor alignment candidates and only run the full, fine-grained DTW matrix search on promising matches, reducing computational complexity from $O(N \cdot M)$ to $O(N + M)$ on average.
 * **Multimodal QA Completions Handler**: Inside `llama.rs` and `analysis.rs`, implement a conversational completions coordinator. Since Qwen2-Audio has a specific multimodal prompt structure, we must compile chat history, slice target audio sections into WAV format, encode them as Base64, package them in the LLM completions payload, and stream the text response back.
 
 ### C. Svelte Frontend Controls
 * **Multimodal Chat Sidebar**: A chat dialogue box in Svelte 5 with interactive voice-input and text capabilities.
 * **Sonic DNA waveform visualizer**: Renders colored gradient lines on the timeline representing timbral changes.
+* **Timeline Alignment Auditioning**: An interactive interface that overlays matched timelines, enabling users to click, drag, and audition aligned segments of different tracks (e.g. comparing the intro of Track A directly with the bridge of Track B) in real-time.
+* **Token/VRAM Budget Indicators**: A dynamic visual budget indicator that estimates LLM context token usage and VRAM consumption prior to executing conversational Q&A queries, warning users when multi-audio QA files risk exhausting GPU capacity.
 
 ## 3. Implementation Roadmap & Sizing
 * **Phase 1: Core Backend & Data Models**: 7.0 dev-days (sliding window CLAP database structure, DSP IIR filters, and Rust DTW sequence alignment).

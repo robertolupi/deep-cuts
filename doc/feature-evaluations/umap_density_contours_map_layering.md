@@ -20,8 +20,10 @@ The UMAP Density Contours and Map Layering feature transforms the flat scatter p
   1. Extract 2D coordinate arrays `(x, y)` from the loaded tracks.
   2. Run `d3.contourDensity()` to calculate grid density cells.
   3. Draw smooth contour lines as semi-transparent, neon-tinted canvas overlays.
-* **Canvas Rendering Optimizer**: Redrawing thousands of dots plus contour paths can lag during pan and zoom. We will write optimized canvas rendering routines, bypassing heavy SVG DOM nodes in favor of a fast HTML5 `<canvas>` context.
+* **Canvas Rendering Optimizer**: Redrawing thousands of dots plus contour paths can lag during pan and zoom. We implement **Web Worker Contour Precomputation & Path Scaling** to offload the heavy $O(N)$ density computations from the main thread to a background Web Worker, pre-generating the paths and scaling them mathematically during zoom operations. This ensures a buttery smooth 60 FPS canvas zoom and pan.
 * **Highlighting effects**: Create an offscreen buffer or adjust the alpha channel (opacity) of dots dynamically based on Svelte filter checkboxes.
+* **HDBSCAN Vibe Continent Floating Labels**: Using HDBSCAN clustering on the UMAP projection coordinates, we detect major high-density clusters and overlay stylized, floating topographic labels (e.g., "Techno Ridge", "Ambient Oasis", "Lofi Valley") directly on the map canvas that scale and fade dynamically as the user zooms in and out.
+* **Lasso-to-Playlist Selection**: An interactive lasso selection tool that allows users to click and drag to draw custom freeform shapes around topographic regions or vibe continents, instantly grouping all enclosed tracks into a new playlist.
 
 ## 3. Implementation Roadmap & Sizing
 * **Phase 1: Core Backend & Data Models**: 0.5 dev-days (extending coordinate payload to return classification metadata).

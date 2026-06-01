@@ -23,15 +23,16 @@ The "Sounds vs. Feels" Similarity Slider provides an interactive recommendation 
 * **Tauri Command**: Implement `get_similar_tracks_blended(track_id: i64, clap_weight: f64, limit: usize)` which:
   1. Fetches the CLAP vector and the description vector for the target `track_id` from the database.
   2. Runs both SQL queries to fetch the top 100 neighbors in each embedding space.
-  3. **Distance Normalization**: Standardizes raw cosine distances into a uniform `[0.0, 1.0]` scale.
-  4. **Linear Blending**: Computes a blended similarity score for tracks found in either result:
-     $$S_{\text{blend}} = w_{\text{clap}} \cdot S_{\text{clap}} + (1.0 - w_{\text{clap}}) \cdot S_{\text{desc}}$$
+  3. **Z-Score Normalization & Percentile Distance Blend**: Standardizes raw cosine distances using Z-score normalization and mapping to percentile ranks within each embedding domain. This resolves manifold scale skewing between the high-dimensional CLAP acoustic space and MiniLM semantic space, ensuring both dimensions contribute equally.
+  4. **Linear Blending**: Computes a blended similarity score based on the normalized percentile ranks:
+     $$S_{\text{blend}} = w_{\text{clap}} \cdot S_{\text{clap\_percentile}} + (1.0 - w_{\text{clap}}) \cdot S_{\text{desc\_percentile}}$$
   5. Sorts the results, selects the top `limit` tracks, and returns them along with their matching percentages.
 
 ### C. Svelte Frontend Controls
 * **Sidebar Component**: Add an expandable sidebar to the audio player or detail panel.
-* **Interactive Slider**: A custom glassmorphic slider styled with a Cyberpunk glow (left colored cyan, right colored magenta). 
+* **Interactive Slider**: A custom glassmorphic slider styled with a Cyberpunk glow (left colored cyan, right colored magenta). It includes explicit **Vibe Anchors** marked along the slider track: **"Groove/Texture"** (100% CLAP), **"Balanced Blend"** (50% CLAP / 50% MiniLM), and **"Narrative Vibe"** (100% MiniLM) to guide user interaction.
 * **Rune Binding**: Bind the slider value to a reactive `$state` rune. Use a debounced effect (`$effect`) to invoke the blended similarity endpoint as the slider moves, preventing UI lag.
+* **Dynamic List-Morphing**: The list of recommended tracks integrates Svelte 5's `animate:flip` directive to animate item re-ordering dynamically as the slider shifts weights, providing a highly fluid, morphing list UX.
 
 ## 3. Implementation Roadmap & Sizing
 * **Phase 1: Core Backend & Data Models**: 1.5 dev-days (Rust command, parallel SQL queries, distance standardization, and linear blending mathematics).
