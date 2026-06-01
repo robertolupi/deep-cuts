@@ -47,6 +47,7 @@ tokenizers = "0.20"
 keepawake = "0.4.3"
 base64 = "0.22"
 semver = "1.0"
+sha2 = "0.10"
 
 [profile.dev]
 opt-level = 1

@@ -3,7 +3,7 @@
 mod analysis;
 mod bpm;
 mod classifier;
-mod commands;
+pub mod commands;
 mod database;
 mod dsp;
 mod embeddings;
@@ -60,6 +60,9 @@ pub fn run() {
                 port: Mutex::new(None),
             });
 
+            // Manage the thread-safe model download state
+            app.manage(commands::download::DownloadState::default());
+
             // Automatically scan all libraries on startup to detect changed files
             let app_handle_scan = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -100,6 +103,9 @@ pub fn run() {
             commands::manifest::fetch_app_manifest,
             commands::manifest::get_update_settings,
             commands::manifest::set_update_settings,
+            commands::download::check_pending_resume,
+            commands::download::cancel_model_download,
+            commands::download::download_models,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
