@@ -59,4 +59,6 @@ export interface Track {
   ai_mood: string | null;
   ai_instruments: string | null;
   description: string | null;
+
+  is_stale: number;
 }

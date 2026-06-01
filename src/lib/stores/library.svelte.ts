@@ -7,6 +7,7 @@ class LibraryStore {
   directories = $state<WatchedDirectory[]>([]);
   tracks = $state<Track[]>([]);
   trackCount = $state(0);
+  staleCount = $derived(this.tracks.filter(t => t.is_stale === 1).length);
   
   isScanning = $state(false);
   scanProgress = $state(0);
@@ -26,6 +27,10 @@ class LibraryStore {
 
       // Reload tracks after each analysis phase completes so extracted data is visible
       await listen<any>("analysis-phase-complete", () => {
+        this.fetchTracks();
+      });
+
+      await listen<any>("analysis-complete", () => {
         this.fetchTracks();
       });
 

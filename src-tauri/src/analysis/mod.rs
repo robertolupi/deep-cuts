@@ -234,6 +234,28 @@ pub struct PassSpec {
     pub custom_reset: Option<fn(&rusqlite::Connection) -> Result<(), String>>,
 }
 
+impl PassSpec {
+    /// Deletes owned virtual-table rows for the given track IDs.
+    /// vec0 tables don't support FK cascades, so this must be called explicitly
+    /// whenever a pass needs to be re-run for specific tracks.
+    pub fn reset_for_tracks(
+        &self,
+        conn: &rusqlite::Connection,
+        track_ids: &[i64],
+    ) -> Result<(), String> {
+        for table in self.owned_tables {
+            for id in track_ids {
+                conn.execute(
+                    &format!("DELETE FROM {} WHERE track_id = ?1", table),
+                    rusqlite::params![id],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub static PASS_REGISTRY: &[PassSpec] = &[
     audio::AudioPass::SPEC,
     bpm_correction::BpmCorrectionPass::SPEC,
@@ -245,6 +267,18 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
 ];
 
 // ── Generic Lifecycle Helpers ──────────────────────────────────────────────
+
+/// Clears all owned virtual-table rows for the given track IDs across every registered pass.
+/// Call this before marking tracks stale so re-running their passes doesn't hit UNIQUE violations.
+pub fn reset_pass_data_for_tracks(
+    conn: &rusqlite::Connection,
+    track_ids: &[i64],
+) -> Result<(), String> {
+    for spec in PASS_REGISTRY {
+        spec.reset_for_tracks(conn, track_ids)?;
+    }
+    Ok(())
+}
 
 pub fn invalidate_stale_versions(conn: &rusqlite::Connection) -> Result<(), String> {
     for spec in PASS_REGISTRY {
@@ -502,6 +536,20 @@ impl PipelineManager {
             log::info!("[pipeline] starting bpm_refinement phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_refinement::BpmRefinementPass) {
                 emit_pipeline_error(&app, "bpm_refinement", e);
+            }
+
+            // Clear stale flag for tracks whose passes are all finished
+            if let Ok(conn) = lock_analysis_conn(&conn_arc, "clear_stale") {
+                let _ = conn.execute(
+                    "UPDATE tracks SET is_stale = 0
+                     WHERE is_stale = 1
+                     AND NOT EXISTS (
+                         SELECT 1 FROM track_passes
+                         WHERE track_id = tracks.id
+                         AND status IN (?1, ?2, ?3)
+                     )",
+                    rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS, pass_status::FAILED],
+                );
             }
 
             let _ = app.emit("analysis-complete", ());

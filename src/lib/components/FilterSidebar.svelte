@@ -75,7 +75,9 @@
     <div class="sidebar-header">
       <div>
         <span class="sidebar-title">Library Filter</span>
-        <span class="sidebar-count">{library.trackCount.toLocaleString()} tracks indexed</span>
+        <span class="sidebar-count">
+          {library.trackCount.toLocaleString()} tracks indexed{#if library.staleCount > 0}&thinsp;·&thinsp;<span class="stale-badge">{library.staleCount} updated</span>{/if}
+        </span>
       </div>
       <button class="collapse-btn" onclick={() => collapsed = true} title="Collapse sidebar">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -430,6 +432,11 @@
     font-size: 10px;
     color: var(--sg-outline, #849495);
     margin-top: 2px;
+  }
+
+  .stale-badge {
+    color: var(--sg-secondary, #fe00fe);
+    font-weight: 700;
   }
 
   .collapse-btn, .expand-btn {

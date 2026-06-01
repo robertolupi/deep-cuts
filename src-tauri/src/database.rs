@@ -71,6 +71,8 @@ pub struct Track {
     pub ai_mood: Option<String>,
     pub ai_instruments: Option<String>,
     pub description: Option<String>,
+
+    pub is_stale: i64,
 }
 
 impl WatchedDirectory {
@@ -127,7 +129,8 @@ impl Track {
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
-                    is_music, ai_genre, ai_mood, ai_instruments, description
+                    is_music, ai_genre, ai_mood, ai_instruments, description,
+                    is_stale
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -180,6 +183,7 @@ impl Track {
                 ai_mood: row.get(45)?,
                 ai_instruments: row.get(46)?,
                 description: row.get(47)?,
+                is_stale: row.get(48)?,
             })
         })?;
         let mut list = Vec::new();
@@ -263,6 +267,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/13_track_coords_music_only.sql")),
         M::up(include_str!("../migrations/14_track_coords_algorithm.sql")),
         M::up(include_str!("../migrations/15_track_passes_raw_result.sql")),
+        M::up(include_str!("../migrations/16_stale_flag.sql")),
     ])
 }
 
@@ -363,7 +368,8 @@ mod tests {
                     detected_genre, detected_vocal, detected_vocal_confidence,
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
-                    is_music, ai_genre, ai_mood, ai_instruments, description
+                    is_music, ai_genre, ai_mood, ai_instruments, description,
+                    is_stale
              FROM tracks WHERE title = 'My Song'",
                 [],
                 |row| {
@@ -416,6 +422,7 @@ mod tests {
                         ai_mood: row.get(45)?,
                         ai_instruments: row.get(46)?,
                         description: row.get(47)?,
+                        is_stale: row.get(48)?,
                     })
                 },
             )

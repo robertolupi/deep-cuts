@@ -54,6 +54,7 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     ai_mood: null,
     ai_instruments: null,
     description: null,
+    is_stale: 0,
     ...overrides,
   };
 }

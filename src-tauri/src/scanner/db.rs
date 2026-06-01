@@ -109,6 +109,43 @@ pub fn get_track_ids_by_paths(
     map
 }
 
+/// Marks tracks as stale and resets all their analysis passes to PENDING.
+/// Called after a scan detects that files have changed (cache misses).
+pub fn mark_tracks_stale_and_reset_passes(
+    conn: &Connection,
+    paths: &[String],
+) -> Result<(), rusqlite::Error> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    for path in paths {
+        conn.execute(
+            "UPDATE tracks SET is_stale = 1 WHERE path = ?1",
+            [path],
+        )?;
+        conn.execute(
+            "UPDATE track_passes SET status = 0, log = NULL, duration_ms = NULL, last_run_at = NULL
+             WHERE track_id = (SELECT id FROM tracks WHERE path = ?1)",
+            [path],
+        )?;
+    }
+    Ok(())
+}
+
+/// Clears the stale flag for tracks whose files are confirmed unchanged (cache hits).
+pub fn clear_stale_for_unchanged_paths(
+    conn: &Connection,
+    paths: &[String],
+) -> Result<(), rusqlite::Error> {
+    for path in paths {
+        conn.execute(
+            "UPDATE tracks SET is_stale = 0 WHERE path = ?1 AND is_stale = 1",
+            [path],
+        )?;
+    }
+    Ok(())
+}
+
 /// Prunes track records from the database that no longer physically exist in the scanned directory.
 pub fn reconcile_deleted_tracks(
     conn: &mut Connection,

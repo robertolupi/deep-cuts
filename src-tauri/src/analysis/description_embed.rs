@@ -137,7 +137,11 @@ impl super::AnalysisPass for DescriptionEmbedPass {
         if let Some(emb) = embedding {
             let blob: Vec<u8> = emb.iter().flat_map(|&f| f.to_le_bytes()).collect();
             conn.execute(
-                "INSERT OR REPLACE INTO description_embeddings (track_id, embedding) VALUES (?1, ?2)",
+                "DELETE FROM description_embeddings WHERE track_id = ?1",
+                rusqlite::params![job.track_id],
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "INSERT INTO description_embeddings (track_id, embedding) VALUES (?1, ?2)",
                 rusqlite::params![job.track_id, blob],
             ).map_err(|e| e.to_string())?;
         }

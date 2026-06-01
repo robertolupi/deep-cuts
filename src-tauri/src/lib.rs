@@ -59,6 +59,12 @@ pub fn run() {
                 port: Mutex::new(None),
             });
 
+            // Automatically scan all libraries on startup to detect changed files
+            let app_handle_scan = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = scanner::scan_all_libraries(app_handle_scan).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

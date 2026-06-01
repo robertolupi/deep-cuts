@@ -115,7 +115,7 @@ impl LibraryScanner {
         let mut cache_misses = Vec::new();
         let mut cache_hits_count = 0;
 
-        for file in all_discovered_files {
+        for file in &all_discovered_files {
             if let Some((cached_size, cached_modified)) =
                 db::get_cached_track_details(conn, &file.path)
             {
@@ -124,10 +124,22 @@ impl LibraryScanner {
                     continue;
                 }
             }
-            cache_misses.push(file);
+            cache_misses.push(file.clone());
         }
 
         let total_misses = cache_misses.len();
+
+        // Clear stale flag for files that are confirmed unchanged (cache hits).
+        let cache_miss_paths: std::collections::HashSet<&str> =
+            cache_misses.iter().map(|f| f.path.as_str()).collect();
+        let cache_hit_paths: Vec<String> = all_discovered_files
+            .iter()
+            .filter(|f| !cache_miss_paths.contains(f.path.as_str()))
+            .map(|f| f.path.clone())
+            .collect();
+        if let Err(e) = db::clear_stale_for_unchanged_paths(conn, &cache_hit_paths) {
+            eprintln!("Failed to clear stale flags for cache hits: {:?}", e);
+        }
 
         reporter.report_progress(ScanProgressPayload {
             is_scanning: true,
@@ -188,12 +200,26 @@ impl LibraryScanner {
             }
         }
 
-        // 5b. Sidecar restore — reload ML fields for newly-upserted tracks
+        // 5b. Mark changed tracks stale, clear their virtual-table data, and reset passes
         if !tracks_to_upsert.is_empty() {
             let paths: Vec<&str> = tracks_to_upsert.iter().map(|t| t.path.as_str()).collect();
             let id_map = db::get_track_ids_by_paths(conn, &paths);
+            let changed_ids: Vec<i64> = id_map.values().copied().collect();
+
+            // Clear owned virtual-table rows so re-running passes won't hit UNIQUE violations
+            if let Err(e) = crate::analysis::reset_pass_data_for_tracks(conn, &changed_ids) {
+                eprintln!("Failed to clear virtual-table data for stale tracks: {:?}", e);
+            }
+
+            let changed_paths: Vec<String> =
+                tracks_to_upsert.iter().map(|t| t.path.clone()).collect();
+            if let Err(e) = db::mark_tracks_stale_and_reset_passes(conn, &changed_paths) {
+                eprintln!("Failed to mark stale tracks: {:?}", e);
+            }
+
+            // Sidecar restore — reload ML fields for newly-upserted tracks
             for track in &tracks_to_upsert {
-                if let Some(&track_id) = id_map.get(&track.path) {
+                if let Some(&track_id) = id_map.get(track.path.as_str()) {
                     if let Err(e) = sidecar::restore(conn, track_id, &track.path) {
                         eprintln!("Sidecar restore failed for '{}': {}", track.filename, e);
                     }
