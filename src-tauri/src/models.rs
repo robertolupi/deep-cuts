@@ -55,6 +55,6 @@ mod tests {
         assert_eq!(qwen_group.label, "Qwen Audio LLM");
         assert_eq!(qwen_group.files.len(), 2);
         assert_eq!(qwen_group.files[0].filename, "Qwen2-Audio-7B-Instruct.Q4_K_M.gguf");
-        assert_eq!(qwen_group.files[0].size_bytes, 4720000000);
+        assert_eq!(qwen_group.files[0].size_bytes, 4790394016);
     }
 }

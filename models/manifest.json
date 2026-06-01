@@ -1,0 +1,177 @@
+{
+  "manifest_version": 1,
+  "min_app_version": "0.1.0",
+  "update_notice": null,
+  "models": {
+    "qwen": {
+      "label": "Qwen Audio LLM",
+      "files": [
+        {
+          "filename": "Qwen2-Audio-7B-Instruct.Q4_K_M.gguf",
+          "url": "https://huggingface.co/mradermacher/Qwen2-Audio-7B-Instruct-GGUF/resolve/main/Qwen2-Audio-7B-Instruct.Q4_K_M.gguf",
+          "sha256": "1ef119f39f39258c39e1c95c6e0144da2733f4862c673add9afcf3a9d42f48bc",
+          "size_bytes": 4790394016
+        },
+        {
+          "filename": "Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf",
+          "url": "https://huggingface.co/mradermacher/Qwen2-Audio-7B-Instruct-GGUF/resolve/main/Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf",
+          "sha256": "87c06047a53d32473df8a7101ef1310bfe559a74afd4caaf556e55dafb35ddab",
+          "size_bytes": 694562336
+        }
+      ]
+    },
+    "clap": {
+      "label": "CLAP Embedder",
+      "files": [
+        {
+          "filename": "clap_audio_encoder.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/clap_audio_encoder.onnx",
+          "sha256": "bdb55bc8646e5b51392c5ed6b47c3d07c4296cf63fd953fea8ea9c621e24e27a",
+          "size_bytes": 2208026
+        }
+      ]
+    },
+    "sentence": {
+      "label": "MiniLM Text Embedder",
+      "files": [
+        {
+          "filename": "all-minilm-l6-v2.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/all-minilm-l6-v2.onnx",
+          "sha256": "4023390f73994227b014d45411a0f0ded1a7ac9186844380d4833e1850158fe1",
+          "size_bytes": 773167
+        },
+        {
+          "filename": "all-minilm-l6-v2-tokenizer.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/all-minilm-l6-v2-tokenizer.json",
+          "sha256": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
+          "size_bytes": 466247
+        }
+      ]
+    },
+    "essentia": {
+      "label": "Essentia Classifier",
+      "files": [
+        {
+          "filename": "discogs-effnet-bsdynamic-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/discogs-effnet-bsdynamic-1.onnx",
+          "sha256": "a280825b334797cf677939db8cd5762c0392aedd0ca6415dbc1cd083f045e43c",
+          "size_bytes": 18027718
+        },
+        {
+          "filename": "discogs-effnet-bsdynamic-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/discogs-effnet-bsdynamic-1.json",
+          "sha256": "a2e85b2e7372d5f8e0f35bdd6aeae1139f101087d183d0b2fb60b0ea0f01a0ff",
+          "size_bytes": 14986
+        },
+        {
+          "filename": "genre_discogs400-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/genre_discogs400-discogs-effnet-1.onnx",
+          "sha256": "2ab1297cb72466e1571cf1f39185f29e0e2e03eb9654fe4bd14b150879d56d24",
+          "size_bytes": 2050409
+        },
+        {
+          "filename": "genre_discogs400-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/genre_discogs400-discogs-effnet-1.json",
+          "sha256": "2d367319d9b782ffa10f69abf0e805b3ac4e10899025e5bdbaceda3919b243e0",
+          "size_bytes": 14951
+        },
+        {
+          "filename": "mood_happy-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_happy-discogs-effnet-1.onnx",
+          "sha256": "0ca322819ef137b4b87e9866bffe7370a630e6f1165184ec106326cef6f81e06",
+          "size_bytes": 514097
+        },
+        {
+          "filename": "mood_happy-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_happy-discogs-effnet-1.json",
+          "sha256": "ed4601bc396b23367d29cf45aa327366cdfdbd3e2baeb7a3f7893237f1ffd9e6",
+          "size_bytes": 2350
+        },
+        {
+          "filename": "mood_sad-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_sad-discogs-effnet-1.onnx",
+          "sha256": "1a50d11c23181bdfdeabc7d6032a2dad829dfc19c3776d2ee57ef1724cb08805",
+          "size_bytes": 514093
+        },
+        {
+          "filename": "mood_sad-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_sad-discogs-effnet-1.json",
+          "sha256": "7f2c00099ad8255af33e43ab77d1ac2c86a1dd9f46d3e5ea2a9a52246f5033d9",
+          "size_bytes": 2334
+        },
+        {
+          "filename": "mood_aggressive-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_aggressive-discogs-effnet-1.onnx",
+          "sha256": "de36550b5d1660791ad732ed6de6ebfdc3e65dcf50b928b2578ddf103dbfb400",
+          "size_bytes": 514107
+        },
+        {
+          "filename": "mood_aggressive-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_aggressive-discogs-effnet-1.json",
+          "sha256": "81773e95d78db1b93283d73b2d06344d1ff79685b57d9428a40d47fdfcf537b8",
+          "size_bytes": 2386
+        },
+        {
+          "filename": "mood_relaxed-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_relaxed-discogs-effnet-1.onnx",
+          "sha256": "8ba6515a1e5943a72b3b475e3a25fc7a2ff04142c3eaa6aa0716fca371efdfff",
+          "size_bytes": 514101
+        },
+        {
+          "filename": "mood_relaxed-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_relaxed-discogs-effnet-1.json",
+          "sha256": "86c0fe1c2c6d49bf08537bc2d3a602204feaede011ed119c1fc6c36270f60e6a",
+          "size_bytes": 2364
+        },
+        {
+          "filename": "mood_party-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_party-discogs-effnet-1.onnx",
+          "sha256": "c50ac2106ec2f209dd04ad48756582df0e3f3512235310d1a4a3fcc453745f04",
+          "size_bytes": 514097
+        },
+        {
+          "filename": "mood_party-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_party-discogs-effnet-1.json",
+          "sha256": "a7f15c6e05db7c3e9226646a87162ebb9cc00aea8bdbbc910aedafa7f4a8fdfb",
+          "size_bytes": 2350
+        },
+        {
+          "filename": "mood_acoustic-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_acoustic-discogs-effnet-1.onnx",
+          "sha256": "56b02abf772b9c1cf528e4d6521d6e09515cedccce47895ee5de8de33fbdf848",
+          "size_bytes": 514103
+        },
+        {
+          "filename": "mood_acoustic-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_acoustic-discogs-effnet-1.json",
+          "sha256": "45f61055d1d87d5e7f8a413b06b57eca20c3af1a23cf8912e0d916422e5207e1",
+          "size_bytes": 2380
+        },
+        {
+          "filename": "mood_electronic-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_electronic-discogs-effnet-1.onnx",
+          "sha256": "4cc09140d5b078cf39e55975a23cba813e6bd4014092b78e8c415fa32a382149",
+          "size_bytes": 514107
+        },
+        {
+          "filename": "mood_electronic-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/mood_electronic-discogs-effnet-1.json",
+          "sha256": "150c21220b7f383868b60e495163498dbabfc4f73d4d1804f525ef352f2897b9",
+          "size_bytes": 2394
+        },
+        {
+          "filename": "voice_instrumental-discogs-effnet-1.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/voice_instrumental-discogs-effnet-1.onnx",
+          "sha256": "20155e4c439714b0c45c08644b73c8e12d9dccb173bd4ab9934bf1e5aee837ca",
+          "size_bytes": 514114
+        },
+        {
+          "filename": "voice_instrumental-discogs-effnet-1.json",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models-noncommercial/resolve/main/voice_instrumental-discogs-effnet-1.json",
+          "sha256": "43ac2c3b055dfaed20f6232e0f10636c287f1c5a6e5bd02c5585860031964c8f",
+          "size_bytes": 2013
+        }
+      ]
+    }
+  }
+}

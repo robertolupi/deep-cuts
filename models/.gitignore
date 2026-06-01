@@ -8,3 +8,6 @@
 
 # Label JSON files downloaded from the Essentia model hub
 *.json
+
+# Exception for the download manifest
+!manifest.json
