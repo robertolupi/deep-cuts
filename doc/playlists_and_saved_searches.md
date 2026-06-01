@@ -26,15 +26,21 @@ A manually curated, ordered list of track IDs. The user explicitly adds and remo
 
 ```sql
 CREATE TABLE saved_searches (
-    id          INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL,
-    query_json  TEXT NOT NULL,   -- serialised filter state
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
+    id             INTEGER PRIMARY KEY,
+    name           TEXT NOT NULL,
+    query_json     TEXT NOT NULL,   -- serialised filter state
+    schema_version INTEGER NOT NULL DEFAULT 1, -- tracks JSON query schema structure version
+    created_at     INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL
 );
 ```
 
 `query_json` mirrors whatever the frontend filter store serialises — keyword, tag expressions, mood profile vertices, BPM range, key, folder IDs, etc. The backend re-executes it as a SQL query with fuzzy scoring applied in application code.
+
+#### JSON Schema Versioning & Auto-Migration
+To dynamically handle saved search query evolutionary shifts:
+- Every query payload is serialized alongside a `schema_version`.
+- A dynamic migration registry on the backend parses old formats, runs field mappings (e.g., renaming a mood vertex or migrating numeric structures), and automatically writes back the upgraded version upon loading.
 
 ### `playlists`
 
@@ -51,14 +57,24 @@ CREATE TABLE playlists (
 
 ```sql
 CREATE TABLE playlist_tracks (
-    playlist_id  INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
-    track_id     INTEGER NOT NULL REFERENCES tracks(id)    ON DELETE SET NULL,
-    position     INTEGER NOT NULL,
+    playlist_id    INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    track_id       INTEGER REFERENCES tracks(id)             ON DELETE SET NULL,
+    position       INTEGER NOT NULL,
+    cached_title   TEXT NOT NULL,                            -- stored at insertion for tombstoning
+    cached_artist  TEXT NOT NULL,                            -- stored at insertion for tombstoning
     PRIMARY KEY (playlist_id, position)
 );
+
+-- Foreign Key Indexes for fast join operations
+CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
+CREATE INDEX idx_playlist_tracks_track_id ON playlist_tracks(track_id);
 ```
 
-`track_id` is set to NULL (rather than cascaded) when a track is removed from the library, so the playlist preserves the slot and can show a "missing" indicator.
+#### Playlist Tombstoning & Metadata Caching
+`track_id` is set to `NULL` when a track is removed from the physical library rather than cascading a delete. By storing `cached_title` and `cached_artist` directly inside `playlist_tracks` at insertion time:
+- Stale or missing tracks will display actual metadata (e.g., "Missing: Artist - Title") instead of blank, empty rows or broken IDs.
+- Provides clear UX context to the user that a previously selected track has been deleted or is offline.
+
 
 ---
 

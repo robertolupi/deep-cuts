@@ -47,7 +47,8 @@ Multiple named layouts, each computed from a different feature space, let the us
 - **Weakness**: very low-dimensional input; many tracks share the same key so clusters may be coarse
 
 ### Hybrid (user-weighted)
-- **Input**: weighted combination of any of the above feature spaces, concatenated and re-projected
+- **Input**: weighted combination of any of the above feature spaces, concatenated and re-projected.
+- **Dimensional Normalization & PCA Blending**: High-dimensional features like the 512-dimensional CLAP embeddings dominate low-dimensional spaces (e.g., 7-dim mood vectors) when concatenated directly. To solve this, the CLAP space is compressed using Principal Component Analysis (PCA) to a lower dimension (e.g., 16 or 32 components) and Z-score normalized before being combined with other normalized feature vectors. This ensures balanced feature influence based on user sliders.
 - **What clusters**: whatever the user emphasises
 - **UI**: a set of weight sliders (Acoustic / Semantic / Mood / Rhythmic / Tonal), each 0–100%. Layout recomputes when weights are committed.
 - **Strength**: most flexible; lets the user ask "acoustic similarity but with mood as a tiebreaker"
@@ -90,6 +91,15 @@ A layout is considered stale when `track_count` differs from the current library
 **On-demand with caching**: a layout is computed the first time the user selects it, then cached in `map_coordinates`. Subsequent switches are instant. Recomputation is only triggered manually ("Recompute Map" button) or when the layout is detectably stale.
 
 This avoids computing all layouts upfront (expensive on first launch) while keeping switches fast after the first load.
+
+### Idle-Time Precomputation / Background Worker Queue
+To prevent blocking user interactions when navigating to a new layout, the application schedules layout coordinate calculations asynchronously. A low-priority background worker queue monitors CPU idle states. When the system detects user inactivity, the worker processes outstanding stale layouts or computes coordinates for uninitialized layouts (e.g., semantic or tonal layouts) slice by slice.
+
+### Coordinate Instability & Regressor Projections
+Standard UMAP projections are highly stochastic; adding even a few new tracks and re-running UMAP can completely shift, rotate, or mirror the global coordinate space, disorienting the user. To preserve visual consistency:
+- **Local Regressors**: A K-Nearest Neighbors (KNN) regressor or Parametric UMAP network is fitted on the original, stable layout coordinates.
+- **Out-of-Sample Extension**: When new tracks are added to the library, their high-dimensional embeddings are projected onto the stable 2D canvas using the pre-trained local regressor rather than re-computing the entire UMAP graph.
+- **Global Re-alignment**: Global UMAP recomputation is deferred until a major library update threshold is met (e.g., >20% new tracks added), at which point a Procrustes alignment transformation is applied to map the new layout coordinates onto the old coordinates to minimize spatial drift.
 
 UMAP runs in the existing Rust/Python analysis pipeline. Each layout is a separate UMAP projection with appropriate input features and potentially different hyperparameters (e.g. the tonal layout benefits from lower `n_neighbors` to preserve fine harmonic structure).
 

@@ -68,12 +68,32 @@ CREATE TABLE track_tags (
     track_id   INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
     tag_id     INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
     weight     REAL,        -- NULL for user tags; 0.0–1.0 for fuzzy system tags
-    source     TEXT,        -- 'user', 'essentia', 'qwen2', 'musicbrainz', etc.
+    source     TEXT NOT NULL, -- 'user', 'essentia', 'qwen2', 'musicbrainz', etc.
     PRIMARY KEY (track_id, tag_id)
 );
+
+-- Composite Indexes for performant filtering and analytical queries
+CREATE INDEX idx_track_tags_tag_id_weight ON track_tags(tag_id, weight);
+CREATE INDEX idx_track_tags_track_id_source ON track_tags(track_id, source);
 ```
 
 System tags are populated by analysis passes. User tags have `source = 'user'` and `weight = NULL`.
+
+---
+
+## Namespaced Tag Sources & Colors
+
+To help users instantly identify tag origins, we structure tag queries and UI chips using visual colon namespaces (`namespace:value`) and specific color schemes:
+
+| Tag Category / Source | Visual Namespace | Background / Accent Color | Description / Examples |
+|---|---|---|---|
+| **User Custom Tags** | *No namespace* or `custom:` | Teal / Emerald (`#0F766E` / `#047857`) | Purely manual curation: `reference`, `custom:loop-worthy` |
+| **Musical Tags** | `key:`, `camelot:`, `bpm:`, `scale:` | Purple / Violet (`#6D28D9` / `#7C3AED`) | Core musical & key attributes computed by Essentia |
+| **AI Descriptors** | `mood:`, `genre:`, `instr:`, `vocal:` | Orange / Amber (`#C2410C` / `#D97706`) | AI-generated confidence-weighted parameters (Qwen2/Essentia) |
+
+This system allows high scannability inside the track list and detail panel, as well as a standardized notation inside the tag filter bar.
+
+---
 
 ### Existing columns
 

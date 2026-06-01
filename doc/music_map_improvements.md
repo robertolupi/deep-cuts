@@ -6,6 +6,11 @@
 
 **Fix:** Replace min/max normalization with **p1–p99 percentile clipping**. Tracks outside the percentile range get clamped to 0 or 100 (they land at the canvas edge rather than disappearing). At p1, only ~70 tracks (3.7% of a 1,886-track library) are clamped — a negligible loss of precision for those extreme outliers.
 
+### Soft Boundary Outlier Compression & Visual Micro-Jittering
+Instead of hard clamping outlying coordinates (which forces multiple tracks to pile up directly on top of each other along the border of the canvas), the application uses **Soft Boundary Outlier Compression**:
+- **Mathematical Squeezing**: A soft squashing function (e.g., Sigmoid or ArcTan) is applied to coordinates past the 99th and below the 1st percentiles. This compresses coordinates asymptotically near the boundaries (e.g. `[99, 100]`), preserving relative ordering and distance without allowing them to stretch the core canvas area.
+- **Visual Micro-Jittering**: To prevent perfect visual overlap (dot collisions) for highly similar compressed outliers, a deterministic pseudo-random micro-jitter (using the track ID hash) is added to the rendering coordinates on the canvas. This guarantees that stacked tracks are offset by a tiny amount, allowing users to hover over and select individual overlapping dots.
+
 ```rust
 // Current (problematic):
 let x_min = coords.iter().map(|p| p.0).fold(f64::MAX, f64::min);
@@ -82,6 +87,12 @@ map_normalization_percentile: f64 // default 1.0 (p1/p99 clipping)
 
 4. **Visual treatment:** The satellite region gets a subtle visual separator — a faint dashed border or a slightly different background tint — and a label ("Acoustic Outliers" or similar). Dots within it are fully interactive: selectable, playable, included in pathfinding and similarity search.
 
+### Pinned HUD Mini-Map Inset
+To improve layout coherence, the outlier satellite region is designed as a **Pinned HUD Mini-Map Inset**:
+- Rather than rendering inside the main infinite-canvas zoom/pan area, the satellite container is rendered in a fixed corner of the UI (e.g., bottom-right) as an overlay HUD element.
+- This inset panel remains at 100% scale regardless of the user's primary map zoom or pan.
+- A toggle allows the user to expand this inset into a full split-screen panel, or dismiss it. Selecting a track inside the mini-map draws a radial connector line linking it back to the core map viewport if relevant.
+
 **Database change:** Add `is_map_outlier BOOLEAN DEFAULT 0` to the `tracks` table (or `track_coords`), populated during `recompute_projection`. The frontend uses this flag to apply the satellite visual treatment.
 
 ---
@@ -89,6 +100,12 @@ map_normalization_percentile: f64 // default 1.0 (p1/p99 clipping)
 ## 4. Non-Music Detection and Map Filtering
 
 **Problem:** Some libraries contain non-music content (audiobooks, podcasts, field recordings, sound effects, short jingles) that pollutes the map projection. These tracks have no acoustic relationship to the rest of the library and distort the projection for everyone.
+
+### Heuristic VAD & Music Classifier Filtering
+Relying entirely on LLM text descriptions or tag regex patterns is slow and unreliable for filtering out non-music audio. Instead, the application leverages local, high-speed audio-based feature extraction:
+- **Heuristic Vocal Activity Detection (VAD)**: A lightweight local VAD pass identifies long stretches of spoken speech (low pitch variance, regular conversational silence intervals).
+- **Local Essentia Classifiers**: Local ONNX-based Essentia models analyze the spectral shape, zero-crossing rate, and onset density. If these profiles match known non-music signatures (e.g., `voice`, `speech`, or `noise`), the track is immediately flagged.
+- This offloads speech/non-music identification to deterministic audio analysis, avoiding the need to run costly LLM text generation just to detect silent segments or narrated intros.
 
 **Detection:** A simple rule-based classifier using existing signals — no new model needed:
 

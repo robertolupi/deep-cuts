@@ -117,9 +117,21 @@ The input is disabled and the last message grows in place while streaming.
 
 ---
 
-## DSP Reuse
+## DSP & Resource Management
 
-The audio decoding and windowing logic already exists in `qwen.rs` (`process_job`). It should be extracted into a shared helper in `dsp.rs` or a new `qwen_audio.rs` so both the pipeline pass and the interactive command can call it without duplication.
+### Audio Segment Caching & 16kHz Peak Re-use
+To prevent redundant audio decoding overhead when a user repeatedly queries the same audio segment, the backend utilizes:
+- **Audio Segment Cache**: A simple sliding-window memory cache of recently decoded, resampled 16kHz mono PCM frames.
+- **WaveSurfer Peak Re-use**: The WaveSurfer interactive waveform retrieves and renders peaks derived from already existing analysis metadata, entirely bypassing audio re-decoding in the frontend.
+
+### Model Priority Queue Manager
+Interactive chat requests must be highly responsive, whereas background library scanning and pipeline analysis passes are asynchronous and non-interactive. The backend implements a Rust-based `ModelPriorityQueueManager` to handle model server resource limits:
+- **Priority Queue**: Interactive chat commands are prioritized with high priority.
+- **Preemption**: When an interactive chat request (`ask_qwen`) arrives, background batch analyses are paused (releasing locking handles on ONNX/LLM execution contexts) to immediately free up CPU/GPU cycles for the user's chat turn. Background workers automatically resume once interactive demand goes idle.
+
+### Context Token Budget Monitor & WaveSurfer Region Highlighting
+- **Context Token Budget Monitor**: A real-time tracker in Svelte that computes current token usage based on selected audio duration and text conversation length (aiming for Qwen2-Audio's context budget limits). It alerts the user when they approach token exhaustion and suggests trimming the audio window.
+- **WaveSurfer Interactive Chat Region Highlighting**: Active chat conversations draw a highlighted, semi-transparent colored bounding region on the WaveSurfer timeline indicating exactly which audio slice is loaded into context. Moving the slider automatically invalidates the cache for the next turn, with visual indicators prompting the user to confirm the update.
 
 ---
 

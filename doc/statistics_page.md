@@ -175,7 +175,12 @@ Charts are rendered with D3 on canvas/SVG, consistent with the map view. No thir
 
 ## Implementation Notes
 
-- All statistics are computed in Rust (SQL aggregations + application-level stats) via IPC commands. The frontend receives pre-aggregated data, not raw track lists, keeping payloads small.
+- **SIMD & Parallel Matrix Computations**: Cosine distance evaluations, centroid calculations, and pairwise nearest-neighbor checks are offloaded to Rust. The backend utilizes `rayon` for parallel iteration and maps matrix math to SIMD vector registers (supporting AVX2/NEON intrinsics) to handle high-dimensional vector calculations in milliseconds.
+- **Sub-sampling & Progressive Rendering Queues**: When evaluating very large sets (exceeding 2,000 tracks), the system employs dynamic sub-sampling (using randomized stratification) and a progressive rendering queue. The UI renders summary metrics instantly and draws complex charts incrementally in frames to maintain a responsive 60fps main thread.
+- **Statistics Caching Layer**: Aggregated statistics are stored in an in-memory LRU cache on the backend. Cache keys are hashed versions of the track set definition (e.g. SQL query or playlist IDs) combined with the database's max `updated_at` timestamp. This ensures immediate cache invalidation the moment any track in the library is modified or re-analyzed, but zero redundant calculations during navigation.
+- **D3 Rendering Split (SVG vs Canvas)**:
+  - **SVG rendering** is dedicated to sparse, geometric, or highly interactive visualizations—namely the mood radar charts, Camelot wheels, and chromatic scale bars. This allows clean CSS transitions, styling, and native SVG tooltip interactivity.
+  - **HTML5 Canvas** is used for high-density plots—including the BPM distribution histograms, large scatter plots, and complex overlaid density distributions. This bypasses DOM limits, enabling instantaneous drawing of thousands of nodes.
 - Heavy computations (centroid distances, nearest-neighbour distributions) run in a background task and stream results to the frontend as they complete.
 - Charts share a consistent colour scheme per set (set A = accent colour 1, set B = accent colour 2, set C = accent colour 3) carried through all sections.
 

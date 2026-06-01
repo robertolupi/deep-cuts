@@ -38,6 +38,17 @@ Dimensions the user leaves at zero (centre of radar) are excluded from scoring �
 
 Fuzzy matching produces a continuous score per track. Rather than a hard in/out filter, tracks are **ranked** by match score. A cutoff slider controls how many tracks appear (e.g. "show top 20% matches"). This avoids the empty-results problem common with conjunctive hard filters.
 
+### Fuzzy Strictness Slider (AND vs. OR Interpolation)
+To give users granular control over how multi-dimensional moods aggregate, a **Fuzzy Strictness Slider** is introduced. This slider interpolates between two classic fuzzy logic aggregation functions:
+- **Strict Minimum (Fuzzy AND)**: The track's overall match score is determined solely by its lowest score across the selected dimensions:
+  `score = min(membership_d(track.mood_d))`
+  This is strict; a track must satisfy *every* single target dimension perfectly to rank high.
+- **Weighted Mean (Compensatory OR)**: The track's overall score is the weighted average:
+  `score = sum(w_d * membership_d) / sum(w_d)`
+  This is compensatory; a track that matches "happy" at 100% but is slightly less "relaxed" than requested can still score very highly because the happy dimension compensates for the relaxed shortfall.
+- **Interpolation Formula**: The user can slide continuously between strict (0.0) and compensatory (1.0). The resulting score is computed as:
+  `final_score = (1 - strictness) * weighted_mean + strictness * strict_minimum`
+
 ---
 
 ## Radar Chart UI
@@ -62,6 +73,11 @@ A spider/radar chart with one axis per mood dimension. The user drags each verte
 - **Click centre** — resets all dimensions (no mood preference)
 - **Named profiles** — save the current radar shape as a named preset (e.g. "late night", "workout", "focus"). Presets appear as a dropdown above the radar.
 - **Opacity ring** — a shaded polygon shows the current track's mood profile overlaid on the target, so you can see at a glance how close it is.
+
+### Alternative UI Profiles
+To avoid the visual clutter and readability issues common with multi-axis radar charts (especially for users unfamiliar with polar coordinates), two alternative UI profiles are provided:
+- **Split-Bar Dashboard**: A vertical list of clean, dual-slider horizontal trackbars (displaying both raw values and fuzzy transition ranges) that dynamically update match percentages as they are dragged.
+- **Parallel Coordinates Sidebar**: A series of parallel vertical axes where a single line representing the currently highlighted track passes through each scale. Users draw "gate" boundaries directly on the vertical lines to filter out tracks that deviate too far from their desired thresholds.
 
 ### Dimensions
 
@@ -88,6 +104,12 @@ The radar target profile can drive map colouring as a new colour mode: **Mood Ma
 Each dot is coloured on a gradient from grey (no match) to a saturated hue (strong match) based on its score against the current radar profile. The user would literally see the mood cluster they're targeting light up on the map, with surrounding similar tracks visible in softer colour.
 
 This is a natural complement to the radar: define a profile in the sidebar, see where it lives on the map, click a dot to explore neighbours.
+
+### Cross-Layout Color Synergies
+The visual feedback of the "Mood Match" gradient is not restricted to the Mood layout. Because the mood match score is computed independently of the layout coordinate space, users can apply the Mood Match color overlay to:
+- **Acoustic Similarity Layout**: Visualizes how acoustic clusters (e.g., electronic, guitar-driven rock) correlate with specific mood profiles (e.g., energetic/aggressive vs. melancholic/ambient).
+- **Semantic / Vibe Layout**: Allows the user to verify if their Qwen2-Audio free-text clusters align with standard Essentia mood categories. For example, a cluster representing "dusty cinematic vinyl" should light up when the "acoustic" and "sad/relaxed" mood profile is active.
+The active color overlay dynamically synchronizes its gradients across layout transitions to maintain a continuous, coherent visual comparison.
 
 ---
 

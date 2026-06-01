@@ -44,11 +44,25 @@ Below is a comparison of all evaluated features, ranked in order of **Priority S
 
 ### 6. 🔀 [Pathfinding Playlists (Transitions)](feature-evaluations/pathfinding_playlists_transitions.md)
 * **Synopsis**: DJ playlist compiler that builds transitional paths on the map. The user clicks a Start Song and an End Song, and the Rust backend constructs a $k$-NN graph of 2D coordinates, runs an $A^*$ or Dijkstra shortest path search, and returns an acoustically smooth progression.
+* **BPM/Key Edge Weights & Island-Bridging**: 
+  - To prevent paths from jumping between vastly different tempos or discordant keys, the transition graph's edge weights are not solely based on 2D map distance.
+  - **Dynamic Edge Weights**: Edge weight calculates as:
+    `weight = distance_2d * (1.0 + bpm_penalty) * (1.0 + camelot_key_penalty)`
+    Where the BPM penalty increases with tempo delta, and the key penalty increases based on harmonic distance on the Camelot wheel.
+  - **Island-Bridging**: In UMAP projections, isolated sub-clusters ("islands") can create disconnected components, trapping the search. The pathfinder implements an **Island-Bridging heuristic**: it detects disconnected sub-graphs and dynamically creates sparse "bridges" (virtual edges with high transition penalties) connecting nearest-neighbor bridgehead nodes, guaranteeing a viable path from start to end without causing drastic musical jars.
 * **Why it's a priority**: Unique playlisting utility with low backend performance footprint but requiring graph bridging heuristics for disconnected islands.
 
 ### 7. 🧬 [Sonic DNA & Multimodal QA](feature-evaluations/sonic_dna_multimodal_qa.md)
 * **Synopsis**: A research-grade AI audio module featuring: continuous sliding-window CLAP analysis matching tracks via Rust Dynamic Time Warping (DTW), DSP frequency pre-filters (LPF/HPF/BPF), and an interactive Chat QA sidebar allowing users to conversationalize directly with selected WAV files using the local Qwen2-Audio server.
 * **Why it's a priority**: Incredible, futuristic capability, but representing an $18$-day R&D hurdle with high risks of VRAM exhaustion, llama-server multimodal overflows, and 50x database storage bloat.
+
+---
+
+## 🛠️ Local Model Pool & Lifecycle Manager
+To run multiple heavy machine learning models (CREPE, CLAP, MiniLM, and Qwen2-Audio ONNX sessions) inside a local desktop app without overwhelming system memory (RAM/VRAM) or crashing on lower-spec hardware, Deep Cuts uses a custom **Local Model Pool / Lifecycle Manager** in Rust/Tauri:
+- **Thread-Safe Lazy Loading**: Model sessions are wrapped in thread-safe, lazily initialized `Arc<Mutex<Option<Session>>>` pools. Sessions are only loaded into memory when a feature requiring them is actively triggered.
+- **Resource Lock Guarding**: An orchestrator ensures that Qwen2-Audio and heavy embedding pipelines cannot run concurrently. If a Qwen session is requested while a background CLAP embedding task is active, the manager pauses the embedding pipeline and locks the execution resources.
+- **2-Minute Idle Eviction**: The Lifecycle Manager monitors a timer for each active model. When a model session remains idle with no incoming requests for more than **2 minutes**, the manager automatically evicts the session from RAM/VRAM, freeing up resources for system processes or Svelte frontend rendering.
 
 ---
 
