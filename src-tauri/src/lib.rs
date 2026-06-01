@@ -10,6 +10,7 @@ mod embeddings;
 pub mod error;
 pub mod hardware;
 mod llama;
+mod models;
 mod scanner;
 mod spectrogram;
 

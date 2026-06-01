@@ -104,7 +104,7 @@ def export_mel_filterbank(processor: ClapProcessor) -> None:
     assert mel_filters.shape == (CLAP_N_MELS, CLAP_N_BINS), \
         f"Unexpected mel filterbank shape: {mel_filters.shape}"
 
-    out_path = OUT_DIR / "clap_mel_weights.bin"
+    out_path = Path(__file__).parent.parent / "src-tauri" / "src" / "clap_mel_weights.bin"
     mel_filters.astype(np.float32).tofile(out_path)
     print(f"  Mel weights saved: {out_path} ({out_path.stat().st_size} bytes)")
 
@@ -131,7 +131,7 @@ def _export_mel_filterbank_fallback() -> None:
             elif bin_pts[m + 1] <= k <= bin_pts[m + 2]:
                 filterbank[m, k] = (bin_pts[m + 2] - k) / (bin_pts[m + 2] - bin_pts[m + 1])
 
-    out_path = OUT_DIR / "clap_mel_weights.bin"
+    out_path = Path(__file__).parent.parent / "src-tauri" / "src" / "clap_mel_weights.bin"
     filterbank.tofile(out_path)
     print(f"  Mel weights (fallback HTK) saved: {out_path}")
 

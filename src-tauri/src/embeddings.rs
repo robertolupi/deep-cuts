@@ -125,16 +125,9 @@ pub fn configure_session(
 
 // ── CLAP mel filterbank ───────────────────────────────────────────────────────
 
-fn get_clap_mel_filterbank(app: Option<&tauri::AppHandle>) -> Result<&'static Vec<f32>, String> {
+fn get_clap_mel_filterbank(_app: Option<&tauri::AppHandle>) -> Result<&'static Vec<f32>, String> {
     match CLAP_MEL_FILTERBANK.get_or_init(|| {
-        let path = get_model_path("clap_mel_weights.bin", app);
-        if !path.exists() {
-            return Err(format!(
-                "CLAP mel weights missing: {:?}. Run tools/export_clap_onnx.py first.",
-                path
-            ));
-        }
-        let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+        let bytes = include_bytes!("clap_mel_weights.bin");
         let expected = CLAP_N_MELS * CLAP_N_BINS * 4;
         if bytes.len() != expected {
             return Err(format!(

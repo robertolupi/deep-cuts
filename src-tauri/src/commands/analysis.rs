@@ -175,7 +175,6 @@ pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, St
     let sentence_tok =
         crate::embeddings::get_model_path("all-minilm-l6-v2-tokenizer.json", Some(&app));
     let clap_model = crate::embeddings::get_model_path("clap_audio_encoder.onnx", Some(&app));
-    let clap_mel = crate::embeddings::get_model_path("clap_mel_weights.bin", Some(&app));
 
     // Essentia models
     let essentia_base =
@@ -207,7 +206,7 @@ pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, St
 
     let qwen_exists = qwen_model.exists() && qwen_mmproj.exists();
     let sentence_exists = sentence_model.exists() && sentence_tok.exists();
-    let clap_exists = clap_model.exists() && clap_mel.exists();
+    let clap_exists = clap_model.exists(); // clap_mel is now compiled-in
     let essentia_exists =
         essentia_base.exists() && essentia_base_json.exists() && essentia_heads_exist;
 
@@ -219,7 +218,7 @@ pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, St
         "sentence_model": sentence_model.exists(),
         "sentence_tok": sentence_tok.exists(),
         "clap_model": clap_model.exists(),
-        "clap_mel": clap_mel.exists(),
+        "clap_mel": true, // compiled-in
         "essentia_base": essentia_base.exists(),
         "essentia_base_json": essentia_base_json.exists(),
         "essentia_heads": essentia_heads_exist,
