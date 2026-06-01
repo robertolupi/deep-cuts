@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import * as d3 from 'd3';
@@ -219,9 +219,11 @@
       .scaleExtent([0.5, 12])
       .on('zoom', (event) => { transform = event.transform; });
     d3.select(canvas).call(zoomBehavior);
-    
-    // Restore current transform so zoom doesn't jump
-    zoomBehavior.transform(d3.select(canvas), transform);
+
+    // Restore current transform so zoom doesn't jump.
+    // Use untrack to avoid this effect re-running on every zoom event (transform is $state).
+    zoomBehavior.transform(d3.select(canvas), untrack(() => transform));
+
   }
 
   function resetZoom() {
@@ -283,7 +285,7 @@
       .transition().duration(850)
       .call(
         zoomBehavior.transform as any,
-        d3.zoomIdentity.translate(width / 2 - tx * 2, height / 2 - ty * 2).scale(2.2)
+        d3.zoomIdentity.translate(width / 2 - tx * 6, height / 2 - ty * 6).scale(6)
       );
   }
 
@@ -294,11 +296,17 @@
     focusTrackId = null;
   });
 
-  // Also handle ui.mapFocusTrackId
+  // Also handle ui.mapFocusTrackId (e.g. "Locate on Map" from PlayerBar)
   $effect(() => {
     if (ui.mapFocusTrackId == null || projectedTracks.length === 0) return;
-    panToTrack(ui.mapFocusTrackId);
+    const id = ui.mapFocusTrackId;
     ui.mapFocusTrackId = null;
+    if (zoomBehavior) {
+      panToTrack(id);
+    } else {
+      // Component just mounted — zoomBehavior not ready yet, retry after layout
+      setTimeout(() => panToTrack(id), 150);
+    }
   });
 
   // Re-fetch stored coordinates whenever musicOnly scope changes.
