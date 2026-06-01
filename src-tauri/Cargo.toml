@@ -2,7 +2,7 @@
 name = "deep-cuts"
 version = "0.1.0"
 description = "Desktop Audio Intelligence Platform"
-authors = ["Riccardo Lupi"]
+authors = ["Roberto Lupi"]
 license = "AGPL-3.0"
 repository = "https://github.com/robertolupi/deep-cuts"
 edition = "2021"
