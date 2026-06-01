@@ -41,6 +41,10 @@ Stores the resolved MusicBrainz recording MBID (UUID string), for future use (e.
 
 Stores the fetched metadata from MusicBrainz as a serialized JSON string. This stores the raw, rich fetched metadata (title, artist, album, year, genre, cover_art_url) to enable the comparison/diff UI, conflict resolution, and rollback capabilities without cluttering the local file tags.
 
+### New column: `cover_art` on `tracks`
+
+Stores the downloaded album artwork JPEG image as binary data (`BLOB`). A `NULL` value indicates that no cover art has been fetched or is available.
+
 ### New setting: `acoustid_enrichment_enabled`
 
 Stored in `app_settings` (key/value table already used for `theme` and `model_path`). Default: `'true'`. When `'false'`, no fingerprinting or network requests are made.
@@ -53,6 +57,7 @@ A new migration file: `migrations/NN_acoustid.sql`
 ALTER TABLE tracks ADD COLUMN acoustid_status TEXT;
 ALTER TABLE tracks ADD COLUMN musicbrainz_id TEXT;
 ALTER TABLE tracks ADD COLUMN enriched_metadata TEXT;
+ALTER TABLE tracks ADD COLUMN cover_art BLOB;
 INSERT OR IGNORE INTO app_settings (key, value) VALUES ('acoustid_enrichment_enabled', 'true');
 ```
 
@@ -102,7 +107,9 @@ Steps:
 10. Check for conflicts:
     - **No conflicts**: If all non-NULL fields in the fetched metadata match the existing track values, or if the existing track values are NULL, automatically write them to the track's columns and set `acoustid_status = 'found'`.
     - **Conflicts exist**: If any populated field in the fetched metadata differs from a non-NULL field in the existing database row, set `acoustid_status = 'conflict'`.
-11. Optionally fetch/queue cover art from Cover Art Archive if `cover_art` column is NULL.
+11. Handle cover art from Cover Art Archive:
+    - **Current behavior**: If remote cover art is found, it **overrides** any existing cover art in the database (local embedded artwork is replaced by the high-quality fetched artwork).
+    - **Future behavior**: Remote cover art will be treated as a conflict if different, prompting the user via the metadata diff dialog to choose between the local or fetched artwork.
 12. Write `musicbrainz_id` to the database.
 13. Emit a `track-enriched` Tauri event so the frontend can refresh.
 
@@ -114,6 +121,19 @@ async fn enrich_track_metadata(track_id: i64, force: Option<bool>, state: State<
 ```
 
 Called by the frontend when a track is selected (normally `force: false`) or when the user manually clicks "Refresh/Identify Track" (with `force: true`). Runs `enrich_track` in a spawned async task so it doesn't block the UI. Silently no-ops if the setting is off or if the track was already processed and `force` is false.
+
+### New Local Analysis Pass: `cover_art_extraction`
+
+To prevent the initial folder/directory scanner from slowing down due to reading large, binary embedded image blobs, extracting embedded cover art is offloaded to a dedicated local background analysis pass:
+
+* **Pass Name**: `'cover_art_extraction'`
+* **Priority**: `25` (runs early in the background pipeline after basic audio analysis)
+* **Execution Logic**:
+  1. For each track, check if `cover_art` is already populated. If it is, skip.
+  2. Parse the local audio file using our existing metadata parser (e.g. `lofty`).
+  3. Extract any embedded cover/front artwork (JPEG/PNG).
+  4. Write the binary image data directly to the track's `cover_art` column.
+  5. If no embedded artwork is found, leave the column `NULL`. This signals to the online enrichment pipeline (`enrich_track_metadata`) that it is eligible for remote retrieval.
 
 ### Rate limiting
 
@@ -192,15 +212,13 @@ The enrichment is **additive and DB-only**:
 
 ## Open Questions
 
-1. **Cover art storage** — a new `cover_art BLOB` column on the `tracks` table, added in the same migration. The Cover Art Archive returns JPEG images; these are stored as-is. The frontend fetches cover art via a dedicated IPC command that returns the bytes as a base64 data URL. A NULL blob means no art available. Art is only written if the column is currently NULL (same additive-only policy as other fields).
+1. **AcoustID API key** — needs to be registered at acoustid.org and either hardcoded as a build-time constant or user-configurable. A hardcoded key for the app is normal practice; AcoustID's terms allow this.
 
-2. **AcoustID API key** — needs to be registered at acoustid.org and either hardcoded as a build-time constant or user-configurable. A hardcoded key for the app is normal practice; AcoustID's terms allow this.
+2. **`fpcalc` binary distribution** — bundled as a Tauri sidecar (~1 MB per architecture). A pure-Rust Chromaprint alternative was considered but ruled out as insufficiently mature.
 
-3. **`fpcalc` binary distribution** — bundled as a Tauri sidecar (~1 MB per architecture). A pure-Rust Chromaprint alternative was considered but ruled out as insufficiently mature.
+3. **Retry policy for `'error'` status** — on next launch? On next select? After N minutes? Suggest: retry once per app session, not per select, to avoid hammering the API on persistent network issues.
 
-4. **Retry policy for `'error'` status** — on next launch? On next select? After N minutes? Suggest: retry once per app session, not per select, to avoid hammering the API on persistent network issues.
-
-5. **User visibility** — should the UI indicate that a lookup is in progress (e.g. a subtle spinner in the player bar)? Or silently enrich in the background? Suggest: silent, since failures are harmless and success just makes fields appear.
+4. **User visibility** — should the UI indicate that a lookup is in progress (e.g. a subtle spinner in the player bar)? Or silently enrich in the background? Suggest: silent, since failures are harmless and success just makes fields appear.
 
 ---
 
