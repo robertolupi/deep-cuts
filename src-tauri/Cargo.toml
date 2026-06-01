@@ -46,6 +46,7 @@ ndarray = { version = "0.15", features = ["serde"] }
 tokenizers = "0.20"
 keepawake = "0.4.3"
 base64 = "0.22"
+semver = "1.0"
 
 [profile.dev]
 opt-level = 1

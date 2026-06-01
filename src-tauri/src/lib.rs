@@ -97,6 +97,9 @@ pub fn run() {
             commands::map::search_similar_tracks_audio,
             commands::map::recompute_projection,
             commands::map::find_duplicate_pairs,
+            commands::manifest::fetch_app_manifest,
+            commands::manifest::get_update_settings,
+            commands::manifest::set_update_settings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

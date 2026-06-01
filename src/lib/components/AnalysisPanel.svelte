@@ -3,6 +3,8 @@
   import { listen } from "@tauri-apps/api/event";
   import { onMount, onDestroy } from "svelte";
   import { theme } from "$lib/stores/theme.svelte";
+  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { ui } from "$lib/stores/ui.svelte";
 
   interface PassError {
     path: string;
@@ -107,6 +109,42 @@
   let showModelWarning  = $state(false);
   let hasCopiedCommand  = $state(false);
   let warningDismissed  = $state(false);
+  let showUpdateBanner  = $state(false);
+  let latestAppVersion  = $state("");
+
+  async function checkAppUpdates() {
+    try {
+      const response = await invoke<{ manifest: any, update_available: boolean }>("fetch_app_manifest");
+      if (response && response.update_available) {
+        latestAppVersion = response.manifest.min_app_version;
+        showUpdateBanner = true;
+      }
+    } catch (e) {
+      console.error("Failed to check app updates:", e);
+    }
+  }
+
+  async function downloadUpdate() {
+    try {
+      await openUrl("https://github.com/robertolupi/deep-cuts/releases");
+    } catch (e) {
+      console.error("Failed to open update URL:", e);
+    }
+  }
+
+  function dismissUpdateMaybeLater() {
+    showUpdateBanner = false;
+  }
+
+  async function disableUpdateChecking() {
+    try {
+      await invoke("set_update_settings", { enabled: false });
+      showUpdateBanner = false;
+      ui.showToast("Update checking disabled. Re-enable in Library Settings.", "success");
+    } catch (e: any) {
+      console.error("Failed to disable update settings:", e);
+    }
+  }
 
   async function checkModels() {
     isCheckingModels = true;
@@ -221,6 +259,7 @@
   let checkInterval: ReturnType<typeof setInterval>;
 
   onMount(() => {
+    checkAppUpdates();
     invoke<boolean>("is_analysis_running").then(v => { isRunning = v; });
     loadStats();
     checkModels();
@@ -277,6 +316,34 @@
       {/if}
     </div>
   </div>
+
+  <!-- Update banner -->
+  {#if showUpdateBanner}
+    <div class="update-banner-card">
+      <div class="warning-title-row">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sg-primary, #00f0ff)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 16 14"/>
+        </svg>
+        <span class="warning-title-text" style="color: var(--sg-primary, #00f0ff)">New update available (v{latestAppVersion})</span>
+        <button class="update-close" onclick={dismissUpdateMaybeLater}>×</button>
+      </div>
+      <p class="update-desc-text">
+        An update with performance improvements, new features, and upgraded model support is ready. Update now to ensure compatibility.
+      </p>
+      <div class="update-actions">
+        <button class="action-btn action-btn-primary" onclick={downloadUpdate}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download
+        </button>
+        <button class="action-btn" onclick={dismissUpdateMaybeLater}>Maybe Later</button>
+        <button class="action-btn action-btn-danger" onclick={disableUpdateChecking}>Do Not Ask Again</button>
+      </div>
+    </div>
+  {/if}
 
   {#if errorMessage}
     <div class="error-banner">{errorMessage}</div>
@@ -941,5 +1008,60 @@
     font-size: 9px;
     color: var(--sg-outline, #849495);
     flex-shrink: 0;
+  }
+
+  /* ── Update Banner Card ── */
+  .update-banner-card {
+    padding: 1rem;
+    background: rgba(0, 240, 255, 0.05);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-left: 3px solid var(--sg-primary, #00f0ff);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .update-desc-text {
+    margin: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-on-surface, #e3e1e9);
+    opacity: 0.85;
+    line-height: 1.5;
+  }
+
+  .update-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+  }
+
+  .action-btn-danger {
+    border-color: rgba(255, 80, 80, 0.3) !important;
+    color: #ff6b6b !important;
+    background: rgba(255, 80, 80, 0.05) !important;
+  }
+
+  .action-btn-danger:hover {
+    background: rgba(255, 80, 80, 0.12) !important;
+    border-color: #ff6b6b !important;
+  }
+
+  .update-close {
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color 0.12s;
+  }
+
+  .update-close:hover {
+    color: var(--sg-on-surface, #e3e1e9);
   }
 </style>
