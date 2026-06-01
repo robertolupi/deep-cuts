@@ -106,6 +106,7 @@ pub fn run() {
             commands::download::check_pending_resume,
             commands::download::cancel_model_download,
             commands::download::download_models,
+            commands::chat::ask_qwen,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
