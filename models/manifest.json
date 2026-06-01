@@ -65,6 +65,12 @@
           "size_bytes": 773167
         },
         {
+          "filename": "all-minilm-l6-v2.onnx.data",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/all-minilm-l6-v2.onnx.data",
+          "sha256": "b5452813b5bdde07466b7777d2deca90cff1c0ff85c59b981fca241dd1ba5f7f",
+          "size_bytes": 90266624
+        },
+        {
           "filename": "all-minilm-l6-v2-tokenizer.json",
           "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/all-minilm-l6-v2-tokenizer.json",
           "sha256": "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037",
