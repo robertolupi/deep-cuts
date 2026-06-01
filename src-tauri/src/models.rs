@@ -24,6 +24,9 @@ pub struct ModelManifest {
 }
 
 impl ModelManifest {
+    /// The live raw GitHub URL where the manifest is hosted.
+    pub const MANIFEST_URL: &'static str = "https://raw.githubusercontent.com/robertolupi/deep-cuts/refs/heads/main/models/manifest.json";
+
     /// Deserializes the manifest from a JSON string.
     pub fn parse(json: &str) -> Result<Self, String> {
         serde_json::from_str(json).map_err(|e| format!("Failed to parse model manifest: {}", e))
