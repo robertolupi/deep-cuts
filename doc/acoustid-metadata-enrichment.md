@@ -37,6 +37,10 @@ This column prevents redundant lookups and ensures own/obscure songs are not re-
 
 Stores the resolved MusicBrainz recording MBID (UUID string), for future use (e.g. linking out to MusicBrainz, fetching additional data later).
 
+### New column: `enriched_metadata` on `tracks`
+
+Stores the fetched metadata from MusicBrainz as a serialized JSON string. This stores the raw, rich fetched metadata (title, artist, album, year, genre, cover_art_url) to enable the comparison/diff UI, conflict resolution, and rollback capabilities without cluttering the local file tags.
+
 ### New setting: `acoustid_enrichment_enabled`
 
 Stored in `app_settings` (key/value table already used for `theme` and `model_path`). Default: `'true'`. When `'false'`, no fingerprinting or network requests are made.
@@ -48,6 +52,7 @@ A new migration file: `migrations/NN_acoustid.sql`
 ```sql
 ALTER TABLE tracks ADD COLUMN acoustid_status TEXT;
 ALTER TABLE tracks ADD COLUMN musicbrainz_id TEXT;
+ALTER TABLE tracks ADD COLUMN enriched_metadata TEXT;
 INSERT OR IGNORE INTO app_settings (key, value) VALUES ('acoustid_enrichment_enabled', 'true');
 ```
 
@@ -81,31 +86,34 @@ fpcalc → AcoustID API → MusicBrainz API → (Cover Art Archive) → DB write
 Key function:
 
 ```rust
-pub async fn enrich_track(track_id: i64, path: &str, conn: &Mutex<Connection>) -> Result<()>
+pub async fn enrich_track(track_id: i64, path: &str, force: bool, conn: &Mutex<Connection>) -> Result<()>
 ```
 
 Steps:
-1. Check `acoustid_enrichment_enabled` setting — return early if disabled.
-2. Check `acoustid_status` for this track — return early if not NULL or 'error'.
+1. Check `acoustid_enrichment_enabled` setting — return early if disabled (even if forced).
+2. Check `acoustid_status` for this track — return early if not NULL or 'error', unless `force` is `true`.
 3. Set `acoustid_status = 'pending'`.
 4. Run `fpcalc -json <path>` via `std::process::Command`.
 5. POST to `https://api.acoustid.org/v2/lookup` with fingerprint + duration + `meta=recordings+releasegroups+compress`.
-6. If no results: set `acoustid_status = 'not_found'`, return.
+6. If no results: set `acoustid_status = 'not_found'`, clear `enriched_metadata`, and return.
 7. Pick the highest-confidence result. Extract recording MBID.
 8. GET `https://musicbrainz.org/ws/2/recording/<mbid>?inc=artists+releases+tags&fmt=json`.
-9. Map response fields to track columns (title, artist, album, year, genre). Only overwrite fields that are currently NULL in the DB — never clobber existing embedded tags.
-10. Optionally fetch cover art from Cover Art Archive if `cover_art` column is NULL (cover art storage TBD — see open questions).
-11. Set `acoustid_status = 'found'`, write `musicbrainz_id`.
-12. Emit a `track-enriched` Tauri event so the frontend can refresh.
+9. Serialize the response fields (title, artist, album, year, genre, cover_art_url) as JSON and store it in the `enriched_metadata` column.
+10. Check for conflicts:
+    - **No conflicts**: If all non-NULL fields in the fetched metadata match the existing track values, or if the existing track values are NULL, automatically write them to the track's columns and set `acoustid_status = 'found'`.
+    - **Conflicts exist**: If any populated field in the fetched metadata differs from a non-NULL field in the existing database row, set `acoustid_status = 'conflict'`.
+11. Optionally fetch/queue cover art from Cover Art Archive if `cover_art` column is NULL.
+12. Write `musicbrainz_id` to the database.
+13. Emit a `track-enriched` Tauri event so the frontend can refresh.
 
 ### New IPC command: `enrich_track_metadata`
 
 ```rust
 #[tauri::command]
-async fn enrich_track_metadata(track_id: i64, state: State<AppState>) -> Result<(), String>
+async fn enrich_track_metadata(track_id: i64, force: Option<bool>, state: State<AppState>) -> Result<(), String>
 ```
 
-Called by the frontend when a track is selected. Runs `enrich_track` in a spawned async task so it doesn't block the UI. Silently no-ops if the setting is off or the track was already processed.
+Called by the frontend when a track is selected (normally `force: false`) or when the user manually clicks "Refresh/Identify Track" (with `force: true`). Runs `enrich_track` in a spawned async task so it doesn't block the UI. Silently no-ops if the setting is off or if the track was already processed and `force` is false.
 
 ### Rate limiting
 
@@ -117,15 +125,25 @@ This rate limit makes bulk/batch enrichment impractical — at 1 req/sec, a 2000
 
 ## Frontend
 
-### Trigger: on track select
+### Trigger: on track select (Automatic)
 
-In `player.svelte.ts`, after `playTrack()` sets the selected track, invoke:
+In `player.svelte.ts`, after `playTrack()` sets the selected track, invoke standard lazy-enrichment:
 
 ```ts
-invoke('enrich_track_metadata', { trackId: track.id });
+invoke('enrich_track_metadata', { trackId: track.id, force: false });
 ```
 
 No await — fire and forget.
+
+### Trigger: "Identify Track" button (Manual Force)
+
+In the track details/inspector panel, add an "Identify Track" (or "Refresh Metadata") button. Clicking this button triggers the manual enrichment with the `force` parameter:
+
+```ts
+invoke('enrich_track_metadata', { trackId: track.id, force: true });
+```
+
+This bypasses standard restrictions, resetting the status to `'pending'` and forcing a re-lookup on the remote APIs. This is especially useful for newly released tracks or when improved metadata has recently been submitted to AcoustID/MusicBrainz.
 
 ### Refresh: `track-enriched` event
 
