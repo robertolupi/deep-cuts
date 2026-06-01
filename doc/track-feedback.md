@@ -28,9 +28,8 @@ The Chat tab lives alongside the existing content in `TrackDetailPane.svelte`. T
 ┌──────────────────────────────────────┐
 │  [Info]  [Chat]                      │  ← tab strip
 ├──────────────────────────────────────┤
-│  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    │  ← WaveSurfer waveform
-│  ▶  0:42 ─────────●──────── 3:54    │     (replaces main PlayerBar)
-│             [Use this section]        │  ← anchors the 30s window
+│  ≈≈≈≈[████████████████]≈≈≈≈≈≈≈≈≈≈≈  │  ← WaveSurfer (peaks, no audio)
+│       0:00          3:00             │     draggable region = audio sent
 ├──────────────────────────────────────┤
 │  Loading model…  ⠋                   │  ← spinner (first open only)
 ├──────────────────────────────────────┤
@@ -50,7 +49,11 @@ The Chat tab lives alongside the existing content in `TrackDetailPane.svelte`. T
 └──────────────────────────────────────┘
 ```
 
-The WaveSurfer instance is mounted when the Chat tab opens and destroyed (main PlayerBar restored) when leaving. For tracks under ~5 minutes the full waveform is shown with no region constraint. For longer tracks a draggable region selector appears (WaveSurfer regions plugin) defaulting to the first 3 minutes; the selected region is what gets sent with each question. The chat area scrolls independently. The input is disabled while a response is streaming or the model is loading.
+**WaveSurfer is initialised in peaks-only mode** — it is passed `peaks` + `duration` exported from the main player store (via `wavesurfer.exportPeaks()`), not the audio file itself. This means it renders instantly, uses no memory for a second decode, and has no playback capability — it is a pure scrubbing/region UI.
+
+The main PlayerBar is **paused** (not destroyed) when the Chat tab opens; the user resumes it manually after leaving. No lifecycle teardown needed.
+
+A **single draggable region** (WaveSurfer Regions plugin) is always shown, defaulting to `[0, min(duration, 180s)]`. For short tracks this covers the full audio and can be left alone; for long tracks the user drags it to the section of interest. This avoids conditional UI based on track length. `region.start` and `region.end` are read at send time and passed to the backend.
 
 ---
 
@@ -66,7 +69,7 @@ ask_qwen(track_id: i64, question: String, window_start_secs: Option<f64>, window
 - `window_duration_secs` — duration of the region in seconds. `None` means full track. Ignored if `window_start_secs` is `None`.
 - `history` — prior `(user, assistant)` turn pairs for multi-turn context.
 
-For tracks under ~5 minutes both values are `None` and the full audio is passed; llama.cpp chunks it automatically. For longer tracks the frontend passes the region the user selected in WaveSurfer.
+The frontend always passes the region bounds from WaveSurfer. For short tracks the region defaults to `[0, duration]` (full track); for long tracks it reflects the user's selection. The backend always receives explicit `window_start_secs` and `window_duration_secs` — no full-track vs. windowed branching needed.
 
 **What it does:**
 
@@ -94,23 +97,23 @@ A lightweight Svelte store (or local `$state` in `TrackDetailPane`) tracks:
 ```ts
 type Message = { role: 'user' | 'assistant'; content: string };
 
-let messages = $state<Message[]>([]);       // loaded from DB on tab open, cleared on track change
-let streaming = $state(false);
-let modelReady = $state(false);             // true once llama-server /health returns 200
-let windowStart = $state<number | null>(null);    // null = full track; set when user drags region
-let windowDuration = $state<number | null>(null); // null = full track
+let messages    = $state<Message[]>([]);  // loaded from DB on tab open, cleared on track change
+let streaming   = $state(false);
+let modelReady  = $state(false);          // true once llama-server /health returns 200
+let regionStart = $state(0);              // seconds — updated live as user drags region
+let regionEnd   = $state(0);             // initialised to min(duration, 180) on tab open
 ```
 
-When `player.selectedTrack` changes, `messages` is cleared (or reloaded from DB if persistence is implemented) and `modelReady` is re-checked — the server may still be up from a previous session.
+`regionStart` / `regionEnd` are kept in sync via `region.on('update-end', ...)`. When `player.selectedTrack` changes, `messages` is cleared (or reloaded from DB if persistence is implemented), `regionEnd` is reset to `min(newDuration, 180)`, and `modelReady` is re-checked — the server may still be up from a previous session.
 
 ### Streaming
 
-`llama-server` supports SSE streaming via `stream: true` in the completions payload. The Tauri command can either:
+`llama-server` supports SSE via `stream: true` in the completions payload. Streaming is included in v1 — waiting 5–10 seconds with no feedback feels broken, and the implementation is straightforward:
 
-- **Stream via Tauri events** — emit `feedback_token` events from Rust as tokens arrive; the frontend appends them. This gives real-time streaming but requires a small event-emitting loop in Rust.
-- **Return full response** — simpler, no streaming; user sees the complete answer appear at once after a few seconds.
+- Rust: loop over SSE chunks from `ureq`, emit `app_handle.emit("chat_token", token)` per chunk
+- Svelte: `listen("chat_token", e => messages[last] += e.payload)` — ~20 lines total
 
-For v1, returning the full response is sufficient. Streaming is a follow-up.
+The input is disabled and the last message grows in place while streaming.
 
 ---
 
@@ -124,19 +127,21 @@ The audio decoding and windowing logic already exists in `qwen.rs` (`process_job
 
 **Backend**
 - [ ] Extract audio-window helper from `qwen.rs::process_job` into a shared function (accepting position, not always midpoint)
-- [ ] Add `ask_qwen(track_id, question, window_secs, history)` IPC command in a new `src-tauri/src/commands/chat.rs`
+- [ ] Add `ask_qwen(track_id, question, window_start_secs, window_duration_secs, history)` IPC command in a new `src-tauri/src/commands/chat.rs`
 - [ ] Register the command in `lib.rs`
 - [ ] Add `chat_history` table migration `(id, track_id, role, content, created_at)` (low priority)
 - [ ] Add `get_chat_history(track_id)` and `save_chat_message(track_id, role, content)` IPC commands (low priority)
 
 **Frontend**
 - [ ] Add a tab strip to `TrackDetailPane.svelte` (Info / Chat)
-- [ ] Mount a WaveSurfer instance on Chat tab open; destroy it and restore main PlayerBar on tab close
-- [ ] "Use this section" button that captures playhead position into `windowSecs`
-- [ ] Boot spinner: call `ask_qwen` (or a dedicated `ensure_llama_ready` command) on tab open; show spinner until ready
-- [ ] Chat history display with user/assistant bubbles and auto-scroll
+- [ ] Expose `exportPeaks()` from `player.svelte.ts` so the Chat tab can read them
+- [ ] On Chat tab open: pause main player; mount WaveSurfer in peaks-only mode (no `url`, pass `peaks` + `duration`)
+- [ ] Add Regions plugin; create one region defaulting to `[0, min(duration, 180s)]`; sync `regionStart`/`regionEnd` via `region.on('update-end')`
+- [ ] On Chat tab close: destroy the peaks WaveSurfer instance (main player left as-is)
+- [ ] Boot spinner: invoke `ensure_llama_server_running` on tab open; show spinner until healthy
+- [ ] Chat history display with user/assistant bubbles, auto-scroll, streaming tokens via `listen("chat_token")`
 - [ ] Input textarea: Enter to send, disabled while streaming or model loading
-- [ ] Wire `selectedTrack` change to reload/clear history
+- [ ] Wire `selectedTrack` change to reset region and reload/clear history
 - [ ] Error state if server fails to boot
 
 ---
