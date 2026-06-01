@@ -655,6 +655,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    margin-left: auto;
     transition: all 0.12s;
   }
 
