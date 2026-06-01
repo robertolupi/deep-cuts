@@ -191,7 +191,20 @@ async fn download_models_worker<R: tauri::Runtime>(
     let manifest = match custom_manifest {
         Some(json) => ModelManifest::parse(&json)
             .map_err(|e| AppError::Config(format!("Failed to parse custom manifest: {}", e)))?,
-        None => ModelManifest::fallback(),
+        None => {
+            use tauri::Manager;
+            let cached = app
+                .try_state::<std::sync::Mutex<rusqlite::Connection>>()
+                .and_then(|state| state.lock().ok().and_then(|conn| {
+                    conn.query_row(
+                        "SELECT value FROM app_settings WHERE key = 'manifest_cached_json'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    ).ok()
+                }))
+                .and_then(|json| ModelManifest::parse(&json).ok());
+            cached.unwrap_or_else(ModelManifest::fallback)
+        }
     };
     let dest_dir = get_model_destination_dir(&app);
     log::info!("[download] Target models folder: {:?}", dest_dir);

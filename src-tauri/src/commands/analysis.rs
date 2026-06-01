@@ -167,77 +167,51 @@ pub fn reset_all_passes(conn_state: tauri::State<'_, Mutex<Connection>>) -> Resu
 
 #[tauri::command]
 pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    let qwen_model =
-        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.Q4_K_M.gguf", Some(&app));
-    let qwen_mmproj =
-        crate::embeddings::get_model_path("Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf", Some(&app));
-    let sentence_model = crate::embeddings::get_model_path("all-minilm-l6-v2.onnx", Some(&app));
-    let sentence_tok =
-        crate::embeddings::get_model_path("all-minilm-l6-v2-tokenizer.json", Some(&app));
-    let clap_model = crate::embeddings::get_model_path("clap_audio_encoder.onnx", Some(&app));
-    let clap_data = crate::embeddings::get_model_path("clap_audio_encoder.onnx.data", Some(&app));
-    let clap_text = crate::embeddings::get_model_path("clap_text_encoder.onnx", Some(&app));
-    let clap_text_data = crate::embeddings::get_model_path("clap_text_encoder.onnx.data", Some(&app));
-    let clap_tok = crate::embeddings::get_model_path("clap-tokenizer.json", Some(&app));
+    use tauri::Manager;
 
-    // Essentia models
-    let essentia_base =
-        crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.onnx", Some(&app));
-    let essentia_base_json =
-        crate::embeddings::get_model_path("discogs-effnet-bsdynamic-1.json", Some(&app));
+    // Load the live manifest from DB cache, falling back to the compiled-in one.
+    let manifest = app
+        .try_state::<std::sync::Mutex<rusqlite::Connection>>()
+        .and_then(|state| {
+            state.lock().ok().and_then(|conn| {
+                conn.query_row(
+                    "SELECT value FROM app_settings WHERE key = 'manifest_cached_json'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .ok()
+            })
+        })
+        .and_then(|json| crate::models::ModelManifest::parse(&json).ok())
+        .unwrap_or_else(crate::models::ModelManifest::fallback);
 
-    // Check all head files
-    let heads = [
-        "genre_discogs400-discogs-effnet-1",
-        "mood_happy-discogs-effnet-1",
-        "mood_sad-discogs-effnet-1",
-        "mood_aggressive-discogs-effnet-1",
-        "mood_relaxed-discogs-effnet-1",
-        "mood_party-discogs-effnet-1",
-        "mood_acoustic-discogs-effnet-1",
-        "mood_electronic-discogs-effnet-1",
-        "voice_instrumental-discogs-effnet-1",
-    ];
+    // For each group, check every file listed in the manifest.
+    let mut group_status: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+    let mut missing_files: Vec<String> = Vec::new();
 
-    let mut essentia_heads_exist = true;
-    for head in &heads {
-        let onnx_path = crate::embeddings::get_model_path(&format!("{}.onnx", head), Some(&app));
-        let json_path = crate::embeddings::get_model_path(&format!("{}.json", head), Some(&app));
-        if !onnx_path.exists() || !json_path.exists() {
-            essentia_heads_exist = false;
+    for (group_key, group) in &manifest.models {
+        let mut all_present = true;
+        for file in &group.files {
+            let path = crate::embeddings::get_model_path(&file.filename, Some(&app));
+            if !path.exists() {
+                missing_files.push(format!("{}/{}", group_key, file.filename));
+                all_present = false;
+            }
         }
+        group_status.insert(group_key.clone(), all_present);
     }
 
-    let qwen_exists = qwen_model.exists() && qwen_mmproj.exists();
-    let sentence_exists = sentence_model.exists() && sentence_tok.exists();
-    let clap_exists = clap_model.exists()
-        && clap_data.exists()
-        && clap_text.exists()
-        && clap_text_data.exists()
-        && clap_tok.exists();
-    let essentia_exists =
-        essentia_base.exists() && essentia_base_json.exists() && essentia_heads_exist;
+    let all_exist = group_status.values().all(|&v| v);
 
-    let all_exist = qwen_exists && sentence_exists && clap_exists && essentia_exists;
-
-    Ok(serde_json::json!({
-        "qwen_model": qwen_model.exists(),
-        "qwen_mmproj": qwen_mmproj.exists(),
-        "sentence_model": sentence_model.exists(),
-        "sentence_tok": sentence_tok.exists(),
-        "clap_model": clap_model.exists(),
-        "clap_data": clap_data.exists(),
-        "clap_text": clap_text.exists(),
-        "clap_text_data": clap_text_data.exists(),
-        "clap_tok": clap_tok.exists(),
-        "clap_mel": true, // compiled-in
-        "essentia_base": essentia_base.exists(),
-        "essentia_base_json": essentia_base_json.exists(),
-        "essentia_heads": essentia_heads_exist,
-        "qwen_exists": qwen_exists,
-        "sentence_exists": sentence_exists,
-        "clap_exists": clap_exists,
-        "essentia_exists": essentia_exists,
+    // Build the response, keeping backward-compatible per-group keys.
+    let mut result = serde_json::json!({
         "all_exist": all_exist,
-    }))
+        "missing_files": missing_files,
+    });
+
+    for (key, exists) in &group_status {
+        result[format!("{}_exists", key)] = serde_json::Value::Bool(*exists);
+    }
+
+    Ok(result)
 }

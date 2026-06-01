@@ -26,24 +26,13 @@
   }
 
   interface ModelExistence {
-    qwen_model: boolean;
-    qwen_mmproj: boolean;
-    sentence_model: boolean;
-    sentence_tok: boolean;
-    clap_model: boolean;
-    clap_data: boolean;
-    clap_text: boolean;
-    clap_text_data: boolean;
-    clap_tok: boolean;
-    clap_mel: boolean;
-    essentia_base: boolean;
-    essentia_base_json: boolean;
-    essentia_heads: boolean;
     qwen_exists: boolean;
     sentence_exists: boolean;
     clap_exists: boolean;
     essentia_exists: boolean;
     all_exist: boolean;
+    missing_files: string[];
+    [key: string]: boolean | string[];
   }
 
   // Ordered by pipeline execution priority (sequential — no two passes run concurrently)
@@ -382,40 +371,24 @@
 
       <div class="model-groups">
         {#each [
-          { key: 'essentia_exists', label: 'Essentia Classifier', files: [
-            { label: 'discogs-effnet base', ok: modelStatus.essentia_base },
-            { label: 'discogs-effnet labels', ok: modelStatus.essentia_base_json },
-            { label: '9 task heads', ok: modelStatus.essentia_heads },
-          ]},
-          { key: 'clap_exists', label: 'CLAP Embedder', files: [
-            { label: 'clap_audio_encoder.onnx', ok: modelStatus.clap_model },
-            { label: 'clap_audio_encoder.onnx.data (117 MB)', ok: modelStatus.clap_data },
-            { label: 'clap_text_encoder.onnx', ok: modelStatus.clap_text },
-            { label: 'clap_text_encoder.onnx.data (501 MB)', ok: modelStatus.clap_text_data },
-            { label: 'clap-tokenizer.json', ok: modelStatus.clap_tok },
-            { label: 'clap_mel_weights.bin (compiled)', ok: modelStatus.clap_mel },
-          ]},
-          { key: 'qwen_exists', label: 'Qwen Audio LLM', files: [
-            { label: 'LLM GGUF (4.7 GB)', ok: modelStatus.qwen_model },
-            { label: 'mmproj (0.3 GB)', ok: modelStatus.qwen_mmproj },
-          ]},
-          { key: 'sentence_exists', label: 'MiniLM Text Embedder', files: [
-            { label: 'all-minilm-l6-v2.onnx', ok: modelStatus.sentence_model },
-            { label: 'all-minilm tokenizer', ok: modelStatus.sentence_tok },
-          ]},
+          { key: 'essentia_exists', groupKey: 'essentia', label: 'Essentia Classifier' },
+          { key: 'clap_exists', groupKey: 'clap', label: 'CLAP Embedder' },
+          { key: 'qwen_exists', groupKey: 'qwen', label: 'Qwen Audio LLM' },
+          { key: 'sentence_exists', groupKey: 'sentence', label: 'MiniLM Text Embedder' },
         ] as group}
-          {@const groupOk = modelStatus[group.key as keyof ModelExistence] as boolean}
+          {@const groupOk = modelStatus[group.key] as boolean}
+          {@const groupMissing = (modelStatus.missing_files as string[]).filter(f => f.startsWith(group.groupKey + '/'))}
           <div class="model-group" class:group-ok={groupOk} class:group-missing={!groupOk}>
             <div class="group-header">
               <span class="group-label">{group.label}</span>
               <span class="group-status">{groupOk ? '● OK' : '▲ MISSING'}</span>
             </div>
-            {#each group.files as f}
+            {#each groupMissing as f}
               <div class="model-file">
-                <span class="file-dot" class:dot-ok={f.ok} class:dot-missing={!f.ok}></span>
-                <span class="file-label">{f.label}</span>
-                <span class="file-status" class:file-ok={f.ok} class:file-missing={!f.ok}>
-                  {f.ok ? 'found' : 'missing'}
+                <span class="file-dot dot-missing"></span>
+                <span class="file-label">{f.split('/')[1]}</span>
+                <span class="file-status file-missing">
+                  missing
                 </span>
               </div>
             {/each}
