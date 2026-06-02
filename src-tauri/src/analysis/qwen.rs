@@ -11,6 +11,8 @@ pub struct QwenJob {
     pub key: Option<String>,
     pub scale: Option<String>,
     pub genre: Option<String>,
+    pub waveform_data: Option<String>,
+    pub duration_seconds: i64,
 }
 
 impl super::PassJob for QwenJob {
@@ -75,7 +77,8 @@ impl super::AnalysisPass for QwenPass {
     fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String> {
         let mut stmt = conn
             .prepare(
-                "SELECT tp.id, tp.track_id, t.path, t.bpm, t.key, t.scale, t.genre
+                "SELECT tp.id, tp.track_id, t.path, t.bpm, t.key, t.scale, t.genre,
+                        t.waveform_data, t.duration_seconds
              FROM track_passes tp
              JOIN tracks t ON t.id = tp.track_id
              WHERE tp.status = ?1 AND tp.pass_name = 'qwen'
@@ -93,6 +96,8 @@ impl super::AnalysisPass for QwenPass {
                     key: row.get(4)?,
                     scale: row.get(5)?,
                     genre: row.get(6)?,
+                    waveform_data: row.get(7)?,
+                    duration_seconds: row.get(8)?,
                 })
             })
             .map_err(|e| e.to_string())?
@@ -115,11 +120,14 @@ impl super::AnalysisPass for QwenPass {
         let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&job.path)?;
         let audio_16k_full = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
 
-        // 2. Take 30 seconds centered midpoint window (15s on each side)
-        let mid_16k = audio_16k_full.len() / 2;
+        // 2. Take 30 seconds centered on the highest-energy bin from the waveform profile.
+        let window_pct = crate::embeddings::select_best_energy_window_pct(
+            job.waveform_data.as_deref(),
+        );
+        let center_16k = (audio_16k_full.len() as f64 * window_pct) as usize;
         let half_16k = 16000 * 15;
-        let start_idx = mid_16k.saturating_sub(half_16k);
-        let end_idx = (mid_16k + half_16k).min(audio_16k_full.len());
+        let start_idx = center_16k.saturating_sub(half_16k);
+        let end_idx = (center_16k + half_16k).min(audio_16k_full.len());
         let audio_window = &audio_16k_full[start_idx..end_idx];
 
         // 3. Encode audio to WAV & Base64

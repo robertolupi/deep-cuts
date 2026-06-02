@@ -300,6 +300,26 @@ fn compute_clap_log_mel(audio_48k: &[f32], mel_filterbank: &[f32]) -> Result<Vec
 
 const DEFAULT_CLAP_WINDOW_PCTS: [f64; 3] = [0.25, 0.50, 0.75];
 
+/// Returns the single highest-energy window center from the waveform profile, as a fraction [0,1].
+/// Falls back to 0.5 (midpoint) if waveform data is absent or all-zero.
+pub fn select_best_energy_window_pct(waveform_data: Option<&str>) -> f64 {
+    let Some(data) = waveform_data else {
+        return 0.5;
+    };
+    let Ok(waveform) = serde_json::from_str::<Vec<f32>>(data) else {
+        return 0.5;
+    };
+    let best = waveform
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| v.is_finite())
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    match best {
+        Some((idx, _)) => (idx as f64 + 0.5) / waveform.len() as f64,
+        None => 0.5,
+    }
+}
+
 /// Selects three CLAP window centers from the audio-analysis waveform profile.
 ///
 /// `waveform_data` is a fixed-size RMS profile over the track duration. We use
