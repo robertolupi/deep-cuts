@@ -12,6 +12,7 @@ pub struct QwenJob {
     pub scale: Option<String>,
     pub genre: Option<String>,
     pub waveform_data: Option<String>,
+    #[allow(dead_code)]
     pub duration_seconds: i64,
 }
 
