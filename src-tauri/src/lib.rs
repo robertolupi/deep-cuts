@@ -105,6 +105,7 @@ pub fn run() {
             commands::analysis::get_pass_stats,
             commands::analysis::recover_stuck_passes,
             commands::analysis::reset_pass,
+            commands::analysis::reset_pass_for_track,
             commands::analysis::reset_all_passes,
             commands::analysis::check_models_exist,
             commands::map::get_projection_coordinates,

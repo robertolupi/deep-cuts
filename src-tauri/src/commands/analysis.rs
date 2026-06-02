@@ -160,6 +160,16 @@ pub fn reset_pass(
 }
 
 #[tauri::command]
+pub fn reset_pass_for_track(
+    pass_name: String,
+    track_id: i64,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), String> {
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
+    analysis::reset_pass_for_track(&conn, &pass_name, track_id)
+}
+
+#[tauri::command]
 pub fn reset_all_passes(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<(), String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
     analysis::reset_all_passes(&conn)

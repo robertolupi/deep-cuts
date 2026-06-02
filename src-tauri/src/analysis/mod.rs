@@ -366,6 +366,51 @@ pub fn reset_pass(conn: &rusqlite::Connection, pass_name: &str) -> Result<(), St
     Ok(())
 }
 
+pub fn reset_pass_for_track(
+    conn: &rusqlite::Connection,
+    pass_name: &str,
+    track_id: i64,
+) -> Result<(), String> {
+    let spec = PASS_REGISTRY
+        .iter()
+        .find(|s| s.name == pass_name)
+        .ok_or_else(|| format!("Unknown pass name: {}", pass_name))?;
+
+    conn.execute(
+        "UPDATE track_passes SET status = ?1, log = NULL, result = NULL,
+         last_run_at = NULL, duration_ms = NULL WHERE pass_name = ?2 AND track_id = ?3",
+        rusqlite::params![pass_status::PENDING, pass_name, track_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    if !spec.owned_columns.is_empty() {
+        let mut set_clauses = Vec::new();
+        for col in spec.owned_columns {
+            if *col == "has_long_silence" {
+                set_clauses.push(format!("{} = 0", col));
+            } else {
+                set_clauses.push(format!("{} = NULL", col));
+            }
+        }
+        let query = format!(
+            "UPDATE tracks SET {} WHERE id = ?1",
+            set_clauses.join(", ")
+        );
+        conn.execute(&query, rusqlite::params![track_id])
+            .map_err(|e| e.to_string())?;
+    }
+
+    spec.reset_for_tracks(conn, &[track_id])?;
+
+    for other_spec in PASS_REGISTRY {
+        if other_spec.dependencies.contains(&pass_name) {
+            reset_pass_for_track(conn, other_spec.name, track_id)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn reset_all_passes(conn: &rusqlite::Connection) -> Result<(), String> {
     for spec in PASS_REGISTRY {
         reset_pass(conn, spec.name)?;
@@ -566,7 +611,90 @@ impl PipelineManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::setup_test_db;
+    use crate::database::{pass_status, setup_test_db};
+
+    fn seed_two_tracks(conn: &Connection) {
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+        for id in [1i64, 2i64] {
+            conn.execute(
+                "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds, bpm)
+                 VALUES (?1, 1, '/tracks/'||?1||'.mp3', ?1||'.mp3', 100, 0, 100, 120.0)",
+                rusqlite::params![id],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO track_passes (track_id, pass_name, priority, status)
+                 VALUES (?1, 'audio_analysis', 10, ?2)",
+                rusqlite::params![id, pass_status::DONE],
+            ).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_reset_pass_for_track_only_resets_target() {
+        let conn = setup_test_db();
+        seed_two_tracks(&conn);
+
+        reset_pass_for_track(&conn, "audio_analysis", 1).unwrap();
+
+        // Track 1 pass should be PENDING and bpm nulled
+        let (status_1, bpm_1): (i64, Option<f64>) = conn.query_row(
+            "SELECT tp.status, t.bpm FROM track_passes tp JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.track_id = 1 AND tp.pass_name = 'audio_analysis'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        assert_eq!(status_1, pass_status::PENDING as i64);
+        assert!(bpm_1.is_none(), "bpm for track 1 should be NULL after reset");
+
+        // Track 2 pass should still be DONE and bpm intact
+        let (status_2, bpm_2): (i64, Option<f64>) = conn.query_row(
+            "SELECT tp.status, t.bpm FROM track_passes tp JOIN tracks t ON t.id = tp.track_id
+             WHERE tp.track_id = 2 AND tp.pass_name = 'audio_analysis'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        assert_eq!(status_2, pass_status::DONE as i64);
+        assert!(bpm_2.is_some(), "bpm for track 2 should remain set");
+    }
+
+    #[test]
+    fn test_reset_pass_for_track_clears_pass_metadata() {
+        let conn = setup_test_db();
+        seed_two_tracks(&conn);
+
+        // Set result/log/last_run_at/duration_ms on both tracks
+        conn.execute(
+            "UPDATE track_passes SET result = 'old', log = 'log', last_run_at = 1000, duration_ms = 50
+             WHERE pass_name = 'audio_analysis'",
+            [],
+        ).unwrap();
+
+        reset_pass_for_track(&conn, "audio_analysis", 1).unwrap();
+
+        let (result_1, log_1, last_run_1, dur_1): (Option<String>, Option<String>, Option<i64>, Option<i64>) =
+            conn.query_row(
+                "SELECT result, log, last_run_at, duration_ms FROM track_passes
+                 WHERE track_id = 1 AND pass_name = 'audio_analysis'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            ).unwrap();
+        assert!(result_1.is_none());
+        assert!(log_1.is_none());
+        assert!(last_run_1.is_none());
+        assert!(dur_1.is_none());
+
+        // Track 2 metadata should be untouched
+        let (result_2, log_2): (Option<String>, Option<String>) = conn.query_row(
+            "SELECT result, log FROM track_passes WHERE track_id = 2 AND pass_name = 'audio_analysis'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        assert_eq!(result_2.as_deref(), Some("old"));
+        assert_eq!(log_2.as_deref(), Some("log"));
+    }
 
     struct MockJob {
         pass_id: i64,

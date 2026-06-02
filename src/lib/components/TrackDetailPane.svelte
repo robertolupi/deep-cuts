@@ -378,7 +378,7 @@
                 class="reset-menu-item"
                 onclick={async () => {
                   resetMenuOpen = false;
-                  await invoke('reset_pass', { passName: pass });
+                  await invoke('reset_pass_for_track', { passName: pass, trackId: track!.id });
                 }}
               >{pass}</button>
             {/each}
