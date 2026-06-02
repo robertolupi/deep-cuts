@@ -1,5 +1,6 @@
 #![recursion_limit = "512"]
 
+mod acoustid;
 mod analysis;
 mod bpm;
 mod classifier;
@@ -46,6 +47,12 @@ pub fn run() {
             let db_manager = DbManager::new(app.handle());
             match db_manager.connect_and_migrate() {
                 Ok(conn) => {
+                    // Crash recovery: reset any in-flight pending AcoustID lookups
+                    let _ = conn.execute(
+                        "UPDATE tracks SET acoustid_status = NULL WHERE acoustid_status = 'pending'",
+                        [],
+                    );
+
                     // Manage the thread-safe connection state inside Tauri
                     app.manage(Mutex::new(conn));
                 }
@@ -76,6 +83,8 @@ pub fn run() {
             commands::config::save_theme,
             commands::config::get_model_path_setting,
             commands::config::save_model_path_setting,
+            commands::config::get_acoustid_setting,
+            commands::config::save_acoustid_setting,
             commands::library::select_directory,
             commands::library::get_watched_directories,
             commands::library::add_watched_directory,
@@ -107,6 +116,7 @@ pub fn run() {
             commands::download::cancel_model_download,
             commands::download::download_models,
             commands::chat::ask_qwen,
+            enrich_track_metadata,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -118,4 +128,23 @@ pub fn run() {
         }
         _ => {}
     });
+}
+
+#[tauri::command]
+async fn enrich_track_metadata(
+    track_id: i64,
+    force: Option<bool>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    log::info!("[ipc] enrich_track_metadata called for track_id: {}", track_id);
+    let force_val = force.unwrap_or(false);
+    
+    // Spawn the async enrichment pipeline in a background task so it doesn't block IPC
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = acoustid::enrich_track(track_id, force_val, &app_handle).await {
+            log::error!("[acoustid] Metadata enrichment failed: {}", e);
+        }
+    });
+
+    Ok(())
 }

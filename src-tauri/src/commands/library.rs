@@ -313,13 +313,42 @@ pub async fn search_clap_tracks(
 }
 
 #[tauri::command]
-pub fn get_cover_art(path: String) -> Result<Option<String>, String> {
+pub fn get_cover_art(
+    path: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Option<String>, String> {
     use base64::Engine as _;
     use lofty::config::ParseOptions;
     use lofty::prelude::*;
     use lofty::probe::Probe;
     use std::path::Path;
 
+    // 1. Try checking the database cover_art cache first (e.g. populated via AcoustID enrichment)
+    if let Ok(conn) = conn_state.lock() {
+        let db_res: Result<Option<Vec<u8>>, rusqlite::Error> = conn.query_row(
+            "SELECT cover_art FROM tracks WHERE path = ?1",
+            [&path],
+            |row| row.get(0),
+        );
+        if let Ok(Some(bytes)) = db_res {
+            if !bytes.is_empty() {
+                // Determine mime type from magic bytes or default to image/jpeg
+                let mime = if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) {
+                    "image/png"
+                } else if bytes.starts_with(&[0x47, 0x49, 0x46, 0x38]) {
+                    "image/gif"
+                } else if bytes.starts_with(&[0x52, 0x49, 0x46, 0x46]) && bytes.get(8..12) == Some(&[0x57, 0x45, 0x42, 0x50]) {
+                    "image/webp"
+                } else {
+                    "image/jpeg"
+                };
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+            }
+        }
+    }
+
+    // 2. Fallback to extracting from the physical file tags via lofty
     let tagged = Probe::open(Path::new(&path))
         .map_err(|e| e.to_string())?
         .options(ParseOptions::new())

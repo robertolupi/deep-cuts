@@ -49,6 +49,11 @@ class PlayerStore {
     this.currentTime   = 0;
     this.duration      = 0;
 
+    // Trigger lazy AcoustID / MusicBrainz metadata enrichment (fire and forget)
+    invoke("enrich_track_metadata", { trackId: track.id, force: false }).catch((e) => {
+      console.error("[acoustid] Failed to trigger lazy enrichment:", e);
+    });
+
     // Tear down previous instance
     if (this.#wavesurfer) {
       this.#wavesurfer.destroy();

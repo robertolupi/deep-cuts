@@ -1,6 +1,6 @@
 [package]
 name = "deep-cuts"
-version = "0.1.0"
+version = "0.1.1"
 description = "Desktop Audio Intelligence Platform"
 authors = ["Roberto Lupi"]
 license = "AGPL-3.0"
@@ -48,6 +48,7 @@ keepawake = "0.4.3"
 base64 = "0.22"
 semver = "1.0"
 sha2 = "0.10"
+tokio = { version = "1", features = ["sync", "time"] }
 
 [profile.dev]
 opt-level = 1

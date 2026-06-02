@@ -33,6 +33,23 @@
     displayLimit = idx >= 150 ? idx + 1 : 150;
   });
 
+  // Keep selected track smoothly scrolled into view when selected or when re-sorted due to metadata updates
+  $effect(() => {
+    if (selectedTrack) {
+      // Reactively track changes to key identifying fields so sorting updates trigger a scroll
+      const _id = selectedTrack.id;
+      const _title = selectedTrack.title;
+      const _artist = selectedTrack.artist;
+
+      setTimeout(() => {
+        const activeRow = document.querySelector('.track-row.active-pulse');
+        if (activeRow) {
+          activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+    }
+  });
+
   let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
   const allTracks = $derived(library.tracks);
   const isSelectedOutsideFilter = $derived(

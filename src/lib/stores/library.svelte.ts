@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { WatchedDirectory, Track } from "$lib/types";
+import { player } from "./player.svelte";
 
 class LibraryStore {
   // Reactive Svelte 5 state runes
@@ -32,6 +33,17 @@ class LibraryStore {
 
       await listen<any>("analysis-complete", () => {
         this.fetchTracks();
+      });
+
+      // Listen for AcoustID dynamic enrichment events to refresh the library and details view
+      await listen<any>("track-enriched", (event) => {
+        const enrichedId = event.payload;
+        this.fetchTracks().then(() => {
+          const freshTrack = this.tracks.find(t => t.id === enrichedId);
+          if (freshTrack && player.selectedTrack && player.selectedTrack.id === enrichedId) {
+            player.selectedTrack = freshTrack;
+          }
+        });
       });
 
       // Listen for progress updates emitted by the background scanner

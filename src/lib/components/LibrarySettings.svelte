@@ -76,6 +76,7 @@
   let configuredModelPath = $state<string | null>(null);
   let modelPathMessage = $state("");
   let checkUpdatesEnabled = $state(true);
+  let acoustidEnabled = $state(true);
   let showModelDownloaderDrawer = $state(false);
   let showModelCredits = $state(false);
 
@@ -101,6 +102,26 @@
       await invoke("set_update_settings", { enabled });
       checkUpdatesEnabled = enabled;
       ui.showToast(`Startup update checking ${enabled ? "enabled" : "disabled"}.`, "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
+
+  async function loadAcoustidSettings() {
+    try {
+      const mode = await invoke<string>("get_acoustid_setting");
+      acoustidEnabled = mode === "silent";
+    } catch (e) {
+      console.error("Failed to load AcoustID settings:", e);
+    }
+  }
+
+  async function toggleAcoustidSettings(enabled: boolean) {
+    try {
+      const mode = enabled ? "silent" : "never";
+      await invoke("save_acoustid_setting", { value: mode });
+      acoustidEnabled = enabled;
+      ui.showToast(`MusicBrainz metadata enrichment ${enabled ? "enabled (silent)" : "disabled"}.`, "success");
     } catch (err: any) {
       ui.showToast(err.toString(), "error");
     }
@@ -133,6 +154,7 @@
   onMount(async () => {
     loadModelPathSetting();
     loadUpdateSettings();
+    loadAcoustidSettings();
     appVersion = await getVersion();
   });
 </script>
@@ -260,6 +282,26 @@
             class="update-checkbox"
           />
           <span class="checkbox-text">Check for updates on startup</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Network Settings card -->
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-title">Network Settings</span>
+        <span class="card-subtitle">Enrich missing library information dynamically</span>
+      </div>
+
+      <div class="update-toggle-row">
+        <label class="update-checkbox-label">
+          <input
+            type="checkbox"
+            checked={acoustidEnabled}
+            onchange={(e) => toggleAcoustidSettings(e.currentTarget.checked)}
+            class="update-checkbox"
+          />
+          <span class="checkbox-text">Fetch metadata from MusicBrainz (AcoustID)</span>
         </label>
       </div>
     </div>

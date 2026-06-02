@@ -1158,7 +1158,7 @@ dependencies = [
 
 [[package]]
 name = "deep-cuts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "bitflags 2.11.1",
@@ -1189,6 +1189,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tokenizers",
+ "tokio",
  "ureq 2.12.1",
  "walkdir",
 ]

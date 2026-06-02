@@ -71,3 +71,35 @@ pub fn save_model_path_setting(
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_acoustid_setting(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<String, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let val: String = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'acoustid_enrichment_enabled'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "silent".to_string());
+    Ok(val)
+}
+
+#[tauri::command]
+pub fn save_acoustid_setting(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+    value: String,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('acoustid_enrichment_enabled', ?)",
+        [value],
+    )?;
+    Ok(())
+}
