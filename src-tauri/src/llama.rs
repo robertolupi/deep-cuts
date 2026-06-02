@@ -1,4 +1,5 @@
 use std::net::TcpListener;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -31,17 +32,72 @@ impl<'a> Drop for LlamaServerGuard<'a> {
     }
 }
 
-/// Spawns the llama-server executable. Tries common system and homebrew paths.
-fn spawn_llama_server(model_path: &str, mmproj_path: &str, port: u16) -> Result<Child, String> {
-    let executables = vec![
-        "/opt/homebrew/bin/llama-server",
-        "/usr/local/bin/llama-server",
-        "llama-server",
+/// Resolves the absolute path of the bundled sidecar binary at runtime.
+fn get_sidecar_path(app: &AppHandle) -> Option<PathBuf> {
+    #[cfg(target_arch = "aarch64")]
+    const TARGET_ARCH: &str = "aarch64";
+    #[cfg(target_arch = "x86_64")]
+    const TARGET_ARCH: &str = "x86_64";
+
+    #[cfg(target_os = "macos")]
+    const TARGET_OS: &str = "apple-darwin";
+    #[cfg(target_os = "linux")]
+    const TARGET_OS: &str = "unknown-linux-gnu";
+    #[cfg(target_os = "windows")]
+    const TARGET_OS: &str = "pc-windows-msvc";
+
+    let triple = format!("{}-{}", TARGET_ARCH, TARGET_OS);
+    let filename = if cfg!(target_os = "windows") {
+        format!("llama-server-{}.exe", triple)
+    } else {
+        format!("llama-server-{}", triple)
+    };
+
+    // 1. Check tauri resource dir (production package)
+    if let Ok(res_dir) = app.path().resource_dir() {
+        let p = res_dir.join("binaries").join(&filename);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    // 2. Check local dev directories relative to repository root
+    let dev_paths = vec![
+        Path::new("src-tauri/binaries").join(&filename),
+        Path::new("binaries").join(&filename),
+        Path::new("../src-tauri/binaries").join(&filename),
     ];
+
+    for p in dev_paths {
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
+/// Spawns the llama-server executable. Tries the bundled sidecar first, then fallbacks.
+fn spawn_llama_server(app: &AppHandle, model_path: &str, mmproj_path: &str, port: u16) -> Result<Child, String> {
+    let mut executables = vec![];
+
+    // 1. Prioritize the bundled sidecar binary
+    if let Some(sidecar_path) = get_sidecar_path(app) {
+        if let Some(path_str) = sidecar_path.to_str() {
+            executables.push(path_str.to_string());
+        }
+    }
+
+    // 2. System fallbacks (dev convenience)
+    executables.extend(vec![
+        "/opt/homebrew/bin/llama-server".to_string(),
+        "/usr/local/bin/llama-server".to_string(),
+        "llama-server".to_string(),
+    ]);
 
     let mut last_err = String::new();
     for exec in executables {
-        let child = std::process::Command::new(exec)
+        let child = std::process::Command::new(&exec)
             .arg("-m")
             .arg(model_path)
             .arg("--mmproj")
@@ -69,7 +125,7 @@ fn spawn_llama_server(model_path: &str, mmproj_path: &str, port: u16) -> Result<
     }
 
     Err(format!(
-        "Could not find or run `llama-server`! Ensure you have installed llama.cpp (e.g. via `brew install llama.cpp`). Details: {}",
+        "Could not find or run `llama-server`! Ensure you have installed llama.cpp or placed the sidecar in src-tauri/binaries/. Details: {}",
         last_err
     ))
 }
@@ -156,7 +212,7 @@ pub fn ensure_llama_server_running(app: &AppHandle) -> Result<LlamaServerGuard<'
         model_path
     );
 
-    let child = spawn_llama_server(&model_path, &mmproj_path, port)?;
+    let child = spawn_llama_server(app, &model_path, &mmproj_path, port)?;
 
     // Store child handle
     *lock = Some(child);
