@@ -50,13 +50,19 @@ fn ask_qwen_blocking(
     let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&path)?;
     let audio_16k = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
 
-    const MAX_SECS: f64 = 240.0; // 4 minutes — keeps payload within llama-server's context budget
+    // 4-minute hard cap keeps payload within llama-server's context budget.
+    // The frontend always passes an explicit window (from the WaveSurfer region
+    // selector), so the None branch acts as a safety net for callers that don't.
+    const MAX_SECS: f64 = 240.0;
     let window: Vec<f32> = if let (Some(start), Some(dur)) = (window_start_secs, window_duration_secs) {
+        // Clamp duration to the hard cap so the user can't exceed it even if
+        // they somehow select a longer region on the frontend.
+        let dur = dur.min(MAX_SECS);
         let start_idx = ((start * 16000.0) as usize).min(audio_16k.len());
         let end_idx = (((start + dur) * 16000.0) as usize).min(audio_16k.len());
         audio_16k[start_idx..end_idx].to_vec()
     } else if audio_16k.len() > (MAX_SECS * 16000.0) as usize {
-        // Centre a 5-minute window on the track midpoint
+        // Fallback: centre a 4-minute window on the track midpoint
         let max_samples = (MAX_SECS * 16000.0) as usize;
         let mid = audio_16k.len() / 2;
         let half = max_samples / 2;

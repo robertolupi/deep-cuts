@@ -168,6 +168,11 @@ class PlayerStore {
     this.playTrack(next);
   }
 
+  // ── Peaks export (for peaks-only WaveSurfer instances, e.g. ChatPanel) ───────
+  exportPeaks(): number[][] | null {
+    return this.#wavesurfer?.exportPeaks() ?? null;
+  }
+
   // ── Reveal in Finder ─────────────────────────────────────────────────────────
   async revealInFinder(path: string) {
     try {

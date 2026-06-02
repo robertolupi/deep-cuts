@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
+  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { onDestroy, tick } from 'svelte';
+  import WaveSurfer from 'wavesurfer.js';
+  import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
   import { player } from '$lib/stores/player.svelte';
 
   type Message = { role: 'user' | 'assistant'; content: string };
+
+  const MAX_REGION_SECS = 240; // 4 minutes — matches backend cap
 
   const track = $derived(player.selectedTrack);
 
@@ -15,10 +19,91 @@
   let inputText   = $state('');
   let messagesEl  = $state<HTMLDivElement | null>(null);
 
+  // Region selector state
+  let regionStart = $state(0);
+  let regionEnd   = $state(0);
+  let waveformEl  = $state<HTMLDivElement | null>(null);
+
   let currentTrackId: number | null = null;
   let unlistenToken: UnlistenFn | null = null;
 
-  // When the track changes, reset conversation
+  // WaveSurfer instance for the region selector (not for playback)
+  let chatWs: WaveSurfer | null = null;
+
+  function destroyChatWs() {
+    if (chatWs) {
+      chatWs.destroy();
+      chatWs = null;
+    }
+  }
+
+  // Build the peaks-only WaveSurfer with a single draggable region
+  async function mountRegionSelector(trackPath: string, duration: number) {
+    destroyChatWs();
+    await tick();
+    if (!waveformEl) return;
+
+    const peaks = player.exportPeaks();
+
+    const regionsPlugin = RegionsPlugin.create();
+
+    const wsOpts: ConstructorParameters<typeof WaveSurfer>[0] = {
+      container:     waveformEl,
+      waveColor:     'rgba(255,255,255,0.12)',
+      progressColor: 'transparent',
+      cursorWidth:   0,
+      barWidth:      2,
+      barGap:        1.5,
+      barRadius:     1,
+      height:        48,
+      normalize:     true,
+      interact:      false,
+      plugins:       [regionsPlugin],
+    };
+
+    if (peaks && duration > 0) {
+      // Peaks-only mode — no audio decode, renders instantly
+      wsOpts.peaks    = peaks;
+      wsOpts.duration = duration;
+    } else {
+      // Fallback: load from file (will decode, but no playback)
+      wsOpts.url = convertFileSrc(trackPath);
+    }
+
+    chatWs = WaveSurfer.create(wsOpts);
+
+    const initRegion = (dur: number) => {
+      const end = Math.min(dur, MAX_REGION_SECS);
+      regionStart = 0;
+      regionEnd   = end;
+
+      const region = regionsPlugin.addRegion({
+        start:     0,
+        end,
+        color:     'rgba(0, 240, 255, 0.12)',
+        drag:      true,
+        resize:    true,
+        maxLength: MAX_REGION_SECS,
+      });
+
+      region.on('update-end', () => {
+        regionStart = region.start;
+        regionEnd   = region.end;
+      });
+    };
+
+    if (peaks && duration > 0) {
+      // Peaks mode fires 'ready' synchronously after create in v7
+      chatWs.on('ready', (dur) => initRegion(dur || duration));
+      // Also try immediately in case ready already fired
+      const d = chatWs.getDuration();
+      if (d > 0) initRegion(d);
+    } else {
+      chatWs.on('ready', (dur) => initRegion(dur));
+    }
+  }
+
+  // When the track changes, reset conversation and rebuild region selector
   $effect(() => {
     const t = track;
     if (t?.id !== currentTrackId) {
@@ -26,7 +111,12 @@
       messages = [];
       modelReady = false;
       modelError = '';
-      if (t) bootModel();
+      if (t) {
+        bootModel();
+        mountRegionSelector(t.path, player.duration);
+      } else {
+        destroyChatWs();
+      }
     }
   });
 
@@ -34,11 +124,6 @@
     modelReady = false;
     modelError = '';
     try {
-      // ask_qwen will call ensure_llama_server_running internally; we just
-      // issue a lightweight health check to reflect readiness in the UI.
-      // For boot, we attempt a dummy ping via invoking ask_qwen with an empty
-      // question won't work — instead we rely on the first real send to boot.
-      // To show a spinner, we probe via a small ask on mount.
       modelReady = true; // optimistic — server boots on first send if not up
     } catch (e: any) {
       modelError = String(e);
@@ -78,17 +163,18 @@
       }
     }
 
+    const windowDuration = regionEnd - regionStart;
+
     try {
       const response = await invoke<string>('ask_qwen', {
         trackId: track.id,
         question,
-        windowStartSecs: null,
-        windowDurationSecs: null,
+        windowStartSecs:    regionStart,
+        windowDurationSecs: windowDuration > 0 ? windowDuration : null,
         history,
       });
 
       // Streaming may have already filled the bubble; only overwrite if empty
-      // (e.g. the server fell back to non-streaming for some reason)
       const last = messages.length - 1;
       if (messages[last].content.length === 0) {
         messages[last] = { role: 'assistant', content: response };
@@ -107,6 +193,7 @@
 
   onDestroy(() => {
     unlistenToken?.();
+    destroyChatWs();
   });
 
   function scrollToBottom() {
@@ -120,6 +207,12 @@
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  function formatSecs(s: number): string {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   }
 </script>
 
@@ -145,6 +238,16 @@
           <span class="model-status-text">Loading model…</span>
         </div>
       {/if}
+    </div>
+
+    <!-- Region selector -->
+    <div class="region-selector">
+      <div class="region-label-row">
+        <span class="region-label">Audio context</span>
+        <span class="region-range">{formatSecs(regionStart)} – {formatSecs(regionEnd)}</span>
+      </div>
+      <div class="waveform-wrap" bind:this={waveformEl}></div>
+      <div class="region-hint">Drag region to select which part of the track to analyse (max 4 min)</div>
     </div>
 
     <!-- Messages -->
@@ -305,6 +408,62 @@
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
     color: var(--sg-outline, #849495);
+  }
+
+  /* ── Region selector ── */
+  .region-selector {
+    flex-shrink: 0;
+    padding: 8px 16px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    background: var(--sg-surface-slate, #161b22);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .region-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .region-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sg-outline, #849495);
+  }
+
+  .region-range {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--sg-primary, #00f0ff);
+    letter-spacing: 0.04em;
+  }
+
+  .waveform-wrap {
+    width: 100%;
+    height: 48px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Override wavesurfer region handle colours */
+  :global(.waveform-wrap .wavesurfer-region) {
+    border-left:  2px solid rgba(0, 240, 255, 0.7) !important;
+    border-right: 2px solid rgba(0, 240, 255, 0.7) !important;
+  }
+
+  .region-hint {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    opacity: 0.6;
   }
 
   /* ── Messages ── */
