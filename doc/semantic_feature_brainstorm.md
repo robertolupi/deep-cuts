@@ -10,7 +10,7 @@ Below is a comparison of all evaluated features, ranked in order of **Priority S
 
 | Feature Area | Standalone Evaluation Doc | Effort | Uncertainty | Perf. Impact | Wow Factor | Priority | Sizing (Dev-Days) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1. Local NLP Semantic Search** | [local_nlp_semantic_search.md](feature-evaluations/local_nlp_semantic_search.md) | 2 / 10 | 1 / 10 | 1 / 10 | 9 / 10 | **9.5 / 10** | 2.5 Days |
+| ~~**1. Local NLP Semantic Search**~~ | ~~implemented~~ | | | | | | |
 | **2. Blended "Sounds vs. Feels" Slider** | [sounds_feels_similarity_slider.md](feature-evaluations/sounds_feels_similarity_slider.md) | 3 / 10 | 2 / 10 | 1 / 10 | 9 / 10 | **9.0 / 10** | 3.5 Days |
 | **3. Music Producer & Sampling Suite** | [producer_sampling_features.md](feature-evaluations/producer_sampling_features.md) | 6 / 10 | 3 / 10 | 2 / 10 | 9 / 10 | **8.5 / 10** | 6.0 Days |
 | **4. UMAP Density Contours & Map Layering** | [umap_density_contours_map_layering.md](feature-evaluations/umap_density_contours_map_layering.md) | 4 / 10 | 3 / 10 | 3 / 10 | 9 / 10 | **8.0 / 10** | 4.5 Days |
@@ -22,11 +22,9 @@ Below is a comparison of all evaluated features, ranked in order of **Priority S
 
 ## 📂 Standalone Feature Breakdowns
 
-### 1. 🔍 [Local NLP Semantic Search](feature-evaluations/local_nlp_semantic_search.md)
-* **Synopsis**: Allows natural language querying (e.g. *"heartfelt singer-songwriter track with piano"*) by running prompt text inference on the local MiniLM ONNX session and executing a `MATCH` query against the pre-existing SQLite `description_embeddings` (`vec0`) virtual table.
-* **Why it's a priority**: Maximum user value, 2.5 days of effort, and absolute zero technical uncertainty.
+### ~~1. 🔍 Local NLP Semantic Search~~ ✅ Implemented
 
-### 2. 🎚️ [Blended "Sounds vs. Feels" Slider](feature-evaluations/sounds_feels_similarity_slider.md)
+### 1. 🎚️ [Blended "Sounds vs. Feels" Slider](feature-evaluations/sounds_feels_similarity_slider.md)
 * **Synopsis**: An interactive sidebar in the player panel providing real-time transitional suggestions. A visual slider lets the user blend acoustic similarity (CLAP 512-d) and conceptual similarity (MiniLM 384-d) scores using a linear interpolation formula.
 * **Why it's a priority**: High visual impact, standard distance-merging math, and lightning-fast pre-computed vector lookups.
 
