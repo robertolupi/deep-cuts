@@ -21,7 +21,8 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
 ### Library Management
 
 - **Library Indexing**: Recursively scans watched directories for audio files (MP3, FLAC, WAV, AIFF, M4A, and more). Reads embedded metadata tags (title, artist, album, BPM, key, year, lyrics, etc.) via `lofty`. Gracefully re-indexes changed files and skips unreadable ones.
-- **Sidecar Persistence** (`.dc.json`): Writes a JSON sidecar file next to each audio file containing all computed analysis results. Sidecars are restored automatically on re-index, so analysis work survives library moves and re-imports. The Export Sidecars command bulk-writes all tracks at once.
+- **Sidecar Persistence** (`.dc.json`): Optionally writes a JSON sidecar file next to each audio file containing all computed analysis results (opt-in, disabled by default). Sidecars are restored automatically on re-index, so analysis work survives library moves and re-imports. The Export Sidecars command bulk-writes all tracks at once.
+- **AcoustID Metadata Enrichment**: Fingerprints tracks against the AcoustID/MusicBrainz database to fill in missing title, artist, album, and year metadata. Cover art is fetched and cached locally in the database.
 - **Reveal in Finder / Explorer**: Opens the system file manager with the track's file selected. macOS, Windows, and Linux are all handled.
 
 ### Audio Analysis Pipeline
@@ -52,6 +53,7 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 - **Vocals** — All / Vocals / Instrumental toggle, driven by Essentia `detected_vocal`.
 - **Music Only** — hides tracks Essentia classified as `Non-Music` (audiobooks, spoken word, etc.).
 - **Sounds Similar** — CLAP-based K-Nearest Neighbors filter launched from the track detail pane; surfaces the most acoustically similar tracks across the entire library.
+- **Mood** — seven dual-handle histogram sliders (happy, sad, aggressive, relaxed, party, acoustic, electronic) driven by Essentia mood scores.
 - Active filters shown as removable chips with a single "Clear all" action.
 
 ### The Music Map
@@ -69,6 +71,8 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 - WaveSurfer.js waveform and spectrogram visualisation.
 - Play / pause / prev / next controls in a persistent `PlayerBar`.
 - Track detail pane showing technical specs (sample rate, bit depth, channels, bitrate), key, loudness, BPM, lyrics, comments, AI description, mood, and instruments.
+- **Mood Radar**: Spider chart showing the full Essentia mood profile (seven axes) for the selected track.
+- **Reset Analysis Pass**: Per-track menu to clear and re-run any individual analysis pass without re-scanning the whole library.
 - "Sounds Similar" button that fires a CLAP KNN query and activates the similarity filter.
 
 ### Local Multimodal AI Chat
@@ -77,6 +81,17 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 - **Multimodal Context**: Powered by local `llama-server` and `Qwen2-Audio-7B-Instruct`. The first turn uploads the raw audio waveform, and subsequent turns support context-aware text-only conversation.
 - **WaveSurfer Region Selector**: Select and slice specific segments of the track (e.g. intro, drop, bridge) using an interactive WaveSurfer region handler to target analysis on long files without blowing LLM context windows.
 - **Real-Time Token Streaming**: Supports full Server-Sent Events (SSE) streaming for instantaneous token generation and snappy user feedback.
+- **Persistent Chat Sessions**: Conversations are saved to the database with full-text search and a session picker, so you can return to previous Q&A sessions for any track.
+
+### Playlists
+
+- Save and load named playlists directly from the sidebar.
+- Export any playlist or the current filtered set as a native M3U file via the macOS save dialog.
+
+### Statistics
+
+- Dedicated Statistics page comparing audio feature distributions (BPM, key, loudness, genre, mood) between the full library and the current filter.
+- Scope selector to compare the full library, the active filter, or a specific folder.
 
 ### UI & Theming
 
