@@ -77,6 +77,8 @@
   let modelPathMessage = $state("");
   let checkUpdatesEnabled = $state(true);
   let showModelDownloaderDrawer = $state(false);
+  let showModelCredits = $state(false);
+
 
   async function loadModelPathSetting() {
     try {
@@ -355,7 +357,68 @@
       <span class="about-copyright">© 2025 <a class="about-link" href="https://www.rlupi.com" target="_blank" rel="noopener noreferrer">Roberto Lupi</a></span>
       <span class="about-sep">·</span>
       <span class="about-license">GNU AGPL v3</span>
+      <span class="about-sep">·</span>
+      <button class="about-btn" onclick={() => showModelCredits = !showModelCredits} class:active={showModelCredits}>
+        Credits
+      </button>
     </div>
+
+    {#if showModelCredits}
+      <div class="model-credits-list">
+        <div class="credit-item">
+          <div class="credit-header">
+            <span class="credit-name">LAION CLAP</span>
+            <span class="credit-badge badge-apache">Apache 2.0</span>
+          </div>
+          <p class="credit-desc">Contrastive Language-Audio Pretraining model for audio-text semantic similarity.</p>
+          <div class="credit-links">
+            <a href="https://huggingface.co/laion/clap-htsat-unfused" target="_blank" rel="noopener noreferrer" class="credit-link">laion/clap-htsat-unfused</a>
+            <span class="credit-link-sep">·</span>
+            <span class="credit-citation">Wu et al. (ICASSP 2023)</span>
+          </div>
+        </div>
+
+        <div class="credit-item">
+          <div class="credit-header">
+            <span class="credit-name">all-MiniLM-L6-v2</span>
+            <span class="credit-badge badge-apache">Apache 2.0</span>
+          </div>
+          <p class="credit-desc">MiniLM sentence transformer model for robust text semantic embeddings.</p>
+          <div class="credit-links">
+            <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer" class="credit-link">sentence-transformers/all-MiniLM-L6-v2</a>
+          </div>
+        </div>
+
+        <div class="credit-item">
+          <div class="credit-header">
+            <span class="credit-name">Essentia Classifiers</span>
+            <span class="credit-badge badge-cc">CC BY-NC-ND 4.0</span>
+          </div>
+          <p class="credit-desc">Discogs-Effnet feature extractor and classifier heads for genre, mood, and vocal classification.</p>
+          <div class="credit-links">
+            <a href="https://essentia.upf.edu/models.html" target="_blank" rel="noopener noreferrer" class="credit-link">Essentia Models Hub</a>
+            <span class="credit-link-sep">·</span>
+            <span class="credit-citation">Bogdanov et al. (ISMIR 2013)</span>
+          </div>
+          <div class="credit-warning">
+            Strictly for non-commercial use. Original checkpoints copyright © Music Technology Group (MTG), Universitat Pompeu Fabra.
+          </div>
+        </div>
+
+        <div class="credit-item">
+          <div class="credit-header">
+            <span class="credit-name">llama.cpp</span>
+            <span class="credit-badge badge-mit">MIT</span>
+          </div>
+          <p class="credit-desc">LLM inference in C/C++ supporting the local Qwen2-Audio server lifecycle.</p>
+          <div class="credit-links">
+            <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener noreferrer" class="credit-link">ggerganov/llama.cpp</a>
+            <span class="credit-link-sep">·</span>
+            <span class="credit-citation">Georgi Gerganov</span>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
   </div>
@@ -943,5 +1006,132 @@
     flex: 1;
     padding: 1.25rem;
     overflow-y: auto;
+  }
+
+  .about-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(132, 148, 149, 0.4);
+    transition: color 0.15s, text-decoration-color 0.15s;
+  }
+
+  .about-btn:hover, .about-btn.active {
+    color: var(--sg-primary, #00f0ff);
+    text-decoration-color: var(--sg-primary, #00f0ff);
+  }
+
+  .model-credits-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    animation: fade-in 0.2s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .credit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .credit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .credit-name {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .credit-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .badge-apache {
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0, 240, 255, 0.05);
+  }
+
+  .badge-cc {
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    color: #ffaa00;
+    background: rgba(255, 170, 0, 0.05);
+  }
+
+  .badge-mit {
+    border: 1px solid rgba(188, 19, 254, 0.35);
+    color: #bc13fe;
+    background: rgba(188, 19, 254, 0.05);
+  }
+
+  .credit-desc {
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.4;
+    color: var(--sg-on-surface, #e3e1e9);
+    opacity: 0.7;
+  }
+
+  .credit-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+  }
+
+  .credit-link {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(132, 148, 149, 0.3);
+    transition: color 0.15s, text-decoration-color 0.15s;
+  }
+
+  .credit-link:hover {
+    color: var(--sg-primary, #00f0ff);
+    text-decoration-color: var(--sg-primary, #00f0ff);
+  }
+
+  .credit-link-sep {
+    opacity: 0.4;
+  }
+
+  .credit-citation {
+    opacity: 0.8;
+  }
+
+  .credit-warning {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    color: rgba(255, 170, 0, 0.8);
+    margin-top: 2px;
+    line-height: 1.3;
   }
 </style>
