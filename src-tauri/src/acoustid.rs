@@ -14,7 +14,9 @@ fn get_mb_semaphore() -> &'static Semaphore {
 
 // Default fallback AcoustID client API key
 const DEFAULT_ACOUSTID_CLIENT_KEY: &str = "8Xa4u4ux";
-const USER_AGENT: &str = "DeepCuts/0.1.0 ( roberto.lupi@gmail.com )";
+fn user_agent() -> String {
+    format!("DeepCuts/{} ( roberto.lupi@gmail.com )", env!("CARGO_PKG_VERSION"))
+}
 
 /// Resolves the AcoustID client API key at compile time from the ACOUSTID_CLIENT_KEY environment variable.
 fn get_acoustid_client_key() -> &'static str {
@@ -323,7 +325,7 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
 
         log::info!("[acoustid] Fetching rich metadata from MusicBrainz...");
         let mb_resp_res = ureq::get(&mb_url)
-            .set("User-Agent", USER_AGENT)
+            .set("User-Agent", &user_agent())
             .call();
 
         // Hold permit and sleep to ensure spacing
@@ -395,7 +397,7 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
         log::info!("[acoustid] Querying Cover Art Archive: {}", caa_url);
 
         let caa_resp_res = ureq::get(&caa_url)
-            .set("User-Agent", USER_AGENT)
+            .set("User-Agent", &user_agent())
             .call();
 
         tokio::time::sleep(Duration::from_millis(1000)).await;
