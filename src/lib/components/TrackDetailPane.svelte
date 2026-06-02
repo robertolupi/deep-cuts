@@ -51,7 +51,12 @@
   const hasMoods = $derived(moods.length > 0);
   const hasAi    = $derived(!!track?.description || !!track?.ai_genre || !!track?.ai_mood);
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');
+
+  const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'bpm_refinement', 'essentia', 'qwen', 'clap', 'description_embed'];
+  let resetMenuOpen = $state(false);
 </script>
+
+<svelte:window onclick={() => { resetMenuOpen = false; }} />
 
 <aside class="detail-pane">
   {#if !track}
@@ -364,6 +369,29 @@
           <p class="lyrics-text">{track.comment}</p>
         </div>
       {/if}
+
+      <!-- Reset analysis -->
+      <div class="section reset-section">
+        <button
+          class="reset-btn"
+          onclick={(e) => { e.stopPropagation(); resetMenuOpen = !resetMenuOpen; }}
+        >
+          Reset analysis pass ▾
+        </button>
+        {#if resetMenuOpen}
+          <div class="reset-menu">
+            {#each PASS_NAMES as pass}
+              <button
+                class="reset-menu-item"
+                onclick={async () => {
+                  resetMenuOpen = false;
+                  await invoke('reset_pass', { passName: pass });
+                }}
+              >{pass}</button>
+            {/each}
+          </div>
+        {/if}
+      </div>
 
     </div>
   {/if}
@@ -774,6 +802,63 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
+  }
+
+  /* ── Reset button ── */
+  .reset-section {
+    position: relative;
+  }
+
+  .reset-btn {
+    width: 100%;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 7px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .reset-btn:hover {
+    border-color: rgba(255,80,80,0.45);
+    color: #ff6060;
+    background: rgba(255,60,60,0.07);
+  }
+
+  .reset-menu {
+    position: absolute;
+    bottom: calc(100% - 0.65rem);
+    left: 0;
+    right: 0;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    overflow: hidden;
+    z-index: 100;
+  }
+
+  .reset-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .reset-menu-item:hover {
+    background: rgba(255,60,60,0.07);
+    color: #ff6060;
   }
 
   /* ── Lyrics ── */
