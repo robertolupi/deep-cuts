@@ -5,8 +5,11 @@
   import WaveSurfer from 'wavesurfer.js';
   import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
   import { player } from '$lib/stores/player.svelte';
+  import { library } from '$lib/stores/library.svelte';
 
   type Message = { role: 'user' | 'assistant'; content: string };
+  interface ChatSession { id: number; track_id: number; title: string; window_start_secs: number | null; window_duration_secs: number | null; created_at: number; updated_at: number; }
+  interface ChatSearchResult { session_id: number; track_id: number; track_title: string; session_title: string; excerpt: string; }
 
   const MAX_REGION_SECS = 240; // 4 minutes — matches backend cap
 
@@ -23,6 +26,14 @@
   let regionStart = $state(0);
   let regionEnd   = $state(0);
   let waveformEl  = $state<HTMLDivElement | null>(null);
+
+  // Session state
+  let currentSession    = $state<ChatSession | null>(null);
+  let trackSessions     = $state<ChatSession[]>([]);
+  let sessionQuery      = $state('');
+  let searchResults     = $state<ChatSearchResult[]>([]);
+  let sessionDropdown   = $state(false);
+  let sessionInputEl    = $state<HTMLInputElement | null>(null);
 
   let currentTrackId: number | null = null;
   let unlistenToken: UnlistenFn | null = null;
@@ -103,19 +114,90 @@
     }
   }
 
+  // ── Session helpers ──────────────────────────────────────────────────────
+
+  function sessionLabel(s: ChatSession | null): string {
+    if (!s) return '';
+    return s.title;
+  }
+
+  async function loadTrackSessions(trackId: number) {
+    trackSessions = await invoke<ChatSession[]>('list_chat_sessions', { trackId });
+  }
+
+  async function openSession(session: ChatSession) {
+    currentSession = session;
+    sessionQuery = '';
+    searchResults = [];
+    sessionDropdown = false;
+    const msgs = await invoke<{ role: string; content: string }[]>('get_chat_messages', { sessionId: session.id });
+    messages = msgs.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    // Restore region if stored on the session
+    if (session.window_start_secs != null && session.window_duration_secs != null) {
+      regionStart = session.window_start_secs;
+      regionEnd   = session.window_start_secs + session.window_duration_secs;
+    }
+    scrollToBottom();
+  }
+
+  async function deleteCurrentSession() {
+    if (!currentSession || !track) return;
+    await invoke('delete_chat_session', { sessionId: currentSession.id });
+    await loadTrackSessions(track.id);
+    if (trackSessions.length > 0) openSession(trackSessions[0]);
+    else startNewSession();
+  }
+
+  function startNewSession() {
+    currentSession = null;
+    messages = [];
+    sessionQuery = '';
+    searchResults = [];
+    sessionDropdown = false;
+  }
+
+  async function onSessionQueryInput() {
+    const q = sessionQuery.trim();
+    if (!q) {
+      searchResults = [];
+      return;
+    }
+    try {
+      searchResults = await invoke<ChatSearchResult[]>('search_chats', { query: q + '*' });
+    } catch { searchResults = []; }
+  }
+
+  async function onSearchResultClick(result: ChatSearchResult) {
+    if (result.track_id !== track?.id) {
+      const t = library.tracks.find(t => t.id === result.track_id);
+      if (t) player.selectedTrack = t;
+    }
+    const sessions = await invoke<ChatSession[]>('list_chat_sessions', { trackId: result.track_id });
+    await loadTrackSessions(result.track_id);
+    const session = sessions.find(s => s.id === result.session_id);
+    if (session) openSession(session);
+  }
+
   // When the track changes, reset conversation and rebuild region selector
   $effect(() => {
     const t = track;
     if (t?.id !== currentTrackId) {
       currentTrackId = t?.id ?? null;
       messages = [];
+      currentSession = null;
+      sessionQuery = '';
+      searchResults = [];
       modelReady = false;
       modelError = '';
       if (t) {
         bootModel();
         mountRegionSelector(t.path, player.duration);
+        loadTrackSessions(t.id).then(() => {
+          if (trackSessions.length > 0) openSession(trackSessions[0]);
+        });
       } else {
         destroyChatWs();
+        trackSessions = [];
       }
     }
   });
@@ -135,6 +217,18 @@
 
     const question = inputText.trim();
     inputText = '';
+
+    // Lazily create a session on the first message
+    if (!currentSession) {
+      const windowDur = regionEnd - regionStart;
+      currentSession = await invoke<ChatSession>('create_chat_session', {
+        trackId: track.id,
+        windowStartSecs:    regionStart,
+        windowDurationSecs: windowDur > 0 ? windowDur : null,
+      });
+      trackSessions = [currentSession, ...trackSessions];
+    }
+    const sessionId = currentSession.id;
 
     messages = [...messages, { role: 'user', content: question }];
     messages = [...messages, { role: 'assistant', content: '' }];
@@ -179,6 +273,12 @@
       if (messages[last].content.length === 0) {
         messages[last] = { role: 'assistant', content: response };
       }
+
+      // Persist both turns and refresh session list (auto-title may have updated)
+      await invoke('save_chat_message', { sessionId, role: 'user',      content: question });
+      await invoke('save_chat_message', { sessionId, role: 'assistant', content: messages[last].content });
+      await loadTrackSessions(track.id);
+      currentSession = trackSessions.find(s => s.id === sessionId) ?? currentSession;
     } catch (e: any) {
       const last = messages.length - 1;
       messages[last] = { role: 'assistant', content: `Error: ${e}` };
@@ -216,6 +316,8 @@
   }
 </script>
 
+<svelte:window onclick={() => { sessionDropdown = false; }} />
+
 <div class="chat-panel">
   {#if !track}
     <div class="empty-state">
@@ -238,6 +340,63 @@
           <span class="model-status-text">Loading model…</span>
         </div>
       {/if}
+    </div>
+
+    <!-- Session combobox -->
+    <div class="session-bar">
+      <div class="session-row">
+      <div class="session-combobox" class:open={sessionDropdown}>
+        <input
+          bind:this={sessionInputEl}
+          class="session-input"
+          type="text"
+          placeholder={currentSession ? sessionLabel(currentSession) : 'New Chat'}
+          bind:value={sessionQuery}
+          oninput={onSessionQueryInput}
+          onfocus={() => { sessionDropdown = true; }}
+          onclick={(e) => e.stopPropagation()}
+        />
+        {#if sessionDropdown}
+          <div class="session-dropdown" onclick={(e) => e.stopPropagation()}>
+            {#if sessionQuery.trim()}
+              <!-- FTS search results -->
+              {#if searchResults.length === 0}
+                <div class="session-empty">No results</div>
+              {:else}
+                {#each searchResults as result}
+                  <button class="session-result" onclick={() => onSearchResultClick(result)}>
+                    <span class="session-result-track">{result.track_title}</span>
+                    <span class="session-result-excerpt">{result.excerpt}</span>
+                  </button>
+                {/each}
+              {/if}
+            {:else}
+              <!-- Session list for this track -->
+              <button class="session-item session-item-new" onclick={startNewSession}>
+                + New Chat
+              </button>
+              {#if trackSessions.length > 0}
+                <div class="session-sep"></div>
+                {#each trackSessions as session}
+                  <button
+                    class="session-item"
+                    class:session-item-active={currentSession?.id === session.id}
+                    onclick={() => openSession(session)}
+                  >{session.title}</button>
+                {/each}
+              {/if}
+            {/if}
+          </div>
+        {/if}
+      </div>
+      {#if currentSession}
+        <button class="session-delete-btn" onclick={deleteCurrentSession} title="Delete this chat">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+      {/if}
+      </div>
     </div>
 
     <!-- Region selector -->
@@ -659,6 +818,160 @@
   .send-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  /* ── Session combobox ── */
+  .session-bar {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    background: var(--sg-surface-slate, #161b22);
+  }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .session-combobox {
+    position: relative;
+    flex: 1;
+  }
+
+  .session-delete-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .session-delete-btn:hover {
+    border-color: rgba(255,80,80,0.4);
+    color: #ff6060;
+    background: rgba(255,60,60,0.07);
+  }
+
+  .session-input {
+    width: 100%;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    color: var(--sg-on-surface, #e3e1e9);
+    padding: 5px 10px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+
+  .session-input:focus {
+    border-color: rgba(0,240,255,0.3);
+  }
+
+  .session-input::placeholder {
+    color: var(--sg-outline, #849495);
+    font-style: italic;
+  }
+
+  .session-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    overflow: hidden;
+    z-index: 200;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .session-empty {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-outline, #849495);
+    padding: 10px 12px;
+  }
+
+  .session-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    color: var(--sg-on-surface, #e3e1e9);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s;
+  }
+
+  .session-item:hover { background: rgba(255,255,255,0.05); }
+
+  .session-item-new {
+    color: var(--sg-primary, #00f0ff);
+    font-weight: 700;
+  }
+
+  .session-item-active {
+    background: rgba(0,240,255,0.06);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .session-sep {
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 2px 0;
+  }
+
+  .session-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .session-result:hover { background: rgba(255,255,255,0.05); }
+
+  .session-result-track {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-primary, #00f0ff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .session-result-excerpt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ── Spinner ── */

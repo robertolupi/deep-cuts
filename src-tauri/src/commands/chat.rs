@@ -1,6 +1,206 @@
 use std::io::BufRead;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
+
+// ── Domain types ──────────────────────────────────────────────────────────────
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatSession {
+    pub id: i64,
+    pub track_id: i64,
+    pub title: String,
+    pub window_start_secs: Option<f64>,
+    pub window_duration_secs: Option<f64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatMessage {
+    pub id: i64,
+    pub session_id: i64,
+    pub role: String,
+    pub content: String,
+    pub created_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatSearchResult {
+    pub session_id: i64,
+    pub track_id: i64,
+    pub track_title: String,
+    pub session_title: String,
+    pub excerpt: String,
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+// ── Session commands ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn create_chat_session(
+    track_id: i64,
+    window_start_secs: Option<f64>,
+    window_duration_secs: Option<f64>,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<ChatSession, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let now = now_ms();
+    conn.execute(
+        "INSERT INTO chat_sessions (track_id, title, window_start_secs, window_duration_secs, created_at, updated_at)
+         VALUES (?1, 'New Chat', ?2, ?3, ?4, ?4)",
+        rusqlite::params![track_id, window_start_secs, window_duration_secs, now],
+    ).map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    Ok(ChatSession { id, track_id, title: "New Chat".into(), window_start_secs, window_duration_secs, created_at: now, updated_at: now })
+}
+
+#[tauri::command]
+pub fn list_chat_sessions(
+    track_id: i64,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<Vec<ChatSession>, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, track_id, title, window_start_secs, window_duration_secs, created_at, updated_at
+         FROM chat_sessions WHERE track_id = ?1 ORDER BY updated_at DESC",
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(rusqlite::params![track_id], |row| {
+        Ok(ChatSession {
+            id: row.get(0)?,
+            track_id: row.get(1)?,
+            title: row.get(2)?,
+            window_start_secs: row.get(3)?,
+            window_duration_secs: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+}
+
+#[tauri::command]
+pub fn rename_chat_session(
+    session_id: i64,
+    title: String,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<(), String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE chat_sessions SET title = ?1, updated_at = ?2 WHERE id = ?3",
+        rusqlite::params![title, now_ms(), session_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_chat_session(
+    session_id: i64,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<(), String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM chat_sessions WHERE id = ?1", rusqlite::params![session_id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ── Message commands ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_chat_messages(
+    session_id: i64,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<Vec<ChatMessage>, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, session_id, role, content, created_at
+         FROM chat_messages WHERE session_id = ?1 ORDER BY created_at ASC",
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(rusqlite::params![session_id], |row| {
+        Ok(ChatMessage {
+            id: row.get(0)?,
+            session_id: row.get(1)?,
+            role: row.get(2)?,
+            content: row.get(3)?,
+            created_at: row.get(4)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+}
+
+#[tauri::command]
+pub fn save_chat_message(
+    session_id: i64,
+    role: String,
+    content: String,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<ChatMessage, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let now = now_ms();
+    conn.execute(
+        "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![session_id, role, content, now],
+    ).map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    // Auto-title session from first user message if still default
+    if role == "user" {
+        let short: String = content.chars().take(60).collect();
+        let title = if content.len() > 60 { format!("{}…", short) } else { short };
+        conn.execute(
+            "UPDATE chat_sessions SET title = ?1, updated_at = ?2
+             WHERE id = ?3 AND title = 'New Chat'",
+            rusqlite::params![title, now, session_id],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, session_id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(ChatMessage { id, session_id, role, content, created_at: now })
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn search_chats(
+    query: String,
+    conn: tauri::State<'_, Mutex<rusqlite::Connection>>,
+) -> Result<Vec<ChatSearchResult>, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT cs.id, cs.track_id,
+                COALESCE(t.title, t.filename, '') AS track_title,
+                cs.title,
+                snippet(chat_messages_fts, 0, '', '', '…', 20) AS excerpt
+         FROM chat_messages_fts
+         JOIN chat_messages cm ON cm.id = chat_messages_fts.rowid
+         JOIN chat_sessions cs ON cs.id = cm.session_id
+         JOIN tracks t ON t.id = cs.track_id
+         WHERE chat_messages_fts MATCH ?1
+         ORDER BY rank
+         LIMIT 50",
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(rusqlite::params![query], |row| {
+        Ok(ChatSearchResult {
+            session_id: row.get(0)?,
+            track_id: row.get(1)?,
+            track_title: row.get(2)?,
+            session_title: row.get(3)?,
+            excerpt: row.get(4)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+}
+
+trait PipeOk<T> { fn pipe_ok(self) -> Result<T, String>; }
+impl<T> PipeOk<T> for T { fn pipe_ok(self) -> Result<T, String> { Ok(self) } }
 
 #[tauri::command]
 pub async fn ask_qwen(
@@ -144,4 +344,130 @@ fn ask_qwen_blocking(
     }
 
     Ok(full_response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::setup_test_db;
+
+    fn insert_track(conn: &rusqlite::Connection) -> i64 {
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test', '/music')",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, '/music/track.mp3', 'track.mp3', 0, 0, 180)",
+            [],
+        ).unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn insert_session(conn: &rusqlite::Connection, track_id: i64) -> i64 {
+        let now = now_ms();
+        conn.execute(
+            "INSERT INTO chat_sessions (track_id, title, created_at, updated_at) VALUES (?1, 'New Chat', ?2, ?2)",
+            rusqlite::params![track_id, now],
+        ).unwrap();
+        conn.last_insert_rowid()
+    }
+
+    #[test]
+    fn test_save_message_auto_titles_session_from_first_user_message() {
+        let conn = setup_test_db();
+        let track_id = insert_track(&conn);
+        let session_id = insert_session(&conn, track_id);
+
+        // First user message should set the session title
+        let question = "What's the key of this track?";
+        conn.execute(
+            "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, 'user', ?2, ?3)",
+            rusqlite::params![session_id, question, now_ms()],
+        ).unwrap();
+        let short: String = question.chars().take(60).collect();
+        conn.execute(
+            "UPDATE chat_sessions SET title = ?1 WHERE id = ?2 AND title = 'New Chat'",
+            rusqlite::params![short, session_id],
+        ).unwrap();
+
+        let title: String = conn.query_row(
+            "SELECT title FROM chat_sessions WHERE id = ?1",
+            rusqlite::params![session_id],
+            |r| r.get(0),
+        ).unwrap();
+        assert_eq!(title, question);
+    }
+
+    #[test]
+    fn test_save_message_truncates_long_title_at_60_chars() {
+        let conn = setup_test_db();
+        let track_id = insert_track(&conn);
+        let session_id = insert_session(&conn, track_id);
+
+        let long_question = "Can you describe the overall mood and emotional feel of the intro section in detail?";
+        assert!(long_question.len() > 60);
+
+        let short: String = long_question.chars().take(60).collect();
+        let title = format!("{}…", short);
+        conn.execute(
+            "UPDATE chat_sessions SET title = ?1 WHERE id = ?2 AND title = 'New Chat'",
+            rusqlite::params![title, session_id],
+        ).unwrap();
+
+        let saved_title: String = conn.query_row(
+            "SELECT title FROM chat_sessions WHERE id = ?1",
+            rusqlite::params![session_id],
+            |r| r.get(0),
+        ).unwrap();
+        assert!(saved_title.chars().count() <= 62); // 60 chars + "…"
+        assert!(saved_title.ends_with('…'));
+    }
+
+    #[test]
+    fn test_search_chats_finds_message_via_fts() {
+        let conn = setup_test_db();
+        let track_id = insert_track(&conn);
+        let session_id = insert_session(&conn, track_id);
+        let now = now_ms();
+
+        conn.execute(
+            "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, 'user', 'The bassline feels very muddy', ?2)",
+            rusqlite::params![session_id, now],
+        ).unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT cs.id FROM chat_messages_fts
+             JOIN chat_messages cm ON cm.id = chat_messages_fts.rowid
+             JOIN chat_sessions cs ON cs.id = cm.session_id
+             WHERE chat_messages_fts MATCH 'muddy'",
+        ).unwrap();
+        let results: Vec<i64> = stmt.query_map([], |r| r.get(0)).unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], session_id);
+    }
+
+    #[test]
+    fn test_search_chats_does_not_find_unrelated_message() {
+        let conn = setup_test_db();
+        let track_id = insert_track(&conn);
+        let session_id = insert_session(&conn, track_id);
+        let now = now_ms();
+
+        conn.execute(
+            "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, 'user', 'The bassline feels very muddy', ?2)",
+            rusqlite::params![session_id, now],
+        ).unwrap();
+
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM chat_messages_fts WHERE chat_messages_fts MATCH 'reverb'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+
+        assert_eq!(count, 0);
+    }
 }
