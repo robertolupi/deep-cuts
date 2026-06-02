@@ -30,6 +30,9 @@
     }
   },
   "bundle": {
+    "macOS": {
+      "signingIdentity": "Developer ID Application: Roberto Lupi (83BHH8484C)"
+    },
     "active": true,
     "targets": "all",
     "externalBin": [
