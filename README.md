@@ -108,39 +108,34 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 | [Rust](https://rustup.rs/) | ≥ 1.77.2 | Install via `rustup` |
 | [Node.js](https://nodejs.org/) | ≥ 18 | LTS recommended |
 | [Python](https://www.python.org/) | ≥ 3.10 | Required to export ONNX models |
-| [llama.cpp](https://github.com/ggerganov/llama.cpp) | latest | Required for Qwen2-Audio descriptions |
+| [llama.cpp](https://github.com/ggerganov/llama.cpp) | latest | Bundled as an in-app sidecar (can be staged via `python tools/download_llama_server.py`) |
 
-On macOS, install llama.cpp via Homebrew:
-
-```bash
-brew install llama.cpp
-```
+On macOS and Linux, the application automatically bundles and resolves a local `llama-server` sidecar, meaning external installation via Homebrew is optional.
 
 ### Setting Up Models
 
-The `models/` directory is not committed — you must generate or download model files before running the app. See [models/README.md](models/README.md) for full instructions. Quick start:
+The easiest way to set up models is to use the **in-app Model Downloader**:
+1. Launch Deep Cuts.
+2. Open the **Settings** panel (gear icon).
+3. Under **Model Folder**, click **Choose Folder** to select a custom models directory (or leave default to use your sandboxed Application Data directory).
+4. Click **Manage Models** to open the interactive downloader. You can download, verify, and monitor the progress of all required neural networks (CLAP, MiniLM, Essentia classifiers, and Qwen2-Audio GGUF checkpoints) directly inside the app.
+
+Alternatively, for offline setup or development, you can use the command-line tools:
 
 ```bash
 cd tools
-python -m venv .venv
+# Activate virtual environment
 source .venv/bin/activate
-pip install -e .
 
-# Generate CLAP and sentence encoder models (~700 MB total)
+# 1. Download and stage the llama-server sidecar binary and dynamic libraries:
+python tools/download_llama_server.py
+
+# 2. Generate CLAP and sentence encoder models (~700 MB total)
 python tools/export_clap_onnx.py
 python tools/export_sentence_onnx.py
 ```
 
-Then download the Essentia classifier models from the [Essentia model hub](https://essentia.upf.edu/models/) and place them in `models/`. The full list is in [models/README.md](models/README.md).
-
-For the Qwen2-Audio pass, download the GGUF weights:
-
-```
-models/Qwen2-Audio-7B-Instruct.Q4_K_M.gguf
-models/Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf
-```
-
-The Qwen pass is optional — the rest of the analysis pipeline runs without it.
+Then download the Essentia classifier models from the [Essentia model hub](https://essentia.upf.edu/models/) and Qwen2-Audio GGUF weights (`Qwen2-Audio-7B-Instruct.Q4_K_M.gguf` & `Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf`) and place them in your configured models directory. See [models/README.md](models/README.md) for full offline instructions.
 
 ### Installing Dependencies
 
@@ -174,14 +169,12 @@ npm run tauri build
 
 ## 📦 Binary Releases
 
-Deep Cuts is currently source-only.
+Deep Cuts supports full local production builds out-of-the-box:
 
-The main blocker for packaged releases is bundling the local LLM runtime and adding a first-run model download flow. Planned binary releases will include:
-
-- Bundled llama.cpp / llama-server runtime
-- In-app model download and verification
-- Selectable analysis profiles
-- Graceful operation without optional AI models
+- **Bundled llama-server runtime**: Dynamically resolved and managed sidecar, complete with relocation-safe shared libraries.
+- **In-app model download and verification**: Full, resumed-ready downloads via Svelte/Rust IPC.
+- **Selectable analysis profiles**: Configurable pipeline passes for customized library scanning speed.
+- **Graceful degradation**: The core DSP analysis (BPM, key, loudness, waveforms) remains fully operational even if optional AI/LLM models are not downloaded.
 
 ---
 
