@@ -3,9 +3,9 @@
   "productName": "Deep Cuts",
   "identifier": "com.rlupi.deep-cuts",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "node scripts/sync-version.js && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "node scripts/sync-version.js && npm run build",
     "frontendDist": "../build"
   },
   "app": {
