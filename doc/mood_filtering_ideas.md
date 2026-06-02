@@ -137,6 +137,28 @@ This bridges the fuzzy mood system with the tagging system described in `tagging
 
 ---
 
+## Implementation Note — Shared MoodRadar Component
+
+`StatisticsPanel.svelte` already contains a working D3 radar implementation (`renderMoodRadar`) that renders one or two mood polygons on a fixed 7-axis chart. Before building the filtering UI, this should be extracted into a reusable `MoodRadar.svelte` component accepting:
+
+```typescript
+// props
+moodA: MoodValues;          // primary polygon (e.g. track or set A)
+moodB?: MoodValues;         // optional overlay polygon (set B or target profile)
+interactive?: boolean;      // if true, vertices are draggable (for filter mode)
+onchange?: (v: MoodValues) => void;  // emitted when user drags a vertex
+```
+
+`TrackDetailPane.svelte` would use it in read-only mode (`interactive=false`) to replace the current flat mood bars with a compact radar, giving a much richer at-a-glance mood fingerprint.
+
+`StatisticsPanel.svelte` would replace its inline `renderMoodRadar` call with the same component in read-only mode with two polygons (set A + set B).
+
+The filter sidebar would use it in interactive mode, with `onchange` driving `filters.moodProfile`.
+
+This refactor should happen before adding mood filter state, to avoid duplicating the rendering logic a third time.
+
+---
+
 ## Cross-References
 
 - **Map layouts** (`map_layouts.md`) — the radar target profile should drive the map's mood contour overlay simultaneously. When the user adjusts the radar in the sidebar, the matching density contour lights up on the mood layout in real time — the two UIs are two views of the same query.
