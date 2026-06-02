@@ -8,3 +8,6 @@
 
 # Bundled sidecar binaries
 /binaries/
+
+# Compilation
+/.cargo/config.toml
