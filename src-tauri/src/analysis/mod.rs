@@ -561,28 +561,28 @@ impl PipelineManager {
                 emit_pipeline_error(&app, "clap", e);
             }
 
-            // ── Phase 3: Qwen listener ────────────────────────────────────────
-            log::info!("[pipeline] starting qwen phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, qwen::QwenPass) {
-                emit_pipeline_error(&app, "qwen", e);
-            }
-
-            // ── Phase 4: Description embedding ────────────────────────────────
-            log::info!("[pipeline] starting description_embed phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, description_embed::DescriptionEmbedPass) {
-                emit_pipeline_error(&app, "description_embed", e);
-            }
-
-            // ── Phase 5: Essentia classifier ──────────────────────────────────
+            // ── Phase 3: Essentia classifier ──────────────────────────────────
             log::info!("[pipeline] starting essentia phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, essentia::EssentiaPass) {
                 emit_pipeline_error(&app, "essentia", e);
             }
 
-            // ── Phase 6: BPM refinement (precise Discogs-400 genre) ───────────
+            // ── Phase 4: BPM refinement ───────────────────────────────────────
             log::info!("[pipeline] starting bpm_refinement phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_refinement::BpmRefinementPass) {
                 emit_pipeline_error(&app, "bpm_refinement", e);
+            }
+
+            // ── Phase 5: Qwen listener ────────────────────────────────────────
+            log::info!("[pipeline] starting qwen phase");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, qwen::QwenPass) {
+                emit_pipeline_error(&app, "qwen", e);
+            }
+
+            // ── Phase 6: Description embedding ────────────────────────────────
+            log::info!("[pipeline] starting description_embed phase");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, description_embed::DescriptionEmbedPass) {
+                emit_pipeline_error(&app, "description_embed", e);
             }
 
             // Clear stale flag for tracks whose passes are all finished

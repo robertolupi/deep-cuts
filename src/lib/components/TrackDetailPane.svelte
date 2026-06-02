@@ -53,7 +53,7 @@
   const hasAi    = $derived(!!track?.description || !!track?.ai_genre || !!track?.ai_mood);
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');
 
-  const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'bpm_refinement', 'essentia', 'qwen', 'clap', 'description_embed'];
+  const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'clap', 'essentia', 'bpm_refinement', 'qwen', 'description_embed'];
   let resetMenuOpen = $state(false);
 </script>
 

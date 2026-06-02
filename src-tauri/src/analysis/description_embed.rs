@@ -156,7 +156,7 @@ impl super::AnalysisPass for DescriptionEmbedPass {
 impl DescriptionEmbedPass {
     pub const SPEC: super::PassSpec = super::PassSpec {
         name: "description_embed",
-        priority: 40,
+        priority: 60,
         version: pass_version::DESCRIPTION_EMBED,
         dependencies: &["qwen"],
         owned_columns: &[],

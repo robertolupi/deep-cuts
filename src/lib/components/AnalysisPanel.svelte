@@ -40,10 +40,10 @@
     'audio_analysis',
     'bpm_correction',
     'clap',
-    'qwen',
-    'description_embed',
     'essentia',
     'bpm_refinement',
+    'qwen',
+    'description_embed',
   ];
 
   // Dark / light color pairs per pass role

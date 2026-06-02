@@ -307,7 +307,7 @@ impl super::AnalysisPass for EssentiaPass {
 impl EssentiaPass {
     pub const SPEC: super::PassSpec = super::PassSpec {
         name: "essentia",
-        priority: 50,
+        priority: 30,
         version: pass_version::ESSENTIA,
         dependencies: &["audio_analysis"],
         owned_columns: &[

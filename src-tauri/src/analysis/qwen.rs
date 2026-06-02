@@ -315,7 +315,7 @@ impl super::AnalysisPass for QwenPass {
 impl QwenPass {
     pub const SPEC: super::PassSpec = super::PassSpec {
         name: "qwen",
-        priority: 30,
+        priority: 50,
         version: pass_version::QWEN,
         dependencies: &["audio_analysis", "bpm_correction"],
         owned_columns: &[

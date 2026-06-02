@@ -136,7 +136,7 @@ impl super::AnalysisPass for BpmRefinementPass {
 impl BpmRefinementPass {
     pub const SPEC: super::PassSpec = super::PassSpec {
         name: "bpm_refinement",
-        priority: 55,
+        priority: 35,
         version: pass_version::BPM_REFINEMENT,
         dependencies: &["essentia"],
         owned_columns: &["bpm"],
