@@ -4,6 +4,8 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
 
 100% offline, private, and designed to run sandboxed on macOS.
 
+📺 **[Watch the Deep Cuts Showcase Video on YouTube](https://youtu.be/unNHD3aK-1Y?si=h4zKrNGO8rl-lUk0)**
+
 ---
 
 ## Screenshots
@@ -106,8 +108,6 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 
 ## 🚀 Development & Build
 
-> **Note:** Deep Cuts is currently source-only — see [Binary Releases](#-binary-releases) for what's planned. You need to build from source.
-
 ### Prerequisites
 
 | Requirement | Version | Notes |
@@ -176,7 +176,11 @@ npm run tauri build
 
 ## 📦 Binary Releases
 
-Deep Cuts supports full local production builds out-of-the-box:
+The first binary release is now officially online!
+
+Download the pre-compiled installer for Apple Silicon Macs from the [GitHub Releases Page](https://github.com/robertolupi/deep-cuts/releases).
+
+Deep Cuts features a zero-dependency local distribution model out-of-the-box:
 
 - **Bundled llama-server runtime**: Dynamically resolved and managed sidecar, complete with relocation-safe shared libraries.
 - **In-app model download and verification**: Full, resumed-ready downloads via Svelte/Rust IPC.
