@@ -50,10 +50,18 @@ fn ask_qwen_blocking(
     let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&path)?;
     let audio_16k = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
 
+    const MAX_SECS: f64 = 240.0; // 4 minutes — keeps payload within llama-server's context budget
     let window: Vec<f32> = if let (Some(start), Some(dur)) = (window_start_secs, window_duration_secs) {
         let start_idx = ((start * 16000.0) as usize).min(audio_16k.len());
         let end_idx = (((start + dur) * 16000.0) as usize).min(audio_16k.len());
         audio_16k[start_idx..end_idx].to_vec()
+    } else if audio_16k.len() > (MAX_SECS * 16000.0) as usize {
+        // Centre a 5-minute window on the track midpoint
+        let max_samples = (MAX_SECS * 16000.0) as usize;
+        let mid = audio_16k.len() / 2;
+        let half = max_samples / 2;
+        let start = mid.saturating_sub(half);
+        audio_16k[start..(start + max_samples).min(audio_16k.len())].to_vec()
     } else {
         audio_16k
     };
