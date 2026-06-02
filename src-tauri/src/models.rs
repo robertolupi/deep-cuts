@@ -47,7 +47,7 @@ mod tests {
     fn test_fallback_manifest_parses_successfully() {
         let manifest = ModelManifest::fallback();
         assert_eq!(manifest.manifest_version, 1);
-        assert_eq!(manifest.min_app_version, "0.1.0");
+        assert_eq!(manifest.min_app_version, "0.1.1");
         assert!(manifest.models.contains_key("qwen"));
         assert!(manifest.models.contains_key("clap"));
         assert!(manifest.models.contains_key("sentence"));

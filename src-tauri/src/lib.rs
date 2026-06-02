@@ -85,6 +85,8 @@ pub fn run() {
             commands::config::save_model_path_setting,
             commands::config::get_acoustid_setting,
             commands::config::save_acoustid_setting,
+            commands::config::get_sidecar_setting,
+            commands::config::save_sidecar_setting,
             commands::library::select_directory,
             commands::library::get_watched_directories,
             commands::library::add_watched_directory,

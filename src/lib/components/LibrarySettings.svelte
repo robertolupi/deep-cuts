@@ -77,6 +77,7 @@
   let modelPathMessage = $state("");
   let checkUpdatesEnabled = $state(true);
   let acoustidEnabled = $state(true);
+  let sidecarEnabled = $state(false);
   let showModelDownloaderDrawer = $state(false);
   let showModelCredits = $state(false);
 
@@ -127,6 +128,24 @@
     }
   }
 
+  async function loadSidecarSetting() {
+    try {
+      sidecarEnabled = await invoke<boolean>("get_sidecar_setting");
+    } catch (e) {
+      console.error("Failed to load sidecar setting:", e);
+    }
+  }
+
+  async function toggleSidecarSetting(enabled: boolean) {
+    try {
+      await invoke("save_sidecar_setting", { enabled });
+      sidecarEnabled = enabled;
+      ui.showToast(`Sidecar file writing ${enabled ? "enabled" : "disabled"}.`, "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
+
   async function chooseModelPath() {
     modelPathMessage = "";
     try {
@@ -155,6 +174,7 @@
     loadModelPathSetting();
     loadUpdateSettings();
     loadAcoustidSettings();
+    loadSidecarSetting();
     appVersion = await getVersion();
   });
 </script>
@@ -302,6 +322,26 @@
             class="update-checkbox"
           />
           <span class="checkbox-text">Fetch metadata from MusicBrainz (AcoustID)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Analysis Settings card -->
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-title">Analysis Settings</span>
+        <span class="card-subtitle">Control how analysis results are stored</span>
+      </div>
+
+      <div class="update-toggle-row">
+        <label class="update-checkbox-label">
+          <input
+            type="checkbox"
+            checked={sidecarEnabled}
+            onchange={(e) => toggleSidecarSetting(e.currentTarget.checked)}
+            class="update-checkbox"
+          />
+          <span class="checkbox-text">Write .dc.json sidecar files after analysis</span>
         </label>
       </div>
     </div>

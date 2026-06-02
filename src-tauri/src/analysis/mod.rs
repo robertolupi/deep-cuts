@@ -179,7 +179,9 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
                                 "UPDATE track_passes SET status = ?1, duration_ms = ?2, pass_version = ?3, raw_result = ?4, last_run_at = CURRENT_TIMESTAMP WHERE id = ?5",
                                 rusqlite::params![pass_status::DONE, duration_ms, self.version(), raw, job.pass_id()],
                             ).map_err(|e| e.to_string())?;
-                            if !self.owned_columns().is_empty() {
+                            if !self.owned_columns().is_empty()
+                                && crate::commands::config::is_sidecar_enabled(&conn)
+                            {
                                 if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id()) {
                                     log::error!("[{}] sidecar save failed for track {}: {}", self.name(), job.track_id(), e);
                                 }
