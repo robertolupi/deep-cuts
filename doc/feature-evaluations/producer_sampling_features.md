@@ -5,7 +5,7 @@ The Music Producer & Sampling suite provides essential tools for mixing, masteri
 * **Breakbeat & Groove Similarity**: Select a classic 70s drum break and click *"Find similar drum grooves"* to query the library for drum loops and breaks sharing the same timbral saturation, room acoustics, and swing. Powered by **Groove Micro-Timing Profiles**, it matches drum loops based on transient timing deviation vectors relative to a grid.
 * **Crate Digger (Obscurity Index)**: Sorts library search queries by "Most Isolated / Acoustically Obscure" to surface isolated recordings, weird interludes, or unique textures.
 * **Tiered Vocal Scraper**: Instantly locates vocal-free zones and vocal presence regions using high-vocal energy spectral profiling during the initial library analysis. Rather than running slow neural separation globally, heavy neural stem separation is treated as a lazy, on-demand background process when the user requests a stem download.
-* **Drag-to-DAW Export**: Users can apply exact semitone transpositions and time-stretching inside the **Harmonizer Widget** and immediately drag the processed sample directly into their DAW (Ableton, Logic, Pro Tools) via a custom export button. The Rust backend dynamically compiles a high-quality (WSOLA/Rubberband) temporary WAV file on-the-fly for immediate drag-and-drop.
+* **BPM & Key Metadata Writeback**: After analysis, let the user write the detected BPM and key back to the file's ID3/Vorbis/MP4 tags. Modern DAWs (Ableton, Logic) read these natively, so the producer's library is immediately usable without re-analysis inside the DAW. This is preferable to in-app pitch/tempo warping — the DAW will do a far better job of the actual warping once it has accurate metadata.
 
 ## 2. Technical Feasibility & Architecture
 
@@ -16,43 +16,40 @@ The Music Producer & Sampling suite provides essential tools for mixing, masteri
   - Create `13_producer_sampling_columns.sql` database migration.
 
 ### B. Rust Backend Services
-* **WSOLA & Rubberband DSP Export Engine**: Implement an audio processing service in Rust that applies WSOLA (Waveform Similarity Overlap-Add) or Rubberband time-stretching/pitch-shifting. On `dragstart` trigger:
-  1. Process the source sample using the calculated pitch/stretch ratios.
-  2. Compile and save a high-fidelity temporary WAV file under the app's cache directory (`/Users/rlupi/.gemini/antigravity/temp/`).
-  3. Respond to Svelte with the absolute path of the generated `.wav` file to attach to the OS drag-and-drop event loop.
+* **Metadata Writeback**: Implement `write_track_metadata(track_id, bpm, key)` using `lofty` (or `id3`/`metaflac`) to write BPM and key to the file's tags in-place. Should write to standard fields (`TBPM`, `TKEY` for ID3; `BPM`/`KEY` for Vorbis; `tmpo`/`©key` for M4A). Offer a preview of what will be written before committing.
 * **Crate Digger Spacing Logic**: Implement `get_track_obscurity_scores()` in Rust:
   * For each track, query its UMAP coordinate distance to its 10 closest neighbors. Tracks with a high average distance are isolated in space, representing acoustically unique, "obscure" files.
 * **Groove & Transient Profile Extractor**: Detects onset transients, maps them against the nearest musical beat division, and registers timing offset vectors (e.g. standard deviation in milliseconds from grid beats) to define swing profiles.
 * **Tiered Vocal Estimator**: During standard background analysis, calculate the spectral density ratio of vocal bands ($150\text{Hz}-4\text{kHz}$) vs background frequencies to flag sections with high vocal prominence. Only activate the ONNX neural separation engine (lazy-loading) when the user clicks "Export Vocal Stem".
 
 ### C. Svelte Frontend Controls
-* **Drag-and-Drop Area**: A sleek visual drop-zone in the Settings or a dedicated "Producer Panel".
-* **Harmonizer & Drag-to-DAW Widget**: Shows clear numbers like `Transpose: +5 Semitones` and `Stretch: 112.5%`, complete with a "Drag to DAW" button that starts an OS-level file drag action utilizing the rendered temporary WAV path.
+* **Metadata Writeback Button**: In the track detail pane, a "Write to file" button next to BPM and key fields. Shows a confirmation dialog with the exact tag fields that will be written.
 * **Groove Deviation Grid**: A visual dot-plot showing transient displacement from a quantized grid, highlighting if a drum break is "rushed", "laid back", or "on the grid".
 * **Obscurity Sort Toggle**: Add a "Dig Mode" sorting filter to track list queries.
 
 ## 3. Implementation Roadmap & Sizing
-* **Phase 1: Core Backend & Data Models**: 3.5 dev-days (ad-hoc reference decoder, obscurity k-NN distance algorithm, WSOLA/Rubberband audio rendering service, groove/vocal analysis models, and database migrations).
-* **Phase 2: Svelte Interface & Visual Layers**: 3.5 dev-days (reference drop zone, D3 frequency graph overlay, transpose/stretch drag-and-drop export widget, groove timing display, and search list sorting integration).
-* **Phase 3: Polish, Edge Cases, & Tests**: 1.0 dev-day (optimizing decoding of large wav files, testing drag-and-drop compatibility across macOS DAWs like Ableton Live, Logic Pro, and FL Studio).
-* **Total Estimated Dev-Time**: 8.0 dev-days
+* **Phase 1 — Metadata Writeback**: 1.0 dev-day (lofty integration, IPC command, confirmation UI). High value, low risk.
+* **Phase 2 — Core Analysis**: 3.0 dev-days (obscurity k-NN distance algorithm, groove/vocal analysis models, database migrations).
+* **Phase 3 — Svelte Interface**: 2.5 dev-days (groove timing display, search list sorting integration, vocal estimator display).
+* **Phase 4 — Polish & Tests**: 1.0 dev-day.
+* **Total Estimated Dev-Time**: ~7.5 dev-days
 
 ## 4. Performance & Resource Impact
-* **CPU / GPU Overhead**: Moderate. Decoding reference tracks and rendering pitch/stretch temp files creates short CPU spikes. Neural stem separation on-demand will utilize GPU/CPU heavily for 10–15 seconds during extraction, but because it is deferred and lazy-loaded, it never slows down the general library importing step.
-* **Memory Footprint**: Moderate. Temporary audio buffers are cleared immediately after decoding and file rendering.
+* **CPU / GPU Overhead**: Low for writeback and obscurity scoring. Neural stem separation on-demand will utilize GPU/CPU heavily for 10–15 seconds during extraction, but because it is deferred and lazy-loaded, it never slows down the general library importing step.
+* **Memory Footprint**: Low. Metadata writeback operates on file handles, not decoded audio.
 * **Database Size Impact**: Negligible ($<2.5\text{MB}$ for 10,000 tracks).
 
 ## 5. Technical Uncertainty & Risk Analysis
-* **Risk Level**: Medium.
-* **DAW Drag-and-Drop Compatibility**: Different DAWs have varying requirements for receiving files via macOS pasteboard (`NSFilenamesPboardType` vs `NSURL`). We must ensure the Tauri backend correctly populates the drag payload using standard macOS filepath properties.
-* **Audio Decoding Gaps**: Dragging extremely large audio files (e.g. 24-bit 96kHz 20-minute WAV files) can cause memory spikes. The ad-hoc decoder must read audio in chunks or restrict reference analysis to files under 10 minutes.
+* **Risk Level**: Low–Medium.
+* **Tag Format Coverage**: `lofty` supports ID3v2, Vorbis, MP4, and AIFF tags. Edge cases may exist for obscure container formats (e.g. WavPack, Musepack) — these can be skipped gracefully with a user-visible warning.
+* **File Permissions**: Writing back to files in watched directories requires the app to have write access. On macOS this is generally fine but worth surfacing clearly if it fails.
 
 ## 6. Scoring Matrix & Priority
-* **Effort Score**: 7.5 / 10 (8.0 dev-days total due to complex DSP rendering, neural lazy-loading, and OS pasteboard integration)
-* **Uncertainty Score**: 4 / 10 (DAW drag-and-drop compatibility across varying software, plus ONNX runtime binding)
-* **Performance Impact Score**: 3 / 10 (on-demand rendering and stem extraction will cause short CPU/GPU spikes)
-* **Wow Factor Score**: 10 / 10 (dragging perfectly warped and pitch-shifted samples straight into a commercial DAW is a high-end killer feature for music producers)
-* **Priority Score**: 9.0 / 10 (blended rating)
+* **Effort Score**: 5 / 10
+* **Uncertainty Score**: 2 / 10
+* **Performance Impact Score**: 1 / 10
+* **Wow Factor Score**: 8 / 10 (producers immediately get a correctly-tagged library usable in any DAW)
+* **Priority Score**: 8.5 / 10
 
 ### Scoring Rationale
-This suite is extremely compelling for music producers. The addition of direct **Drag-to-DAW export** with high-fidelity warping transforms Deep Cuts from a passive management system into an active creative tool. With a 10/10 Wow Factor and highly actionable lazy-loading for stem separation, this ranks as the highest-priority feature set for creative users.
+Removing the DAW warping engine significantly reduces complexity and risk with no meaningful loss — modern DAWs do this better anyway. The metadata writeback feature is a natural complement to Deep Cuts' analysis pipeline: the app already knows the BPM and key accurately, and writing that back to the file closes the loop for producers who work across multiple tools.
