@@ -15,8 +15,8 @@
   let inputText   = $state('');
   let messagesEl  = $state<HTMLDivElement | null>(null);
 
-  let unlistenToken: UnlistenFn | null = null;
   let currentTrackId: number | null = null;
+  let unlistenToken: UnlistenFn | null = null;
 
   // When the track changes, reset conversation
   $effect(() => {
@@ -59,7 +59,7 @@
     await tick();
     scrollToBottom();
 
-    // Set up streaming token listener before invoking
+    // Listen for streaming tokens before invoking so we don't miss early ones
     unlistenToken = await listen<string>('chat_token', (event) => {
       const last = messages.length - 1;
       if (last >= 0 && messages[last].role === 'assistant') {
@@ -68,7 +68,7 @@
       }
     });
 
-    // Build history: all turns except the last assistant placeholder
+    // Build history: all turns except the last (pending) assistant placeholder
     const history: [string, string][] = [];
     for (let i = 0; i + 1 < messages.length - 1; i += 2) {
       const u = messages[i];
@@ -87,9 +87,10 @@
         history,
       });
 
-      // Replace placeholder with final response (streaming may have already filled it)
+      // Streaming may have already filled the bubble; only overwrite if empty
+      // (e.g. the server fell back to non-streaming for some reason)
       const last = messages.length - 1;
-      if (messages[last].role === 'assistant' && messages[last].content.length === 0) {
+      if (messages[last].content.length === 0) {
         messages[last] = { role: 'assistant', content: response };
       }
     } catch (e: any) {
@@ -104,6 +105,10 @@
     }
   }
 
+  onDestroy(() => {
+    unlistenToken?.();
+  });
+
   function scrollToBottom() {
     if (messagesEl) {
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -116,10 +121,6 @@
       sendMessage();
     }
   }
-
-  onDestroy(() => {
-    unlistenToken?.();
-  });
 </script>
 
 <div class="chat-panel">
@@ -159,11 +160,16 @@
         </div>
       {/if}
 
-      {#each messages as msg}
+      {#each messages as msg, i}
         <div class="message" class:user={msg.role === 'user'} class:assistant={msg.role === 'assistant'}>
           <span class="role-label">{msg.role === 'user' ? 'You' : 'Qwen'}</span>
           <div class="message-body">
-            {#if msg.role === 'assistant' && streaming && msg === messages[messages.length - 1]}
+            {#if msg.role === 'assistant' && msg.content === '' && streaming && i === messages.length - 1}
+              <span class="waiting">
+                <span class="spinner waiting-spinner"></span>
+                {messages.length === 2 ? 'Analysing audio…' : 'Thinking…'}
+              </span>
+            {:else if msg.role === 'assistant' && streaming && i === messages.length - 1}
               {msg.content}<span class="cursor">▌</span>
             {:else}
               {msg.content}
@@ -396,6 +402,21 @@
     border-left: 2px solid var(--sg-secondary, #fe00fe);
     padding: 8px 10px;
     border-radius: 0 4px 4px 0;
+  }
+
+  /* ── Waiting / streaming indicators ── */
+  .waiting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sg-outline, #849495);
+    font-style: italic;
+  }
+
+  .waiting-spinner {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
   }
 
   .cursor {

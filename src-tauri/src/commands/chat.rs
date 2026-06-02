@@ -42,64 +42,42 @@ fn ask_qwen_blocking(
     let guard = crate::llama::ensure_llama_server_running(&app)?;
     std::mem::forget(guard);
 
-    // 3. Decode and resample audio to 16 kHz
+    // 3. Decode and resample to 16 kHz mono WAV.
+    //    The bundled llama-server only handles WAV reliably via the
+    //    input_audio API — native formats like MP3 produce garbage output.
+    //    NaN/Inf from malformed frames are zeroed before encoding;
+    //    encode_audio_to_wav additionally clamps to [-1, 1].
     let (audio, sample_rate) = crate::dsp::decode_audio_to_mono(&path)?;
     let audio_16k = crate::spectrogram::resample_to_16k(&audio, sample_rate)?;
 
-    // 4. Slice to requested window, capping at 180 s when no window is specified
-    const MAX_DEFAULT_SECS: f64 = 180.0;
-    let audio_window: Vec<f32> = if let (Some(start), Some(dur)) = (window_start_secs, window_duration_secs) {
+    let window: Vec<f32> = if let (Some(start), Some(dur)) = (window_start_secs, window_duration_secs) {
         let start_idx = ((start * 16000.0) as usize).min(audio_16k.len());
         let end_idx = (((start + dur) * 16000.0) as usize).min(audio_16k.len());
         audio_16k[start_idx..end_idx].to_vec()
     } else {
-        let max_samples = (MAX_DEFAULT_SECS * 16000.0) as usize;
-        if audio_16k.len() <= max_samples {
-            audio_16k
-        } else {
-            // Centre the window on the midpoint of the track
-            let mid = audio_16k.len() / 2;
-            let half = max_samples / 2;
-            let start = mid.saturating_sub(half);
-            let end = (start + max_samples).min(audio_16k.len());
-            audio_16k[start..end].to_vec()
-        }
+        audio_16k
     };
 
-    // 5. Sanitise samples — clamp to [-1, 1] and replace NaN/Inf produced by
-    //    malformed frames (e.g. MP3 bitstream overruns) before encoding.
-    //    Without this, bad samples can trigger a segfault inside llama.cpp's
-    //    audio encoder even when the file plays back fine in a player.
-    let audio_window: Vec<f32> = audio_window
+    let window: Vec<f32> = window
         .into_iter()
-        .map(|s| if s.is_finite() { s.clamp(-1.0, 1.0) } else { 0.0 })
+        .map(|s| if s.is_finite() { s } else { 0.0 })
         .collect();
 
-    // 6. Encode to base64 WAV
-    let wav_bytes = crate::dsp::encode_audio_to_wav(&audio_window, 16000);
+    let wav_bytes = crate::dsp::encode_audio_to_wav(&window, 16000);
     let base64_audio = crate::dsp::base64_encode(&wav_bytes);
 
-    // 7. Build messages array — audio is only attached to the first user turn
+    // 4. Build messages — audio attached only to the first user turn
     let mut msgs: Vec<serde_json::Value> = Vec::new();
+    let audio_content = serde_json::json!([
+        { "type": "input_audio", "input_audio": { "data": base64_audio, "format": "wav" } },
+        { "type": "text", "text": if history.is_empty() { &question } else { &history[0].0 } }
+    ]);
 
     if history.is_empty() {
-        msgs.push(serde_json::json!({
-            "role": "user",
-            "content": [
-                { "type": "input_audio", "input_audio": { "data": base64_audio, "format": "wav" } },
-                { "type": "text", "text": question }
-            ]
-        }));
+        msgs.push(serde_json::json!({ "role": "user", "content": audio_content }));
     } else {
-        let (first_user, first_asst) = &history[0];
-        msgs.push(serde_json::json!({
-            "role": "user",
-            "content": [
-                { "type": "input_audio", "input_audio": { "data": base64_audio, "format": "wav" } },
-                { "type": "text", "text": first_user }
-            ]
-        }));
-        msgs.push(serde_json::json!({ "role": "assistant", "content": first_asst }));
+        msgs.push(serde_json::json!({ "role": "user", "content": audio_content }));
+        msgs.push(serde_json::json!({ "role": "assistant", "content": &history[0].1 }));
 
         for (user_msg, asst_msg) in &history[1..] {
             msgs.push(serde_json::json!({ "role": "user", "content": user_msg }));
@@ -109,16 +87,14 @@ fn ask_qwen_blocking(
         msgs.push(serde_json::json!({ "role": "user", "content": question }));
     }
 
-    // 8. Stream from llama-server, emitting tokens as they arrive
+    // 5. Stream from llama-server, emitting tokens as they arrive
     let port = crate::llama::get_llama_port(&app)
         .ok_or("llama-server port unavailable")?;
     let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
-    let payload = serde_json::json!({ "messages": msgs, "stream": true });
-
     let resp = match ureq::post(&api_url)
         .timeout(std::time::Duration::from_secs(180))
-        .send_json(&payload)
+        .send_json(&serde_json::json!({ "messages": msgs, "stream": true }))
     {
         Ok(r) => r,
         Err(ureq::Error::Status(400, _)) => {
