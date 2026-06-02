@@ -11,7 +11,17 @@ All notable changes to Deep Cuts will be documented here.
 - **Chat Session Persistence**: Chat conversations are now saved to the database with full-text search and a session picker, so you can return to previous Q&A sessions for any track.
 - **Statistics Panel — Set Source Selector**: The Statistics page now lets you scope comparisons to the full library, the current filter, or a specific folder.
 - **Reset Analysis Pass**: A per-track menu in the track detail pane lets you clear and re-run any individual analysis pass (BPM, key, Essentia, Qwen, etc.) without re-scanning the whole library.
-- **Energy-Based Window Selection for Qwen**: The Qwen2-Audio analysis pass now picks the most energetically interesting 10-second window rather than a fixed offset, improving description quality on intros-heavy tracks.
+- **Energy-Based Window Selection for Qwen & Essentia**: Both the Qwen2-Audio description pass and the Essentia classifier pass now pick the most energetically interesting (loudest) 10-second audio window rather than a fixed offset, improving description and tag quality on tracks with long or quiet intros.
+- **CLAP-Based Qwen Validation & On-Demand Resampling**: Automatically validates generated Qwen descriptions against the track's CLAP audio embedding. If similarity falls below a calibrated threshold (0.28), it triggers an on-demand resampling pass with a lower temperature (0.2) and strict prompts to automatically correct hallucinations and language slippage.
+- **Pass Dependencies & Cascading Resets**: Configured the Qwen analysis pass to depend on CLAP in the pipeline database. Resetting a track's CLAP pass now automatically cascades to clear and re-verify its Qwen descriptions and tags.
+- **Save Filtered Results as Playlist**: A new "Save to Playlist" button directly in the filter sidebar allows users to quickly save the current filtered search results into a new or existing playlist.
+- **Clickable Metadata Filters**: Artist and Album fields in the track detail pane are now clickable, allowing users to quickly filter the music library by the selected artist or album.
+- **Pipeline Execution Optimization**: Reordered analysis phases so that `essentia` and `bpm_refinement` run before `qwen` and `description_embed`, ensuring that refined BPM, key, and mood statistics are available during description generation.
+
+### Fixes
+
+- **Scope Reset Pass**: Fixed the reset analysis pass action to correctly scope the database and column resets to the current track only (preventing multi-track reset bugs).
+- **Theme Visibility & Contrast**: Improved the visibility and contrast of WaveSurfer waveforms and the Mood Radar spider chart when using the light theme.
 
 ---
 
