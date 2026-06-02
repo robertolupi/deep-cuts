@@ -11,6 +11,7 @@ pub struct EssentiaJob {
     pub pass_id: i64,
     pub track_id: i64,
     pub path: String,
+    pub waveform_data: Option<String>,
 }
 
 impl super::PassJob for EssentiaJob {
@@ -65,7 +66,7 @@ impl super::AnalysisPass for EssentiaPass {
 
     fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String> {
         let mut stmt = conn.prepare(
-            "SELECT tp.id, tp.track_id, t.path
+            "SELECT tp.id, tp.track_id, t.path, t.waveform_data
              FROM track_passes tp
              JOIN tracks t ON t.id = tp.track_id
              WHERE tp.status = ?1 AND tp.pass_name = 'essentia'
@@ -77,6 +78,7 @@ impl super::AnalysisPass for EssentiaPass {
                 pass_id: row.get(0)?,
                 track_id: row.get(1)?,
                 path: row.get(2)?,
+                waveform_data: row.get(3)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -183,10 +185,13 @@ impl super::AnalysisPass for EssentiaPass {
                     let result = (|| -> Result<Vec<Vec<f32>>, String> {
                         let (audio, sr) = dsp::decode_audio_to_mono(&job.path)?;
                         let audio_16k = crate::spectrogram::resample_to_16k(&audio, sr)?;
-                        let mid = audio_16k.len() / 2;
+                        let window_pct = crate::embeddings::select_best_energy_window_pct(
+                            job.waveform_data.as_deref(),
+                        );
+                        let center = (audio_16k.len() as f64 * window_pct) as usize;
                         let half = 16_000 * 30;
-                        let start = mid.saturating_sub(half);
-                        let end = (mid + half).min(audio_16k.len());
+                        let start = center.saturating_sub(half);
+                        let end = (center + half).min(audio_16k.len());
                         let spec =
                             crate::spectrogram::compute_log_mel_spectrogram(&audio_16k[start..end])?;
                         crate::spectrogram::extract_patches(&spec)
@@ -246,6 +251,7 @@ impl super::AnalysisPass for EssentiaPass {
                         pass_id: prepped.pass_id,
                         track_id: prepped.track_id,
                         path: String::new(),
+                        waveform_data: None,
                     };
                     self.save_result(&conn, &job_placeholder, r, elapsed_ms)?;
                     let _ = conn.execute(
