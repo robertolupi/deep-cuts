@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
   import { curation } from "$lib/stores/curation.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
@@ -85,10 +86,10 @@
           <span class="format-badge">{ext}</span>
           <h3 class="track-title">{track.title || track.filename}</h3>
           {#if track.artist}
-            <p class="track-artist">{track.artist}</p>
+            <button class="track-artist filter-link" onclick={() => { filters.searchQuery = track!.artist!; ui.activeView = 'table'; }}>{track.artist}</button>
           {/if}
           {#if track.album}
-            <p class="track-album">{track.album}{track.year ? ` · ${track.year}` : ''}</p>
+            <button class="track-album filter-link" onclick={() => { filters.searchQuery = track!.album!; ui.activeView = 'table'; }}>{track.album}{track.year ? ` · ${track.year}` : ''}</button>
           {/if}
           {#if track.genre}
             <p class="track-genre">{track.genre}</p>
@@ -520,6 +521,22 @@
     color: var(--sg-outline, #849495);
     opacity: 0.7;
     margin: 2px 0 0;
+  }
+
+  .filter-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: center;
+    display: block;
+    width: 100%;
+    transition: color 0.15s, opacity 0.15s;
+  }
+
+  .filter-link:hover {
+    color: var(--sg-primary, #00f0ff) !important;
+    opacity: 1 !important;
   }
 
   /* ── Sections ── */
