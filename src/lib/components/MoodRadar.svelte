@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as d3 from 'd3';
+  import { theme } from '$lib/stores/theme.svelte';
 
   export interface MoodValues {
     happy:      number | null;
@@ -18,7 +19,7 @@
     colorB?: string;
   }
 
-  let { moodA, moodB, colorA = '#00f0ff', colorB = '#ff7c5c' }: Props = $props();
+  let { moodA, moodB, colorA, colorB }: Props = $props();
 
   const AXES: { key: keyof MoodValues; label: string }[] = [
     { key: 'happy',      label: 'Happy'      },
@@ -36,6 +37,14 @@
     if (!svgEl) return;
     d3.select(svgEl).selectAll('*').remove();
 
+    const isLight = theme.resolvedTheme === 'light';
+
+    const resolvedColorA = colorA ?? (isLight ? '#0284c7' : '#00f0ff');
+    const resolvedColorB = colorB ?? (isLight ? '#dc4e2a' : '#ff7c5c');
+    const gridStroke     = isLight ? 'rgba(0,0,0,0.10)'  : 'rgba(255,255,255,0.08)';
+    const axisStroke     = isLight ? 'rgba(0,0,0,0.14)'  : 'rgba(255,255,255,0.12)';
+    const labelFill      = isLight ? '#475569'            : '#849495';
+
     const N  = AXES.length;
     const W  = svgEl.clientWidth  || 220;
     const H  = svgEl.clientHeight || 200;
@@ -47,7 +56,7 @@
       g.append('circle')
         .attr('cx', cx).attr('cy', cy).attr('r', R * r)
         .attr('fill', 'none')
-        .attr('stroke', 'rgba(255,255,255,0.08)')
+        .attr('stroke', gridStroke)
         .attr('stroke-width', 1);
     });
 
@@ -57,7 +66,7 @@
         .attr('x1', cx).attr('y1', cy)
         .attr('x2', cx + R * Math.cos(angle))
         .attr('y2', cy + R * Math.sin(angle))
-        .attr('stroke', 'rgba(255,255,255,0.12)')
+        .attr('stroke', axisStroke)
         .attr('stroke-width', 1);
       g.append('text')
         .attr('x', cx + (R + 14) * Math.cos(angle))
@@ -66,7 +75,7 @@
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'JetBrains Mono, monospace')
         .style('font-size', '8px')
-        .style('fill', '#849495')
+        .style('fill', labelFill)
         .text(ax.label);
     });
 
@@ -79,17 +88,18 @@
       g.append('polygon')
         .attr('points', pts.join(' '))
         .attr('fill', color)
-        .attr('fill-opacity', 0.15)
+        .attr('fill-opacity', isLight ? 0.25 : 0.15)
         .attr('stroke', color)
-        .attr('stroke-width', 1.5);
+        .attr('stroke-width', isLight ? 2 : 1.5);
     };
 
-    drawPolygon(moodA, colorA);
-    if (moodB) drawPolygon(moodB, colorB);
+    drawPolygon(moodA, resolvedColorA);
+    if (moodB) drawPolygon(moodB, resolvedColorB);
   }
 
   $effect(() => {
     void moodA; void moodB; void colorA; void colorB;
+    void theme.resolvedTheme;
     requestAnimationFrame(() => requestAnimationFrame(render));
   });
 </script>

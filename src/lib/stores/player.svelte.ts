@@ -73,7 +73,7 @@ class PlayerStore {
     // Build WaveSurfer
     this.#wavesurfer = WaveSurfer.create({
       container:   this.#waveformContainer,
-      waveColor:   resolvedTheme === "light" ? "rgba(28, 25, 23, 0.10)" : "rgba(255, 255, 255, 0.08)",
+      waveColor:   resolvedTheme === "light" ? "rgba(28, 25, 23, 0.35)" : "rgba(255, 255, 255, 0.08)",
       cursorColor: resolvedTheme === "light" ? "var(--sg-primary)"      : "var(--sg-primary)",
       cursorWidth: 2,
       barWidth:    3,
