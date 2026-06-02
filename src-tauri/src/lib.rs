@@ -131,6 +131,7 @@ pub fn run() {
             commands::playlists::update_saved_search,
             commands::playlists::get_playlists_for_track,
             commands::playlists::remove_track_from_playlist_by_id,
+            commands::playlists::export_m3u_playlist,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

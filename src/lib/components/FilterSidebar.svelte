@@ -79,6 +79,30 @@
     ui.sidebarTab = "filters";
   }
 
+  async function handleExportM3U() {
+    const list = filters.filteredTracks;
+    if (list.length === 0) {
+      ui.showToast("No tracks to export", "error");
+      return;
+    }
+    const tracksPayload = list.map(t => ({
+      path: t.path,
+      title: t.title ?? null,
+      artist: t.artist ?? null,
+      duration_seconds: t.duration_seconds ?? null
+    }));
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const exported = await invoke<boolean>('export_m3u_playlist', { tracks: tracksPayload });
+      if (exported) {
+        ui.showToast(`Exported ${list.length} tracks to M3U successfully!`, "success");
+      }
+    } catch (e: any) {
+      console.error("Failed to export M3U playlist:", e);
+      ui.showToast(e, "error");
+    }
+  }
+
   onMount(() => {
     curation.loadAll();
   });
@@ -366,6 +390,12 @@
                 💾 Save as Smart Search
               </button>
             {/if}
+          {/if}
+
+          {#if filters.filteredTracks.length > 0}
+            <button class="action-btn" style="width: 100%; justify-content: center; border-color: rgba(254, 0, 254, 0.35); color: var(--sg-secondary, #fe00fe); background: rgba(254, 0, 254, 0.08);" onclick={handleExportM3U}>
+              📤 Export results as M3U ({filters.filteredTracks.length})
+            </button>
           {/if}
         </div>
       </div>

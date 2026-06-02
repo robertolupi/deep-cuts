@@ -509,3 +509,44 @@ pub fn remove_track_from_playlist_by_id(
     
     Ok(())
 }
+
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct M3UTrackInfo {
+    pub path: String,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub duration_seconds: Option<f64>,
+}
+
+#[tauri::command]
+pub fn export_m3u_playlist(tracks: Vec<M3UTrackInfo>) -> Result<bool, AppError> {
+    if tracks.is_empty() {
+        return Err(AppError::Generic("No tracks to export".to_string()));
+    }
+    
+    // Open save file dialog
+    let file = rfd::FileDialog::new()
+        .set_title("Export M3U Playlist")
+        .add_filter("M3U Playlist", &["m3u"])
+        .set_file_name("playlist.m3u")
+        .save_file();
+        
+    if let Some(path_buf) = file {
+        use std::io::Write;
+        let mut f = std::fs::File::create(&path_buf)?;
+        
+        writeln!(f, "#EXTM3U")?;
+        for t in tracks {
+            let duration = t.duration_seconds.unwrap_or(0.0).round() as i64;
+            let artist = t.artist.as_deref().unwrap_or("Unknown Artist");
+            let title = t.title.as_deref().unwrap_or("Unknown Title");
+            
+            writeln!(f, "#EXTINF:{},{} - {}", duration, artist, title)?;
+            writeln!(f, "{}", t.path)?;
+        }
+        
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
