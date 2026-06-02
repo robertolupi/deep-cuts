@@ -7,6 +7,7 @@
   import AnalysisPanel from "$lib/components/AnalysisPanel.svelte";
   import DuplicatesPanel from "$lib/components/DuplicatesPanel.svelte";
   import ChatPanel from "$lib/components/ChatPanel.svelte";
+  import StatisticsPanel from "$lib/components/StatisticsPanel.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { onMount } from "svelte";
@@ -114,6 +115,9 @@
 
     {:else if ui.activeView === 'chat'}
       <ChatPanel />
+
+    {:else if ui.activeView === 'statistics'}
+      <StatisticsPanel />
     {/if}
   </main>
 </div>

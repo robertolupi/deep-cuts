@@ -1,4 +1,4 @@
-export type ActiveView = 'table' | 'map' | 'duplicates' | 'analysis' | 'settings' | 'chat';
+export type ActiveView = 'table' | 'map' | 'duplicates' | 'analysis' | 'settings' | 'chat' | 'statistics';
 
 function createUiStore() {
   let activeView = $state<ActiveView>('table');

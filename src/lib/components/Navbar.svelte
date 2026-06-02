@@ -7,6 +7,7 @@
     { id: 'map',        label: 'Map'        },
     { id: 'duplicates', label: 'Duplicates' },
     { id: 'analysis',   label: 'Analyze'    },
+    { id: 'statistics', label: 'Statistics' },
     { id: 'chat',       label: 'Chat'       },
     { id: 'settings',   label: 'Settings'   },
   ];
@@ -42,6 +43,10 @@
         {:else if v.id === 'analysis'}
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        {:else if v.id === 'statistics'}
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
           </svg>
         {:else if v.id === 'chat'}
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
