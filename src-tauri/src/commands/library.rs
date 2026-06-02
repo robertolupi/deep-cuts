@@ -252,32 +252,160 @@ pub async fn search_clap_tracks(
         return Ok(Vec::new());
     }
 
-    // 1. Generate CLAP text embedding for the query string
+    // 1. Extract alphanumeric search terms for SQL LIKE matching
+    let mut terms: Vec<String> = trimmed
+        .split(|c: char| !c.is_alphanumeric())
+        .map(|s| s.to_lowercase())
+        .filter(|s| s.len() >= 2)
+        .collect();
+    terms.sort();
+    terms.dedup();
+
+    // 2. Generate CLAP text embedding for the query string
     let embedding = crate::embeddings::run_clap_text_embed(trimmed, Some(&app_handle))
         .map_err(|e| AppError::Generic(format!("Failed to generate CLAP text embedding: {}", e)))?;
 
-    // 2. Convert Vec<f32> embedding to a little-endian byte array Vec<u8>
+    // 3. Convert Vec<f32> embedding to a little-endian byte array Vec<u8>
     let bytes: Vec<u8> = embedding.iter().flat_map(|&f| f.to_le_bytes()).collect();
 
-    // 3. Acquire DB lock and execute sqlite-vec MATCH vector query on audio_embeddings
+    // 4. Acquire DB lock
     let conn = conn_state
         .lock()
         .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
 
     let max_k = limit.unwrap_or(40) as i64;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT ae.track_id, t.title, t.filename, t.artist, t.genre, t.bpm, t.key, t.scale, ae.distance
+    // 5. Compute document frequencies and IDF values for search terms
+    let total_tracks: f64 = conn
+        .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get::<_, i64>(0))
+        .unwrap_or(0) as f64;
+
+    let mut term_idfs: Vec<(f64, f64, f64)> = Vec::new();
+
+    if !terms.is_empty() && total_tracks > 0.0 {
+        let mut select_parts = Vec::new();
+        let mut param_idx = 1;
+        for _ in &terms {
+            select_parts.push(format!(
+                "SUM(CASE WHEN ai_instruments LIKE ?{} THEN 1 ELSE 0 END),
+                 SUM(CASE WHEN ai_genre LIKE ?{} THEN 1 ELSE 0 END),
+                 SUM(CASE WHEN ai_mood LIKE ?{} THEN 1 ELSE 0 END)",
+                param_idx, param_idx + 1, param_idx + 2
+            ));
+            param_idx += 3;
+        }
+
+        let idf_sql = format!("SELECT {} FROM tracks", select_parts.join(", "));
+
+        let mut idf_params: Vec<rusqlite::types::Value> = Vec::new();
+        for term in &terms {
+            let pattern = format!("%{}%", term);
+            idf_params.push(rusqlite::types::Value::Text(pattern.clone()));
+            idf_params.push(rusqlite::types::Value::Text(pattern.clone()));
+            idf_params.push(rusqlite::types::Value::Text(pattern));
+        }
+
+        let mut idf_stmt = conn.prepare(&idf_sql).map_err(AppError::Database)?;
+        let mut idf_rows = idf_stmt.query(rusqlite::params_from_iter(idf_params)).map_err(AppError::Database)?;
+
+        if let Some(row) = idf_rows.next().map_err(AppError::Database)? {
+            let mut col_idx = 0;
+            for _ in &terms {
+                let inst_cnt: Option<i64> = row.get(col_idx)?;
+                let gen_cnt: Option<i64> = row.get(col_idx + 1)?;
+                let mood_cnt: Option<i64> = row.get(col_idx + 2)?;
+                col_idx += 3;
+
+                let inst_val = inst_cnt.unwrap_or(0);
+                let gen_val = gen_cnt.unwrap_or(0);
+                let mood_val = mood_cnt.unwrap_or(0);
+
+                let idf_inst = if inst_val > 0 {
+                    ((total_tracks / inst_val as f64).ln()).max(0.1)
+                } else {
+                    1.0
+                };
+                let idf_gen = if gen_val > 0 {
+                    ((total_tracks / gen_val as f64).ln()).max(0.1)
+                } else {
+                    1.0
+                };
+                let idf_mood = if mood_val > 0 {
+                    ((total_tracks / mood_val as f64).ln()).max(0.1)
+                } else {
+                    1.0
+                };
+
+                term_idfs.push((idf_inst, idf_gen, idf_mood));
+            }
+        }
+    } else {
+        for _ in &terms {
+            term_idfs.push((1.0, 1.0, 1.0));
+        }
+    }
+
+    // 6. Build text matching query dynamically
+    let text_where_clause = if !terms.is_empty() {
+        let mut parts = Vec::new();
+        let mut param_idx = 3;
+        for _ in &terms {
+            parts.push(format!(
+                "(ai_instruments LIKE ?{} OR ai_genre LIKE ?{} OR ai_mood LIKE ?{})",
+                param_idx, param_idx + 1, param_idx + 2
+            ));
+            param_idx += 3;
+        }
+        format!("WHERE {}", parts.join(" OR "))
+    } else {
+        "WHERE 0".to_string()
+    };
+
+    let query_sql = format!(
+        "WITH vector_matches AS (
+             SELECT ae.track_id, ae.distance
              FROM audio_embeddings ae
-             JOIN tracks t ON t.id = ae.track_id
              WHERE ae.embedding MATCH ?1 AND k = ?2
-             ORDER BY ae.distance ASC",
-        )
+         ),
+         text_matches AS (
+             SELECT id AS track_id, NULL AS distance
+             FROM tracks
+             {}
+         ),
+         combined AS (
+             SELECT track_id, MIN(distance) AS distance
+             FROM (
+                 SELECT track_id, distance FROM vector_matches
+                 UNION ALL
+                 SELECT track_id, NULL AS distance FROM text_matches
+             )
+             GROUP BY track_id
+         )
+         SELECT c.track_id, t.title, t.filename, t.artist, t.genre, t.bpm, t.key, t.scale,
+                COALESCE(c.distance, vec_distance_l2(ae.embedding, ?1)) AS final_distance,
+                t.ai_genre, t.ai_mood, t.ai_instruments
+         FROM combined c
+         JOIN tracks t ON t.id = c.track_id
+         LEFT JOIN audio_embeddings ae ON ae.track_id = c.track_id",
+        text_where_clause
+    );
+
+    let mut sql_params: Vec<rusqlite::types::Value> = Vec::new();
+    sql_params.push(rusqlite::types::Value::Blob(bytes));
+    sql_params.push(rusqlite::types::Value::Integer(max_k));
+    for term in &terms {
+        let pattern = format!("%{}%", term);
+        sql_params.push(rusqlite::types::Value::Text(pattern.clone()));
+        sql_params.push(rusqlite::types::Value::Text(pattern.clone()));
+        sql_params.push(rusqlite::types::Value::Text(pattern));
+    }
+
+    let mut stmt = conn
+        .prepare(&query_sql)
         .map_err(AppError::Database)?;
 
     let rows = stmt
-        .query_map(rusqlite::params![bytes, max_k], |row| {
+        .query_map(rusqlite::params_from_iter(sql_params), |row| {
             let id: i64 = row.get(0)?;
             let title: Option<String> = row.get(1)?;
             let filename: String = row.get(2)?;
@@ -286,10 +414,53 @@ pub async fn search_clap_tracks(
             let bpm: Option<f64> = row.get(5)?;
             let key: Option<String> = row.get(6)?;
             let scale: Option<String> = row.get(7)?;
-            let distance: f64 = row.get(8)?;
+            let distance: Option<f64> = row.get(8)?;
+            let ai_genre: Option<String> = row.get(9)?;
+            let ai_mood: Option<String> = row.get(10)?;
+            let ai_instruments: Option<String> = row.get(11)?;
 
-            let d_sq = distance * distance;
-            let score = ((1.0_f64 - d_sq / 2.0_f64) * 100.0_f64).clamp(0.0_f64, 100.0_f64);
+            // Convert raw Euclidean (L2) distance into percentage similarity score.
+            // L2 distance squared = d^2 = distance * distance.
+            // CosineSimilarity = 1 - d^2 / 2
+            let dist_val = distance.unwrap_or(1.4142135623730951);
+            let d_sq = dist_val * dist_val;
+            let mut score = ((1.0_f64 - d_sq / 2.0_f64) * 100.0_f64).clamp(0.0_f64, 100.0_f64);
+
+            // Apply boosts
+            let lower_instruments = ai_instruments.as_deref().unwrap_or("").to_lowercase();
+            let lower_genre = ai_genre.as_deref().unwrap_or("").to_lowercase();
+            let lower_mood = ai_mood.as_deref().unwrap_or("").to_lowercase();
+
+            // 1. Term-by-term IDF-scaled boosts
+            for (i, term) in terms.iter().enumerate() {
+                let (idf_inst, idf_gen, idf_mood) = term_idfs.get(i).copied().unwrap_or((1.0, 1.0, 1.0));
+                
+                if lower_instruments.contains(term) {
+                    score += 80.0 * idf_inst;
+                }
+                if lower_genre.contains(term) {
+                    score += 60.0 * idf_gen;
+                }
+                if lower_mood.contains(term) {
+                    score += 40.0 * idf_mood;
+                }
+            }
+
+            // 2. Full query exact phrase boost (if it contains multiple words)
+            let query_lower = trimmed.to_lowercase();
+            if terms.len() > 1 {
+                if lower_instruments.contains(&query_lower) {
+                    score += 40.0;
+                }
+                if lower_genre.contains(&query_lower) {
+                    score += 40.0;
+                }
+                if lower_mood.contains(&query_lower) {
+                    score += 40.0;
+                }
+            }
+
+            score = score.max(0.0);
 
             Ok(SemanticSearchResult {
                 id,
@@ -305,9 +476,22 @@ pub async fn search_clap_tracks(
         })
         .map_err(AppError::Database)?;
 
-    let results: Vec<SemanticSearchResult> = rows
+    let mut results: Vec<SemanticSearchResult> = rows
         .filter_map(|r| r.ok())
         .collect();
+
+    // Sort by score descending (using raw boosted scores to allow exact matches to outrank pure acoustic matches)
+    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Clamp final scores to 100.0 for frontend presentation
+    for r in &mut results {
+        r.score = r.score.clamp(0.0, 100.0);
+    }
+
+    // Truncate to the requested limit if provided
+    if let Some(l) = limit {
+        results.truncate(l);
+    }
 
     Ok(results)
 }
@@ -509,5 +693,297 @@ mod tests {
         assert!((results[0].1 - 0.0).abs() < 1e-9);
         assert_eq!(results[1].0, 2);
         assert!(results[1].1 > 0.0);
+    }
+
+    #[test]
+    fn test_sqlite_vec_distance_l2_function() {
+        let conn = setup_test_db();
+
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test', '/test')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, 1, '/test/a.mp3', 'a.mp3', 100, 100, 10)",
+            [],
+        ).unwrap();
+
+        let vec1 = vec![0.05f32; 512];
+        let bytes1: Vec<u8> = vec1.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        conn.execute(
+            "INSERT INTO audio_embeddings (track_id, embedding) VALUES (1, ?1)",
+            [bytes1]
+        ).unwrap();
+
+        let query_vec = vec![0.05f32; 512];
+        let q_bytes: Vec<u8> = query_vec.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        let distance: f64 = conn.query_row(
+            "SELECT vec_distance_l2(embedding, ?1) FROM audio_embeddings WHERE track_id = 1",
+            [q_bytes],
+            |row| row.get(0)
+        ).unwrap();
+
+        assert!((distance - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_hybrid_clap_search_scoring_logic() {
+        let conn = setup_test_db();
+
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test', '/test')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
+                                 title, ai_instruments, ai_genre, ai_mood)
+             VALUES (1, 1, '/test/a.mp3', 'a.mp3', 100, 100, 10, 'Track A', 'harpsichord, violin', 'classical', 'peaceful'),
+                    (2, 1, '/test/b.mp3', 'b.mp3', 100, 100, 10, 'Track B', '808, synthesizer', 'electronic', 'energetic'),
+                    (3, 1, '/test/c.mp3', 'c.mp3', 100, 100, 10, 'Track C', 'synthesizer', 'electronic', 'chill')",
+            [],
+        ).unwrap();
+
+        // Let's seed embeddings
+        let vec1 = vec![0.05f32; 512];
+        let bytes1: Vec<u8> = vec1.iter().flat_map(|&f| f.to_le_bytes()).collect();
+        let vec2 = vec![0.1f32; 512];
+        let bytes2: Vec<u8> = vec2.iter().flat_map(|&f| f.to_le_bytes()).collect();
+        let vec3 = vec![0.2f32; 512];
+        let bytes3: Vec<u8> = vec3.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        conn.execute("INSERT INTO audio_embeddings (track_id, embedding) VALUES (1, ?1)", [bytes1]).unwrap();
+        conn.execute("INSERT INTO audio_embeddings (track_id, embedding) VALUES (2, ?1)", [bytes2]).unwrap();
+        conn.execute("INSERT INTO audio_embeddings (track_id, embedding) VALUES (3, ?1)", [bytes3]).unwrap();
+
+        // Search query: "harpsichord"
+        // Since Track 1 has 'harpsichord' in ai_instruments, it should get a +30 boost.
+        // Even if our query vector is closer to Track 2, Track 1 should win the ranking.
+        let query_vec = vec![0.1f32; 512]; // Closest to Track 2 (distance 0.0)
+        let q_bytes: Vec<u8> = query_vec.iter().flat_map(|&f| f.to_le_bytes()).collect();
+
+        let terms = vec!["harpsichord".to_string()];
+
+        let total_tracks = 3.0;
+        let mut term_idfs: Vec<(f64, f64, f64)> = Vec::new();
+        for term in &terms {
+            let pattern = format!("%{}%", term);
+            let inst_val: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM tracks WHERE ai_instruments LIKE ?1",
+                [pattern.clone()],
+                |row| row.get(0)
+            ).unwrap_or(0);
+            let gen_val: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM tracks WHERE ai_genre LIKE ?1",
+                [pattern.clone()],
+                |row| row.get(0)
+            ).unwrap_or(0);
+            let mood_val: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM tracks WHERE ai_mood LIKE ?1",
+                [pattern],
+                |row| row.get(0)
+            ).unwrap_or(0);
+
+            let idf_inst = if inst_val > 0 { ((total_tracks / inst_val as f64).ln()).max(0.1) } else { 1.0 };
+            let idf_gen = if gen_val > 0 { ((total_tracks / gen_val as f64).ln()).max(0.1) } else { 1.0 };
+            let idf_mood = if mood_val > 0 { ((total_tracks / mood_val as f64).ln()).max(0.1) } else { 1.0 };
+
+            term_idfs.push((idf_inst, idf_gen, idf_mood));
+        }
+
+        let text_where_clause = "WHERE (ai_instruments LIKE ?3 OR ai_genre LIKE ?4 OR ai_mood LIKE ?5)";
+
+        let query_sql = format!(
+            "WITH vector_matches AS (
+                 SELECT ae.track_id, ae.distance
+                 FROM audio_embeddings ae
+                 WHERE ae.embedding MATCH ?1 AND k = 3
+             ),
+             text_matches AS (
+                 SELECT id AS track_id, NULL AS distance
+                 FROM tracks
+                 {}
+             ),
+             combined AS (
+                 SELECT track_id, MIN(distance) AS distance
+                 FROM (
+                     SELECT track_id, distance FROM vector_matches
+                     UNION ALL
+                     SELECT track_id, NULL AS distance FROM text_matches
+                 )
+                 GROUP BY track_id
+             )
+             SELECT c.track_id, t.title, t.filename, t.artist, t.genre, t.bpm, t.key, t.scale,
+                    COALESCE(c.distance, vec_distance_l2(ae.embedding, ?1)) AS final_distance,
+                    t.ai_genre, t.ai_mood, t.ai_instruments
+             FROM combined c
+             JOIN tracks t ON t.id = c.track_id
+             LEFT JOIN audio_embeddings ae ON ae.track_id = c.track_id",
+            text_where_clause
+        );
+
+        let mut stmt = conn.prepare(&query_sql).unwrap();
+        let pattern = "%harpsichord%";
+        let rows = stmt.query_map(rusqlite::params![q_bytes, 3, pattern, pattern, pattern], |row| {
+            let id: i64 = row.get(0)?;
+            let title: Option<String> = row.get(1)?;
+            let filename: String = row.get(2)?;
+            let artist: Option<String> = row.get(3)?;
+            let genre: Option<String> = row.get(4)?;
+            let bpm: Option<f64> = row.get(5)?;
+            let key: Option<String> = row.get(6)?;
+            let scale: Option<String> = row.get(7)?;
+            let distance: Option<f64> = row.get(8)?;
+            let ai_genre: Option<String> = row.get(9)?;
+            let ai_mood: Option<String> = row.get(10)?;
+            let ai_instruments: Option<String> = row.get(11)?;
+
+            let dist_val = distance.unwrap_or(1.414);
+            let d_sq = dist_val * dist_val;
+            let mut score = ((1.0_f64 - d_sq / 2.0_f64) * 100.0_f64).clamp(0.0_f64, 100.0_f64);
+
+            let lower_instruments = ai_instruments.as_deref().unwrap_or("").to_lowercase();
+            let lower_genre = ai_genre.as_deref().unwrap_or("").to_lowercase();
+            let lower_mood = ai_mood.as_deref().unwrap_or("").to_lowercase();
+
+            for (i, term) in terms.iter().enumerate() {
+                let (idf_inst, idf_gen, idf_mood) = term_idfs[i];
+                if lower_instruments.contains(term) {
+                    score += 80.0 * idf_inst;
+                }
+                if lower_genre.contains(term) {
+                    score += 60.0 * idf_gen;
+                }
+                if lower_mood.contains(term) {
+                    score += 40.0 * idf_mood;
+                }
+            }
+
+            score = score.max(0.0);
+
+            Ok(SemanticSearchResult {
+                id,
+                title,
+                filename,
+                artist,
+                genre,
+                bpm,
+                key,
+                scale,
+                score,
+            })
+        }).unwrap();
+
+        let mut results: Vec<SemanticSearchResult> = rows.map(|r| r.unwrap()).collect();
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+        for r in &mut results {
+            r.score = r.score.clamp(0.0, 100.0);
+        }
+
+        // Track 1 must be ranked first because of the instrument boost (+80.0)
+        assert_eq!(results[0].id, 1);
+        // Track 2 should be ranked second because it has 0 distance to the query vector (so base score 100)
+        // while Track 3 has some distance (base score < 100).
+        assert_eq!(results[1].id, 2);
+        assert_eq!(results[2].id, 3);
+    }
+
+    #[test]
+    fn test_hybrid_search_query_pattern_dynamic() {
+        let conn = setup_test_db();
+
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test', '/test')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds,
+                                 title, ai_instruments, ai_genre, ai_mood)
+             VALUES (1, 1, '/test/a.mp3', 'a.mp3', 100, 100, 10, 'Track A', 'drums, bass', 'rock', 'energetic'),
+                    (2, 1, '/test/b.mp3', 'b.mp3', 100, 100, 10, 'Track B', 'piano, drums', 'jazz', 'calm'),
+                    (3, 1, '/test/c.mp3', 'c.mp3', 100, 100, 10, 'Track C', 'synthesizer', 'electronic', 'dark')",
+            [],
+        ).unwrap();
+
+        // Query string "drums synthesizer"
+        // terms should be: ["drums", "synthesizer"]
+        let query = "drums synthesizer";
+        let mut terms: Vec<String> = query
+            .split(|c: char| !c.is_alphanumeric())
+            .map(|s| s.to_lowercase())
+            .filter(|s| s.len() >= 2)
+            .collect();
+        terms.sort();
+        terms.dedup();
+
+        assert_eq!(terms, vec!["drums".to_string(), "synthesizer".to_string()]);
+
+        // Run counts dynamically
+        let total_tracks: f64 = conn
+            .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get::<_, i64>(0))
+            .unwrap_or(0) as f64;
+        assert_eq!(total_tracks, 3.0);
+
+        let mut term_idfs: Vec<(f64, f64, f64)> = Vec::new();
+        if !terms.is_empty() && total_tracks > 0.0 {
+            let mut select_parts = Vec::new();
+            let mut param_idx = 1;
+            for _ in &terms {
+                select_parts.push(format!(
+                    "SUM(CASE WHEN ai_instruments LIKE ?{} THEN 1 ELSE 0 END),
+                     SUM(CASE WHEN ai_genre LIKE ?{} THEN 1 ELSE 0 END),
+                     SUM(CASE WHEN ai_mood LIKE ?{} THEN 1 ELSE 0 END)",
+                    param_idx, param_idx + 1, param_idx + 2
+                ));
+                param_idx += 3;
+            }
+
+            let idf_sql = format!("SELECT {} FROM tracks", select_parts.join(", "));
+            let mut idf_params: Vec<rusqlite::types::Value> = Vec::new();
+            for term in &terms {
+                let pattern = format!("%{}%", term);
+                idf_params.push(rusqlite::types::Value::Text(pattern.clone()));
+                idf_params.push(rusqlite::types::Value::Text(pattern.clone()));
+                idf_params.push(rusqlite::types::Value::Text(pattern));
+            }
+
+            let mut idf_stmt = conn.prepare(&idf_sql).unwrap();
+            let mut idf_rows = idf_stmt.query(rusqlite::params_from_iter(idf_params)).unwrap();
+
+            if let Some(row) = idf_rows.next().unwrap() {
+                let mut col_idx = 0;
+                for _ in &terms {
+                    let inst_cnt: Option<i64> = row.get(col_idx).unwrap();
+                    let gen_cnt: Option<i64> = row.get(col_idx + 1).unwrap();
+                    let mood_cnt: Option<i64> = row.get(col_idx + 2).unwrap();
+                    col_idx += 3;
+
+                    let inst_val = inst_cnt.unwrap_or(0);
+                    let gen_val = gen_cnt.unwrap_or(0);
+                    let mood_val = mood_cnt.unwrap_or(0);
+
+                    let idf_inst = if inst_val > 0 { ((total_tracks / inst_val as f64).ln()).max(0.1) } else { 1.0 };
+                    let idf_gen = if gen_val > 0 { ((total_tracks / gen_val as f64).ln()).max(0.1) } else { 1.0 };
+                    let idf_mood = if mood_val > 0 { ((total_tracks / mood_val as f64).ln()).max(0.1) } else { 1.0 };
+
+                    term_idfs.push((idf_inst, idf_gen, idf_mood));
+                }
+            }
+        }
+
+        // Verify IDFs:
+        // "drums" matches 2 tracks (Track 1 & 2). IDF_inst = ln(3.0 / 2.0) = ln(1.5) = 0.4054651
+        // "synthesizer" matches 1 track (Track 3). IDF_inst = ln(3.0 / 1.0) = ln(3.0) = 1.098612
+        assert!((term_idfs[0].0 - (1.5f64).ln()).abs() < 1e-9);
+        assert!((term_idfs[1].0 - (3.0f64).ln()).abs() < 1e-9);
     }
 }
