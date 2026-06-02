@@ -2,7 +2,6 @@
 
 ## 1. Feature Overview & User Experience
 The Music Producer & Sampling suite provides essential tools for mixing, mastering, and hip hop/electronic breakbeat sampling:
-* **Reference Mix Matcher & Spectral Overlays**: Drag in a commercial reference track to instantly analyze its loudness, dynamic range, and frequency spectrum. Overlay its curve against your own work-in-progress track inside the app to identify mixing issues (e.g. mud or lack of high-end).
 * **Breakbeat & Groove Similarity**: Select a classic 70s drum break and click *"Find similar drum grooves"* to query the library for drum loops and breaks sharing the same timbral saturation, room acoustics, and swing. Powered by **Groove Micro-Timing Profiles**, it matches drum loops based on transient timing deviation vectors relative to a grid.
 * **Crate Digger (Obscurity Index)**: Sorts library search queries by "Most Isolated / Acoustically Obscure" to surface isolated recordings, weird interludes, or unique textures.
 * **Tiered Vocal Scraper**: Instantly locates vocal-free zones and vocal presence regions using high-vocal energy spectral profiling during the initial library analysis. Rather than running slow neural separation globally, heavy neural stem separation is treated as a lazy, on-demand background process when the user requests a stem download.
@@ -12,17 +11,11 @@ The Music Producer & Sampling suite provides essential tools for mixing, masteri
 
 ### A. Database Changes
 * **Database Schema**:
-  - Add `loudness_lufs` (REAL), `dynamic_range` (REAL), and `spectral_profile` (BLOB) to `tracks` table.
   - Add `groove_profile` (BLOB - stores micro-timing transient deviation vectors) to `tracks` table.
   - Add `vocal_energy_profile` (BLOB - stores local frequency ratio time-series) to `tracks` table.
   - Create `13_producer_sampling_columns.sql` database migration.
 
 ### B. Rust Backend Services
-* **Ad-Hoc Reference Extractor**: Implement `analyze_external_reference(filepath: String) -> Result<ReferenceAnalysis, String>` which:
-  1. Decodes the audio file to float samples.
-  2. Runs Essentia extractor / BPM / Key detections on the fly.
-  3. Computes the LUFS loudness and average 24-band frequency amplitude array.
-  4. Returns the result **without persisting it to the library database**, keeping the database clean.
 * **WSOLA & Rubberband DSP Export Engine**: Implement an audio processing service in Rust that applies WSOLA (Waveform Similarity Overlap-Add) or Rubberband time-stretching/pitch-shifting. On `dragstart` trigger:
   1. Process the source sample using the calculated pitch/stretch ratios.
   2. Compile and save a high-fidelity temporary WAV file under the app's cache directory (`/Users/rlupi/.gemini/antigravity/temp/`).
@@ -34,7 +27,6 @@ The Music Producer & Sampling suite provides essential tools for mixing, masteri
 
 ### C. Svelte Frontend Controls
 * **Drag-and-Drop Area**: A sleek visual drop-zone in the Settings or a dedicated "Producer Panel".
-* **D3 Spectral Overlay**: A visual frequency-domain line chart plotting the 24 frequency bands of the reference track (colored cyan) and the active track (colored magenta).
 * **Harmonizer & Drag-to-DAW Widget**: Shows clear numbers like `Transpose: +5 Semitones` and `Stretch: 112.5%`, complete with a "Drag to DAW" button that starts an OS-level file drag action utilizing the rendered temporary WAV path.
 * **Groove Deviation Grid**: A visual dot-plot showing transient displacement from a quantized grid, highlighting if a drum break is "rushed", "laid back", or "on the grid".
 * **Obscurity Sort Toggle**: Add a "Dig Mode" sorting filter to track list queries.
