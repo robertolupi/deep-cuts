@@ -1,0 +1,1256 @@
+{
+  "metrics": {
+    "track_count": 174,
+    "sim_ground_truth": {
+      "mean": 0.47790848189729385,
+      "std": 0.10651981979305274,
+      "min": 0.11067259311676025,
+      "max": 0.6732897162437439,
+      "p5": 0.25681332498788834,
+      "p10": 0.34093456566333774,
+      "p25": 0.4174136370420456,
+      "median": 0.4822784513235092
+    },
+    "sim_qwen_description": {
+      "mean": 0.45312081829741085,
+      "std": 0.11537007722823965,
+      "min": 0.07045336812734604,
+      "max": 0.7197140455245972,
+      "p5": 0.2752572849392891,
+      "p10": 0.31233991086483004,
+      "p25": 0.38133400678634644,
+      "median": 0.44870197772979736
+    },
+    "negative_mismatches": {
+      "mean": 0.37947366621536976,
+      "std": 0.12289463602421456,
+      "max": 0.7060762643814087,
+      "p90": 0.5318326354026794,
+      "p95": 0.562166965007782
+    },
+    "classification_calibration": {
+      "optimal_threshold": 0.4,
+      "max_accuracy": 0.5356718192627824
+    }
+  },
+  "tracks": [
+    {
+      "track_name": "O Fortuna",
+      "sim_ground_truth": 0.5581132173538208,
+      "sim_qwen_description": 0.7052942514419556,
+      "sim_instruments": 0.4550185203552246,
+      "sim_mood": 0.6236857175827026
+    },
+    {
+      "track_name": "The Temple of Tone",
+      "sim_ground_truth": 0.5973275303840637,
+      "sim_qwen_description": 0.5768214464187622,
+      "sim_instruments": 0.5881844758987427,
+      "sim_mood": 0.4428684115409851
+    },
+    {
+      "track_name": "Fatture pagate (Prima della fine dell\u2019universo)",
+      "sim_ground_truth": 0.4375106990337372,
+      "sim_qwen_description": 0.3704342246055603,
+      "sim_instruments": 0.41370952129364014,
+      "sim_mood": 0.32905352115631104
+    },
+    {
+      "track_name": "3 A.M. Ain't Sleep (It's a Mirror)",
+      "sim_ground_truth": 0.5305007696151733,
+      "sim_qwen_description": 0.309334397315979,
+      "sim_instruments": 0.4210066795349121,
+      "sim_mood": 0.32296425104141235
+    },
+    {
+      "track_name": "Ticket 1, Ticket 2, Ticket 3",
+      "sim_ground_truth": 0.5812078714370728,
+      "sim_qwen_description": 0.2434425950050354,
+      "sim_instruments": 0.4535028338432312,
+      "sim_mood": 0.16973331570625305
+    },
+    {
+      "track_name": "HIV Non Rilevabile, Incrollabile",
+      "sim_ground_truth": 0.42572373151779175,
+      "sim_qwen_description": 0.44580087065696716,
+      "sim_instruments": 0.4920850694179535,
+      "sim_mood": 0.4014434814453125
+    },
+    {
+      "track_name": "Venere (Afrodite)_ Schiuma e Acciaio",
+      "sim_ground_truth": 0.46471720933914185,
+      "sim_qwen_description": 0.43723708391189575,
+      "sim_instruments": 0.4350755214691162,
+      "sim_mood": 0.3672035336494446
+    },
+    {
+      "track_name": "The Multiverse",
+      "sim_ground_truth": 0.42232537269592285,
+      "sim_qwen_description": 0.615132212638855,
+      "sim_instruments": 0.4754272699356079,
+      "sim_mood": 0.56266188621521
+    },
+    {
+      "track_name": "The Ghost in the Latent Space (Unquantifiable)",
+      "sim_ground_truth": 0.49799394607543945,
+      "sim_qwen_description": 0.4205068349838257,
+      "sim_instruments": 0.4795045852661133,
+      "sim_mood": 0.2566993832588196
+    },
+    {
+      "track_name": "Sahasrara, Where the Light Has No Edge",
+      "sim_ground_truth": 0.39384758472442627,
+      "sim_qwen_description": 0.46438878774642944,
+      "sim_instruments": 0.5908212065696716,
+      "sim_mood": 0.35185638070106506
+    },
+    {
+      "track_name": "The Master's Logic",
+      "sim_ground_truth": 0.3527246117591858,
+      "sim_qwen_description": 0.5399492383003235,
+      "sim_instruments": 0.5361123085021973,
+      "sim_mood": 0.4740715026855469
+    },
+    {
+      "track_name": "Manipura, City of Inner Fire",
+      "sim_ground_truth": 0.5769852995872498,
+      "sim_qwen_description": 0.42109233140945435,
+      "sim_instruments": 0.37035998702049255,
+      "sim_mood": 0.4093862771987915
+    },
+    {
+      "track_name": "Milano\u2013Ginevra (Principio di Indeterminazione dei Treni)",
+      "sim_ground_truth": 0.46302804350852966,
+      "sim_qwen_description": 0.5394301414489746,
+      "sim_instruments": 0.5312911868095398,
+      "sim_mood": 0.3689539432525635
+    },
+    {
+      "track_name": "Like for Like",
+      "sim_ground_truth": 0.4342547655105591,
+      "sim_qwen_description": 0.5314798355102539,
+      "sim_instruments": 0.5510594844818115,
+      "sim_mood": 0.4104151725769043
+    },
+    {
+      "track_name": "Tiny Gods of the Washing Machine",
+      "sim_ground_truth": 0.3980688452720642,
+      "sim_qwen_description": 0.5472823977470398,
+      "sim_instruments": null,
+      "sim_mood": 0.46841561794281006
+    },
+    {
+      "track_name": "The Heisenbug",
+      "sim_ground_truth": 0.2522057592868805,
+      "sim_qwen_description": 0.4555465281009674,
+      "sim_instruments": 0.5212560296058655,
+      "sim_mood": 0.45092400908470154
+    },
+    {
+      "track_name": "Prepotenti al Potere",
+      "sim_ground_truth": 0.47672760486602783,
+      "sim_qwen_description": 0.42252492904663086,
+      "sim_instruments": 0.45642828941345215,
+      "sim_mood": 0.2081640064716339
+    },
+    {
+      "track_name": "La Coscienza non e\u0300 Calcolo",
+      "sim_ground_truth": 0.5747535228729248,
+      "sim_qwen_description": 0.4021291434764862,
+      "sim_instruments": 0.4146115183830261,
+      "sim_mood": 0.25497570633888245
+    },
+    {
+      "track_name": "Italiade IX - Il Fabbro Spaziale (Made in Italy)",
+      "sim_ground_truth": 0.5534124374389648,
+      "sim_qwen_description": 0.5737128853797913,
+      "sim_instruments": 0.5632121562957764,
+      "sim_mood": 0.5086259841918945
+    },
+    {
+      "track_name": "Gilded Sun",
+      "sim_ground_truth": 0.5427770614624023,
+      "sim_qwen_description": 0.36814379692077637,
+      "sim_instruments": 0.3939000368118286,
+      "sim_mood": 0.47196248173713684
+    },
+    {
+      "track_name": "Clockwork Aria",
+      "sim_ground_truth": 0.6188099980354309,
+      "sim_qwen_description": 0.46528899669647217,
+      "sim_instruments": 0.43447768688201904,
+      "sim_mood": 0.23075611889362335
+    },
+    {
+      "track_name": "It's a Sunny Day",
+      "sim_ground_truth": 0.32604628801345825,
+      "sim_qwen_description": 0.4875788688659668,
+      "sim_instruments": 0.5195227861404419,
+      "sim_mood": 0.4719981253147125
+    },
+    {
+      "track_name": "Era, Il Panopticon dello Sguardo",
+      "sim_ground_truth": 0.5154738426208496,
+      "sim_qwen_description": 0.4103161692619324,
+      "sim_instruments": 0.4870729446411133,
+      "sim_mood": 0.2089259773492813
+    },
+    {
+      "track_name": "Onanisti dei bits",
+      "sim_ground_truth": 0.4544472098350525,
+      "sim_qwen_description": 0.3357850909233093,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Digital Echoes",
+      "sim_ground_truth": 0.3126629590988159,
+      "sim_qwen_description": 0.5507473945617676,
+      "sim_instruments": 0.5456022024154663,
+      "sim_mood": 0.2767137885093689
+    },
+    {
+      "track_name": "Zero Calorie nell'Anima",
+      "sim_ground_truth": 0.40772709250450134,
+      "sim_qwen_description": 0.3346634805202484,
+      "sim_instruments": 0.5356316566467285,
+      "sim_mood": 0.345412939786911
+    },
+    {
+      "track_name": "A Bull-Like Craving",
+      "sim_ground_truth": 0.3975794315338135,
+      "sim_qwen_description": 0.4838325083255768,
+      "sim_instruments": 0.4579543471336365,
+      "sim_mood": 0.39307940006256104
+    },
+    {
+      "track_name": "Ermes_ Il Mercante di Frequenze",
+      "sim_ground_truth": 0.4004872441291809,
+      "sim_qwen_description": 0.623864471912384,
+      "sim_instruments": 0.48554593324661255,
+      "sim_mood": 0.45649611949920654
+    },
+    {
+      "track_name": "Esodo_ La Fine delle Trasmissioni",
+      "sim_ground_truth": 0.5150441527366638,
+      "sim_qwen_description": 0.4754091501235962,
+      "sim_instruments": 0.3831884264945984,
+      "sim_mood": 0.36389267444610596
+    },
+    {
+      "track_name": "Poseidone_ L'Abbraccio che Affoga",
+      "sim_ground_truth": 0.49105286598205566,
+      "sim_qwen_description": 0.6358695030212402,
+      "sim_instruments": 0.4423476457595825,
+      "sim_mood": 0.5230317115783691
+    },
+    {
+      "track_name": "Plea for Peace (From Every Neutral Land)",
+      "sim_ground_truth": 0.4906344413757324,
+      "sim_qwen_description": 0.3634380102157593,
+      "sim_instruments": 0.3657206892967224,
+      "sim_mood": 0.29224735498428345
+    },
+    {
+      "track_name": "Italiade VIII - Il Generale al Contrario",
+      "sim_ground_truth": 0.6525164246559143,
+      "sim_qwen_description": 0.4149864912033081,
+      "sim_instruments": 0.35701897740364075,
+      "sim_mood": 0.25712528824806213
+    },
+    {
+      "track_name": "Re_ Brain Supply Issue (From Zombie)",
+      "sim_ground_truth": 0.41816994547843933,
+      "sim_qwen_description": 0.37425196170806885,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Italiade XII - L'Apoteosi del Premierato (Finale)",
+      "sim_ground_truth": 0.5174069404602051,
+      "sim_qwen_description": 0.5307517051696777,
+      "sim_instruments": 0.4604977071285248,
+      "sim_mood": 0.5408369302749634
+    },
+    {
+      "track_name": "Pink Elephant Parade",
+      "sim_ground_truth": 0.4181138873100281,
+      "sim_qwen_description": 0.26033473014831543,
+      "sim_instruments": 0.31740087270736694,
+      "sim_mood": 0.5625430345535278
+    },
+    {
+      "track_name": "\u0423\u043b\u0438\u0446\u044b \u041c\u043e\u0441\u043a\u0432\u044b (Streets of Moscow)",
+      "sim_ground_truth": 0.628997802734375,
+      "sim_qwen_description": 0.6625335216522217,
+      "sim_instruments": 0.5153317451477051,
+      "sim_mood": 0.5658953189849854
+    },
+    {
+      "track_name": "Another Morning, Another Chance to Fight",
+      "sim_ground_truth": 0.4829753041267395,
+      "sim_qwen_description": 0.5133010149002075,
+      "sim_instruments": 0.445688933134079,
+      "sim_mood": 0.4179549217224121
+    },
+    {
+      "track_name": "AI Steering Committee",
+      "sim_ground_truth": 0.5557184815406799,
+      "sim_qwen_description": 0.3925473690032959,
+      "sim_instruments": 0.3855608105659485,
+      "sim_mood": 0.3246802091598511
+    },
+    {
+      "track_name": "Sogno Strano in 8K",
+      "sim_ground_truth": 0.18943923711776733,
+      "sim_qwen_description": 0.4253600239753723,
+      "sim_instruments": 0.4133712947368622,
+      "sim_mood": 0.2440280318260193
+    },
+    {
+      "track_name": "Pubblico Zero (versione folk-rock)",
+      "sim_ground_truth": 0.5398755073547363,
+      "sim_qwen_description": 0.5375567674636841,
+      "sim_instruments": 0.5106271505355835,
+      "sim_mood": 0.33544260263442993
+    },
+    {
+      "track_name": "(Tuesday) Men In The Machine",
+      "sim_ground_truth": 0.573543906211853,
+      "sim_qwen_description": 0.5761631727218628,
+      "sim_instruments": 0.5313694477081299,
+      "sim_mood": 0.43699634075164795
+    },
+    {
+      "track_name": "Italiade VI - La Danza Della Venere (Open To Meraviglia, Open To Indagine)",
+      "sim_ground_truth": 0.5987405776977539,
+      "sim_qwen_description": 0.48660433292388916,
+      "sim_instruments": 0.5408310890197754,
+      "sim_mood": 0.38757970929145813
+    },
+    {
+      "track_name": "Wednesday, I Wish Work Gave Us Meaning",
+      "sim_ground_truth": 0.6468198299407959,
+      "sim_qwen_description": 0.37179285287857056,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Where Living Is The Meaning  (The Mandala of Life)",
+      "sim_ground_truth": 0.36042970418930054,
+      "sim_qwen_description": 0.32955172657966614,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Down Spiral",
+      "sim_ground_truth": 0.5089157819747925,
+      "sim_qwen_description": 0.35801437497138977,
+      "sim_instruments": 0.25689423084259033,
+      "sim_mood": 0.2277897596359253
+    },
+    {
+      "track_name": "Italia, Italia (versione \ud83c\uddee\ud83c\uddf9)",
+      "sim_ground_truth": 0.5127156972885132,
+      "sim_qwen_description": 0.6588535904884338,
+      "sim_instruments": 0.4964759945869446,
+      "sim_mood": 0.5047392845153809
+    },
+    {
+      "track_name": "Dreaming In Ochre Circles",
+      "sim_ground_truth": 0.3538963198661804,
+      "sim_qwen_description": 0.4128074049949646,
+      "sim_instruments": 0.4016912579536438,
+      "sim_mood": 0.3489861488342285
+    },
+    {
+      "track_name": "Sunday Autoplay",
+      "sim_ground_truth": 0.4635765552520752,
+      "sim_qwen_description": 0.4221493601799011,
+      "sim_instruments": 0.46521514654159546,
+      "sim_mood": 0.48548799753189087
+    },
+    {
+      "track_name": "Aum Om Mani Pad Me Hum",
+      "sim_ground_truth": 0.5158418416976929,
+      "sim_qwen_description": 0.2217017263174057,
+      "sim_instruments": 0.3457227349281311,
+      "sim_mood": 0.27034154534339905
+    },
+    {
+      "track_name": "Experiment_ Ableton + Suno",
+      "sim_ground_truth": 0.35224032402038574,
+      "sim_qwen_description": 0.4982075095176697,
+      "sim_instruments": 0.4400878846645355,
+      "sim_mood": 0.42850935459136963
+    },
+    {
+      "track_name": "BDSM",
+      "sim_ground_truth": 0.361395925283432,
+      "sim_qwen_description": 0.5069193243980408,
+      "sim_instruments": 0.44472771883010864,
+      "sim_mood": 0.5322383046150208
+    },
+    {
+      "track_name": "Solitudine all'estero",
+      "sim_ground_truth": 0.3557782769203186,
+      "sim_qwen_description": 0.42167896032333374,
+      "sim_instruments": 0.4725266098976135,
+      "sim_mood": 0.3519880175590515
+    },
+    {
+      "track_name": "(Gear List) Experiment_ Soundtrack in Ableton + Add Vocal in Suno",
+      "sim_ground_truth": 0.48158159852027893,
+      "sim_qwen_description": 0.3848217725753784,
+      "sim_instruments": 0.308280885219574,
+      "sim_mood": 0.36924290657043457
+    },
+    {
+      "track_name": "Italia, Italia",
+      "sim_ground_truth": 0.5177257657051086,
+      "sim_qwen_description": 0.37028616666793823,
+      "sim_instruments": 0.5297232866287231,
+      "sim_mood": 0.3487411439418793
+    },
+    {
+      "track_name": "Rain on a Friday Night",
+      "sim_ground_truth": 0.5857831239700317,
+      "sim_qwen_description": 0.456900954246521,
+      "sim_instruments": 0.397758424282074,
+      "sim_mood": 0.35866785049438477
+    },
+    {
+      "track_name": "Staying In Bed",
+      "sim_ground_truth": 0.4726943075656891,
+      "sim_qwen_description": 0.3577890992164612,
+      "sim_instruments": 0.3719238042831421,
+      "sim_mood": 0.3821618854999542
+    },
+    {
+      "track_name": "Inner Fire (Steampunk _ Industrial Rock Remix)",
+      "sim_ground_truth": 0.44135117530822754,
+      "sim_qwen_description": 0.578423261642456,
+      "sim_instruments": 0.5343657732009888,
+      "sim_mood": 0.5395990610122681
+    },
+    {
+      "track_name": "Right Now Not Tomorrow",
+      "sim_ground_truth": 0.5224841833114624,
+      "sim_qwen_description": 0.5431755781173706,
+      "sim_instruments": 0.5190005302429199,
+      "sim_mood": 0.4604521691799164
+    },
+    {
+      "track_name": "Thursday, We Start to Run at the Finish Line",
+      "sim_ground_truth": 0.5891427993774414,
+      "sim_qwen_description": 0.3323952555656433,
+      "sim_instruments": 0.358743816614151,
+      "sim_mood": 0.3137669563293457
+    },
+    {
+      "track_name": "Tear, Your Way Back",
+      "sim_ground_truth": 0.550910234451294,
+      "sim_qwen_description": 0.5080382823944092,
+      "sim_instruments": 0.4522678852081299,
+      "sim_mood": 0.44881606101989746
+    },
+    {
+      "track_name": "Italiade V - Il Ponte sull\u2019Infinito",
+      "sim_ground_truth": 0.5887806415557861,
+      "sim_qwen_description": 0.3567698001861572,
+      "sim_instruments": 0.2701941728591919,
+      "sim_mood": 0.28681236505508423
+    },
+    {
+      "track_name": "Ade_ Il Silenzio del Sottosuolo (Rap-Metal)",
+      "sim_ground_truth": 0.5716454982757568,
+      "sim_qwen_description": 0.2821134328842163,
+      "sim_instruments": 0.47734376788139343,
+      "sim_mood": 0.28087252378463745
+    },
+    {
+      "track_name": "Ethereal Music Recipe-1",
+      "sim_ground_truth": 0.36470648646354675,
+      "sim_qwen_description": 0.5396056175231934,
+      "sim_instruments": 0.507205605506897,
+      "sim_mood": 0.39040976762771606
+    },
+    {
+      "track_name": "The Symbolic Weaver",
+      "sim_ground_truth": 0.4735133647918701,
+      "sim_qwen_description": 0.3957308232784271,
+      "sim_instruments": 0.3620552718639374,
+      "sim_mood": 0.42279547452926636
+    },
+    {
+      "track_name": "Microseconds (High-Frequency Trading)",
+      "sim_ground_truth": 0.11067259311676025,
+      "sim_qwen_description": 0.5032081604003906,
+      "sim_instruments": 0.5650577545166016,
+      "sim_mood": 0.3617985248565674
+    },
+    {
+      "track_name": "Waiting, waiting (one more hour)",
+      "sim_ground_truth": 0.5485220551490784,
+      "sim_qwen_description": 0.5832010507583618,
+      "sim_instruments": 0.539849042892456,
+      "sim_mood": 0.3656180799007416
+    },
+    {
+      "track_name": "The Heist (Went Wrong)",
+      "sim_ground_truth": 0.5523389577865601,
+      "sim_qwen_description": 0.4876880645751953,
+      "sim_instruments": 0.4261658787727356,
+      "sim_mood": 0.4813406467437744
+    },
+    {
+      "track_name": "Ganesha and The Serpent Belt",
+      "sim_ground_truth": 0.442363977432251,
+      "sim_qwen_description": 0.39237430691719055,
+      "sim_instruments": 0.2983117401599884,
+      "sim_mood": 0.31155556440353394
+    },
+    {
+      "track_name": "Audience of Zero",
+      "sim_ground_truth": 0.5502163171768188,
+      "sim_qwen_description": 0.34553033113479614,
+      "sim_instruments": 0.3962656259536743,
+      "sim_mood": 0.3686882257461548
+    },
+    {
+      "track_name": "The Halfway Rooms (Locrian Remix)",
+      "sim_ground_truth": 0.25501829385757446,
+      "sim_qwen_description": 0.4489735960960388,
+      "sim_instruments": 0.28830254077911377,
+      "sim_mood": 0.3828127384185791
+    },
+    {
+      "track_name": "Lessons From the Edge of the Light",
+      "sim_ground_truth": 0.6407366991043091,
+      "sim_qwen_description": 0.3819931149482727,
+      "sim_instruments": 0.3291237950325012,
+      "sim_mood": 0.33503422141075134
+    },
+    {
+      "track_name": "Sand Devils in the Sky (\u062e\u0630\u0646\u064a \u0644\u0631\u0642\u0635\u0629 \u0634\u064a\u0627\u0637\u064a\u0646 \u0627\u0644\u0631\u0645\u0627\u0644)",
+      "sim_ground_truth": 0.5466862916946411,
+      "sim_qwen_description": 0.4546486735343933,
+      "sim_instruments": 0.44598859548568726,
+      "sim_mood": 0.3599777817726135
+    },
+    {
+      "track_name": "Enough Yawning",
+      "sim_ground_truth": 0.32483023405075073,
+      "sim_qwen_description": 0.47683799266815186,
+      "sim_instruments": 0.42590856552124023,
+      "sim_mood": 0.35299110412597656
+    },
+    {
+      "track_name": "San Valentino da Single",
+      "sim_ground_truth": 0.5566428899765015,
+      "sim_qwen_description": 0.3225330114364624,
+      "sim_instruments": 0.4289610683917999,
+      "sim_mood": 0.25837481021881104
+    },
+    {
+      "track_name": "Sandman, Stay With Me",
+      "sim_ground_truth": 0.403533935546875,
+      "sim_qwen_description": 0.19336141645908356,
+      "sim_instruments": 0.457780122756958,
+      "sim_mood": 0.40320783853530884
+    },
+    {
+      "track_name": "Giovedi\u0300, On-Call",
+      "sim_ground_truth": 0.3644232153892517,
+      "sim_qwen_description": 0.5176434516906738,
+      "sim_instruments": 0.5406520366668701,
+      "sim_mood": 0.3444625735282898
+    },
+    {
+      "track_name": "City At 03_17",
+      "sim_ground_truth": 0.5117496252059937,
+      "sim_qwen_description": 0.3859214186668396,
+      "sim_instruments": 0.5763728022575378,
+      "sim_mood": 0.49696463346481323
+    },
+    {
+      "track_name": "Kitchen And Egg",
+      "sim_ground_truth": 0.503771185874939,
+      "sim_qwen_description": 0.6067883968353271,
+      "sim_instruments": 0.5066914558410645,
+      "sim_mood": 0.5904977321624756
+    },
+    {
+      "track_name": "Noia di Vivere",
+      "sim_ground_truth": 0.43142467737197876,
+      "sim_qwen_description": 0.38111430406570435,
+      "sim_instruments": 0.34196433424949646,
+      "sim_mood": 0.35956525802612305
+    },
+    {
+      "track_name": "L'Artificio di Vulcano",
+      "sim_ground_truth": 0.398199200630188,
+      "sim_qwen_description": 0.4903066158294678,
+      "sim_instruments": 0.4710657596588135,
+      "sim_mood": 0.16205790638923645
+    },
+    {
+      "track_name": "Lovecraft Creation Myth",
+      "sim_ground_truth": 0.2561952769756317,
+      "sim_qwen_description": 0.3794933259487152,
+      "sim_instruments": 0.35595348477363586,
+      "sim_mood": 0.25100505352020264
+    },
+    {
+      "track_name": "Il Manuale Non C\u2019e\u0300",
+      "sim_ground_truth": 0.5486290454864502,
+      "sim_qwen_description": 0.49625688791275024,
+      "sim_instruments": 0.3980594873428345,
+      "sim_mood": 0.40210509300231934
+    },
+    {
+      "track_name": "May the Pager Remain Silent",
+      "sim_ground_truth": 0.3101083040237427,
+      "sim_qwen_description": 0.42354127764701843,
+      "sim_instruments": 0.5215238332748413,
+      "sim_mood": 0.32871049642562866
+    },
+    {
+      "track_name": "History Became Myth (80s-90s computers nostalgia)",
+      "sim_ground_truth": 0.42062896490097046,
+      "sim_qwen_description": 0.304243266582489,
+      "sim_instruments": 0.37876707315444946,
+      "sim_mood": 0.3601067066192627
+    },
+    {
+      "track_name": "AUM Rising",
+      "sim_ground_truth": 0.6320998668670654,
+      "sim_qwen_description": 0.22505399584770203,
+      "sim_instruments": 0.37396669387817383,
+      "sim_mood": 0.16703356802463531
+    },
+    {
+      "track_name": "Prompted Out",
+      "sim_ground_truth": 0.6021423935890198,
+      "sim_qwen_description": 0.4753393530845642,
+      "sim_instruments": 0.5075979828834534,
+      "sim_mood": 0.20430698990821838
+    },
+    {
+      "track_name": "Vishuddha, Sky Inside My Voice",
+      "sim_ground_truth": 0.5351473689079285,
+      "sim_qwen_description": 0.508105456829071,
+      "sim_instruments": 0.517555296421051,
+      "sim_mood": 0.42670005559921265
+    },
+    {
+      "track_name": "Apollo, La Tirannia della Luce",
+      "sim_ground_truth": 0.4144083857536316,
+      "sim_qwen_description": 0.6730607748031616,
+      "sim_instruments": 0.5105736255645752,
+      "sim_mood": 0.5242906808853149
+    },
+    {
+      "track_name": "Illuminati\u2026 un po\u2019 \u2019cecati",
+      "sim_ground_truth": 0.510603666305542,
+      "sim_qwen_description": 0.42201000452041626,
+      "sim_instruments": 0.3807234466075897,
+      "sim_mood": 0.20975716412067413
+    },
+    {
+      "track_name": "Afternoon Lullaby",
+      "sim_ground_truth": 0.4172036051750183,
+      "sim_qwen_description": 0.48299458622932434,
+      "sim_instruments": 0.4073415994644165,
+      "sim_mood": 0.42161333560943604
+    },
+    {
+      "track_name": "In line at the offices",
+      "sim_ground_truth": 0.5684431195259094,
+      "sim_qwen_description": 0.5342546701431274,
+      "sim_instruments": 0.5272508859634399,
+      "sim_mood": 0.39370596408843994
+    },
+    {
+      "track_name": "La Scatola dei Cavi Inutili",
+      "sim_ground_truth": 0.5607044696807861,
+      "sim_qwen_description": 0.554151713848114,
+      "sim_instruments": 0.42512497305870056,
+      "sim_mood": 0.45663562417030334
+    },
+    {
+      "track_name": "Muladhara Groove",
+      "sim_ground_truth": 0.5375837087631226,
+      "sim_qwen_description": 0.29974037408828735,
+      "sim_instruments": 0.3321528136730194,
+      "sim_mood": 0.32003945112228394
+    },
+    {
+      "track_name": "Ethereal Music Recipe",
+      "sim_ground_truth": 0.3550187945365906,
+      "sim_qwen_description": 0.43118196725845337,
+      "sim_instruments": 0.4567808210849762,
+      "sim_mood": 0.3048709034919739
+    },
+    {
+      "track_name": "In Ordem (Instrumental)",
+      "sim_ground_truth": 0.44465893507003784,
+      "sim_qwen_description": 0.4894888401031494,
+      "sim_instruments": 0.46962952613830566,
+      "sim_mood": 0.22568592429161072
+    },
+    {
+      "track_name": "Aum Om Mani Pad Me Hum (Epic Edition)",
+      "sim_ground_truth": 0.5392147302627563,
+      "sim_qwen_description": 0.7192333936691284,
+      "sim_instruments": 0.5358920693397522,
+      "sim_mood": 0.6163025498390198
+    },
+    {
+      "track_name": "Feed the Furnace",
+      "sim_ground_truth": 0.6610366106033325,
+      "sim_qwen_description": 0.43885284662246704,
+      "sim_instruments": 0.5363678336143494,
+      "sim_mood": 0.49619603157043457
+    },
+    {
+      "track_name": "(Remix Me) Urla nel Silenzio",
+      "sim_ground_truth": 0.46171045303344727,
+      "sim_qwen_description": 0.43049156665802,
+      "sim_instruments": 0.41861972212791443,
+      "sim_mood": 0.2521040141582489
+    },
+    {
+      "track_name": "Italiade - Roma Nord Che Ansima",
+      "sim_ground_truth": 0.45192062854766846,
+      "sim_qwen_description": 0.46713733673095703,
+      "sim_instruments": 0.39105865359306335,
+      "sim_mood": null
+    },
+    {
+      "track_name": "My GPS Lied to Me",
+      "sim_ground_truth": 0.6615051627159119,
+      "sim_qwen_description": 0.40225422382354736,
+      "sim_instruments": 0.32262855768203735,
+      "sim_mood": 0.3778841495513916
+    },
+    {
+      "track_name": "Human Error (And That\u2019s Okay)",
+      "sim_ground_truth": 0.6564850807189941,
+      "sim_qwen_description": 0.4634834825992584,
+      "sim_instruments": 0.41936489939689636,
+      "sim_mood": 0.40220338106155396
+    },
+    {
+      "track_name": "Friday, We Become Human Again",
+      "sim_ground_truth": 0.6030488014221191,
+      "sim_qwen_description": 0.553629994392395,
+      "sim_instruments": 0.5652230978012085,
+      "sim_mood": 0.4507237672805786
+    },
+    {
+      "track_name": "Il Valzer della Bilancia",
+      "sim_ground_truth": 0.3336288630962372,
+      "sim_qwen_description": 0.32279515266418457,
+      "sim_instruments": 0.32736459374427795,
+      "sim_mood": 0.357944130897522
+    },
+    {
+      "track_name": "Le Piante Tifano Per Me",
+      "sim_ground_truth": 0.4463058412075043,
+      "sim_qwen_description": 0.48108571767807007,
+      "sim_instruments": 0.4740257263183594,
+      "sim_mood": 0.44997209310531616
+    },
+    {
+      "track_name": "L'Estasi delle Menadi (Dionisio)",
+      "sim_ground_truth": 0.5746208429336548,
+      "sim_qwen_description": 0.4521195888519287,
+      "sim_instruments": 0.5521940588951111,
+      "sim_mood": 0.47374773025512695
+    },
+    {
+      "track_name": "Artemide, L\u2019Ultima Liberta\u0300",
+      "sim_ground_truth": 0.46540021896362305,
+      "sim_qwen_description": 0.32823097705841064,
+      "sim_instruments": 0.2645331621170044,
+      "sim_mood": 0.3716204762458801
+    },
+    {
+      "track_name": "Lunedi\u0300 Che Palle (Reggae)",
+      "sim_ground_truth": 0.4618079364299774,
+      "sim_qwen_description": 0.3843546509742737,
+      "sim_instruments": 0.32314950227737427,
+      "sim_mood": 0.3121240437030792
+    },
+    {
+      "track_name": "Life's Anxieties",
+      "sim_ground_truth": 0.45563602447509766,
+      "sim_qwen_description": 0.42249351739883423,
+      "sim_instruments": 0.37422436475753784,
+      "sim_mood": 0.3718440532684326
+    },
+    {
+      "track_name": "Endless Anyway",
+      "sim_ground_truth": 0.6092799305915833,
+      "sim_qwen_description": 0.48758798837661743,
+      "sim_instruments": 0.4326021671295166,
+      "sim_mood": 0.45920485258102417
+    },
+    {
+      "track_name": "Cuore Rosso",
+      "sim_ground_truth": 0.5687654614448547,
+      "sim_qwen_description": 0.6879525780677795,
+      "sim_instruments": 0.4786517918109894,
+      "sim_mood": 0.5023348927497864
+    },
+    {
+      "track_name": "The Halfway Rooms",
+      "sim_ground_truth": 0.4137469232082367,
+      "sim_qwen_description": 0.3048619031906128,
+      "sim_instruments": null,
+      "sim_mood": 0.30753564834594727
+    },
+    {
+      "track_name": "Fuori Posto, Fuori Fuoco",
+      "sim_ground_truth": 0.6706721782684326,
+      "sim_qwen_description": 0.6110170483589172,
+      "sim_instruments": 0.5865205526351929,
+      "sim_mood": 0.5534708499908447
+    },
+    {
+      "track_name": "Cycle of the Workday Saints",
+      "sim_ground_truth": 0.4698624014854431,
+      "sim_qwen_description": 0.3393045663833618,
+      "sim_instruments": 0.4219393730163574,
+      "sim_mood": 0.31602662801742554
+    },
+    {
+      "track_name": "Convergence & The Void",
+      "sim_ground_truth": 0.42171308398246765,
+      "sim_qwen_description": 0.5262342691421509,
+      "sim_instruments": 0.5661386251449585,
+      "sim_mood": 0.45703139901161194
+    },
+    {
+      "track_name": "If It Survives Today...",
+      "sim_ground_truth": 0.45992159843444824,
+      "sim_qwen_description": 0.3990735113620758,
+      "sim_instruments": 0.4800143837928772,
+      "sim_mood": 0.4325922727584839
+    },
+    {
+      "track_name": "Italiade I - L\u2019Ira della Bionda (Giorgia Mia, Nun Me Scaccia\u0300)",
+      "sim_ground_truth": 0.48476898670196533,
+      "sim_qwen_description": 0.34330666065216064,
+      "sim_instruments": 0.3171694874763489,
+      "sim_mood": 0.2829965353012085
+    },
+    {
+      "track_name": "Il Miracolo E\u0300 Questo",
+      "sim_ground_truth": 0.5996404886245728,
+      "sim_qwen_description": 0.3032028079032898,
+      "sim_instruments": 0.25440555810928345,
+      "sim_mood": 0.2500803470611572
+    },
+    {
+      "track_name": "FIRE",
+      "sim_ground_truth": 0.23816390335559845,
+      "sim_qwen_description": 0.4126013219356537,
+      "sim_instruments": 0.3207637071609497,
+      "sim_mood": 0.3793063163757324
+    },
+    {
+      "track_name": "Prompt Recipe (Cheatsheet in comments)",
+      "sim_ground_truth": 0.5431219339370728,
+      "sim_qwen_description": 0.5264245867729187,
+      "sim_instruments": 0.5200731158256531,
+      "sim_mood": 0.3602352738380432
+    },
+    {
+      "track_name": "Checkmate Isn\u2019t Peace",
+      "sim_ground_truth": 0.4654843211174011,
+      "sim_qwen_description": 0.5812345743179321,
+      "sim_instruments": 0.5168336629867554,
+      "sim_mood": 0.5085742473602295
+    },
+    {
+      "track_name": "MPC",
+      "sim_ground_truth": 0.6348920464515686,
+      "sim_qwen_description": 0.593772828578949,
+      "sim_instruments": 0.42952799797058105,
+      "sim_mood": 0.3534921109676361
+    },
+    {
+      "track_name": "Don\u2019t Waste Saturday",
+      "sim_ground_truth": 0.45066338777542114,
+      "sim_qwen_description": 0.42534756660461426,
+      "sim_instruments": 0.4138098955154419,
+      "sim_mood": 0.3716948628425598
+    },
+    {
+      "track_name": "Noise",
+      "sim_ground_truth": 0.24662229418754578,
+      "sim_qwen_description": 0.49006152153015137,
+      "sim_instruments": 0.5404964089393616,
+      "sim_mood": 0.26104533672332764
+    },
+    {
+      "track_name": "Italiade IV \u2013 Reality della Discordia (regia di Matteo con Elly e Giuseppe)",
+      "sim_ground_truth": 0.2965991795063019,
+      "sim_qwen_description": 0.43657058477401733,
+      "sim_instruments": 0.36477547883987427,
+      "sim_mood": 0.3021402359008789
+    },
+    {
+      "track_name": "Giove, Il Peso del Fulmine (Progressive Art-Rock Remix)",
+      "sim_ground_truth": 0.5676213502883911,
+      "sim_qwen_description": 0.7195045351982117,
+      "sim_instruments": 0.39426252245903015,
+      "sim_mood": 0.5520382523536682
+    },
+    {
+      "track_name": "Pangu (Ying and Yang)",
+      "sim_ground_truth": 0.5229110717773438,
+      "sim_qwen_description": 0.47416847944259644,
+      "sim_instruments": 0.5756098031997681,
+      "sim_mood": 0.23575752973556519
+    },
+    {
+      "track_name": "Persefone, La Regina Del Consenso",
+      "sim_ground_truth": 0.34867796301841736,
+      "sim_qwen_description": 0.4321426749229431,
+      "sim_instruments": 0.5095915794372559,
+      "sim_mood": 0.36761999130249023
+    },
+    {
+      "track_name": "Venerdi\u0300 Sera (Solo Silenzio)",
+      "sim_ground_truth": 0.26282811164855957,
+      "sim_qwen_description": 0.5992718935012817,
+      "sim_instruments": 0.5317655205726624,
+      "sim_mood": 0.5854269862174988
+    },
+    {
+      "track_name": "Dance",
+      "sim_ground_truth": 0.25714612007141113,
+      "sim_qwen_description": 0.6139090061187744,
+      "sim_instruments": 0.5889270305633545,
+      "sim_mood": 0.4225296974182129
+    },
+    {
+      "track_name": "Energy Power-up",
+      "sim_ground_truth": 0.5012435913085938,
+      "sim_qwen_description": 0.627212643623352,
+      "sim_instruments": 0.5665903091430664,
+      "sim_mood": 0.4872955083847046
+    },
+    {
+      "track_name": "La Riga Sottile (Il Debito)",
+      "sim_ground_truth": 0.3957645297050476,
+      "sim_qwen_description": 0.4161904752254486,
+      "sim_instruments": 0.472136527299881,
+      "sim_mood": 0.24557015299797058
+    },
+    {
+      "track_name": "Fenrir & Gleipnir",
+      "sim_ground_truth": 0.5238461494445801,
+      "sim_qwen_description": 0.07045336812734604,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Sleepy Morning",
+      "sim_ground_truth": 0.5759925842285156,
+      "sim_qwen_description": 0.5427799820899963,
+      "sim_instruments": 0.4521704912185669,
+      "sim_mood": 0.4817062020301819
+    },
+    {
+      "track_name": "Ninna Nanna Pre-Registrata",
+      "sim_ground_truth": 0.4786666929721832,
+      "sim_qwen_description": 0.4484303593635559,
+      "sim_instruments": 0.5191293358802795,
+      "sim_mood": 0.23419994115829468
+    },
+    {
+      "track_name": "The Last Override (Doomsday Protocol)",
+      "sim_ground_truth": 0.4720288813114166,
+      "sim_qwen_description": 0.6527729034423828,
+      "sim_instruments": 0.5169455409049988,
+      "sim_mood": 0.587347149848938
+    },
+    {
+      "track_name": "Weekend Oncall (Cloud Wants Love)",
+      "sim_ground_truth": 0.5956102609634399,
+      "sim_qwen_description": 0.47300317883491516,
+      "sim_instruments": 0.4932693839073181,
+      "sim_mood": 0.3937821388244629
+    },
+    {
+      "track_name": "Il Nodo d'Oro_ Venere tra Fuoco e Sangue",
+      "sim_ground_truth": 0.5963932275772095,
+      "sim_qwen_description": 0.5885274410247803,
+      "sim_instruments": 0.47253677248954773,
+      "sim_mood": 0.577541172504425
+    },
+    {
+      "track_name": "Perdendo Le Mie Chiavi",
+      "sim_ground_truth": 0.47037166357040405,
+      "sim_qwen_description": 0.4382971227169037,
+      "sim_instruments": 0.4991781711578369,
+      "sim_mood": 0.2976790964603424
+    },
+    {
+      "track_name": "I'm with stupid tonight",
+      "sim_ground_truth": 0.337615966796875,
+      "sim_qwen_description": 0.1850665956735611,
+      "sim_instruments": 0.3340965211391449,
+      "sim_mood": 0.3029051423072815
+    },
+    {
+      "track_name": "Cinquanta Inverni",
+      "sim_ground_truth": 0.6089393496513367,
+      "sim_qwen_description": 0.6899164915084839,
+      "sim_instruments": 0.5866963863372803,
+      "sim_mood": 0.5969473123550415
+    },
+    {
+      "track_name": "Viaggio nel Vuoto",
+      "sim_ground_truth": 0.22493210434913635,
+      "sim_qwen_description": 0.28505802154541016,
+      "sim_instruments": 0.30194246768951416,
+      "sim_mood": 0.3245963454246521
+    },
+    {
+      "track_name": "Sempre Noi Due (Tempi Incerti)",
+      "sim_ground_truth": 0.5795193910598755,
+      "sim_qwen_description": 0.4982314109802246,
+      "sim_instruments": 0.54665207862854,
+      "sim_mood": 0.37015482783317566
+    },
+    {
+      "track_name": "Trova il tuo Centro",
+      "sim_ground_truth": 0.4031916558742523,
+      "sim_qwen_description": 0.39275336265563965,
+      "sim_instruments": 0.42307567596435547,
+      "sim_mood": 0.268280565738678
+    },
+    {
+      "track_name": "Suite for Saxophone, Digideridoos, and Triangle (Instrumental)",
+      "sim_ground_truth": 0.5330906510353088,
+      "sim_qwen_description": 0.5725721120834351,
+      "sim_instruments": 0.5599826574325562,
+      "sim_mood": 0.4619629383087158
+    },
+    {
+      "track_name": "Ajna, Third Eye Chakra",
+      "sim_ground_truth": 0.41804373264312744,
+      "sim_qwen_description": 0.4004533588886261,
+      "sim_instruments": 0.4563707113265991,
+      "sim_mood": 0.27466487884521484
+    },
+    {
+      "track_name": "Same Week Again",
+      "sim_ground_truth": 0.640425443649292,
+      "sim_qwen_description": 0.434794545173645,
+      "sim_instruments": 0.5244930982589722,
+      "sim_mood": 0.32736822962760925
+    },
+    {
+      "track_name": "The Adjunction",
+      "sim_ground_truth": 0.5090893507003784,
+      "sim_qwen_description": 0.4048956036567688,
+      "sim_instruments": 0.46907997131347656,
+      "sim_mood": 0.27792543172836304
+    },
+    {
+      "track_name": "Slow Monday Starts Again",
+      "sim_ground_truth": 0.4787013530731201,
+      "sim_qwen_description": 0.33911794424057007,
+      "sim_instruments": 0.39212509989738464,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Slopwright Waltz",
+      "sim_ground_truth": 0.44185489416122437,
+      "sim_qwen_description": 0.47609150409698486,
+      "sim_instruments": 0.3784584105014801,
+      "sim_mood": 0.33294516801834106
+    },
+    {
+      "track_name": "The Ultimatum (The Tail is Wagging the Dog)",
+      "sim_ground_truth": 0.47641390562057495,
+      "sim_qwen_description": 0.4595292806625366,
+      "sim_instruments": 0.48544061183929443,
+      "sim_mood": 0.19304680824279785
+    },
+    {
+      "track_name": "Dirty Minds",
+      "sim_ground_truth": 0.3703613579273224,
+      "sim_qwen_description": 0.3643081486225128,
+      "sim_instruments": 0.3401612639427185,
+      "sim_mood": 0.3156338632106781
+    },
+    {
+      "track_name": "The Velvet Current",
+      "sim_ground_truth": 0.5394375920295715,
+      "sim_qwen_description": 0.42642831802368164,
+      "sim_instruments": 0.40879717469215393,
+      "sim_mood": 0.34481731057167053
+    },
+    {
+      "track_name": "Risorsa disumana",
+      "sim_ground_truth": 0.4536552429199219,
+      "sim_qwen_description": 0.47463053464889526,
+      "sim_instruments": 0.5244450569152832,
+      "sim_mood": 0.40024006366729736
+    },
+    {
+      "track_name": "Miscela 100% Robusta",
+      "sim_ground_truth": 0.5409352779388428,
+      "sim_qwen_description": 0.380057692527771,
+      "sim_instruments": 0.5172275304794312,
+      "sim_mood": 0.23112498223781586
+    },
+    {
+      "track_name": "No Reservations Tonight",
+      "sim_ground_truth": 0.4479075074195862,
+      "sim_qwen_description": 0.4954835772514343,
+      "sim_instruments": 0.496454656124115,
+      "sim_mood": 0.40161198377609253
+    },
+    {
+      "track_name": "Italiade VII - Dura Lex, ma Con Moderazione (il Sonno Della Ragione)",
+      "sim_ground_truth": 0.5493738651275635,
+      "sim_qwen_description": 0.22243022918701172,
+      "sim_instruments": null,
+      "sim_mood": null
+    },
+    {
+      "track_name": "Proemio_ Il Circo dell'Olimpo",
+      "sim_ground_truth": 0.5158846378326416,
+      "sim_qwen_description": 0.6689521074295044,
+      "sim_instruments": 0.5509011149406433,
+      "sim_mood": 0.4324973523616791
+    },
+    {
+      "track_name": "Bianchi Cadaveri sulle Pareti",
+      "sim_ground_truth": 0.3859456479549408,
+      "sim_qwen_description": 0.5374950170516968,
+      "sim_instruments": 0.5133422613143921,
+      "sim_mood": 0.28386691212654114
+    },
+    {
+      "track_name": "IP over Birds (RFC 1149)",
+      "sim_ground_truth": 0.5612132549285889,
+      "sim_qwen_description": 0.38626134395599365,
+      "sim_instruments": 0.330335795879364,
+      "sim_mood": 0.2864297926425934
+    },
+    {
+      "track_name": "Italiade X - La Profetessa dell'Armocromia (Elly)",
+      "sim_ground_truth": 0.4135402739048004,
+      "sim_qwen_description": 0.3559523820877075,
+      "sim_instruments": 0.5043528079986572,
+      "sim_mood": 0.26192334294319153
+    },
+    {
+      "track_name": "Click, Click... La Regina del Sistema",
+      "sim_ground_truth": 0.5510584115982056,
+      "sim_qwen_description": 0.5304044485092163,
+      "sim_instruments": 0.4019488990306854,
+      "sim_mood": 0.45131194591522217
+    },
+    {
+      "track_name": "Search, The Paradox Of Choice",
+      "sim_ground_truth": 0.5553572177886963,
+      "sim_qwen_description": 0.7197140455245972,
+      "sim_instruments": 0.5798434019088745,
+      "sim_mood": 0.5668607950210571
+    },
+    {
+      "track_name": "Italiade III - Il Ciclope di Terni (L'Ascesa)",
+      "sim_ground_truth": 0.6732897162437439,
+      "sim_qwen_description": 0.6395525336265564,
+      "sim_instruments": 0.5271145105361938,
+      "sim_mood": 0.6112385392189026
+    },
+    {
+      "track_name": "Consciousness Is Not Computation",
+      "sim_ground_truth": 0.47049766778945923,
+      "sim_qwen_description": 0.45333418250083923,
+      "sim_instruments": 0.4104631543159485,
+      "sim_mood": 0.4058797359466553
+    },
+    {
+      "track_name": "Cthulhu, Fhtagn in the Deep",
+      "sim_ground_truth": 0.5920212268829346,
+      "sim_qwen_description": 0.39015209674835205,
+      "sim_instruments": 0.4862138628959656,
+      "sim_mood": 0.12052314728498459
+    },
+    {
+      "track_name": "Anahata, The Space Between Heartbeats",
+      "sim_ground_truth": 0.5262972116470337,
+      "sim_qwen_description": 0.43068915605545044,
+      "sim_instruments": 0.38675251603126526,
+      "sim_mood": 0.3134002685546875
+    },
+    {
+      "track_name": "Italiade II - Il Destriero Fermato (Dominus Trenorum)",
+      "sim_ground_truth": 0.5293534994125366,
+      "sim_qwen_description": 0.2806236147880554,
+      "sim_instruments": 0.2503831088542938,
+      "sim_mood": 0.18141904473304749
+    },
+    {
+      "track_name": "Martedi\u0300 l\u2019e\u0300 minga mej del lunedi\u0300",
+      "sim_ground_truth": 0.4381924867630005,
+      "sim_qwen_description": 0.44924312829971313,
+      "sim_instruments": 0.35716894268989563,
+      "sim_mood": 0.38114017248153687
+    },
+    {
+      "track_name": "Italiade XI - Il CamaleConte",
+      "sim_ground_truth": 0.43355125188827515,
+      "sim_qwen_description": 0.31935277581214905,
+      "sim_instruments": 0.2883133590221405,
+      "sim_mood": 0.3431144952774048
+    },
+    {
+      "track_name": "Diplomatic Toys (Missiles into Dildos_)",
+      "sim_ground_truth": 0.538075864315033,
+      "sim_qwen_description": 0.2652912437915802,
+      "sim_instruments": 0.4597383737564087,
+      "sim_mood": 0.19108708202838898
+    },
+    {
+      "track_name": "10, 9, 8... Sveglia!",
+      "sim_ground_truth": 0.4657301604747772,
+      "sim_qwen_description": 0.5288345813751221,
+      "sim_instruments": 0.5005778074264526,
+      "sim_mood": 0.2937091886997223
+    },
+    {
+      "track_name": "Svadhisthana, River of Orange Light",
+      "sim_ground_truth": 0.38405388593673706,
+      "sim_qwen_description": 0.3057992458343506,
+      "sim_instruments": 0.33912375569343567,
+      "sim_mood": 0.3068493604660034
+    },
+    {
+      "track_name": "Stamattina zero sbatti",
+      "sim_ground_truth": 0.5139856934547424,
+      "sim_qwen_description": 0.49702614545822144,
+      "sim_instruments": 0.46620768308639526,
+      "sim_mood": 0.3998692035675049
+    },
+    {
+      "track_name": "The Music of the Spheres (Pythagoras)",
+      "sim_ground_truth": 0.2528926730155945,
+      "sim_qwen_description": 0.44150882959365845,
+      "sim_instruments": 0.47557803988456726,
+      "sim_mood": 0.42027825117111206
+    }
+  ]
+}

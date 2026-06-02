@@ -837,4 +837,51 @@ mod tests {
         assert_eq!(status_102, 3);
         assert_eq!(log_102, Some("Injected failure".to_string()));
     }
+
+    #[test]
+    fn test_reset_clap_cascades_to_qwen() {
+        let conn = setup_test_db();
+        
+        // 1. Seed directories and tracks
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+        
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, 1, '/tracks/1.mp3', '1.mp3', 100, 0, 100)",
+            [],
+        ).unwrap();
+
+        // Seed clap and qwen passes as DONE (status = 2)
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status)
+             VALUES (1, 'clap', 20, 2)",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status)
+             VALUES (1, 'qwen', 50, 2)",
+            [],
+        ).unwrap();
+
+        // 2. Reset CLAP pass for track 1
+        reset_pass_for_track(&conn, "clap", 1).unwrap();
+
+        // 3. Assert both clap and qwen are reset to PENDING (status = 0)
+        let clap_status: i64 = conn.query_row(
+            "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'clap'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        let qwen_status: i64 = conn.query_row(
+            "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'qwen'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+
+        assert_eq!(clap_status, pass_status::PENDING as i64);
+        assert_eq!(qwen_status, pass_status::PENDING as i64);
+    }
 }

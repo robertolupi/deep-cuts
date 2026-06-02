@@ -44,7 +44,7 @@ impl super::AnalysisPass for QwenPass {
     }
 
     fn dependencies(&self) -> &'static [&'static str] {
-        &["audio_analysis", "bpm_correction"]
+        &["audio_analysis", "bpm_correction", "clap"]
     }
 
     fn owned_columns(&self) -> &'static [&'static str] {
@@ -157,90 +157,211 @@ impl super::AnalysisPass for QwenPass {
             DESCRIPTION: two to three sentences of plain prose describing the track"
         );
 
-        // 5. HTTP API Call
-        let payload = serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_audio",
-                            "input_audio": {
-                                "data": base64_audio,
-                                "format": "wav"
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt
+        // Retrieve CLAP embedding for this track from the database if available
+        let audio_embedding: Option<Vec<f32>> = {
+            if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+                if let Ok(conn) = conn_mutex.lock() {
+                    let blob: Option<Vec<u8>> = conn.query_row(
+                        "SELECT embedding FROM audio_embeddings WHERE track_id = ?1",
+                        rusqlite::params![job.track_id],
+                        |row| row.get(0)
+                    ).ok();
+
+                    blob.and_then(|b| {
+                        if b.len() == 512 * 4 {
+                            let floats: Vec<f32> = b
+                                .chunks_exact(4)
+                                .map(|ch| f32::from_le_bytes(ch.try_into().unwrap()))
+                                .collect();
+                            Some(floats)
+                        } else {
+                            None
                         }
-                    ]
+                    })
+                } else {
+                    None
                 }
-            ]
-        });
+            } else {
+                None
+            }
+        };
 
         let port = crate::llama::get_llama_port(app)
             .ok_or_else(|| "[qwen] llama-server port not available; was ensure_llama_server_running called?".to_string())?;
         let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
-        log::info!(
-            "[qwen] Dispatching audio to local llama-server completions endpoint for track {}...",
-            job.track_id
-        );
 
-        let resp = ureq::post(&api_url)
-            .timeout(std::time::Duration::from_secs(120))
-            .send_json(&payload)
-            .map_err(|e| format!("Completions request to llama-server failed: {}", e))?;
+        let mut attempts = 0;
+        let max_attempts = 3;
+        let mut best_output: Option<QwenOutput> = None;
+        let mut best_similarity = -1.0f32;
 
-        let status_code = resp.status();
-        let resp_json = resp
-            .into_json::<serde_json::Value>()
-            .map_err(|e| format!("Failed to parse completions response JSON: {}", e))?;
+        while attempts < max_attempts {
+            attempts += 1;
 
-        let content = resp_json["choices"][0]["message"]["content"]
-            .as_str()
-            .ok_or_else(|| {
-                format!(
-                    "Unexpected JSON response structure from llama-server: {:?}",
-                    resp_json
-                )
-            })?;
-
-        let raw_response = format!(
-            "[Status: {}] {}",
-            status_code,
-            serde_json::to_string(&resp_json).unwrap_or_default()
-        );
-
-        // Preemptively save the raw completions response to the database
-        // so that it is persisted and inspectable even if structured parsing downstream fails!
-        if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
-            if let Ok(conn) = conn_mutex.lock() {
-                let _ = conn.execute(
-                    "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'qwen'",
-                    rusqlite::params![raw_response, job.track_id],
+            let mut prompt_attempt = prompt.clone();
+            if attempts > 1 {
+                prompt_attempt.push_str(
+                    "\nIMPORTANT: Listen extremely carefully. Avoid hallucinating instruments or genres that are not in the audio. \
+                    Ensure the description matches the acoustic reality of the audio. Respond strictly in English."
                 );
+            }
+
+            let mut payload = serde_json::json!({
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": base64_audio.clone(),
+                                    "format": "wav"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt_attempt
+                            }
+                        ]
+                    }
+                ]
+            });
+
+            if attempts > 1 {
+                if let Some(obj) = payload.as_object_mut() {
+                    obj.insert("temperature".to_string(), serde_json::json!(0.2));
+                }
+            }
+
+            log::info!(
+                "[qwen] Dispatching audio to local llama-server completions endpoint for track {} (attempt {}/{})...",
+                job.track_id, attempts, max_attempts
+            );
+
+            let resp = ureq::post(&api_url)
+                .timeout(std::time::Duration::from_secs(120))
+                .send_json(&payload)
+                .map_err(|e| format!("Completions request to llama-server failed: {}", e))?;
+
+            let status_code = resp.status();
+            let resp_json = resp
+                .into_json::<serde_json::Value>()
+                .map_err(|e| format!("Failed to parse completions response JSON: {}", e))?;
+
+            let content = resp_json["choices"][0]["message"]["content"]
+                .as_str()
+                .ok_or_else(|| {
+                    format!(
+                        "Unexpected JSON response structure from llama-server: {:?}",
+                        resp_json
+                    )
+                })?;
+
+            let raw_response = format!(
+                "[Status: {}] {}",
+                status_code,
+                serde_json::to_string(&resp_json).unwrap_or_default()
+            );
+
+            // Preemptively save the raw completions response to the database
+            // so that it is persisted and inspectable even if structured parsing downstream fails!
+            if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+                if let Ok(conn) = conn_mutex.lock() {
+                    let _ = conn.execute(
+                        "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'qwen'",
+                        rusqlite::params![raw_response, job.track_id],
+                    );
+                }
+            }
+
+            // 6. Parse Response
+            let parsed = parse_qwen_response(content);
+
+            // Handle unrecognized formats as failures
+            let all_empty = parsed.is_music.is_none()
+                && parsed.ai_genre.is_none()
+                && parsed.ai_mood.is_none()
+                && parsed.ai_instruments.is_none()
+                && parsed.description.is_none();
+
+            if all_empty {
+                log::warn!("[qwen] Attempt {} failed parsing for track {}.", attempts, job.track_id);
+                continue;
+            }
+
+            let output_candidate = QwenOutput {
+                parsed: parsed.clone(),
+                raw_response: raw_response.clone(),
+            };
+
+            // If we don't have a CLAP embedding in the database, bypass verification
+            let Some(audio_emb) = &audio_embedding else {
+                log::info!(
+                    "[qwen] No CLAP embedding found in database for track {}. Bypassing verification.",
+                    job.track_id
+                );
+                return Ok(output_candidate);
+            };
+
+            let mut similarity = 0.0f32;
+            let mut got_similarity = false;
+
+            if let Some(desc) = &parsed.description {
+                match crate::embeddings::run_clap_text_embed(desc, Some(app)) {
+                    Ok(text_emb) => {
+                        similarity = audio_emb.iter().zip(text_emb.iter()).map(|(a, t)| a * t).sum();
+                        got_similarity = true;
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "[qwen] Failed to generate CLAP text embedding on attempt {} for track {}: {}",
+                            attempts, job.track_id, e
+                        );
+                    }
+                }
+            }
+
+            if got_similarity {
+                log::info!(
+                    "[qwen] Track {} (attempt {}/{}): CLAP similarity = {:.4}",
+                    job.track_id, attempts, max_attempts, similarity
+                );
+
+                if similarity >= 0.28 {
+                    log::info!(
+                        "[qwen] Track {} passed CLAP verification with similarity {:.4} >= 0.28",
+                        job.track_id, similarity
+                    );
+                    return Ok(output_candidate);
+                }
+
+                if similarity > best_similarity {
+                    best_similarity = similarity;
+                    best_output = Some(output_candidate);
+                }
+
+                log::warn!(
+                    "[qwen] Track {} failed CLAP verification (similarity {:.4} < 0.28) on attempt {}/{}",
+                    job.track_id, similarity, attempts, max_attempts
+                );
+            } else {
+                // If text embedding failed, keep this output as backup
+                if best_output.is_none() {
+                    best_output = Some(output_candidate);
+                }
             }
         }
 
-        // 6. Parse Response
-        let parsed = parse_qwen_response(content);
-
-        // Handle unrecognized formats as failures
-        let all_empty = parsed.is_music.is_none()
-            && parsed.ai_genre.is_none()
-            && parsed.ai_mood.is_none()
-            && parsed.ai_instruments.is_none()
-            && parsed.description.is_none();
-
-        if all_empty {
-            return Err("Qwen response contained no parseable fields".to_string());
+        // Return the best candidate found across all attempts
+        if let Some(best) = best_output {
+            log::warn!(
+                "[qwen] Track {} failed verification across all attempts. Saving best candidate with similarity {:.4}",
+                job.track_id, best_similarity
+            );
+            Ok(best)
+        } else {
+            Err("All Qwen verification attempts failed parsing".to_string())
         }
-
-        Ok(QwenOutput {
-            parsed,
-            raw_response,
-        })
     }
 
     fn save_result(
@@ -317,7 +438,7 @@ impl QwenPass {
         name: "qwen",
         priority: 50,
         version: pass_version::QWEN,
-        dependencies: &["audio_analysis", "bpm_correction"],
+        dependencies: &["audio_analysis", "bpm_correction", "clap"],
         owned_columns: &[
             "is_music",
             "ai_genre",
@@ -487,6 +608,7 @@ pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::AnalysisPass;
 
     #[test]
     fn test_parse_standard_response() {
@@ -633,5 +755,14 @@ mod tests {
         assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
         assert_eq!(res.ai_instruments.as_deref(), Some("synth, synth_lead"));
         assert!(res.description.as_deref().unwrap().starts_with("A dance track perfect"));
+    }
+
+    #[test]
+    fn test_qwen_pass_dependencies_include_clap() {
+        let pass = QwenPass;
+        let deps = pass.dependencies();
+        assert!(deps.contains(&"clap"));
+        assert!(deps.contains(&"audio_analysis"));
+        assert!(deps.contains(&"bpm_correction"));
     }
 }
