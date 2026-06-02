@@ -25,6 +25,14 @@ function createFiltersStore() {
   let semanticTrackScores = $state<Map<number, number>>(new Map());
   let isSemanticLoading = $state(false);
 
+  let moodHappyMin      = $state(0); let moodHappyMax      = $state(1);
+  let moodSadMin        = $state(0); let moodSadMax        = $state(1);
+  let moodAggressiveMin = $state(0); let moodAggressiveMax = $state(1);
+  let moodRelaxedMin    = $state(0); let moodRelaxedMax    = $state(1);
+  let moodPartyMin      = $state(0); let moodPartyMax      = $state(1);
+  let moodAcousticMin   = $state(0); let moodAcousticMax   = $state(1);
+  let moodElectronicMin = $state(0); let moodElectronicMax = $state(1);
+
   let clapQuery = $state("");
   let clapTrackIds = $state<Set<number>>(new Set());
   let clapTrackScores = $state<Map<number, number>>(new Map());
@@ -82,6 +90,23 @@ function createFiltersStore() {
       if (minBpm > 20 || maxBpm < 250) {
         if (t.bpm === null || t.bpm === undefined) return false;
         if (t.bpm < minBpm || t.bpm > maxBpm) return false;
+      }
+
+      // Mood
+      const moodChecks: [number | null | undefined, number, number][] = [
+        [t.mood_happy,      moodHappyMin,      moodHappyMax],
+        [t.mood_sad,        moodSadMin,        moodSadMax],
+        [t.mood_aggressive, moodAggressiveMin, moodAggressiveMax],
+        [t.mood_relaxed,    moodRelaxedMin,    moodRelaxedMax],
+        [t.mood_party,      moodPartyMin,      moodPartyMax],
+        [t.mood_acoustic,   moodAcousticMin,   moodAcousticMax],
+        [t.mood_electronic, moodElectronicMin, moodElectronicMax],
+      ];
+      for (const [val, lo, hi] of moodChecks) {
+        if (lo > 0 || hi < 1) {
+          if (val == null) return false;
+          if (val < lo || val > hi) return false;
+        }
       }
 
       // Full-text search (Keyword)
@@ -213,6 +238,20 @@ function createFiltersStore() {
     set minBpm(v)       { minBpm = v; },
     get maxBpm()        { return maxBpm; },
     set maxBpm(v)       { maxBpm = v; },
+    get moodHappyMin()       { return moodHappyMin; },      set moodHappyMin(v)      { moodHappyMin = v; },
+    get moodHappyMax()       { return moodHappyMax; },      set moodHappyMax(v)      { moodHappyMax = v; },
+    get moodSadMin()         { return moodSadMin; },        set moodSadMin(v)        { moodSadMin = v; },
+    get moodSadMax()         { return moodSadMax; },        set moodSadMax(v)        { moodSadMax = v; },
+    get moodAggressiveMin()  { return moodAggressiveMin; }, set moodAggressiveMin(v) { moodAggressiveMin = v; },
+    get moodAggressiveMax()  { return moodAggressiveMax; }, set moodAggressiveMax(v) { moodAggressiveMax = v; },
+    get moodRelaxedMin()     { return moodRelaxedMin; },    set moodRelaxedMin(v)    { moodRelaxedMin = v; },
+    get moodRelaxedMax()     { return moodRelaxedMax; },    set moodRelaxedMax(v)    { moodRelaxedMax = v; },
+    get moodPartyMin()       { return moodPartyMin; },      set moodPartyMin(v)      { moodPartyMin = v; },
+    get moodPartyMax()       { return moodPartyMax; },      set moodPartyMax(v)      { moodPartyMax = v; },
+    get moodAcousticMin()    { return moodAcousticMin; },   set moodAcousticMin(v)   { moodAcousticMin = v; },
+    get moodAcousticMax()    { return moodAcousticMax; },   set moodAcousticMax(v)   { moodAcousticMax = v; },
+    get moodElectronicMin()  { return moodElectronicMin; }, set moodElectronicMin(v) { moodElectronicMin = v; },
+    get moodElectronicMax()  { return moodElectronicMax; }, set moodElectronicMax(v) { moodElectronicMax = v; },
     get selectedKeys()  { return selectedKeys; },
     set selectedKeys(v) { selectedKeys = v; },
     get selectedScale() { return selectedScale; },
@@ -270,6 +309,13 @@ function createFiltersStore() {
       genreFilter          = "";
       minBpm               = 20;
       maxBpm               = 250;
+      moodHappyMin = 0;      moodHappyMax = 1;
+      moodSadMin = 0;        moodSadMax = 1;
+      moodAggressiveMin = 0; moodAggressiveMax = 1;
+      moodRelaxedMin = 0;    moodRelaxedMax = 1;
+      moodPartyMin = 0;      moodPartyMax = 1;
+      moodAcousticMin = 0;   moodAcousticMax = 1;
+      moodElectronicMin = 0; moodElectronicMax = 1;
       selectedKeys         = [];
       selectedScale        = "all";
       musicOnly            = false;

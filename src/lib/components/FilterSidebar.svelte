@@ -8,6 +8,7 @@
   import { onMount } from "svelte";
 
   let collapsed = $state(false);
+  let moodOpen  = $state(false);
   let newPlaylistName = $state("");
   let isCreatingPlaylist = $state(false);
   let deletePlaylistId = $state<number | null>(null);
@@ -139,6 +140,32 @@
     genreInputEl?.blur();
   }
 
+  function makeHistogram(values: (number | null | undefined)[], bins: number, lo: number, hi: number): number[] {
+    const counts = new Array<number>(bins).fill(0);
+    const range = hi - lo;
+    for (const v of values) {
+      if (v == null) continue;
+      const idx = Math.min(bins - 1, Math.floor(((v - lo) / range) * bins));
+      counts[idx]++;
+    }
+    const max = Math.max(1, ...counts);
+    return counts.map(c => c / max);
+  }
+
+  const bpmDistribution = $derived(makeHistogram(library.tracks.map(t => t.bpm), 40, 20, 250));
+
+  const hasMoodData = $derived(library.tracks.some(t => t.mood_happy != null));
+
+  const moodDistributions = $derived({
+    happy:      makeHistogram(library.tracks.map(t => t.mood_happy),      20, 0, 1),
+    sad:        makeHistogram(library.tracks.map(t => t.mood_sad),        20, 0, 1),
+    aggressive: makeHistogram(library.tracks.map(t => t.mood_aggressive), 20, 0, 1),
+    relaxed:    makeHistogram(library.tracks.map(t => t.mood_relaxed),    20, 0, 1),
+    party:      makeHistogram(library.tracks.map(t => t.mood_party),      20, 0, 1),
+    acoustic:   makeHistogram(library.tracks.map(t => t.mood_acoustic),   20, 0, 1),
+    electronic: makeHistogram(library.tracks.map(t => t.mood_electronic), 20, 0, 1),
+  });
+
 
 
   const hasActiveFilters = $derived(
@@ -151,6 +178,13 @@
     filters.selectedScale !== "all" ||
     filters.minBpm !== 20 ||
     filters.maxBpm !== 250 ||
+    filters.moodHappyMin > 0      || filters.moodHappyMax < 1 ||
+    filters.moodSadMin > 0        || filters.moodSadMax < 1 ||
+    filters.moodAggressiveMin > 0 || filters.moodAggressiveMax < 1 ||
+    filters.moodRelaxedMin > 0    || filters.moodRelaxedMax < 1 ||
+    filters.moodPartyMin > 0      || filters.moodPartyMax < 1 ||
+    filters.moodAcousticMin > 0   || filters.moodAcousticMax < 1 ||
+    filters.moodElectronicMin > 0 || filters.moodElectronicMax < 1 ||
     filters.musicOnly ||
     filters.vocalFilter !== "all" ||
     filters.similarToTrack !== null
@@ -323,6 +357,11 @@
           {#if filters.minBpm !== 20 || filters.maxBpm !== 250}
             <button class="chip chip-active" onclick={() => { filters.minBpm = 20; filters.maxBpm = 250; }}>
               {Math.round(filters.minBpm)}–{Math.round(filters.maxBpm)} BPM ×
+            </button>
+          {/if}
+          {#if filters.moodHappyMin > 0 || filters.moodHappyMax < 1 || filters.moodSadMin > 0 || filters.moodSadMax < 1 || filters.moodAggressiveMin > 0 || filters.moodAggressiveMax < 1 || filters.moodRelaxedMin > 0 || filters.moodRelaxedMax < 1 || filters.moodPartyMin > 0 || filters.moodPartyMax < 1 || filters.moodAcousticMin > 0 || filters.moodAcousticMax < 1 || filters.moodElectronicMin > 0 || filters.moodElectronicMax < 1}
+            <button class="chip chip-active" onclick={() => { filters.moodHappyMin=0; filters.moodHappyMax=1; filters.moodSadMin=0; filters.moodSadMax=1; filters.moodAggressiveMin=0; filters.moodAggressiveMax=1; filters.moodRelaxedMin=0; filters.moodRelaxedMax=1; filters.moodPartyMin=0; filters.moodPartyMax=1; filters.moodAcousticMin=0; filters.moodAcousticMax=1; filters.moodElectronicMin=0; filters.moodElectronicMax=1; }}>
+              Mood filter ×
             </button>
           {/if}
           {#if filters.musicOnly}
@@ -523,6 +562,7 @@
         bind:minValue={filters.minBpm}
         bind:maxValue={filters.maxBpm}
         unit="BPM"
+        distribution={bpmDistribution}
       />
       <div class="bpm-presets">
         <button class="preset-btn" class:active={filters.minBpm===60&&filters.maxBpm===90}    onclick={() => { filters.minBpm=60;  filters.maxBpm=90;  }}>Slow</button>
@@ -532,6 +572,44 @@
         <button class="preset-btn" class:active={filters.minBpm===20&&filters.maxBpm===250}   onclick={() => { filters.minBpm=20;  filters.maxBpm=250; }}>All</button>
       </div>
     </div>
+    <!-- Mood sliders -->
+    {#if hasMoodData}
+    <div class="sidebar-section">
+      <button class="section-label-row mood-toggle" onclick={() => moodOpen = !moodOpen}>
+        <span class="section-label" style="margin-bottom:0;">MOOD</span>
+        <span class="mood-chevron" class:open={moodOpen}>▸</span>
+      </button>
+      {#if moodOpen}
+        <div class="mood-sliders">
+          {#snippet moodSlider(label: string)}
+            <span class="mood-dim-label">{label}</span>
+          {/snippet}
+          <div class="mood-dim">{@render moodSlider('Happy')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodHappyMin}      bind:maxValue={filters.moodHappyMax}      distribution={moodDistributions.happy}      formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Sad')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodSadMin}        bind:maxValue={filters.moodSadMax}        distribution={moodDistributions.sad}        formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Aggressive')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodAggressiveMin} bind:maxValue={filters.moodAggressiveMax} distribution={moodDistributions.aggressive} formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Relaxed')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodRelaxedMin}    bind:maxValue={filters.moodRelaxedMax}    distribution={moodDistributions.relaxed}    formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Party')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodPartyMin}      bind:maxValue={filters.moodPartyMax}      distribution={moodDistributions.party}      formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Acoustic')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodAcousticMin}   bind:maxValue={filters.moodAcousticMax}   distribution={moodDistributions.acoustic}   formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+          <div class="mood-dim">{@render moodSlider('Electronic')}
+            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodElectronicMin} bind:maxValue={filters.moodElectronicMax} distribution={moodDistributions.electronic} formatValue={(v) => (v*100).toFixed(0)+'%'} />
+          </div>
+        </div>
+      {/if}
+    </div>
+    {/if}
+
     <!-- Vocal / Instrumental -->
     <div class="sidebar-section">
       <span class="section-label">VOCALS</span>
@@ -1142,6 +1220,52 @@
     border-color: var(--sg-primary, #00f0ff);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0,240,255,0.08);
+  }
+
+  /* ── Mood sliders ── */
+  .mood-toggle {
+    display: flex;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+  }
+
+  .mood-chevron {
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+
+  .mood-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .mood-sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.55rem;
+  }
+
+  .mood-dim {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .mood-dim-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sg-outline, #849495);
   }
 
   /* ── Music only toggle ── */

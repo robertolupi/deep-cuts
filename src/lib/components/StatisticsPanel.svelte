@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
   import { filters } from '$lib/stores/filters.svelte';
+  import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
 
   // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,19 @@
 
   // ── Derived display data ───────────────────────────────────────────────────
 
+  const toMoodValues = (s: TrackSetStats): MoodValues => ({
+    happy:      s.avg_mood_happy,
+    sad:        s.avg_mood_sad,
+    aggressive: s.avg_mood_aggressive,
+    relaxed:    s.avg_mood_relaxed,
+    party:      s.avg_mood_party,
+    acoustic:   s.avg_mood_acoustic,
+    electronic: s.avg_mood_electronic,
+  });
+
+  const moodA = $derived(statsA ? toMoodValues(statsA) : null);
+  const moodB = $derived(statsB ? toMoodValues(statsB) : undefined);
+
   const moodRows = $derived<MoodRow[]>(statsA ? [
     { label: 'Happy',      valA: statsA.avg_mood_happy,      valB: statsB?.avg_mood_happy },
     { label: 'Sad',        valA: statsA.avg_mood_sad,        valB: statsB?.avg_mood_sad },
@@ -220,54 +234,6 @@
     } else {
       drawBars(binsA, COLOR_A, 0, 1);
     }
-  }
-
-  function renderMoodRadar(svgEl: SVGSVGElement, sA: TrackSetStats | null, sB: TrackSetStats | null) {
-    d3.select(svgEl).selectAll('*').remove();
-    if (!sA) return;
-
-    const axes: { key: keyof TrackSetStats; label: string }[] = [
-      { key: 'avg_mood_happy',      label: 'Happy'      },
-      { key: 'avg_mood_party',       label: 'Party'      },
-      { key: 'avg_mood_electronic',  label: 'Electronic' },
-      { key: 'avg_mood_aggressive',  label: 'Aggressive' },
-      { key: 'avg_mood_sad',         label: 'Sad'        },
-      { key: 'avg_mood_relaxed',     label: 'Relaxed'    },
-      { key: 'avg_mood_acoustic',    label: 'Acoustic'   },
-    ];
-    const N = axes.length;
-    const W = svgEl.clientWidth || 220;
-    const H = svgEl.clientHeight || 200;
-    const cx = W / 2, cy = H / 2;
-    const R = Math.min(cx, cy) - 28;
-    const g = d3.select(svgEl).append('g');
-
-    [0.25, 0.5, 0.75, 1.0].forEach(r => {
-      g.append('circle').attr('cx', cx).attr('cy', cy).attr('r', R * r)
-        .attr('fill', 'none').attr('stroke', 'rgba(255,255,255,0.08)').attr('stroke-width', 1);
-    });
-    axes.forEach((ax, i) => {
-      const angle = (i / N) * 2 * Math.PI - Math.PI / 2;
-      g.append('line').attr('x1', cx).attr('y1', cy)
-        .attr('x2', cx + R * Math.cos(angle)).attr('y2', cy + R * Math.sin(angle))
-        .attr('stroke', 'rgba(255,255,255,0.12)').attr('stroke-width', 1);
-      g.append('text')
-        .attr('x', cx + (R + 14) * Math.cos(angle)).attr('y', cy + (R + 14) * Math.sin(angle))
-        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-        .style('font-family', 'JetBrains Mono, monospace').style('font-size', '8px').style('fill', '#849495')
-        .text(ax.label);
-    });
-    const drawPolygon = (stats: TrackSetStats, color: string) => {
-      const pts = axes.map((ax, i) => {
-        const val = (stats[ax.key] as number | null) ?? 0;
-        const angle = (i / N) * 2 * Math.PI - Math.PI / 2;
-        return `${cx + R * val * Math.cos(angle)},${cy + R * val * Math.sin(angle)}`;
-      });
-      g.append('polygon').attr('points', pts.join(' '))
-        .attr('fill', color).attr('fill-opacity', 0.15).attr('stroke', color).attr('stroke-width', 1.5);
-    };
-    drawPolygon(sA, COLOR_A);
-    if (sB) drawPolygon(sB, COLOR_B);
   }
 
   function renderKeyBars(svgEl: SVGSVGElement, distA: LabelCount[], totalA: number, distB: LabelCount[] | null, totalB: number) {
@@ -375,7 +341,6 @@
   let svgBpm: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgDuration: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgLoudness: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
-  let svgRadar: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgKey: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgGenre: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgInstruments: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
@@ -398,10 +363,6 @@
     const vA = statsA?.loudness_values ?? [], tA = statsA?.track_count ?? 1;
     const vB = statsB?.loudness_values ?? null,  tB = statsB?.track_count ?? 1;
     if (svgLoudness) scheduleRender(() => renderSharedHistogram(svgLoudness, vA, tA, vB, tB, 30));
-  });
-  $effect(() => {
-    const sA = statsA, sB = statsB;
-    if (svgRadar) scheduleRender(() => renderMoodRadar(svgRadar, sA, sB));
   });
   $effect(() => {
     const distA = statsA?.key_distribution, tA = statsA?.track_count ?? 1;
@@ -538,7 +499,11 @@
     <section class="section">
       <h2 class="section-title">Mood Profile</h2>
       <div class="mood-layout">
-        <svg bind:this={svgRadar} class="chart-svg chart-radar"></svg>
+        <div class="chart-radar">
+          {#if moodA}
+            <MoodRadar moodA={moodA} moodB={moodB} colorA={COLOR_A} colorB={COLOR_B} />
+          {/if}
+        </div>
         <div class="mood-bars">
           {#each moodRows as row}
             <div class="mood-row">

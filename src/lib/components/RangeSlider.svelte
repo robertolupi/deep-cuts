@@ -6,7 +6,8 @@
     minValue = $bindable(min),
     maxValue = $bindable(max),
     unit = '',
-    formatValue = (v: number) => String(v)
+    formatValue = (v: number) => String(v),
+    distribution = undefined as number[] | undefined,
   }: {
     min?: number;
     max?: number;
@@ -15,6 +16,7 @@
     maxValue?: number;
     unit?: string;
     formatValue?: (v: number) => string;
+    distribution?: number[];
   } = $props();
 
   let minPct = $derived(((minValue - min) / (max - min)) * 100);
@@ -37,6 +39,18 @@
 <div class="dual-range-slider">
   <div class="track-wrap">
     <div class="track-bg"></div>
+    {#if distribution && distribution.length > 0}
+      <svg class="track-hist" aria-hidden="true">
+        {#each distribution as h, i}
+          <rect
+            x="{(i / distribution.length) * 100}%"
+            y="{(1 - h) * 100}%"
+            width="{100 / distribution.length}%"
+            height="{h * 100}%"
+          />
+        {/each}
+      </svg>
+    {/if}
     <div
       class="track-fill"
       style="left: {minPct}%; right: {100 - maxPct}%"
@@ -91,6 +105,22 @@
     background: var(--sg-surface-high);
     opacity: 0.8;
     pointer-events: none;
+  }
+
+  .track-hist {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 20px;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .track-hist rect {
+    fill: var(--sg-primary);
+    opacity: 0.18;
   }
 
   .track-fill {

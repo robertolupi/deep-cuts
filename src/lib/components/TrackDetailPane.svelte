@@ -4,6 +4,7 @@
   import { filters } from "$lib/stores/filters.svelte";
   import { curation } from "$lib/stores/curation.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
+  import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
@@ -38,17 +39,17 @@
     }).catch(() => {});
   });
 
-  const moods = $derived(track ? [
-    { label: "Happy",      value: track.mood_happy,      color: "var(--sg-primary, #00f0ff)" },
-    { label: "Sad",        value: track.mood_sad,         color: "var(--sg-outline, #849495)" },
-    { label: "Aggressive", value: track.mood_aggressive,  color: "var(--sg-secondary, #fe00fe)" },
-    { label: "Relaxed",    value: track.mood_relaxed,     color: "var(--sg-primary, #00f0ff)" },
-    { label: "Party",      value: track.mood_party,       color: "var(--sg-secondary, #fe00fe)" },
-    { label: "Acoustic",   value: track.mood_acoustic,    color: "var(--sg-outline, #849495)" },
-    { label: "Electronic", value: track.mood_electronic,  color: "var(--sg-primary, #00f0ff)" },
-  ].filter(m => m.value != null) : []);
+  const trackMood = $derived<MoodValues | null>(track ? {
+    happy:      track.mood_happy      ?? null,
+    sad:        track.mood_sad        ?? null,
+    aggressive: track.mood_aggressive ?? null,
+    relaxed:    track.mood_relaxed    ?? null,
+    party:      track.mood_party      ?? null,
+    acoustic:   track.mood_acoustic   ?? null,
+    electronic: track.mood_electronic ?? null,
+  } : null);
 
-  const hasMoods = $derived(moods.length > 0);
+  const hasMoods = $derived(trackMood != null && Object.values(trackMood).some(v => v != null));
   const hasAi    = $derived(!!track?.description || !!track?.ai_genre || !!track?.ai_mood);
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');
 
@@ -214,20 +215,12 @@
         </div>
       {/if}
 
-      <!-- Mood bars (Essentia) -->
-      {#if hasMoods}
+      <!-- Mood radar (Essentia) -->
+      {#if hasMoods && trackMood}
         <div class="section">
           <span class="section-label">EMOTIVE PROFILE</span>
-          <div class="mood-bars">
-            {#each moods as mood}
-              <div class="mood-row">
-                <span class="mood-label">{mood.label.toUpperCase()}</span>
-                <div class="mood-track">
-                  <div class="mood-fill" style="width: {((mood.value ?? 0) * 100).toFixed(1)}%; background: {mood.color};"></div>
-                </div>
-                <span class="mood-pct" style="color: {mood.color};">{((mood.value ?? 0) * 100).toFixed(0)}%</span>
-              </div>
-            {/each}
+          <div class="mood-radar-wrap">
+            <MoodRadar moodA={trackMood} />
           </div>
         </div>
       {/if}
@@ -637,48 +630,10 @@
     background: rgba(0,240,255,0.07);
   }
 
-  /* ── Mood bars ── */
-  .mood-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .mood-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .mood-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
-    color: var(--sg-outline, #849495);
-    width: 60px;
-    flex-shrink: 0;
-    letter-spacing: 0.05em;
-  }
-
-  .mood-track {
-    flex: 1;
-    height: 3px;
-    background: rgba(255,255,255,0.06);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .mood-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.4s ease;
-  }
-
-  .mood-pct {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    width: 28px;
-    text-align: right;
-    flex-shrink: 0;
+  /* ── Mood radar ── */
+  .mood-radar-wrap {
+    width: 100%;
+    height: 180px;
   }
 
   /* ── File path ── */
