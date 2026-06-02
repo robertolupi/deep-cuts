@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { filters } from "$lib/stores/filters.svelte";
 import { library } from "$lib/stores/library.svelte";
 import { ui } from "$lib/stores/ui.svelte";
+import { curation } from "$lib/stores/curation.svelte";
 import { invoke } from "@tauri-apps/api/core";
 import { MOCK_TRACKS, createTrack } from "../../test/fixtures";
 
@@ -376,6 +377,36 @@ describe("FiltersStore — similarTo filter", () => {
     vi.mocked(invoke).mockRejectedValueOnce(new Error("no embeddings"));
     await filters.setSimilarTo({ id: 99, title: "Ghost Track" });
     expect(filters.similarToTrack).toBeNull();
+  });
+});
+
+describe("FiltersStore — playlist filter", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("filters tracks by active playlist tracks", () => {
+    seedLibrary([
+      createTrack({ id: 1, title: "Track One" }),
+      createTrack({ id: 2, title: "Track Two" }),
+      createTrack({ id: 3, title: "Track Three" }),
+    ]);
+
+    // Setup active playlist mock
+    curation.activePlaylist = { id: 10, name: "Test Playlist" } as any;
+    curation.activePlaylistTracks = [
+      { id: 100, playlist_id: 10, track_id: 1, position: 0, cached_title: "Track One", cached_artist: "Artist A" } as any,
+      { id: 101, playlist_id: 10, track_id: 3, position: 1, cached_title: "Track Three", cached_artist: "Artist C" } as any,
+    ];
+
+    const result = filters.filteredTracks;
+    const ids = result.map(t => t.id);
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain(1);
+    expect(ids).toContain(3);
+    expect(ids).not.toContain(2);
+
+    // Reset active playlist mock
+    curation.activePlaylist = null;
+    curation.activePlaylistTracks = [];
   });
 });
 

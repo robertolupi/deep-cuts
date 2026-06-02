@@ -5,3 +5,4 @@ pub mod download;
 pub mod library;
 pub mod map;
 pub mod manifest;
+pub mod playlists;

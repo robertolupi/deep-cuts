@@ -117,6 +117,20 @@ pub fn run() {
             commands::download::download_models,
             commands::chat::ask_qwen,
             enrich_track_metadata,
+            commands::playlists::get_playlists,
+            commands::playlists::create_playlist,
+            commands::playlists::delete_playlist,
+            commands::playlists::rename_playlist,
+            commands::playlists::get_playlist_tracks,
+            commands::playlists::add_tracks_to_playlist,
+            commands::playlists::remove_track_from_playlist,
+            commands::playlists::reorder_playlist_track,
+            commands::playlists::get_saved_searches,
+            commands::playlists::create_saved_search,
+            commands::playlists::delete_saved_search,
+            commands::playlists::update_saved_search,
+            commands::playlists::get_playlists_for_track,
+            commands::playlists::remove_track_from_playlist_by_id,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -2,11 +2,32 @@
   import { invoke } from '@tauri-apps/api/core';
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
+  import { curation } from "$lib/stores/curation.svelte";
+  import PlaylistSelector from "./PlaylistSelector.svelte";
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
 
   let coverArt = $state<string | null>(null);
+  let trackPlaylists = $state<import('$lib/types').Playlist[]>([]);
+  let playlistSelectQuery = $state("");
+  let selectedPlaylistToAdd = $state<import('$lib/types').Playlist | null>(null);
+
+  async function loadTrackPlaylists() {
+    if (track) {
+      trackPlaylists = await curation.getPlaylistsForTrack(track.id);
+    } else {
+      trackPlaylists = [];
+    }
+  }
+
+  $effect(() => {
+    const id = track?.id;
+    trackPlaylists = [];
+    if (id) {
+      loadTrackPlaylists();
+    }
+  });
 
   $effect(() => {
     const path = track?.path;
@@ -268,6 +289,54 @@
             Find sounds similar
           {/if}
         </button>
+      </div>
+
+      <!-- Playlists Section -->
+      <div class="section">
+        <span class="section-label">🟣 PLAYLISTS</span>
+        
+        <!-- List of playlists the track is in -->
+        {#if trackPlaylists.length > 0}
+          <div class="track-playlists-list" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+            {#each trackPlaylists as pl}
+              <div class="track-playlist-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--sg-on-surface, #e3e1e9);">🟣 {pl.name}</span>
+                <button 
+                  type="button" 
+                  style="background: none; border: none; color: var(--sg-outline, #849495); cursor: pointer; font-size: 11px; padding: 2px;"
+                  onclick={async () => {
+                    await curation.removeTrackFromPlaylistById(pl.id, track.id);
+                    await loadTrackPlaylists();
+                  }}
+                  title="Remove from {pl.name}"
+                >
+                  🗑️
+                </button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); margin-bottom: 8px;">Not in any playlists.</p>
+        {/if}
+
+        <!-- Add to playlist selector -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; color: var(--sg-outline, #849495); letter-spacing: 0.05em;">ADD TO PLAYLIST</span>
+          <PlaylistSelector
+            placeholder="Search playlist to add..."
+            showAllOnFocus={true}
+            bind:activePlaylist={selectedPlaylistToAdd}
+            bind:value={playlistSelectQuery}
+            onselect={async (pl) => {
+              if (track) {
+                await curation.addTracksToPlaylist(pl.id, [track.id]);
+                selectedPlaylistToAdd = null;
+                playlistSelectQuery = "";
+                await loadTrackPlaylists();
+              }
+            }}
+          />
+        </div>
       </div>
 
       <!-- File path -->

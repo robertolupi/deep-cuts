@@ -1,6 +1,7 @@
 import type { Track } from "$lib/types";
 import { library } from "$lib/stores/library.svelte";
 import { ui } from "$lib/stores/ui.svelte";
+import { curation } from "$lib/stores/curation.svelte";
 import { invoke } from "@tauri-apps/api/core";
 
 export type ScaleFilter = "all" | "major" | "minor";
@@ -31,6 +32,16 @@ function createFiltersStore() {
 
   const filteredTracks = $derived.by(() => {
     const results = library.tracks.filter((t) => {
+      // Playlist filter
+      if (curation.activePlaylist) {
+        const playlistTrackIds = new Set(
+          curation.activePlaylistTracks
+            .map((pt) => pt.track_id)
+            .filter((id) => id !== null) as number[]
+        );
+        if (!playlistTrackIds.has(t.id)) return false;
+      }
+
       // Sounds similar filter
       if (similarTrackIds.size > 0 && !similarTrackIds.has(t.id)) return false;
 
@@ -107,6 +118,14 @@ function createFiltersStore() {
           return scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
         };
         return avgScore(b.id) - avgScore(a.id);
+      });
+    } else if (curation.activePlaylist) {
+      // Sort by manual playlist position
+      const posMap = new Map(curation.activePlaylistTracks.map(pt => [pt.track_id, pt.position]));
+      results.sort((a, b) => {
+        const posA = posMap.get(a.id) ?? 999999;
+        const posB = posMap.get(b.id) ?? 999999;
+        return posA - posB;
       });
     }
 

@@ -9,7 +9,7 @@ import { vi } from "vitest";
 
 // ── Tauri API mocks ────────────────────────────────────────────────────────────
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+  invoke: vi.fn(() => Promise.resolve()),
   convertFileSrc: vi.fn((path: string) => `asset://${path}`),
 }));
 

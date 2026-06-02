@@ -5,6 +5,7 @@ function createUiStore() {
   let mapFocusTrackId = $state<number | null>(null);
   let errorMessage = $state('');
   let successMessage = $state('');
+  let sidebarTab = $state<'filters' | 'curations'>('filters');
   let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
   function showToast(msg: string, type: 'success' | 'error') {
@@ -34,6 +35,8 @@ function createUiStore() {
     set mapFocusTrackId(v: number | null) { mapFocusTrackId = v; },
     get errorMessage() { return errorMessage; },
     get successMessage() { return successMessage; },
+    get sidebarTab() { return sidebarTab; },
+    set sidebarTab(v: 'filters' | 'curations') { sidebarTab = v; },
     showToast,
     focusMapTrack,
   };

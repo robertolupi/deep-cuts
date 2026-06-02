@@ -62,3 +62,37 @@ export interface Track {
 
   is_stale: number;
 }
+
+export interface Playlist {
+  id: number;
+  name: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PlaylistTrack {
+  playlist_id: number;
+  track_id: number | null;
+  position: number;
+  cached_title: string;
+  cached_artist: string;
+  
+  // Joined track columns
+  path?: string;
+  filename?: string;
+  duration_seconds?: number;
+  bpm?: number;
+  key?: string;
+  scale?: string;
+  size_bytes?: number;
+  last_modified?: number;
+}
+
+export interface SavedSearch {
+  id: number;
+  name: string;
+  query_json: string;
+  schema_version: number;
+  created_at: number;
+  updated_at: number;
+}

@@ -1,9 +1,87 @@
 <script lang="ts">
   import { filters } from "$lib/stores/filters.svelte";
   import { library } from "$lib/stores/library.svelte";
+  import { ui } from "$lib/stores/ui.svelte";
+  import { curation } from "$lib/stores/curation.svelte";
   import RangeSlider from "./RangeSlider.svelte";
+  import PlaylistSelector from "./PlaylistSelector.svelte";
+  import { onMount } from "svelte";
 
   let collapsed = $state(false);
+  let newPlaylistName = $state("");
+  let isCreatingPlaylist = $state(false);
+  let deletePlaylistId = $state<number | null>(null);
+  let deleteSearchId = $state<number | null>(null);
+  let isSavingSearch = $state(false);
+  let newSavedSearchName = $state("");
+
+  function getSerializedFilterState(): string {
+    return JSON.stringify({
+      searchQuery: filters.searchQuery,
+      semanticQuery: filters.semanticQuery,
+      clapQuery: filters.clapQuery,
+      genreFilter: filters.genreFilter,
+      minBpm: filters.minBpm,
+      maxBpm: filters.maxBpm,
+      selectedKeys: filters.selectedKeys,
+      selectedScale: filters.selectedScale,
+      musicOnly: filters.musicOnly,
+      vocalFilter: filters.vocalFilter,
+      selectedDirectoryIds: filters.selectedDirectoryIds,
+    });
+  }
+
+  function applySerializedFilterState(queryJson: string) {
+    try {
+      const data = JSON.parse(queryJson);
+      filters.clearAll();
+      if (data.searchQuery) filters.searchQuery = data.searchQuery;
+      if (data.semanticQuery) filters.semanticQuery = data.semanticQuery;
+      if (data.clapQuery) filters.clapQuery = data.clapQuery;
+      if (data.genreFilter) filters.genreFilter = data.genreFilter;
+      if (data.minBpm != null) filters.minBpm = data.minBpm;
+      if (data.maxBpm != null) filters.maxBpm = data.maxBpm;
+      if (data.selectedKeys) filters.selectedKeys = data.selectedKeys;
+      if (data.selectedScale) filters.selectedScale = data.selectedScale;
+      if (data.musicOnly != null) filters.musicOnly = data.musicOnly;
+      if (data.vocalFilter) filters.vocalFilter = data.vocalFilter;
+      if (data.selectedDirectoryIds) {
+        for (const id of data.selectedDirectoryIds) {
+          filters.toggleDirectoryId(id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse saved search query:", e);
+    }
+  }
+
+  async function handleCreateSavedSearch() {
+    if (!newSavedSearchName.trim()) return;
+    const q = getSerializedFilterState();
+    const id = await curation.createSavedSearch(newSavedSearchName.trim(), q);
+    if (id) {
+      newSavedSearchName = "";
+      isSavingSearch = false;
+    }
+  }
+
+  async function handleUpdateActiveSavedSearch() {
+    if (!curation.activeSavedSearch) return;
+    const q = getSerializedFilterState();
+    await curation.updateSavedSearch(curation.activeSavedSearch.id, q);
+  }
+
+  function handleOpenSavedSearch(search: import('$lib/types').SavedSearch) {
+    curation.activePlaylist = null;
+    curation.activePlaylistTracks = [];
+    curation.activeSavedSearch = search;
+    applySerializedFilterState(search.query_json);
+    ui.sidebarTab = "filters";
+  }
+
+  onMount(() => {
+    curation.loadAll();
+  });
 
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
 
@@ -37,6 +115,8 @@
     genreInputEl?.blur();
   }
 
+
+
   const hasActiveFilters = $derived(
     filters.searchQuery !== "" ||
     filters.semanticQuery !== "" ||
@@ -65,6 +145,7 @@
     filters.musicOnly     = false;
     filters.vocalFilter   = "all";
     filters.clearSimilar();
+    curation.activeSavedSearch = null;
   }
 </script>
 
@@ -86,7 +167,26 @@
       </button>
     </div>
 
-    <!-- Search -->
+    <!-- Segmented Tab Selector -->
+    <div class="sidebar-tabs">
+      <button 
+        class="tab-btn" 
+        class:active={ui.sidebarTab === 'filters'} 
+        onclick={() => ui.sidebarTab = 'filters'}
+      >
+        🎛️ Filters
+      </button>
+      <button 
+        class="tab-btn" 
+        class:active={ui.sidebarTab === 'curations'} 
+        onclick={() => ui.sidebarTab = 'curations'}
+      >
+        📂 Curations
+      </button>
+    </div>
+
+    {#if ui.sidebarTab === 'filters'}
+      <!-- Search -->
     <div class="sidebar-section">
       <span class="section-label">SEARCH</span>
       <div class="search-inputs-container">
@@ -159,63 +259,115 @@
       </div>
     </div>
 
-    <!-- Active filter chips -->
-    {#if hasActiveFilters}
+    <!-- Active filter chips & Saved Search actions -->
+    {#if hasActiveFilters || curation.activeSavedSearch}
       <div class="sidebar-section active-chips">
-        {#each filters.selectedDirectoryIds as id}
-          {@const dir = library.directories.find(d => d.id === id)}
-          {#if dir}
-            <button class="chip chip-active" onclick={() => filters.toggleDirectoryId(id)}>
-              {dir.name} ×
+        {#if hasActiveFilters}
+          {#each filters.selectedDirectoryIds as id}
+            {@const dir = library.directories.find(d => d.id === id)}
+            {#if dir}
+              <button class="chip chip-active" onclick={() => filters.toggleDirectoryId(id)}>
+                {dir.name} ×
+              </button>
+            {/if}
+          {/each}
+          {#if filters.genreFilter}
+            <button class="chip chip-active" onclick={() => filters.genreFilter = ""}>
+              {filters.genreFilter} ×
             </button>
           {/if}
-        {/each}
-        {#if filters.genreFilter}
-          <button class="chip chip-active" onclick={() => filters.genreFilter = ""}>
-            {filters.genreFilter} ×
-          </button>
+          {#if filters.semanticQuery}
+            <button class="chip chip-active chip-semantic" onclick={() => filters.semanticQuery = ""}>
+              ✨ {filters.semanticQuery} ×
+            </button>
+          {/if}
+          {#if filters.clapQuery}
+            <button class="chip chip-active chip-clap" onclick={() => filters.clapQuery = ""}>
+              🎵 {filters.clapQuery} ×
+            </button>
+          {/if}
+          {#each filters.selectedKeys as k}
+            <button class="chip chip-active" onclick={() => filters.toggleKey(k)}>
+              {k} ×
+            </button>
+          {/each}
+          {#if filters.selectedScale !== "all"}
+            <button class="chip chip-active" onclick={() => filters.selectedScale = "all"}>
+              {filters.selectedScale} ×
+            </button>
+          {/if}
+          {#if filters.minBpm !== 20 || filters.maxBpm !== 250}
+            <button class="chip chip-active" onclick={() => { filters.minBpm = 20; filters.maxBpm = 250; }}>
+              {Math.round(filters.minBpm)}–{Math.round(filters.maxBpm)} BPM ×
+            </button>
+          {/if}
+          {#if filters.musicOnly}
+            <button class="chip chip-active" onclick={() => filters.musicOnly = false}>
+              Music only ×
+            </button>
+          {/if}
+          {#if filters.vocalFilter !== "all"}
+            <button class="chip chip-active" onclick={() => filters.vocalFilter = "all"}>
+              {filters.vocalFilter === "voice" ? "Vocals" : "Instrumental"} ×
+            </button>
+          {/if}
+          {#if filters.similarToTrack}
+            <button class="chip chip-active chip-similar" onclick={() => filters.clearSimilar()}>
+              ≈ {filters.similarToTrack.title} ×
+            </button>
+          {/if}
+          <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
         {/if}
-        {#if filters.semanticQuery}
-          <button class="chip chip-active chip-semantic" onclick={() => filters.semanticQuery = ""}>
-            ✨ {filters.semanticQuery} ×
-          </button>
-        {/if}
-        {#if filters.clapQuery}
-          <button class="chip chip-active chip-clap" onclick={() => filters.clapQuery = ""}>
-            🎵 {filters.clapQuery} ×
-          </button>
-        {/if}
-        {#each filters.selectedKeys as k}
-          <button class="chip chip-active" onclick={() => filters.toggleKey(k)}>
-            {k} ×
-          </button>
-        {/each}
-        {#if filters.selectedScale !== "all"}
-          <button class="chip chip-active" onclick={() => filters.selectedScale = "all"}>
-            {filters.selectedScale} ×
-          </button>
-        {/if}
-        {#if filters.minBpm !== 20 || filters.maxBpm !== 250}
-          <button class="chip chip-active" onclick={() => { filters.minBpm = 20; filters.maxBpm = 250; }}>
-            {Math.round(filters.minBpm)}–{Math.round(filters.maxBpm)} BPM ×
-          </button>
-        {/if}
-        {#if filters.musicOnly}
-          <button class="chip chip-active" onclick={() => filters.musicOnly = false}>
-            Music only ×
-          </button>
-        {/if}
-        {#if filters.vocalFilter !== "all"}
-          <button class="chip chip-active" onclick={() => filters.vocalFilter = "all"}>
-            {filters.vocalFilter === "voice" ? "Vocals" : "Instrumental"} ×
-          </button>
-        {/if}
-        {#if filters.similarToTrack}
-          <button class="chip chip-active chip-similar" onclick={() => filters.clearSimilar()}>
-            ≈ {filters.similarToTrack.title} ×
-          </button>
-        {/if}
-        <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
+
+        <!-- Saved Search actions -->
+        <div class="save-search-actions" style="margin-top: 10px; width: 100%; display: flex; flex-direction: column; gap: 6px;">
+          {#if curation.activeSavedSearch}
+            {#if isSavingSearch}
+              <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
+                <input 
+                  type="text" 
+                  placeholder="New smart search name..." 
+                  bind:value={newSavedSearchName} 
+                  class="search-input"
+                  style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
+                />
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
+                  <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = false}>Cancel</button>
+                </div>
+              </div>
+            {:else}
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleUpdateActiveSavedSearch}>
+                  💾 Update Smart Search
+                </button>
+                <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = true}>
+                  💾 Save as New Search
+                </button>
+              </div>
+            {/if}
+          {:else if hasActiveFilters}
+            {#if isSavingSearch}
+              <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
+                <input 
+                  type="text" 
+                  placeholder="Smart search name..." 
+                  bind:value={newSavedSearchName} 
+                  class="search-input"
+                  style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
+                />
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
+                  <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = false}>Cancel</button>
+                </div>
+              </div>
+            {:else}
+              <button class="action-btn action-btn-primary" style="width: 100%; justify-content: center;" onclick={() => isSavingSearch = true}>
+                💾 Save as Smart Search
+              </button>
+            {/if}
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -283,6 +435,20 @@
           </div>
         {/if}
       </div>
+    </div>
+
+    <!-- Playlist Filter (First-class filter) -->
+    <div class="sidebar-section">
+      <span class="section-label">PLAYLIST</span>
+      <PlaylistSelector
+        bind:activePlaylist={curation.activePlaylist}
+        onselect={async (pl) => {
+          await curation.loadPlaylistTracks(pl.id);
+        }}
+        onclear={() => {
+          curation.activePlaylistTracks = [];
+        }}
+      />
     </div>
 
     <!-- Key filter -->
@@ -367,6 +533,97 @@
       </label>
       <p class="toggle-hint">Hides tracks Essentia classified as Non-Music (audiobooks, spoken word, etc.)</p>
     </div>
+  {/if}
+
+  {#if ui.sidebarTab === 'curations'}
+    <!-- Playlists Section -->
+    <div class="sidebar-section">
+      <div class="section-label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="section-label" style="margin-bottom: 0;">🟣 Playlists</span>
+        <button class="label-clear" style="text-decoration:none; color: var(--sg-primary, #00f0ff);" onclick={() => isCreatingPlaylist = !isCreatingPlaylist}>
+          {isCreatingPlaylist ? 'Cancel' : '[+ New]'}
+        </button>
+      </div>
+
+      {#if isCreatingPlaylist}
+        <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <input 
+            type="text" 
+            placeholder="New playlist name..." 
+            bind:value={newPlaylistName} 
+            class="search-input"
+            style="padding-left: 8px; font-size: 11px;"
+          />
+          <button class="action-btn action-btn-primary" style="width: 100%; justify-content: center;" onclick={async () => {
+            if (newPlaylistName.trim()) {
+              await curation.createPlaylist(newPlaylistName.trim());
+              newPlaylistName = "";
+              isCreatingPlaylist = false;
+            }
+          }}>Create Playlist</button>
+        </div>
+      {/if}
+
+      <div class="curation-list" style="display: flex; flex-direction: column; gap: 4px;">
+        {#each curation.playlists as pl}
+          <div class="curation-item-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; border-radius: 4px; background: rgba(255,255,255,0.02);">
+            <button 
+              class="curation-item-name-btn" 
+              style="background: none; border: none; text-align: left; padding: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+              onclick={async () => {
+                curation.activeSavedSearch = null;
+                curation.activePlaylist = pl;
+                await curation.loadPlaylistTracks(pl.id);
+                ui.sidebarTab = "filters";
+              }}
+            >
+              <span class="curation-item-name" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {curation.activePlaylist?.id === pl.id ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'};">🟣 {pl.name}</span>
+            </button>
+            {#if deletePlaylistId === pl.id}
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <button class="mini-confirm-btn" style="color: #ff5555; background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => { curation.deletePlaylist(pl.id); deletePlaylistId = null; }}>Confirm</button>
+                <button class="mini-confirm-btn" style="color: var(--sg-outline); background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => deletePlaylistId = null}>Cancel</button>
+              </div>
+            {:else}
+              <button class="mini-delete-btn" style="background: none; border: none; color: var(--sg-outline); cursor: pointer; font-size: 11px; padding: 2px;" onclick={() => deletePlaylistId = pl.id} title="Delete Playlist">🗑️</button>
+            {/if}
+          </div>
+        {/each}
+        {#if curation.playlists.length === 0}
+          <p class="empty-list-text" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); text-align: center; margin: 0.5rem 0;">No playlists created yet.</p>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Saved Searches Section -->
+    <div class="sidebar-section">
+      <span class="section-label">🔍 Saved Searches</span>
+      <div class="curation-list" style="display: flex; flex-direction: column; gap: 4px;">
+        {#each curation.savedSearches as search}
+          <div class="curation-item-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; border-radius: 4px; background: rgba(255,255,255,0.02);">
+            <button 
+              class="curation-item-name-btn" 
+              style="background: none; border: none; text-align: left; padding: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+              onclick={() => handleOpenSavedSearch(search)}
+            >
+              <span class="curation-item-name" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {curation.activeSavedSearch?.id === search.id ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'};">🔍 {search.name}</span>
+            </button>
+            {#if deleteSearchId === search.id}
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <button class="mini-confirm-btn" style="color: #ff5555; background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => { curation.deleteSavedSearch(search.id); deleteSearchId = null; }}>Confirm</button>
+                <button class="mini-confirm-btn" style="color: var(--sg-outline); background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => deleteSearchId = null}>Cancel</button>
+              </div>
+            {:else}
+              <button class="mini-delete-btn" style="background: none; border: none; color: var(--sg-outline); cursor: pointer; font-size: 11px; padding: 2px;" onclick={() => deleteSearchId = search.id} title="Delete Saved Search">🗑️</button>
+            {/if}
+          </div>
+        {/each}
+        {#if curation.savedSearches.length === 0}
+          <p class="empty-list-text" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); text-align: center; margin: 0.5rem 0;">No saved searches created yet.</p>
+        {/if}
+      </div>
+    </div>
+  {/if}
   </div>
   {:else}
   <!-- Collapsed tab -->
@@ -906,5 +1163,116 @@
     margin: 4px 0 0;
     opacity: 0.7;
     line-height: 1.4;
+  }
+
+  /* ── Tabbed Sidebar ── */
+  .sidebar-tabs {
+    display: flex;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 2px;
+    margin: 0.5rem 0.75rem 0.25rem 0.75rem;
+    gap: 2px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sg-outline, #849495);
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .tab-btn:hover {
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tab-btn.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--sg-primary, #00f0ff);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  /* ── Design System Buttons ── */
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.25);
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .action-btn-primary {
+    border-color: rgba(0,240,255,0.35);
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0,240,255,0.08);
+  }
+
+  .action-btn-primary:hover {
+    background: rgba(0,240,255,0.14) !important;
+    border-color: var(--sg-primary, #00f0ff) !important;
+    color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  /* ── Playlist Autocomplete Suggestions ── */
+  .playlist-suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--sg-surface-container, #1e1f25);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+
+  .playlist-suggestion-item {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 6px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .playlist-suggestion-item:hover {
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--sg-primary, #00f0ff);
   }
 </style>
