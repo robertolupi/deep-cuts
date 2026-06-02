@@ -69,6 +69,13 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 - Track detail pane showing technical specs (sample rate, bit depth, channels, bitrate), key, loudness, BPM, lyrics, comments, AI description, mood, and instruments.
 - "Sounds Similar" button that fires a CLAP KNN query and activates the similarity filter.
 
+### Local Multimodal AI Chat
+
+- **Interactive Track Chat**: Dedicated Chat tab in the Track Detail Pane allowing producers to converse directly with their audio files. Ask questions like: *"Why does this sound muddy?"*, *"What's the structure/arrangement?"*, or *"Describe the vocal placement."*
+- **Multimodal Context**: Powered by local `llama-server` and `Qwen2-Audio-7B-Instruct`. The first turn uploads the raw audio waveform, and subsequent turns support context-aware text-only conversation.
+- **WaveSurfer Region Selector**: Select and slice specific segments of the track (e.g. intro, drop, bridge) using an interactive WaveSurfer region handler to target analysis on long files without blowing LLM context windows.
+- **Real-Time Token Streaming**: Supports full Server-Sent Events (SSE) streaming for instantaneous token generation and snappy user feedback.
+
 ### UI & Theming
 
 - **Sonic Glitch design system**: `--sg-*` CSS custom property tokens used throughout.
