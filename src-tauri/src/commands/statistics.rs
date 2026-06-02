@@ -3,13 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct HistBin {
-    pub center: f64,
-    pub count: i64,
-    pub pct: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LabelCount {
     pub label: String,
     pub count: i64,
@@ -69,27 +62,6 @@ fn stddev(vals: &[f64]) -> Option<f64> {
     let m = vals.iter().sum::<f64>() / vals.len() as f64;
     let var = vals.iter().map(|x| (x - m).powi(2)).sum::<f64>() / vals.len() as f64;
     Some(var.sqrt())
-}
-
-fn make_histogram(values: &[f64], num_bins: usize) -> Vec<HistBin> {
-    if values.is_empty() || num_bins == 0 { return vec![]; }
-    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    if (max - min).abs() < 1e-10 {
-        return vec![HistBin { center: min, count: values.len() as i64, pct: 100.0 }];
-    }
-    let bw = (max - min) / num_bins as f64;
-    let mut counts = vec![0i64; num_bins];
-    for &v in values {
-        let idx = ((v - min) / bw).floor() as usize;
-        counts[idx.min(num_bins - 1)] += 1;
-    }
-    let total = values.len() as f64;
-    counts.into_iter().enumerate().map(|(i, count)| HistBin {
-        center: min + (i as f64 + 0.5) * bw,
-        count,
-        pct: count as f64 / total * 100.0,
-    }).collect()
 }
 
 // ── SQL helpers ──────────────────────────────────────────────────────────────

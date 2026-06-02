@@ -342,13 +342,13 @@
 
   // ── SVG refs ───────────────────────────────────────────────────────────────
 
-  let svgBpm: SVGSVGElement;
-  let svgDuration: SVGSVGElement;
-  let svgLoudness: SVGSVGElement;
-  let svgRadar: SVGSVGElement;
-  let svgKey: SVGSVGElement;
-  let svgGenre: SVGSVGElement;
-  let svgInstruments: SVGSVGElement;
+  let svgBpm: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgDuration: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgLoudness: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgRadar: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgKey: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgGenre: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgInstruments: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
 
   function scheduleRender(fn: () => void) {
     requestAnimationFrame(() => requestAnimationFrame(fn));

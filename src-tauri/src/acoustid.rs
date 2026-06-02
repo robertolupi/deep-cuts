@@ -35,7 +35,8 @@ struct AcoustIdResponse {
 
 #[derive(serde::Deserialize, Debug)]
 struct AcoustIdResult {
-    score: f64,
+    #[serde(rename = "score")]
+    _score: f64,
     recordings: Option<Vec<AcoustIdRecording>>,
 }
 
