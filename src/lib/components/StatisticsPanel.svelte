@@ -47,14 +47,25 @@
   interface MoodRow { label: string; valA: number | null; valB: number | null | undefined; }
   interface CoverageRow { label: string; pctA: number; pctB: number | undefined; }
   interface VocalRow { label: string; cntA: number; cntB: number | undefined; }
+  interface WatchedDirectory { id: number; name: string; path: string; }
+
+  type SetSource =
+    | { kind: 'library' }
+    | { kind: 'filter' }
+    | { kind: 'folder'; dir: WatchedDirectory };
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  let statsA = $state<TrackSetStats | null>(null);  // full library
-  let statsB = $state<TrackSetStats | null>(null);  // current filter
+  let statsA = $state<TrackSetStats | null>(null);
+  let statsB = $state<TrackSetStats | null>(null);
   let loadingA = $state(false);
   let loadingB = $state(false);
   let error = $state('');
+
+  let watchedDirs = $state<WatchedDirectory[]>([]);
+  let sourceA = $state<SetSource>({ kind: 'library' });
+  let sourceB = $state<SetSource>({ kind: 'filter' });
+  let menuOpen = $state<'A' | 'B' | null>(null);
 
   // ── Set colours ────────────────────────────────────────────────────────────
 
@@ -62,28 +73,47 @@
   const COLOR_B = '#ff7c5c';
   const CHROMATIC_ORDER = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function sourceLabel(s: SetSource): string {
+    if (s.kind === 'library') return 'Full Library';
+    if (s.kind === 'filter')  return 'Current Filter';
+    return s.dir.name || s.dir.path.split('/').pop() || s.dir.path;
+  }
+
+  async function idsForSource(s: SetSource): Promise<number[] | null> {
+    if (s.kind === 'library') return null;
+    if (s.kind === 'filter')  return filters.filteredTracks.map(t => t.id);
+    const all = await invoke<{ id: number; watched_directory_id: number }[]>('get_tracks');
+    return all.filter(t => t.watched_directory_id === s.dir.id).map(t => t.id);
+  }
+
   // ── Data loading ───────────────────────────────────────────────────────────
 
-  async function loadLibrary() {
-    loadingA = true; error = '';
+  async function loadSet(which: 'A' | 'B') {
+    const source = which === 'A' ? sourceA : sourceB;
+    if (which === 'A') { loadingA = true; error = ''; }
+    else               { loadingB = true; }
     try {
-      statsA = await invoke<TrackSetStats>('get_track_stats', { trackIds: null });
+      const ids = await idsForSource(source);
+      const stats = await invoke<TrackSetStats>('get_track_stats', { trackIds: ids });
+      if (which === 'A') statsA = stats;
+      else               statsB = stats;
     } catch (e: any) { error = String(e); }
-    finally { loadingA = false; }
+    finally {
+      if (which === 'A') loadingA = false;
+      else               loadingB = false;
+    }
   }
 
-  async function loadFilter(ids: number[]) {
-    loadingB = true;
-    try {
-      statsB = await invoke<TrackSetStats>('get_track_stats', { trackIds: ids });
-    } catch (e: any) { error = String(e); }
-    finally { loadingB = false; }
-  }
+  // Reload Set A whenever its source changes
+  $effect(() => { void sourceA; loadSet('A'); });
 
-  // Reload filter stats whenever filteredTracks changes
+  // Reload Set B whenever its source changes, or when filteredTracks changes while B is on filter
   $effect(() => {
-    const ids = filters.filteredTracks.map((t) => t.id);
-    loadFilter(ids);
+    const src = sourceB;
+    if (src.kind === 'filter') void filters.filteredTracks;
+    loadSet('B');
   });
 
   // ── Derived display data ───────────────────────────────────────────────────
@@ -389,26 +419,50 @@
     if (svgInstruments && distA) scheduleRender(() => renderHorizBars(svgInstruments, distA, tA, distB, tB));
   });
 
-  onMount(() => { loadLibrary(); });
+  onMount(async () => {
+    watchedDirs = await invoke<WatchedDirectory[]>('get_watched_directories');
+  });
 </script>
+
+<svelte:window onclick={() => { menuOpen = null; }} />
 
 <div class="stats-panel">
 
   <!-- ── Status bar ───────────────────────────────────────────────────────── -->
   <div class="set-bar">
-    <div class="set-slot">
-      <span class="set-dot" style="background:{COLOR_A}"></span>
-      <span class="set-name">Full Library</span>
-      {#if statsA}<span class="set-count">{statsA.track_count} tracks</span>{/if}
-      {#if loadingA}<span class="loading-badge">Computing…</span>{/if}
-    </div>
+    {#snippet setSlot(which: 'A' | 'B', color: string, source: SetSource, stats: TrackSetStats | null, loading: boolean)}
+      <div class="set-slot">
+        <span class="set-dot" style="background:{color}"></span>
+        <div class="set-picker-wrap">
+          <button
+            class="set-picker-btn"
+            onclick={(e) => { e.stopPropagation(); menuOpen = menuOpen === which ? null : which; }}
+          >
+            <span class="set-name">{sourceLabel(source)}</span>
+            <span class="set-chevron">▾</span>
+          </button>
+          {#if menuOpen === which}
+            <div class="set-menu">
+              <button class="set-menu-item" onclick={(e) => { e.stopPropagation(); if(which==='A') sourceA={kind:'library'}; else sourceB={kind:'library'}; menuOpen=null; }}>Full Library</button>
+              <button class="set-menu-item" onclick={(e) => { e.stopPropagation(); if(which==='A') sourceA={kind:'filter'}; else sourceB={kind:'filter'}; menuOpen=null; }}>Current Filter</button>
+              {#if watchedDirs.length}
+                <div class="set-menu-sep"></div>
+                {#each watchedDirs as dir}
+                  <button class="set-menu-item" onclick={(e) => { e.stopPropagation(); if(which==='A') sourceA={kind:'folder',dir}; else sourceB={kind:'folder',dir}; menuOpen=null; }}>
+                    {dir.name || dir.path.split('/').pop()}
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+        </div>
+        {#if stats}<span class="set-count">{stats.track_count} tracks</span>{/if}
+        {#if loading}<span class="loading-badge">Computing…</span>{/if}
+      </div>
+    {/snippet}
+    {@render setSlot('A', COLOR_A, sourceA, statsA, loadingA)}
     <div class="set-divider">vs</div>
-    <div class="set-slot">
-      <span class="set-dot" style="background:{COLOR_B}"></span>
-      <span class="set-name">Current Filter</span>
-      {#if statsB}<span class="set-count">{statsB.track_count} tracks</span>{/if}
-      {#if loadingB}<span class="loading-badge">Computing…</span>{/if}
-    </div>
+    {@render setSlot('B', COLOR_B, sourceB, statsB, loadingB)}
   </div>
 
   {#if error}
@@ -615,16 +669,50 @@
 
   .set-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+  .set-picker-wrap { position: relative; }
+
+  .set-picker-btn {
+    display: flex; align-items: center; gap: 4px;
+    background: none; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 3px 8px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .set-picker-btn:hover { border-color: rgba(255,255,255,0.25); }
+
   .set-name {
+    font-family: "JetBrains Mono", monospace;
     font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
+  .set-chevron { font-size: 8px; color: var(--sg-outline, #849495); }
+
+  .set-menu {
+    position: absolute; top: calc(100% + 4px); left: 0;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px; overflow: hidden; z-index: 200;
+    min-width: 160px;
+  }
+
+  .set-menu-item {
+    display: block; width: 100%; text-align: left;
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    padding: 7px 12px; background: none; border: none;
+    color: var(--sg-on-surface, #e3e1e9); cursor: pointer;
+    transition: background 0.1s;
+  }
+  .set-menu-item:hover { background: rgba(255,255,255,0.06); }
+
+  .set-menu-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 2px 0; }
+
   .set-count {
+    font-family: "JetBrains Mono", monospace;
     font-size: 9px; color: var(--sg-outline, #849495);
   }
 
   .set-divider {
+    font-family: "JetBrains Mono", monospace;
     font-size: 9px; color: var(--sg-outline, #849495);
     letter-spacing: 0.06em; opacity: 0.6;
   }
