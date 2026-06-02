@@ -13,6 +13,9 @@
   let isCreatingPlaylist = $state(false);
   let deletePlaylistId = $state<number | null>(null);
   let deleteSearchId = $state<number | null>(null);
+  let saveToPlaylistOpen = $state(false);
+  let saveToNewPlaylistName = $state("");
+  let saveToNewPlaylistMode = $state(false);
   let isSavingSearch = $state(false);
   let newSavedSearchName = $state("");
 
@@ -435,6 +438,52 @@
             <button class="action-btn" style="width: 100%; justify-content: center; border-color: rgba(254, 0, 254, 0.35); color: var(--sg-secondary, #fe00fe); background: rgba(254, 0, 254, 0.08);" onclick={handleExportM3U}>
               📤 Export results as M3U ({filters.filteredTracks.length})
             </button>
+            <!-- Save filtered results to a playlist -->
+            <div class="save-to-playlist-wrap">
+              <button class="action-btn" style="width: 100%; justify-content: center;" onclick={() => { saveToPlaylistOpen = !saveToPlaylistOpen; saveToNewPlaylistMode = false; saveToNewPlaylistName = ""; }}>
+                🟣 Save {filters.filteredTracks.length} tracks to playlist ▾
+              </button>
+              {#if saveToPlaylistOpen}
+                <div class="playlist-dropdown">
+                  {#if saveToNewPlaylistMode}
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding: 6px;">
+                      <input
+                        type="text"
+                        placeholder="New playlist name..."
+                        bind:value={saveToNewPlaylistName}
+                        class="search-input"
+                        style="padding-left: 8px; font-size: 11px;"
+                      />
+                      <div style="display: flex; gap: 4px;">
+                        <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={async () => {
+                          if (!saveToNewPlaylistName.trim()) return;
+                          const id = await curation.createPlaylist(saveToNewPlaylistName.trim());
+                          if (id) {
+                            await curation.addTracksToPlaylist(id, filters.filteredTracks.map(t => t.id));
+                          }
+                          saveToPlaylistOpen = false;
+                          saveToNewPlaylistMode = false;
+                          saveToNewPlaylistName = "";
+                        }}>Create & Add</button>
+                        <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => saveToNewPlaylistMode = false}>Back</button>
+                      </div>
+                    </div>
+                  {:else}
+                    {#each curation.playlists as pl}
+                      <button class="playlist-dropdown-item" onclick={async () => {
+                        await curation.addTracksToPlaylist(pl.id, filters.filteredTracks.map(t => t.id));
+                        saveToPlaylistOpen = false;
+                      }}>
+                        🟣 {pl.name}
+                      </button>
+                    {/each}
+                    <button class="playlist-dropdown-item playlist-dropdown-new" onclick={() => saveToNewPlaylistMode = true}>
+                      + New playlist…
+                    </button>
+                  {/if}
+                </div>
+              {/if}
+            </div>
           {/if}
         </div>
       </div>
@@ -1393,6 +1442,52 @@
     background: rgba(0,240,255,0.14) !important;
     border-color: var(--sg-primary, #00f0ff) !important;
     color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  /* ── Save to playlist dropdown ── */
+  .save-to-playlist-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  .playlist-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--sg-surface-container, #1e1f25);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+
+  .playlist-dropdown-item {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 7px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .playlist-dropdown-item:hover {
+    background: rgba(0,240,255,0.08);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .playlist-dropdown-new {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: var(--sg-primary, #00f0ff);
+    font-style: italic;
   }
 
   /* ── Playlist Autocomplete Suggestions ── */
