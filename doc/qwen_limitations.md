@@ -40,7 +40,7 @@ Measured on a **Mac Studio (M3 Ultra, 28-core CPU, 96 GB unified memory)**. The 
 
 ### Analysis pipeline (`qwen.rs`)
 
-The current code manually extracts a 30-second midpoint window before sending to llama-server. This was the right call for the pipeline:
+The pipeline extracts a 30-second window centered on the **highest-energy bin** from the stored waveform profile (`embeddings::select_best_energy_window_pct`), falling back to the track midpoint when no waveform data is available. This ensures the model sees the most musically dense section rather than a silent intro or outro.
 
 - **Speed**: 30s → one slice, ~0.5s processing. Full track → N slices, N × 0.5s.
 - **Cost**: audio tokens consumed per track stays fixed at 750, leaving ample context budget for the structured prompt and response.
@@ -48,29 +48,12 @@ The current code manually extracts a 30-second midpoint window before sending to
 
 The 30-second window duration should be made **configurable** (e.g. `analysis_settings.qwen_window_seconds`) so it can be tuned without a code change. A longer window (e.g. 60–90s) may improve genre/mood accuracy for tracks with distinct sections, at the cost of slower pipeline runs.
 
-#### Smart Vocal Activity Detection (VAD) & Energy-Based Slicing
-Instead of blindly cropping the absolute midpoint of a track (which might capture a silent breakdown, acoustic transition, or intro/outro sound effect), the analysis pipeline incorporates a **Smart VAD & Energy-Based Slicing** algorithm:
-- The system runs the fast RMS energy pre-pass to map volume profiles across the track.
-- A local, low-latency Vocal Activity Detection (VAD) pass runs in parallel to score voice activity density.
-- The pipeline selects a 30-second window representing the **highest average energy containing active speech/vocal dynamics** (for vocal tracks) or **highest average musical onset density** (for instrumentals).
-- This ensures that the Qwen2-Audio model receives the most representative and information-dense 30-second slice of the music (e.g., the main chorus or primary vocal hook) rather than a quiet pause or intro.
+### Chat feature
 
-### Chat feature (`track-feedback.md`)
+Implemented in `src-tauri/src/commands/chat.rs` and `src/lib/components/ChatPanel.svelte`. The user selects an audio region via a WaveSurfer timeline; the backend slices that exact region and sends it to llama-server. For tracks longer than ~5 minutes the token budget becomes tight — the region selector lets the user pick which section to analyse rather than exhausting the full context.
 
-For interactive feedback, passing the **full track** is preferred — the user may ask about any part of the song and the model should have full context. The automatic chunking in llama.cpp makes this straightforward.
-
-Tracks longer than ~5 minutes should fall back to a configurable window (defaulting to the full track for shorter songs, and a user-selected region for longer ones — the WaveSurfer region selector described in `track-feedback.md` handles this case).
-
-#### Hierarchical Summarization for Long Tracks (>5m)
-For massive tracks (e.g., extended electronic mixes, classical symphonies, progressive rock epics exceeding 10–20 minutes) that would completely blow past Qwen2's 8,192-token context window if fed as raw audio:
-- **Multi-Window Extraction**: The track is divided into three or four distinct 30-second windows distributed across key structural zones (intro, build-up, peak chorus/movement, outro) selected by energy profiles.
-- **Sequential Local Inference**: Each segment is analyzed individually to generate a short, high-fidelity text summary detailing its specific tempo, instrumental texture, and emotional tone.
-- **Hierarchical Synthesis**: The individual text summaries are combined and fed into the final LLM chat context as structured markdown descriptions. This enables Qwen2-Audio to answer deep questions about the entire multi-movement track using a fraction of the raw audio token budget.
-
-#### Interactive WaveSurfer Timeline Highlighting & Manual Re-crop
-To bridge the chat and audio feedback loop, the frontend WaveSurfer timeline is enriched with:
-- **Interactive Highlighting**: Visual brackets showing the exact boundaries of the 30-second window that was used to generate the current description.
-- **Manual Re-crop**: If a user feels the automated smart slice missed a key element of the track (e.g., a quiet acoustic outro), they can drag the WaveSurfer region brackets to a new section of the timeline and click a "Re-Analyze Region" button. This triggers an on-demand analysis of the custom crop, updating the database tags and description in real-time.
+#### Hierarchical Summarization for Long Tracks (>5m) — future work
+For tracks exceeding ~6.5 minutes (beyond the 8,192-token hard limit even with a minimal prompt), a possible approach is to analyse three or four 30-second windows distributed across structural zones (intro, build-up, chorus, outro), summarise each individually, then synthesise the text summaries into a single chat context. Not yet implemented.
 
 ## Raw Measurements (2m40s test track)
 
@@ -84,6 +67,8 @@ Context used:        ~4,547 / 8,192 tokens (~55%)
 
 ## Cross-References
 
-- `src-tauri/src/analysis/qwen.rs` — pipeline pass, 30s midpoint window
+- `src-tauri/src/analysis/qwen.rs` — pipeline pass, energy-based 30s window
+- `src-tauri/src/embeddings.rs` — `select_best_energy_window_pct` (shared with CLAP)
 - `src-tauri/src/llama.rs` — server lifecycle
-- `doc/track-feedback.md` — interactive chat design, window selection UI
+- `src-tauri/src/commands/chat.rs` — interactive `ask_qwen` IPC command
+- `src/lib/components/ChatPanel.svelte` — chat UI with WaveSurfer region selector
