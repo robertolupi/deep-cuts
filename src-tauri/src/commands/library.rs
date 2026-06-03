@@ -164,6 +164,42 @@ pub fn reveal_in_finder(path: String) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Opens the system file manager to the application log directory.
+#[tauri::command]
+pub fn open_log_dir(app: tauri::AppHandle) -> Result<(), AppError> {
+    use tauri::Manager;
+    let log_dir = app.path().app_log_dir()
+        .map_err(|e| AppError::Generic(format!("Failed to get log directory: {}", e)))?;
+    
+    if !log_dir.exists() {
+        std::fs::create_dir_all(&log_dir)
+            .map_err(|e| AppError::Generic(format!("Failed to create log directory: {}", e)))?;
+    }
+    
+    let path = log_dir.to_string_lossy().into_owned();
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()?;
+    }
+    Ok(())
+}
+
+
 #[derive(serde::Serialize)]
 pub struct SemanticSearchResult {
     pub id: i64,

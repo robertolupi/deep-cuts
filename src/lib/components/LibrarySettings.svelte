@@ -6,6 +6,7 @@
   import { player } from "$lib/stores/player.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
   import { onMount } from "svelte";
+  import licenseText from "../../../LICENSE.md?raw";
 
   let name = $state("");
   let path = $state("");
@@ -80,7 +81,7 @@
   let acoustidEnabled = $state(true);
   let sidecarEnabled = $state(false);
   let showModelDownloaderDrawer = $state(false);
-  let showModelCredits = $state(false);
+  let showLicenseDrawer = $state(false);
 
 
   async function loadModelPathSetting() {
@@ -168,6 +169,15 @@
       modelPathMessage = "Using default model locations.";
     } catch (e: any) {
       modelPathMessage = e?.toString() ?? "Failed to clear model folder.";
+    }
+  }
+
+  async function openLogDir() {
+    try {
+      await invoke("open_log_dir");
+      ui.showToast("Log directory opened.", "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
     }
   }
 
@@ -357,6 +367,15 @@
           <span class="checkbox-text">Show loudest analysis windows on player</span>
         </label>
       </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.85rem; margin-top: 0.25rem;">
+        <button class="sg-btn sg-btn-primary" onclick={openLogDir} style="width: 100%; justify-content: center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          Open Application Logs
+        </button>
+      </div>
     </div>
   </div>
 
@@ -451,69 +470,64 @@
     <div class="about-meta">
       <span class="about-copyright">© 2025 <a class="about-link" href="https://www.rlupi.com" target="_blank" rel="noopener noreferrer">Roberto Lupi</a></span>
       <span class="about-sep">·</span>
-      <span class="about-license">GNU AGPL v3</span>
-      <span class="about-sep">·</span>
-      <button class="about-btn" onclick={() => showModelCredits = !showModelCredits} class:active={showModelCredits}>
-        Credits
-      </button>
+      <span class="about-license-sep">·</span>
+      <button class="about-license" onclick={() => showLicenseDrawer = true}>GNU AGPL v3</button>
     </div>
 
-    {#if showModelCredits}
-      <div class="model-credits-list">
-        <div class="credit-item">
-          <div class="credit-header">
-            <span class="credit-name">LAION CLAP</span>
-            <span class="credit-badge badge-apache">Apache 2.0</span>
-          </div>
-          <p class="credit-desc">Contrastive Language-Audio Pretraining model for audio-text semantic similarity.</p>
-          <div class="credit-links">
-            <a href="https://huggingface.co/laion/clap-htsat-unfused" target="_blank" rel="noopener noreferrer" class="credit-link">laion/clap-htsat-unfused</a>
-            <span class="credit-link-sep">·</span>
-            <span class="credit-citation">Wu et al. (ICASSP 2023)</span>
-          </div>
+    <div class="model-credits-list">
+      <div class="credit-item">
+        <div class="credit-header">
+          <span class="credit-name">LAION CLAP</span>
+          <span class="credit-badge badge-apache">Apache 2.0</span>
         </div>
-
-        <div class="credit-item">
-          <div class="credit-header">
-            <span class="credit-name">all-MiniLM-L6-v2</span>
-            <span class="credit-badge badge-apache">Apache 2.0</span>
-          </div>
-          <p class="credit-desc">MiniLM sentence transformer model for robust text semantic embeddings.</p>
-          <div class="credit-links">
-            <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer" class="credit-link">sentence-transformers/all-MiniLM-L6-v2</a>
-          </div>
-        </div>
-
-        <div class="credit-item">
-          <div class="credit-header">
-            <span class="credit-name">Essentia Classifiers</span>
-            <span class="credit-badge badge-cc">CC BY-NC-ND 4.0</span>
-          </div>
-          <p class="credit-desc">Discogs-Effnet feature extractor and classifier heads for genre, mood, and vocal classification.</p>
-          <div class="credit-links">
-            <a href="https://essentia.upf.edu/models.html" target="_blank" rel="noopener noreferrer" class="credit-link">Essentia Models Hub</a>
-            <span class="credit-link-sep">·</span>
-            <span class="credit-citation">Bogdanov et al. (ISMIR 2013)</span>
-          </div>
-          <div class="credit-warning">
-            Strictly for non-commercial use. Original checkpoints copyright © Music Technology Group (MTG), Universitat Pompeu Fabra.
-          </div>
-        </div>
-
-        <div class="credit-item">
-          <div class="credit-header">
-            <span class="credit-name">llama.cpp</span>
-            <span class="credit-badge badge-mit">MIT</span>
-          </div>
-          <p class="credit-desc">LLM inference in C/C++ supporting the local Qwen2-Audio server lifecycle.</p>
-          <div class="credit-links">
-            <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener noreferrer" class="credit-link">ggerganov/llama.cpp</a>
-            <span class="credit-link-sep">·</span>
-            <span class="credit-citation">Georgi Gerganov</span>
-          </div>
+        <p class="credit-desc">Contrastive Language-Audio Pretraining model for audio-text semantic similarity.</p>
+        <div class="credit-links">
+          <a href="https://huggingface.co/laion/clap-htsat-unfused" target="_blank" rel="noopener noreferrer" class="credit-link">laion/clap-htsat-unfused</a>
+          <span class="credit-link-sep">·</span>
+          <span class="credit-citation">Wu et al. (ICASSP 2023)</span>
         </div>
       </div>
-    {/if}
+
+      <div class="credit-item">
+        <div class="credit-header">
+          <span class="credit-name">all-MiniLM-L6-v2</span>
+          <span class="credit-badge badge-apache">Apache 2.0</span>
+        </div>
+        <p class="credit-desc">MiniLM sentence transformer model for robust text semantic embeddings.</p>
+        <div class="credit-links">
+          <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer" class="credit-link">sentence-transformers/all-MiniLM-L6-v2</a>
+        </div>
+      </div>
+
+      <div class="credit-item">
+        <div class="credit-header">
+          <span class="credit-name">Essentia Classifiers</span>
+          <span class="credit-badge badge-cc">CC BY-NC-ND 4.0</span>
+        </div>
+        <p class="credit-desc">Discogs-Effnet feature extractor and classifier heads for genre, mood, and vocal classification.</p>
+        <div class="credit-links">
+          <a href="https://essentia.upf.edu/models.html" target="_blank" rel="noopener noreferrer" class="credit-link">Essentia Models Hub</a>
+          <span class="credit-link-sep">·</span>
+          <span class="credit-citation">Bogdanov et al. (ISMIR 2013)</span>
+        </div>
+        <div class="credit-warning">
+          Strictly for non-commercial use. Original checkpoints copyright © Music Technology Group (MTG), Universitat Pompeu Fabra.
+        </div>
+      </div>
+
+      <div class="credit-item">
+        <div class="credit-header">
+          <span class="credit-name">llama.cpp</span>
+          <span class="credit-badge badge-mit">MIT</span>
+        </div>
+        <p class="credit-desc">LLM inference in C/C++ supporting the local Qwen2-Audio server lifecycle.</p>
+        <div class="credit-links">
+          <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener noreferrer" class="credit-link">ggerganov/llama.cpp</a>
+          <span class="credit-link-sep">·</span>
+          <span class="credit-citation">Georgi Gerganov</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   </div>
@@ -531,6 +545,23 @@
       </div>
       <div class="drawer-body">
         <ModelDownloader onComplete={() => {}} />
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showLicenseDrawer}
+  <div class="drawer-overlay" onclick={() => { showLicenseDrawer = false; }}>
+    <div class="drawer-content" onclick={(e) => e.stopPropagation()} style="width: 550px; max-width: 90vw;">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <h3 class="drawer-title">Application License</h3>
+          <p class="drawer-subtitle">GNU Affero General Public License Version 3</p>
+        </div>
+        <button class="drawer-close-btn" onclick={() => { showLicenseDrawer = false; }}>×</button>
+      </div>
+      <div class="drawer-body" style="overflow-y: auto; max-height: calc(100vh - 120px);">
+        <pre class="license-text">{licenseText}</pre>
       </div>
     </div>
   </div>
@@ -955,8 +986,36 @@
   .about-sep { opacity: 0.4; }
 
   .about-license {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
     color: var(--sg-primary, #00f0ff);
-    opacity: 0.7;
+    opacity: 0.75;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(0, 240, 255, 0.4);
+    transition: opacity 0.15s, text-decoration-color 0.15s;
+  }
+  .about-license:hover {
+    opacity: 1;
+    text-decoration-color: var(--sg-primary, #00f0ff);
+  }
+
+  .license-text {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    line-height: 1.6;
+    color: var(--sg-on-surface, #e3e1e9);
+    white-space: pre-wrap;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 0;
+    text-align: left;
   }
 
   .update-toggle-row {
