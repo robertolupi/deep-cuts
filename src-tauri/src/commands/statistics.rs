@@ -38,6 +38,10 @@ pub struct TrackSetStats {
     pub coverage_essentia: f64,
     pub coverage_mood: f64,
     pub coverage_qwen: f64,
+    pub coverage_qwen_description: f64,
+    pub coverage_qwen_instruments: f64,
+    pub coverage_qwen_mood: f64,
+    pub coverage_qwen_genre: f64,
     pub coverage_clap: f64,
     pub coverage_umap: f64,
     pub coverage_acoustid: f64,
@@ -130,7 +134,11 @@ fn compute_stats(conn: &Connection, track_ids: &Option<Vec<i64>>) -> Result<Trac
             AVG(mood_relaxed), AVG(mood_party), AVG(mood_acoustic), AVG(mood_electronic),
             COALESCE(SUM(CASE WHEN scale = 'major'                 THEN 1 ELSE 0 END), 0),
             COALESCE(SUM(CASE WHEN scale = 'minor'                 THEN 1 ELSE 0 END), 0),
-            COALESCE(SUM(CASE WHEN acoustid_status = 'done'        THEN 1 ELSE 0 END), 0)
+            COALESCE(SUM(CASE WHEN acoustid_status = 'done'        THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN description IS NOT NULL AND description != '' THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN ai_instruments IS NOT NULL AND ai_instruments != '' THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN ai_mood IS NOT NULL AND ai_mood != '' THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN ai_genre IS NOT NULL AND ai_genre != '' THEN 1 ELSE 0 END), 0)
         FROM tracks {wc}"
     );
 
@@ -141,6 +149,7 @@ fn compute_stats(conn: &Connection, track_ids: &Option<Vec<i64>>) -> Result<Trac
         avg_happy, avg_sad, avg_aggressive, avg_relaxed, avg_party, avg_acoustic, avg_electronic,
         major_count, minor_count,
         acoustid_done_count,
+        qwen_desc_count, qwen_instr_count, qwen_mood_count, qwen_genre_count,
     ) = conn.query_row(&sql_main, [], |r| Ok((
         r.get::<_, i64>(0)?,
         r.get::<_, f64>(1)?,
@@ -161,6 +170,10 @@ fn compute_stats(conn: &Connection, track_ids: &Option<Vec<i64>>) -> Result<Trac
         r.get::<_, i64>(16)?,
         r.get::<_, i64>(17)?,
         r.get::<_, i64>(18)?,
+        r.get::<_, i64>(19)?,
+        r.get::<_, i64>(20)?,
+        r.get::<_, i64>(21)?,
+        r.get::<_, i64>(22)?,
     ))).map_err(|e| e.to_string())?;
 
     let pct = |n: i64| if track_count > 0 { n as f64 / track_count as f64 * 100.0 } else { 0.0 };
@@ -281,6 +294,10 @@ fn compute_stats(conn: &Connection, track_ids: &Option<Vec<i64>>) -> Result<Trac
         coverage_essentia: pct(essentia_count),
         coverage_mood: pct(mood_count),
         coverage_qwen: pct(qwen_count),
+        coverage_qwen_description: pct(qwen_desc_count),
+        coverage_qwen_instruments: pct(qwen_instr_count),
+        coverage_qwen_mood: pct(qwen_mood_count),
+        coverage_qwen_genre: pct(qwen_genre_count),
         coverage_clap: pct(clap_count),
         coverage_umap: pct(umap_count),
         coverage_acoustid: pct(acoustid_done_count),

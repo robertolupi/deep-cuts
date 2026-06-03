@@ -34,6 +34,10 @@
     coverage_essentia: number;
     coverage_mood: number;
     coverage_qwen: number;
+    coverage_qwen_description: number;
+    coverage_qwen_instruments: number;
+    coverage_qwen_mood: number;
+    coverage_qwen_genre: number;
     coverage_clap: number;
     coverage_umap: number;
     coverage_acoustid: number;
@@ -145,7 +149,11 @@
   const coverageRows = $derived<CoverageRow[]>(statsA ? [
     { label: 'Essentia (key/BPM)', pctA: statsA.coverage_essentia, pctB: statsB?.coverage_essentia },
     { label: 'Mood Classifiers',   pctA: statsA.coverage_mood,     pctB: statsB?.coverage_mood },
-    { label: 'Qwen2-Audio',        pctA: statsA.coverage_qwen,     pctB: statsB?.coverage_qwen },
+    { label: 'Qwen2-Audio (Overall)', pctA: statsA.coverage_qwen,     pctB: statsB?.coverage_qwen },
+    { label: '  └ Description',    pctA: statsA.coverage_qwen_description, pctB: statsB?.coverage_qwen_description },
+    { label: '  └ AI Instruments', pctA: statsA.coverage_qwen_instruments, pctB: statsB?.coverage_qwen_instruments },
+    { label: '  └ AI Mood',        pctA: statsA.coverage_qwen_mood, pctB: statsB?.coverage_qwen_mood },
+    { label: '  └ AI Genre',       pctA: statsA.coverage_qwen_genre, pctB: statsB?.coverage_qwen_genre },
     { label: 'CLAP Embeddings',    pctA: statsA.coverage_clap,     pctB: statsB?.coverage_clap },
     { label: 'UMAP Coordinates',   pctA: statsA.coverage_umap,     pctB: statsB?.coverage_umap },
     { label: 'AcoustID Enrichment',pctA: statsA.coverage_acoustid, pctB: statsB?.coverage_acoustid },
