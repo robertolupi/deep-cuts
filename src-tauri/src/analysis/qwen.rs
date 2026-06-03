@@ -600,6 +600,13 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
         || cleaned.contains("no specific")
         || cleaned.contains("not provided")
         || cleaned.contains("does not provide")
+        || cleaned.contains("none specified")
+        || cleaned.contains("no instruments")
+        || cleaned.contains("no mood")
+        || cleaned.contains("n/a")
+        || cleaned == "none"
+        || cleaned == "unknown"
+        || cleaned == "specified"
     {
         return "".to_string();
     }
@@ -626,7 +633,10 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
         "new age", "easy listening", "folk rock", "folk pop", "synth pop",
         "indie rock", "indie pop", "slow tempo", "fast paced", "heart broken",
         "laid back", "dark ambient", "spacey synth", "sound collage", "chicago blues",
-        "harmonica blues"
+        "harmonica blues", "sertanejo universitário", "singer songwriter", "progressive rock",
+        "symphonic rock", "classic soul", "electroacoustic", "ambient pop", "art rock",
+        "heavy metal", "dream pop", "post punk", "big band", "free improvisation",
+        "chamber music", "chamber pop", "baroque pop", "indie folk"
     ];
 
     for term in MULTI_WORD_WHITELIST {
@@ -672,7 +682,8 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
         "energetic", "joyful", "happy", "sad", "dark", "hypnotic", "uplifting",
         "atmospheric", "dreamy", "inspiring", "heavy", "epic", "intense",
         "nostalgic", "romantic", "upbeat", "chill", "cold", "chaotic", "dissonant",
-        "minimal", "soundtrack", "world"
+        "minimal", "soundtrack", "world", "classic", "hopeful", "peaceful",
+        "melancholic", "lively", "positive", "festive", "heartfelt", "vivacious"
     ];
 
     const STOPWORDS: &[&str] = &[
@@ -688,7 +699,13 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
         "instrumentation", "sound", "sounds", "soundscape", "elements",
         "element", "influences", "influence", "highly", "extremely", "very",
         "described", "describe", "description", "accompanied", "accompaniment",
-        "specifically", "style", "styles"
+        "specifically", "style", "styles", "falls", "under", "has", "its", "more",
+        "often", "referred", "as", "classification", "categorized", "classified",
+        "type", "category", "label", "labeled", "tagged", "feels", "character",
+        "characteristics", "aspects", "aspect", "typical", "typically", "associated",
+        "aims", "evoke", "evokes", "evocative", "evoking", "conveys", "convey",
+        "conveying", "impression", "reminiscent", "delivers", "delivering",
+        "presents", "presenting", "sense", "inner"
     ];
 
     let mut result_tokens = Vec::new();
@@ -713,7 +730,7 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
             }
 
             // Exclude noise
-            if w_clean == "n/a" || w_clean == "none" || w_clean == "not specified" || w_clean == "unknown" {
+            if w_clean == "n/a" || w_clean == "none" || w_clean == "not specified" || w_clean == "unknown" || w_clean == "specified" || w_clean == "n" {
                 continue;
             }
 
@@ -793,12 +810,19 @@ mod tests {
             ("instruments", "traditional acoustic guitar instruments, various percussion instruments", "acoustic guitar, percussion"),
             ("instruments", "not specified", ""),
             ("instruments", "the instruments in the track are not specified.", ""),
+            ("instruments", "None specified", ""),
+            ("instruments", "n/a", ""),
+            ("instruments", "specified", ""),
             
             // Genre
             ("genre", "GENRE: traditional country style", "country"),
             ("genre", "This piece belongs to electronic / techno and house subgenres.", "electronic, techno, house"),
             ("genre", "The genre of the track is techno.", "techno"),
             ("genre", "the genre of the track is 'ambient, soundtrack' and the subgenre is 'newage'.", "ambient, soundtrack, newage"),
+            ("genre", "rock, falls under classic rock", "rock, classic rock"),
+            ("genre", "pop, its experimental pop", "pop, experimental pop"),
+            ("genre", "pop, international pop, often referred as world pop", "pop, international pop, world pop"),
+            ("genre", "sertanejo, sertanejo universitário", "sertanejo, sertanejo universitário"),
             ("genre", "the genre is rock and the subgenre is industrial.", "rock, industrial"),
             
             // Mood
@@ -806,6 +830,10 @@ mod tests {
             ("mood", "extremely calm feel, introspective vibes", "calm, introspective"),
             ("mood", "The mood of the track is introspective and reflective.", "introspective, reflective"),
             ("mood", "the mood and emotional feel of this track cannot be determined from the provided information.", ""),
+            ("mood", "emotional, aims evoke sense inner peace", "emotional, peace"),
+            ("mood", "None specified", ""),
+            ("mood", "n/a", ""),
+            ("mood", "n", ""),
         ];
         for (step, input, expected) in cases {
             assert_eq!(
