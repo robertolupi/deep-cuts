@@ -425,9 +425,15 @@
         <div class="conversation-hint">
           <p>Ask anything about this track — production, arrangement, mix, mood…</p>
           <div class="suggestions">
+            <button class="suggestion" onclick={() => { inputText = "What language are the vocals in? If instrumental, say so."; }}>What language are the vocals in?</button>
+            <button class="suggestion" onclick={() => { inputText = "What era or decade does this track sound like?"; }}>What era or decade does this sound like?</button>
+            <button class="suggestion" onclick={() => { inputText = "What's the best listening context for this track — focus, workout, party, background, sleep?"; }}>Best listening context?</button>
+            <button class="suggestion" onclick={() => { inputText = "What are the main themes or subjects of the lyrics?"; }}>What are the lyrical themes?</button>
+            <button class="suggestion" onclick={() => { inputText = "Does this sound like a studio recording or a live performance?"; }}>Studio or live recording?</button>
+            <button class="suggestion" onclick={() => { inputText = "What's the arrangement structure of this track?"; }}>What's the arrangement structure?</button>
             <button class="suggestion" onclick={() => { inputText = "Why does the low end feel muddy?"; }}>Why does the low end feel muddy?</button>
-            <button class="suggestion" onclick={() => { inputText = "What's the arrangement structure?"; }}>What's the arrangement structure?</button>
-            <button class="suggestion" onclick={() => { inputText = "How does the mix compare to a typical club track?"; }}>How does the mix compare to a typical club track?</button>
+            <button class="suggestion" onclick={() => { inputText = "How does the mix compare to a typical club track?"; }}>How does the mix compare to a club track?</button>
+            <button class="suggestion" onclick={() => { inputText = "Give me arrangement tips to improve this song."; }}>Give me arrangement tips to improve this.</button>
           </div>
         </div>
       {/if}
