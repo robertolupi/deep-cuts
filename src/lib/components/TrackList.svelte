@@ -15,22 +15,22 @@
     onTrackSelect: (track: import('../types').Track) => void;
   } = $props();
 
-  let displayLimit = $state(150);
+  const PAGE_SIZE = 150;
+  let currentPage = $state(0);
 
   $effect(() => {
-    filters.searchQuery;
-    filters.genreFilter;
-    filters.selectedKeys;
-    filters.selectedScale;
-    filters.minBpm;
-    filters.maxBpm;
-    filters.musicOnly;
-    filters.vocalFilter;
-    filters.similarToTrack;
-    const idx = selectedTrack
-      ? filters.filteredTracks.findIndex(t => t.id === selectedTrack!.id)
-      : -1;
-    displayLimit = idx >= 150 ? idx + 1 : 150;
+    // Reset to page 0 whenever the filtered result set changes
+    void filters.filteredTracks;
+    currentPage = 0;
+  });
+
+  $effect(() => {
+    // Jump to the page containing the selected track
+    if (!selectedTrack) return;
+    const idx = filters.filteredTracks.findIndex(t => t.id === selectedTrack!.id);
+    if (idx === -1) return;
+    const targetPage = Math.floor(idx / PAGE_SIZE);
+    if (targetPage !== currentPage) currentPage = targetPage;
   });
 
   // Keep selected track smoothly scrolled into view when selected or when re-sorted due to metadata updates
@@ -50,7 +50,9 @@
     }
   });
 
-  let displayedTracks = $derived(filters.filteredTracks.slice(0, displayLimit));
+  const totalPages = $derived(Math.max(1, Math.ceil(filters.filteredTracks.length / PAGE_SIZE)));
+  const pageStart  = $derived(currentPage * PAGE_SIZE);
+  let displayedTracks = $derived(filters.filteredTracks.slice(pageStart, pageStart + PAGE_SIZE));
   const allTracks = $derived(library.tracks);
   const isSelectedOutsideFilter = $derived(
     !!selectedTrack && !filters.filteredTracks.some(t => t.id === selectedTrack!.id)
@@ -105,7 +107,7 @@
                       <div class="bar"></div>
                     </div>
                   {:else}
-                    {index + 1}
+                    {pageStart + index + 1}
                   {/if}
                 </td>
                 <td class="track-title-cell" title={track.title || track.filename}>
@@ -172,17 +174,29 @@
           </tbody>
         </table>
 
-        {#if filters.filteredTracks.length > displayLimit}
-          <div class="load-more-container">
+        {#if totalPages > 1}
+          <div class="pagination-bar">
             <button
-              class="load-more-btn"
-              onclick={() => displayLimit += 150}
+              class="page-btn"
+              onclick={() => currentPage--}
+              disabled={currentPage === 0}
               type="button"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="load-more-icon">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-              Load More Tracks ({filters.filteredTracks.length - displayLimit} remaining)
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              Prev
+            </button>
+            <span class="page-info">
+              {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filters.filteredTracks.length)}
+              <span class="page-of">of {filters.filteredTracks.length}</span>
+            </span>
+            <button
+              class="page-btn"
+              onclick={() => currentPage++}
+              disabled={currentPage >= totalPages - 1}
+              type="button"
+            >
+              Next
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
           </div>
         {/if}
@@ -278,48 +292,52 @@
     100% { transform: translateX(100%); }
   }
 
-.load-more-container {
-    display: flex;
-    justify-content: center;
-    padding: 1.5rem;
-    border-top: 1px solid var(--sg-surface-high);
-    background: linear-gradient(180deg, transparent 0%, rgba(10, 11, 16, 0.2) 100%);
-  }
-
-  .load-more-btn {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--sg-surface-high);
-    color: var(--sg-on-surface);
-    padding: 0.6rem 1.5rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    border-radius: 6px;
-    cursor: pointer;
+  .pagination-bar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease-in-out;
-    backdrop-filter: blur(8px);
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--sg-surface-high);
   }
 
-  .load-more-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+  .page-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--sg-on-surface-variant, #a0a0b0);
+    padding: 0.3rem 0.75rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .page-btn:hover:not(:disabled) {
     border-color: var(--sg-primary, #00f0ff);
     color: var(--sg-primary, #00f0ff);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--sg-primary, #00f0ff) 15%, transparent);
-    transform: translateY(-1px);
+    background: rgba(0, 240, 255, 0.06);
   }
 
-  .load-more-btn:active {
-    transform: translateY(0);
+  .page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
 
-  .load-more-icon {
-    transition: transform 0.2s ease;
+  .page-info {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--sg-on-surface, #e3e1e9);
+    min-width: 120px;
+    text-align: center;
   }
 
-  .load-more-btn:hover .load-more-icon {
-    transform: translateY(1px);
+  .page-of {
+    color: var(--sg-outline, #849495);
   }
 
   .outside-filter-banner {
