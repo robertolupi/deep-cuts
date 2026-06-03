@@ -190,60 +190,21 @@ impl super::AnalysisPass for QwenPass {
             .ok_or_else(|| "[qwen] llama-server port not available; was ensure_llama_server_running called?".to_string())?;
         let api_url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
-        let mut attempts = 0;
-        let max_attempts = 3;
+        let mut outer_attempts = 0;
+        let max_outer_attempts = 2;
         let mut best_output: Option<QwenOutput> = None;
         let mut best_similarity = -1.0f32;
 
-        while attempts < max_attempts {
-            attempts += 1;
-
-            let mut prompt_attempt = prompt.clone();
-            if attempts > 1 {
-                prompt_attempt.push_str(
-                    "\nIMPORTANT: Listen extremely carefully. Avoid hallucinating instruments or genres that are not in the audio. \
-                    Ensure the description matches the acoustic reality of the audio. Respond strictly in English."
-                );
-            }
-
-            let mut payload = serde_json::json!({
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "input_audio",
-                                "input_audio": {
-                                    "data": base64_audio.clone(),
-                                    "format": "wav"
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt_attempt
-                            }
-                        ]
-                    }
-                ]
+        let query_completions = |messages_payload: &serde_json::Value| -> Result<String, String> {
+            let payload = serde_json::json!({
+                "messages": messages_payload,
+                "temperature": 0.2
             });
-
-            if attempts > 1 {
-                if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("temperature".to_string(), serde_json::json!(0.2));
-                }
-            }
-
-            log::info!(
-                "[qwen] Dispatching audio to local llama-server completions endpoint for track {} (attempt {}/{})...",
-                job.track_id, attempts, max_attempts
-            );
-
             let resp = ureq::post(&api_url)
                 .timeout(std::time::Duration::from_secs(120))
                 .send_json(&payload)
                 .map_err(|e| format!("Completions request to llama-server failed: {}", e))?;
 
-            let status_code = resp.status();
             let resp_json = resp
                 .into_json::<serde_json::Value>()
                 .map_err(|e| format!("Failed to parse completions response JSON: {}", e))?;
@@ -257,14 +218,197 @@ impl super::AnalysisPass for QwenPass {
                     )
                 })?;
 
-            let raw_response = format!(
-                "[Status: {}] {}",
-                status_code,
-                serde_json::to_string(&resp_json).unwrap_or_default()
+            Ok(content.to_string())
+        };
+
+        while outer_attempts < max_outer_attempts {
+            outer_attempts += 1;
+
+            let mut messages = vec![
+                serde_json::json!({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": base64_audio.clone(),
+                                "format": "wav"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": format!(
+                                "Listen carefully to this audio. The measured tempo is approximately {:.0} BPM and the detected key is {} {}. {}\n\
+                                First, is this track music (as opposed to speech, podcast, sound effects, or silence)? Respond strictly in English in this format:\n\
+                                MUSIC: yes or no",
+                                bpm, key, scale,
+                                job.genre.as_ref().map_or("".to_string(), |g| format!("The file metadata tags it as \"{}\".", g))
+                            )
+                        }
+                    ]
+                })
+            ];
+
+            log::info!(
+                "[qwen] Dispatching audio to local llama-server completions endpoint for track {} (outer attempt {}/{})...",
+                job.track_id, outer_attempts, max_outer_attempts
             );
 
-            // Preemptively save the raw completions response to the database
-            // so that it is persisted and inspectable even if structured parsing downstream fails!
+            // Step 1: MUSIC
+            let mut is_music = None;
+            let mut music_content = String::new();
+            let mut step_success = false;
+
+            for attempt in 1..=3 {
+                match query_completions(&serde_json::json!(messages)) {
+                    Ok(content) => {
+                        let has_chinese = content.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+                        let parsed = parse_qwen_response(&content);
+                        if parsed.is_music.is_some() && !has_chinese {
+                            is_music = parsed.is_music;
+                            music_content = content;
+                            step_success = true;
+                            break;
+                        }
+
+                        messages.push(serde_json::json!({
+                            "role": "assistant",
+                            "content": content
+                        }));
+                        messages.push(serde_json::json!({
+                            "role": "user",
+                            "content": "CRITICAL: Please respond strictly in English and use the format: MUSIC: yes or no"
+                        }));
+                    }
+                    Err(e) => {
+                        log::warn!("[qwen] Step 1 (music) attempt {} failed: {}", attempt, e);
+                    }
+                }
+            }
+
+            if !step_success || is_music.is_none() {
+                log::warn!("[qwen] Failed to resolve MUSIC status for track {}", job.track_id);
+                continue;
+            }
+
+            // Early exit if it is not music
+            if is_music == Some(0) {
+                let parsed = ParsedQwenResponse {
+                    is_music: Some(0),
+                    ai_genre: None,
+                    ai_mood: None,
+                    ai_instruments: None,
+                    description: None,
+                };
+                let raw_response = serde_json::to_string(&messages).unwrap_or_default();
+                
+                // Preemptively save raw response
+                if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
+                    if let Ok(conn) = conn_mutex.lock() {
+                        let _ = conn.execute(
+                            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'qwen'",
+                            rusqlite::params![raw_response, job.track_id],
+                        );
+                    }
+                }
+                return Ok(QwenOutput { parsed, raw_response });
+            }
+
+            messages.push(serde_json::json!({
+                "role": "assistant",
+                "content": music_content
+            }));
+
+            // Steps 2 to 5: GENRE, MOOD, INSTRUMENTS, DESCRIPTION
+            let mut ai_genre = None;
+            let mut ai_mood = None;
+            let mut ai_instruments = None;
+            let mut description = None;
+
+            let steps = vec![
+                ("genre", "What is the genre and subgenre of this track in a few words? Respond strictly in English in this format:\nGENRE: genre and subgenre"),
+                ("mood", "What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),
+                ("instruments", "What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),
+                ("description", "Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),
+            ];
+
+            let mut all_steps_ok = true;
+            for (step_name, step_prompt) in steps {
+                messages.push(serde_json::json!({
+                    "role": "user",
+                    "content": step_prompt
+                }));
+
+                let mut current_step_success = false;
+                for attempt in 1..=3 {
+                    match query_completions(&serde_json::json!(messages)) {
+                        Ok(content) => {
+                            let has_chinese = content.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+                            let parsed = parse_qwen_response(&content);
+
+                            let valid = match step_name {
+                                "genre" => parsed.ai_genre.is_some() && !has_chinese,
+                                "mood" => parsed.ai_mood.is_some() && !has_chinese,
+                                "instruments" => parsed.ai_instruments.is_some() && !has_chinese,
+                                "description" => parsed.description.is_some() && !has_chinese,
+                                _ => false,
+                            };
+
+                            if valid {
+                                match step_name {
+                                    "genre" => ai_genre = parsed.ai_genre,
+                                    "mood" => ai_mood = parsed.ai_mood,
+                                    "instruments" => ai_instruments = parsed.ai_instruments,
+                                    "description" => description = parsed.description,
+                                    _ => {}
+                                }
+                                messages.push(serde_json::json!({
+                                    "role": "assistant",
+                                    "content": content
+                                }));
+                                current_step_success = true;
+                                break;
+                            }
+
+                            messages.push(serde_json::json!({
+                                "role": "assistant",
+                                "content": content
+                            }));
+                            let correction = format!(
+                                "CRITICAL: Please respond strictly in English and use the format: {}: ...",
+                                step_name.to_uppercase()
+                            );
+                            messages.push(serde_json::json!({
+                                "role": "user",
+                                "content": correction
+                            }));
+                        }
+                        Err(e) => {
+                            log::warn!("[qwen] Step {} attempt {} failed: {}", step_name, attempt, e);
+                        }
+                    }
+                }
+
+                if !current_step_success {
+                    all_steps_ok = false;
+                    break;
+                }
+            }
+
+            if !all_steps_ok {
+                continue;
+            }
+
+            let parsed = ParsedQwenResponse {
+                is_music,
+                ai_genre,
+                ai_mood,
+                ai_instruments,
+                description: description.clone(),
+            };
+            let raw_response = serde_json::to_string(&messages).unwrap_or_default();
+
+            // Save raw response to database
             if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
                 if let Ok(conn) = conn_mutex.lock() {
                     let _ = conn.execute(
@@ -272,21 +416,6 @@ impl super::AnalysisPass for QwenPass {
                         rusqlite::params![raw_response, job.track_id],
                     );
                 }
-            }
-
-            // 6. Parse Response
-            let parsed = parse_qwen_response(content);
-
-            // Handle unrecognized formats as failures
-            let all_empty = parsed.is_music.is_none()
-                && parsed.ai_genre.is_none()
-                && parsed.ai_mood.is_none()
-                && parsed.ai_instruments.is_none()
-                && parsed.description.is_none();
-
-            if all_empty {
-                log::warn!("[qwen] Attempt {} failed parsing for track {}.", attempts, job.track_id);
-                continue;
             }
 
             let output_candidate = QwenOutput {
@@ -314,8 +443,8 @@ impl super::AnalysisPass for QwenPass {
                     }
                     Err(e) => {
                         log::warn!(
-                            "[qwen] Failed to generate CLAP text embedding on attempt {} for track {}: {}",
-                            attempts, job.track_id, e
+                            "[qwen] Failed to generate CLAP text embedding for track {}: {}",
+                            job.track_id, e
                         );
                     }
                 }
@@ -323,8 +452,8 @@ impl super::AnalysisPass for QwenPass {
 
             if got_similarity {
                 log::info!(
-                    "[qwen] Track {} (attempt {}/{}): CLAP similarity = {:.4}",
-                    job.track_id, attempts, max_attempts, similarity
+                    "[qwen] Track {} CLAP similarity = {:.4}",
+                    job.track_id, similarity
                 );
 
                 if similarity >= 0.28 {
@@ -341,18 +470,16 @@ impl super::AnalysisPass for QwenPass {
                 }
 
                 log::warn!(
-                    "[qwen] Track {} failed CLAP verification (similarity {:.4} < 0.28) on attempt {}/{}",
-                    job.track_id, similarity, attempts, max_attempts
+                    "[qwen] Track {} failed CLAP verification (similarity {:.4} < 0.28) on outer attempt {}/{}",
+                    job.track_id, similarity, outer_attempts, max_outer_attempts
                 );
             } else {
-                // If text embedding failed, keep this output as backup
                 if best_output.is_none() {
                     best_output = Some(output_candidate);
                 }
             }
         }
 
-        // Return the best candidate found across all attempts
         if let Some(best) = best_output {
             log::warn!(
                 "[qwen] Track {} failed verification across all attempts. Saving best candidate with similarity {:.4}",
@@ -488,53 +615,76 @@ const FIELD_KEYWORDS: &[&str] = &[
 /// no additional boundaries are found.
 fn split_segment_on_keywords(segment: &str) -> Vec<&str> {
     let lower = segment.to_lowercase();
-    let mut cut_points: Vec<usize> = vec![0];
+    let mut cut_points = Vec::new();
 
-    for kw in FIELD_KEYWORDS {
-        let pat = format!("{}:", kw);
+    for &kw in FIELD_KEYWORDS {
         let mut from = 0;
-        while let Some(rel) = lower[from..].find(pat.as_str()) {
+        while let Some(rel) = lower[from..].find(kw) {
             let kw_start = from + rel;
-            if kw_start > 0 {
-                // Only cut here if the keyword is preceded by a field delimiter
-                let preceding = lower[..kw_start].trim_end();
-                if let Some(last) = preceding.chars().last() {
-                    if last == ',' || last == '.' || last == ';' {
-                        cut_points.push(kw_start);
+            // Validate prefix (word boundary: start of string, or preceded by whitespace/punctuation/delimiters)
+            let prefix_ok = kw_start == 0 || {
+                let prev_char = segment[..kw_start].chars().next_back().unwrap();
+                prev_char.is_whitespace()
+                    || prev_char == ','
+                    || prev_char == '.'
+                    || prev_char == ';'
+                    || prev_char == '*'
+                    || prev_char == '_'
+                    || prev_char == '('
+                    || prev_char == '['
+                    || prev_char == '-'
+            };
+
+            if prefix_ok {
+                // Validate suffix: check if after kw there's only optional spaces/markdown and then a colon
+                let rest = &lower[kw_start + kw.len()..];
+                let mut valid_suffix = false;
+                for c in rest.chars() {
+                    if c.is_whitespace() || c == '*' || c == '_' {
+                        continue;
                     }
+                    if c == ':' {
+                        valid_suffix = true;
+                    }
+                    break;
+                }
+                if valid_suffix {
+                    cut_points.push(kw_start);
                 }
             }
             from = kw_start + 1;
         }
     }
 
-    if cut_points.len() <= 1 {
+    if cut_points.is_empty() {
         return vec![segment];
     }
+    cut_points.push(0); // Ensure 0 is included
     cut_points.sort_unstable();
     cut_points.dedup();
 
-    let last_start = *cut_points.last().unwrap();
-    let non_last: Vec<&str> = cut_points
-        .windows(2)
-        .map(|w| {
-            segment[w[0]..w[1]]
-                .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
-                .trim()
-                // Strip trailing field delimiters (comma, period, semicolon) from
-                // non-final segments — these are separators, not sentence punctuation.
-                .trim_end_matches(|c: char| c == ',' || c == '.' || c == ';')
-                .trim()
-        })
-        .filter(|s| !s.is_empty())
-        .collect();
-    let last = segment[last_start..]
-        .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
-        .trim();
-    non_last
-        .into_iter()
-        .chain(std::iter::once(last).filter(|s| !s.is_empty()))
-        .collect()
+    // Map byte offsets to slices of the original segment
+    let mut slices = Vec::new();
+    for w in cut_points.windows(2) {
+        let s = segment[w[0]..w[1]]
+            .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
+            .trim()
+            .trim_end_matches(|c: char| c == ',' || c == '.' || c == ';')
+            .trim();
+        if !s.is_empty() {
+            slices.push(s);
+        }
+    }
+    if let Some(&last_start) = cut_points.last() {
+        let s = segment[last_start..]
+            .trim_start_matches(|c: char| c == ',' || c == '.' || c == ' ')
+            .trim();
+        if !s.is_empty() {
+            slices.push(s);
+        }
+    }
+
+    slices
 }
 
 pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
@@ -755,6 +905,20 @@ mod tests {
         assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
         assert_eq!(res.ai_instruments.as_deref(), Some("synth, synth_lead"));
         assert!(res.description.as_deref().unwrap().starts_with("A dance track perfect"));
+    }
+
+    #[test]
+    fn test_parse_no_delimiter_headers() {
+        let content = "MUSIC: yes GENRE: country, outlaw country Mood: drinking, partying Instruments: acoustic guitar, fiddle, pedal steel, harmonica, drums, banjo DESCRIPTION: This track is a lively example of outlaw country music, with a festive mood that fits well into a setting of drinking and partying. The acoustic guitar and fiddle lead the melody, backed up by the pedal steel, harmonica, drums, and banjo.";
+        let res = parse_qwen_response(content);
+        assert_eq!(res.is_music, Some(1));
+        assert_eq!(res.ai_genre.as_deref(), Some("country, outlaw country"));
+        assert_eq!(res.ai_mood.as_deref(), Some("drinking, partying"));
+        assert_eq!(
+            res.ai_instruments.as_deref(),
+            Some("acoustic guitar, fiddle, pedal steel, harmonica, drums, banjo")
+        );
+        assert!(res.description.as_deref().unwrap().starts_with("This track is a lively"));
     }
 
     #[test]
