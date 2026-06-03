@@ -8,6 +8,7 @@
   import { player } from '$lib/stores/player.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { curation } from '$lib/stores/curation.svelte';
 
   import { camelotMap, resolveTrackColor } from '$lib/utils/mapMath';
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
@@ -21,6 +22,11 @@
   let algorithm       = $state<'pca' | 'umap'>('pca');
 
   let colorCoding = $state<'genre' | 'camelot' | 'bpm'>('genre');
+
+  // Map Sonic vibe states
+  let searchQuery = $state("");
+  let similarityScores = $state<Map<number, number>>(new Map());
+  let isSearchingSimilarity = $state(false);
 
   // Canvas
   let canvas        = $state<HTMLCanvasElement | null>(null);
@@ -99,6 +105,91 @@
   const xScale = $derived(d3.scaleLinear().domain([0, 100]).range([padding, width - padding]));
   const yScale = $derived(d3.scaleLinear().domain([0, 100]).range([height - padding, padding]));
 
+  // Derived D3 contour density heatmap from similarity scores and track coordinates
+  const contours = $derived.by(() => {
+    if (similarityScores.size === 0 || visibleTracks.length === 0) return [];
+    
+    const weightedPoints = visibleTracks
+      .map(t => {
+        const score = similarityScores.get(t.id) ?? 0;
+        return {
+          x: xScale(t.x),
+          y: yScale(t.y),
+          weight: score
+        };
+      })
+      .filter(p => p.weight > 0);
+
+    if (weightedPoints.length === 0) return [];
+
+    try {
+      const bw = Math.max(15, Math.min(width, height) / 18);
+      const densityGenerator = d3.contourDensity<any>()
+        .x(d => d.x)
+        .y(d => d.y)
+        .weight(d => d.weight)
+        .size([width, height])
+        .bandwidth(bw)
+        .thresholds(12);
+
+      return densityGenerator(weightedPoints);
+    } catch (e) {
+      console.error("Failed to generate density contours:", e);
+      return [];
+    }
+  });
+
+  // Query similarity for map sonic search
+  async function runSimilarityQuery() {
+    const q = searchQuery.trim();
+    if (!q) {
+      similarityScores = new Map();
+      return;
+    }
+    isSearchingSimilarity = true;
+    try {
+      const results = await invoke<{ id: number; score: number }[]>("search_clap_tracks", {
+        query: q,
+        limit: library.tracks.length || 5000,
+      });
+      const newScores = new Map<number, number>();
+      for (const r of results) {
+        newScores.set(r.id, r.score);
+      }
+      similarityScores = newScores;
+    } catch (err: any) {
+      ui.showToast(`Sonic query failed: ${err.toString()}`, "error");
+    } finally {
+      isSearchingSimilarity = false;
+    }
+  }
+
+  // Create playlist from matching sonic vibe results
+  async function handleCreatePlaylistFromVibe() {
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    const matching = visibleTracks
+      .map(t => ({ id: t.id, score: similarityScores.get(t.id) ?? 0 }))
+      .filter(t => t.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (matching.length === 0) {
+      ui.showToast("No similar tracks found to create a playlist.", "error");
+      return;
+    }
+
+    const defaultName = `Vibe: ${q.substring(0, 25)}`;
+    const name = prompt("Enter playlist name:", defaultName);
+    if (!name || !name.trim()) return;
+
+    const playlistId = await curation.createPlaylist(name);
+    if (playlistId) {
+      const trackIds = matching.slice(0, 50).map(m => m.id);
+      await curation.addTracksToPlaylist(playlistId, trackIds);
+    }
+  }
+
   function getTrackColor(track: MappedTrackPoint): string {
     return resolveTrackColor(track, colorCoding, dynamicGenreColors, themeColors);
   }
@@ -161,6 +252,42 @@
     ctx.save();
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
+
+    // Draw D3 contours/density heatmap as glowing background overlays
+    if (contours && contours.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.16; // soft opacity for glowing contour layout
+      
+      const maxVal = Math.max(...contours.map(c => c.value), 1e-6);
+      const minVal = Math.max(1e-5, Math.min(...contours.map(c => c.value)));
+      const logMax = Math.log(maxVal);
+      const logMin = Math.log(minVal);
+      const geoPath = d3.geoPath().context(ctx);
+      
+      for (const contour of contours) {
+        ctx.beginPath();
+        geoPath(contour);
+        
+        const val = Math.max(minVal, contour.value);
+        const normVal = logMax === logMin ? 0.5 : (Math.log(val) - logMin) / (logMax - logMin);
+        let color = "";
+        
+        if (currentThemeStr === 'accessible') {
+          // Yellow-to-Purple high contrast gradient
+          color = d3.interpolatePlasma(normVal * 0.95);
+        } else if (currentThemeStr === 'light') {
+          // Smooth light-mode Harmonious Cool colors (Blues/Teals)
+          color = d3.interpolateCool(normVal * 0.85);
+        } else {
+          // Dark/Neon themed glowing palette (Magma/Plasma spectrum)
+          color = d3.interpolateMagma(normVal * 0.85 + 0.1);
+        }
+        
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
 
     const dotR    = Math.max(1.0, 4.5  / transform.k);
     const strokeW = Math.max(0.1, 0.5  / transform.k);
@@ -408,6 +535,52 @@
           UMAP
         </button>
       </div>
+    </div>
+
+    <!-- Sonic Vibe Search -->
+    <div class="toolbar-group sonic-search-group">
+      <span class="toolbar-label">SONIC VIBE</span>
+      <div class="search-input-wrapper">
+        <input
+          type="text"
+          bind:value={searchQuery}
+          placeholder="Search vibe (e.g. ambient)..."
+          onkeydown={(e) => {
+            if (e.key === 'Enter') {
+              runSimilarityQuery();
+            }
+          }}
+          class="sonic-search-input"
+        />
+        {#if searchQuery}
+          <button class="search-clear-btn" onclick={() => { searchQuery = ""; runSimilarityQuery(); }}>×</button>
+        {/if}
+      </div>
+      <button 
+        class="ttog-btn action-btn-accent" 
+        onclick={runSimilarityQuery}
+        disabled={isSearchingSimilarity}
+      >
+        {#if isSearchingSimilarity}
+          Searching...
+        {:else}
+          Query
+        {/if}
+      </button>
+      {#if similarityScores.size > 0}
+        <button 
+          class="ttog-btn action-btn-save-vibe" 
+          onclick={handleCreatePlaylistFromVibe}
+          title="Save top matching tracks to a new playlist"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Save Playlist
+        </button>
+      {/if}
     </div>
 
     <!-- Hint -->
@@ -662,5 +835,75 @@
     color: var(--sg-secondary, #fe00fe);
     background: rgba(254, 0, 254, 0.12);
     font-weight: 700;
+  }
+
+  /* ── Sonic Vibe Search Styles ── */
+  .sonic-search-group {
+    margin-left: 0.5rem;
+  }
+
+  .search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .sonic-search-input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    color: var(--sg-on-surface, #e3e1e9);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    padding: 4px 20px 4px 8px;
+    width: 175px;
+    outline: none;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .sonic-search-input:focus {
+    border-color: var(--sg-primary, #00f0ff);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  .search-clear-btn {
+    position: absolute;
+    right: 6px;
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.12s;
+  }
+
+  .search-clear-btn:hover {
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .action-btn-accent {
+    border-color: rgba(0, 240, 255, 0.3) !important;
+    color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  .action-btn-accent:hover {
+    background: rgba(0, 240, 255, 0.1) !important;
+    border-color: var(--sg-primary, #00f0ff) !important;
+  }
+
+  .action-btn-save-vibe {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-color: rgba(254, 0, 254, 0.3) !important;
+    color: var(--sg-secondary, #fe00fe) !important;
+  }
+
+  .action-btn-save-vibe:hover {
+    background: rgba(254, 0, 254, 0.1) !important;
+    border-color: var(--sg-secondary, #fe00fe) !important;
   }
 </style>
