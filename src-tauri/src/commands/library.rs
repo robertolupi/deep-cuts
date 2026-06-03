@@ -510,6 +510,65 @@ pub async fn search_clap_tracks(
     Ok(results)
 }
 
+/// Perform a hybrid similarity search combining sonic (CLAP) and semantic (Qwen description) queries.
+#[tauri::command]
+pub async fn search_hybrid_vibe(
+    query: String,
+    clap_weight: f64,
+    limit: Option<usize>,
+    app_handle: tauri::AppHandle,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<SemanticSearchResult>, AppError> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    if (clap_weight - 1.0).abs() < 1e-6 {
+        return search_clap_tracks(query, limit, app_handle, conn_state).await;
+    }
+    if clap_weight.abs() < 1e-6 {
+        return search_semantic_tracks(query, limit, app_handle, conn_state).await;
+    }
+
+    // Hybrid: search both, merge and scale by weights
+    let search_limit = Some(5000);
+    let clap_results = search_clap_tracks(query.clone(), search_limit, app_handle.clone(), conn_state.clone()).await?;
+    let semantic_results = search_semantic_tracks(query, search_limit, app_handle, conn_state).await?;
+
+    let mut merged: std::collections::HashMap<i64, SemanticSearchResult> = std::collections::HashMap::new();
+
+    for mut r in clap_results {
+        r.score *= clap_weight;
+        merged.insert(r.id, r);
+    }
+
+    let sem_weight = 1.0 - clap_weight;
+    for r in semantic_results {
+        if let Some(existing) = merged.get_mut(&r.id) {
+            existing.score += r.score * sem_weight;
+        } else {
+            let mut new_r = r;
+            new_r.score *= sem_weight;
+            merged.insert(new_r.id, new_r);
+        }
+    }
+
+    let mut results: Vec<SemanticSearchResult> = merged.into_values().collect();
+    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    for r in &mut results {
+        r.score = r.score.clamp(0.0, 100.0);
+    }
+
+    if let Some(lim) = limit {
+        results.truncate(lim);
+    }
+
+    Ok(results)
+}
+
+
 #[tauri::command]
 pub fn get_cover_art(
     path: String,
@@ -1030,3 +1089,4 @@ mod tests {
         assert!(track_none.is_none());
     }
 }
+

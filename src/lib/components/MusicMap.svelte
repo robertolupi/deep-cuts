@@ -28,6 +28,24 @@
   let similarityScores = $state<Map<number, number>>(new Map());
   let isSearchingSimilarity = $state(false);
 
+  // Map Mode and Blend Weight Settings
+  let mapMode = $state<'sonic' | 'description' | 'hybrid'>('hybrid');
+  let blendWeight = $state(0.5); // 0.0 (semantic) to 1.0 (sonic)
+
+  // Default to sonic similarity if Qwen analysis has not been run for all tracks
+  let hasCheckedQwen = $state(false);
+  $effect(() => {
+    if (!hasCheckedQwen && library.tracks.length > 0) {
+      const allQwenAnalyzed = library.tracks.every(
+        t => t.description !== null && t.description !== undefined && t.description.trim() !== ""
+      );
+      if (!allQwenAnalyzed) {
+        mapMode = 'sonic';
+      }
+      hasCheckedQwen = true;
+    }
+  });
+
   // Canvas
   let canvas        = $state<HTMLCanvasElement | null>(null);
   let mapContainer  = $state<HTMLElement | null>(null);
@@ -148,8 +166,10 @@
     }
     isSearchingSimilarity = true;
     try {
-      const results = await invoke<{ id: number; score: number }[]>("search_clap_tracks", {
+      const weight = mapMode === 'sonic' ? 1.0 : mapMode === 'description' ? 0.0 : blendWeight;
+      const results = await invoke<{ id: number; score: number }[]>("search_hybrid_vibe", {
         query: q,
+        clapWeight: weight,
         limit: library.tracks.length || 5000,
       });
       const newScores = new Map<number, number>();
@@ -158,37 +178,13 @@
       }
       similarityScores = newScores;
     } catch (err: any) {
-      ui.showToast(`Sonic query failed: ${err.toString()}`, "error");
+      ui.showToast(`Vibe query failed: ${err.toString()}`, "error");
     } finally {
       isSearchingSimilarity = false;
     }
   }
 
-  // Create playlist from matching sonic vibe results
-  async function handleCreatePlaylistFromVibe() {
-    const q = searchQuery.trim();
-    if (!q) return;
 
-    const matching = visibleTracks
-      .map(t => ({ id: t.id, score: similarityScores.get(t.id) ?? 0 }))
-      .filter(t => t.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    if (matching.length === 0) {
-      ui.showToast("No similar tracks found to create a playlist.", "error");
-      return;
-    }
-
-    const defaultName = `Vibe: ${q.substring(0, 25)}`;
-    const name = prompt("Enter playlist name:", defaultName);
-    if (!name || !name.trim()) return;
-
-    const playlistId = await curation.createPlaylist(name);
-    if (playlistId) {
-      const trackIds = matching.slice(0, 50).map(m => m.id);
-      await curation.addTracksToPlaylist(playlistId, trackIds);
-    }
-  }
 
   function getTrackColor(track: MappedTrackPoint): string {
     return resolveTrackColor(track, colorCoding, dynamicGenreColors, themeColors);
@@ -227,8 +223,10 @@
       } else {
         ui.showToast('Running PCA projection…', 'success');
       }
+      const weight = mapMode === 'sonic' ? 1.0 : mapMode === 'description' ? 0.0 : blendWeight;
       const count = await invoke<number>('recompute_projection', {
         musicOnly: filters.musicOnly,
+        clapWeight: weight,
         algorithm,
         nNeighbors: 20,
         minDist: 0.1,
@@ -506,6 +504,48 @@
       </div>
     </div>
 
+    <!-- Map Mode Selection -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">MODE</span>
+      <div class="toolbar-toggle">
+        {#each [['sonic','Sonic'],['description','Description'],['hybrid','Hybrid']] as [val, label]}
+          <button
+            class="ttog-btn"
+            class:ttog-active={mapMode === val}
+            onclick={() => {
+              mapMode = val as 'sonic' | 'description' | 'hybrid';
+              runProjectionRecompute();
+              if (searchQuery) runSimilarityQuery();
+            }}
+          >{label}</button>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Blend Weight Slider (visible only in Hybrid mode) -->
+    {#if mapMode === 'hybrid'}
+      <div class="toolbar-group blend-slider-group">
+        <span class="toolbar-label">BLEND</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="slider-side-label">Qwen</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            bind:value={blendWeight}
+            onchange={() => {
+              runProjectionRecompute();
+              if (searchQuery) runSimilarityQuery();
+            }}
+            class="blend-slider"
+          />
+          <span class="slider-side-label">CLAP</span>
+          <span class="blend-percent-badge">{Math.round(blendWeight * 100)}%</span>
+        </div>
+      </div>
+    {/if}
+
     <!-- Algorithm toggle -->
     <div class="toolbar-group">
       <span class="toolbar-label">PROJECTION</span>
@@ -567,20 +607,7 @@
           Query
         {/if}
       </button>
-      {#if similarityScores.size > 0}
-        <button 
-          class="ttog-btn action-btn-save-vibe" 
-          onclick={handleCreatePlaylistFromVibe}
-          title="Save top matching tracks to a new playlist"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px;">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-            <polyline points="17 21 17 13 7 13 7 21"/>
-            <polyline points="7 3 7 8 15 8"/>
-          </svg>
-          Save Playlist
-        </button>
-      {/if}
+
     </div>
 
     <!-- Hint -->
@@ -905,5 +932,57 @@
   .action-btn-save-vibe:hover {
     background: rgba(254, 0, 254, 0.1) !important;
     border-color: var(--sg-secondary, #fe00fe) !important;
+  }
+
+  /* ── Blend Slider Styles ── */
+  .blend-slider-group {
+    margin-left: 0.25rem;
+  }
+
+  .slider-side-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    color: var(--sg-outline, #849495);
+    opacity: 0.85;
+  }
+
+  .blend-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .blend-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--sg-primary, #00f0ff);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--sg-primary, #00f0ff);
+    transition: transform 0.1s ease;
+  }
+
+  .blend-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .blend-percent-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--sg-primary, #00f0ff);
+    background: rgba(0, 240, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    min-width: 26px;
+    text-align: center;
   }
 </style>
