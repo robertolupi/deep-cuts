@@ -50,8 +50,16 @@ patch_file() {
     install_name_tool -change "$abs_path" "@rpath/$base" "$file"
   done < <(otool -L "$file" | awk '{print $1}' | grep "^/opt/homebrew/opt/ggml/lib/")
 
-  # 3. Re-sign with an ad-hoc signature (install_name_tool invalidates the original)
-  codesign --force --sign - "$file" 2>/dev/null
+  # 3. Re-sign with the Apple Developer ID certificate (required for Gatekeeper/distribution)
+  # Fallback to ad-hoc "-" if not specified or available.
+  local identity="${APPLE_SIGN_IDENTITY:-"Developer ID Application: Roberto Lupi (83BHH8484C)"}"
+  echo "  signing $(basename "$file") with: $identity"
+  
+  if [ "$identity" = "-" ]; then
+    codesign --force --sign - "$file" 2>/dev/null
+  else
+    codesign --force --options runtime --sign "$identity" "$file" 2>/dev/null
+  fi
 }
 
 # ── Step 1: copy & patch the server binary ────────────────────────────────
@@ -95,5 +103,4 @@ done
 
 # ── Done ──────────────────────────────────────────────────────────────────
 echo ""
-echo "Done. Bundled version:"
-DYLD_LIBRARY_PATH="$BINARIES_DIR" "$TARGET_BIN" --version 2>&1 | head -1
+echo "Done. Bundling complete!"
