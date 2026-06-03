@@ -23,6 +23,11 @@
 
   let colorCoding = $state<'genre' | 'camelot' | 'bpm' | 'mood'>('genre');
 
+  // Legend state
+  let legendOpen        = $state(true);
+  let legendInteracting = $state(false);
+  let legendHideTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Map Sonic vibe states
   let searchQuery = $state("");
   let similarityScores = $state<Map<number, number>>(new Map());
@@ -357,7 +362,14 @@
     if (!canvas) return;
     zoomBehavior = d3.zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.5, 12])
-      .on('zoom', (event) => { transform = event.transform; });
+      .on('start', () => {
+        legendInteracting = true;
+        if (legendHideTimer !== null) { clearTimeout(legendHideTimer); legendHideTimer = null; }
+      })
+      .on('zoom', (event) => { transform = event.transform; })
+      .on('end', () => {
+        legendHideTimer = setTimeout(() => { legendInteracting = false; legendHideTimer = null; }, 800);
+      });
     d3.select(canvas).call(zoomBehavior);
 
     // Restore current transform so zoom doesn't jump.
@@ -663,6 +675,99 @@
       onmouseleave={() => { hoveredTrack = null; }}
     ></canvas>
   {/if}
+
+  <!-- Map legend -->
+  <div
+    class="map-legend"
+    class:legend-hidden={legendInteracting}
+    class:legend-collapsed={!legendOpen}
+  >
+    <button class="legend-toggle" onclick={() => legendOpen = !legendOpen} title={legendOpen ? 'Collapse legend' : 'Expand legend'}>
+      <span class="legend-toggle-icon">{legendOpen ? '▾' : '▴'}</span>
+      <span class="legend-title">
+        {#if colorCoding === 'genre'}GENRES
+        {:else if colorCoding === 'camelot'}CAMELOT
+        {:else if colorCoding === 'bpm'}BPM
+        {:else}MOOD
+        {/if}
+      </span>
+    </button>
+
+    {#if legendOpen}
+      <div class="legend-body">
+        {#if colorCoding === 'genre'}
+          {#each [...topGenres, 'Other', 'Unknown'] as genre}
+            {@const color = dynamicGenreColors[genre] ?? '#999'}
+            <div class="legend-row">
+              <span class="legend-swatch" style="background:{color};"></span>
+              <span class="legend-label">{genre}</span>
+            </div>
+          {/each}
+
+        {:else if colorCoding === 'mood'}
+          {#each [
+            ['Happy',      '#ffeb3b'],
+            ['Sad',        '#2979ff'],
+            ['Aggressive', '#ff1744'],
+            ['Relaxed',    '#00e676'],
+            ['Party',      '#d500f9'],
+            ['Acoustic',   '#ff9100'],
+            ['Electronic', '#00e5ff'],
+          ] as [label, color]}
+            <div class="legend-row">
+              <span class="legend-swatch" style="background:{color};"></span>
+              <span class="legend-label">{label}</span>
+            </div>
+          {/each}
+
+        {:else if colorCoding === 'camelot'}
+          <div class="legend-camelot">
+            <div class="legend-camelot-col">
+              <span class="legend-col-header">MINOR</span>
+                {#each [
+                ['Abm','#00E5FF'],['Ebm','#00B0FF'],['Bbm','#2979FF'],
+                ['Fm', '#651FFF'],['Cm', '#AA00FF'],['Gm', '#D500F9'],
+                ['Dm', '#F50057'],['Am', '#FF1744'],['Em', '#FF9100'],
+                ['Bm', '#FFEA00'],['F#m','#76FF03'],['C#m','#00E676'],
+              ] as [key, color]}
+                <div class="legend-row">
+                  <span class="legend-swatch" style="background:{color};"></span>
+                  <span class="legend-label">{key}</span>
+                </div>
+              {/each}
+            </div>
+            <div class="legend-camelot-col">
+              <span class="legend-col-header">MAJOR</span>
+              {#each [
+                ['B', '#80DEEA'],['F#','#82B1FF'],['C#','#8C9EFF'],
+                ['Ab','#B388FF'],['Eb','#EA80FC'],['Bb','#FF80AB'],
+                ['F', '#FF8A80'],['C', '#FFE082'],['G', '#FFF59D'],
+                ['D', '#C6FF00'],['A', '#A7FFEB'],['E', '#A5D6A7'],
+              ] as [key, color]}
+                <div class="legend-row">
+                  <span class="legend-swatch" style="background:{color};"></span>
+                  <span class="legend-label">{key}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+
+        {:else}
+          <!-- BPM gradient bar -->
+          <div class="legend-bpm">
+            <div
+              class="legend-bpm-bar"
+              style="background: linear-gradient(to right, {themeColors.bpmCool}, {themeColors.bpmHot});"
+            ></div>
+            <div class="legend-bpm-labels">
+              <span>70</span>
+              <span>180 BPM</span>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
 
   <!-- Hover tooltip (follows cursor) -->
   {#if hoveredTrack}
@@ -1008,5 +1113,126 @@
     border: 1px solid rgba(0, 240, 255, 0.15);
     min-width: 26px;
     text-align: center;
+  }
+
+  /* ── Map Legend ── */
+  .map-legend {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 100;
+    background: var(--sg-surface-slate, #161b22);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 6px;
+    min-width: 120px;
+    max-width: 260px;
+    backdrop-filter: blur(10px);
+    opacity: 1;
+    transition: opacity 0.25s ease;
+    pointer-events: auto;
+  }
+
+  .map-legend.legend-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .legend-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px 8px;
+    border-radius: 6px;
+  }
+
+  .legend-toggle:hover { background: rgba(255,255,255,0.04); }
+
+  .legend-toggle-icon {
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    line-height: 1;
+  }
+
+  .legend-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--sg-outline, #849495);
+    text-transform: uppercase;
+  }
+
+  .legend-body {
+    padding: 2px 8px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-on-surface, #e3e1e9);
+    white-space: nowrap;
+  }
+
+  /* Camelot two-column layout */
+  .legend-camelot {
+    display: flex;
+    gap: 10px;
+  }
+
+  .legend-camelot-col {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .legend-col-header {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--sg-outline, #849495);
+    margin-bottom: 2px;
+  }
+
+  /* BPM gradient */
+  .legend-bpm {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 2px;
+  }
+
+  .legend-bpm-bar {
+    height: 8px;
+    border-radius: 4px;
+    width: 110px;
+  }
+
+  .legend-bpm-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    color: var(--sg-outline, #849495);
   }
 </style>
