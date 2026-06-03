@@ -93,6 +93,7 @@ pub fn run() {
             commands::library::remove_watched_directory,
             commands::library::get_track_count,
             commands::library::get_tracks,
+            commands::library::get_track,
             commands::library::reveal_in_finder,
             commands::library::get_cover_art,
             commands::library::save_sidecar,

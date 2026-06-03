@@ -100,6 +100,20 @@ pub fn get_tracks(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<Vec
     Ok(tracks)
 }
 
+/// Retrieve a single track by its ID.
+#[tauri::command]
+pub fn get_track(
+    track_id: i64,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Option<Track>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+    let track = Track::find(&conn, track_id)?;
+    Ok(track)
+}
+
+
 /// Writes a .dc.json sidecar file next to the given track's audio file.
 #[tauri::command]
 pub fn save_sidecar(
@@ -985,5 +999,34 @@ mod tests {
         // "synthesizer" matches 1 track (Track 3). IDF_inst = ln(3.0 / 1.0) = ln(3.0) = 1.098612
         assert!((term_idfs[0].0 - (1.5f64).ln()).abs() < 1e-9);
         assert!((term_idfs[1].0 - (3.0f64).ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_track_find() {
+        let conn = setup_test_db();
+        
+        // Insert watched directory
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'Test Collection', '/Users/user/Music')",
+            []
+        ).unwrap();
+        
+        // Insert sample track
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (42, 1, '/Users/user/Music/t42.mp3', 't42.mp3', 100, 1780000000, 100)",
+            []
+        ).unwrap();
+
+        // Retrieve existing track
+        let track_opt = Track::find(&conn, 42).unwrap();
+        assert!(track_opt.is_some());
+        let track = track_opt.unwrap();
+        assert_eq!(track.id, 42);
+        assert_eq!(track.filename, "t42.mp3");
+
+        // Retrieve non-existent track
+        let track_none = Track::find(&conn, 999).unwrap();
+        assert!(track_none.is_none());
     }
 }

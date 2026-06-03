@@ -131,7 +131,7 @@ impl Track {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
                     is_stale
-             FROM tracks ORDER BY filename ASC",
+             FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Self {
@@ -195,6 +195,81 @@ impl Track {
 
     pub fn count(conn: &Connection) -> Result<i64, rusqlite::Error> {
         conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
+    }
+
+    pub fn find(conn: &Connection, id: i64) -> Result<Option<Self>, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
+                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
+                    title, artist, album, genre, year, track_number, track_total,
+                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
+                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
+                    silence_regions, has_long_silence,
+                    detected_genre, detected_vocal, detected_vocal_confidence,
+                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
+                    mood_party, mood_acoustic, mood_electronic,
+                    is_music, ai_genre, ai_mood, ai_instruments, description,
+                    is_stale
+             FROM tracks WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query_map([id], |row| {
+            Ok(Self {
+                id: row.get(0)?,
+                watched_directory_id: row.get(1)?,
+                path: row.get(2)?,
+                filename: row.get(3)?,
+                size_bytes: row.get(4)?,
+                last_modified: row.get(5)?,
+                duration_seconds: row.get(6)?,
+                sample_rate: row.get(7)?,
+                bitrate: row.get(8)?,
+                channels: row.get(9)?,
+                bit_depth: row.get(10)?,
+                title: row.get(11)?,
+                artist: row.get(12)?,
+                album: row.get(13)?,
+                genre: row.get(14)?,
+                year: row.get(15)?,
+                track_number: row.get(16)?,
+                track_total: row.get(17)?,
+                disc_number: row.get(18)?,
+                disc_total: row.get(19)?,
+                album_artist: row.get(20)?,
+                composer: row.get(21)?,
+                comment: row.get(22)?,
+                bpm: row.get(23)?,
+                lyrics: row.get(24)?,
+                waveform_data: row.get(25)?,
+                key: row.get(26)?,
+                scale: row.get(27)?,
+                key_strength: row.get(28)?,
+                loudness_lufs: row.get(29)?,
+                loudness_range: row.get(30)?,
+                silence_regions: row.get(31)?,
+                has_long_silence: row.get(32)?,
+                detected_genre: row.get(33)?,
+                detected_vocal: row.get(34)?,
+                detected_vocal_confidence: row.get(35)?,
+                mood_happy: row.get(36)?,
+                mood_sad: row.get(37)?,
+                mood_aggressive: row.get(38)?,
+                mood_relaxed: row.get(39)?,
+                mood_party: row.get(40)?,
+                mood_acoustic: row.get(41)?,
+                mood_electronic: row.get(42)?,
+                is_music: row.get(43)?,
+                ai_genre: row.get(44)?,
+                ai_mood: row.get(45)?,
+                ai_instruments: row.get(46)?,
+                description: row.get(47)?,
+                is_stale: row.get(48)?,
+            })
+        })?;
+        if let Some(row) = rows.next() {
+            Ok(Some(row?))
+        } else {
+            Ok(None)
+        }
     }
 }
 

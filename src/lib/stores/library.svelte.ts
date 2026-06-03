@@ -36,14 +36,22 @@ class LibraryStore {
       });
 
       // Listen for AcoustID dynamic enrichment events to refresh the library and details view
-      await listen<any>("track-enriched", (event) => {
+      await listen<any>("track-enriched", async (event) => {
         const enrichedId = event.payload;
-        this.fetchTracks().then(() => {
-          const freshTrack = this.tracks.find(t => t.id === enrichedId);
-          if (freshTrack && player.selectedTrack && player.selectedTrack.id === enrichedId) {
-            player.selectedTrack = freshTrack;
+        try {
+          const freshTrack = await invoke<Track | null>("get_track", { trackId: enrichedId });
+          if (freshTrack) {
+            const idx = this.tracks.findIndex(t => t.id === enrichedId);
+            if (idx !== -1) {
+              this.tracks[idx] = freshTrack;
+            }
+            if (player.selectedTrack && player.selectedTrack.id === enrichedId) {
+              player.selectedTrack = freshTrack;
+            }
           }
-        });
+        } catch (e) {
+          console.error("Failed to fetch enriched track:", e);
+        }
       });
 
       // Listen for progress updates emitted by the background scanner
