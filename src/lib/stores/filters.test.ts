@@ -210,6 +210,13 @@ describe("FiltersStore — search query filter", () => {
     expect(filters.filteredTracks.map(t => t.id)).toContain(3);
   });
 
+  it("matches by composer", () => {
+    seedLibrary([createTrack({ id: 30, title: "Symphony No. 5", composer: "Beethoven" })]);
+    filters.searchQuery = "beethoven";
+    expect(filters.filteredTracks).toHaveLength(1);
+    expect(filters.filteredTracks[0].id).toBe(30);
+  });
+
   it("returns empty when no track matches the query", () => {
     filters.searchQuery = "zzznomatch";
     expect(filters.filteredTracks).toHaveLength(0);

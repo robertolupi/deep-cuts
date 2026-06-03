@@ -116,7 +116,8 @@ function createFiltersStore() {
         const matchesArtist   = t.artist?.toLowerCase().includes(query) ?? false;
         const matchesAlbum    = t.album?.toLowerCase().includes(query) ?? false;
         const matchesFilename = t.filename.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesArtist && !matchesAlbum && !matchesFilename) return false;
+        const matchesComposer = t.composer?.toLowerCase().includes(query) ?? false;
+        if (!matchesTitle && !matchesArtist && !matchesAlbum && !matchesFilename && !matchesComposer) return false;
       }
 
       // Semantic AI search
