@@ -21,7 +21,7 @@
   let isLoading       = $state(false);
   let algorithm       = $state<'pca' | 'umap'>('pca');
 
-  let colorCoding = $state<'genre' | 'camelot' | 'bpm'>('genre');
+  let colorCoding = $state<'genre' | 'camelot' | 'bpm' | 'mood'>('genre');
 
   // Map Sonic vibe states
   let searchQuery = $state("");
@@ -29,7 +29,7 @@
   let isSearchingSimilarity = $state(false);
 
   // Map Mode and Blend Weight Settings
-  let mapMode = $state<'sonic' | 'description' | 'hybrid'>('hybrid');
+  let mapMode = $state<'sonic' | 'description' | 'hybrid' | 'essentia' | 'harmonic' | 'genre_wheel'>('hybrid');
   let blendWeight = $state(0.5); // 0.0 (semantic) to 1.0 (sonic)
 
   // Default to sonic similarity if Qwen analysis has not been run for all tracks
@@ -218,7 +218,13 @@
     }
     isRecomputing = true;
     try {
-      if (algorithm === 'umap') {
+      if (mapMode === 'harmonic') {
+        ui.showToast('Calculating Harmonic Circle layout…', 'success');
+      } else if (mapMode === 'essentia') {
+        ui.showToast('Calculating Emotive Mood Circle layout…', 'success');
+      } else if (mapMode === 'genre_wheel') {
+        ui.showToast('Calculating Genre Circle layout…', 'success');
+      } else if (algorithm === 'umap') {
         ui.showToast('Running UMAP projection… this may take a few seconds', 'success');
       } else {
         ui.showToast('Running PCA projection…', 'success');
@@ -231,8 +237,17 @@
         nNeighbors: 20,
         minDist: 0.1,
         perplexity: 30,
+        projectionMode: mapMode,
       });
-      ui.showToast(`Projected ${count} tracks into 2D space using ${algorithm.toUpperCase()}`, 'success');
+      if (mapMode === 'harmonic') {
+        ui.showToast(`Mapped ${count} tracks using Harmonic Circle Layout`, 'success');
+      } else if (mapMode === 'essentia') {
+        ui.showToast(`Mapped ${count} tracks using Emotive Mood Circle Layout`, 'success');
+      } else if (mapMode === 'genre_wheel') {
+        ui.showToast(`Mapped ${count} tracks using Genre Circle Layout`, 'success');
+      } else {
+        ui.showToast(`Projected ${count} tracks into 2D space using ${algorithm.toUpperCase()}`, 'success');
+      }
       await loadCoordinates();
     } catch (err: any) {
       ui.showToast(err.toString(), 'error');
@@ -485,7 +500,7 @@
       <code>
         {visibleTracks.length} / {projectedTracks.length} tracks
         {#if projectedTracks.length > 0}
-          · {algorithm.toUpperCase()}
+          · {mapMode === 'harmonic' ? 'HARMONIC' : mapMode === 'essentia' ? 'EMOTIVE' : mapMode === 'genre_wheel' ? 'GENRE' : algorithm.toUpperCase()}
         {/if}
       </code>
     </div>
@@ -494,11 +509,11 @@
     <div class="toolbar-group">
       <span class="toolbar-label">COLOR</span>
       <div class="toolbar-toggle">
-        {#each [['genre','Genre'],['camelot','Camelot'],['bpm','BPM']] as [val, label]}
+        {#each [['genre','Genre'],['camelot','Camelot'],['bpm','BPM'],['mood','Mood']] as [val, label]}
           <button
             class="ttog-btn"
             class:ttog-active={colorCoding === val}
-            onclick={() => colorCoding = val as 'genre' | 'camelot' | 'bpm'}
+            onclick={() => colorCoding = val as any}
           >{label}</button>
         {/each}
       </div>
@@ -508,12 +523,19 @@
     <div class="toolbar-group">
       <span class="toolbar-label">MODE</span>
       <div class="toolbar-toggle">
-        {#each [['sonic','Sonic'],['description','Description'],['hybrid','Hybrid']] as [val, label]}
+        {#each [['sonic','Sonic'],['description','Description'],['hybrid','Hybrid'],['essentia','Mood'],['harmonic','Harmonic'],['genre_wheel','Genre']] as [val, label]}
           <button
             class="ttog-btn"
             class:ttog-active={mapMode === val}
             onclick={() => {
-              mapMode = val as 'sonic' | 'description' | 'hybrid';
+              mapMode = val as any;
+              if (mapMode === 'harmonic') {
+                colorCoding = 'camelot';
+              } else if (mapMode === 'essentia') {
+                colorCoding = 'mood';
+              } else if (mapMode === 'genre_wheel') {
+                colorCoding = 'genre';
+              }
               runProjectionRecompute();
               if (searchQuery) runSimilarityQuery();
             }}
@@ -546,36 +568,38 @@
       </div>
     {/if}
 
-    <!-- Algorithm toggle -->
-    <div class="toolbar-group">
-      <span class="toolbar-label">PROJECTION</span>
-      <div class="toolbar-toggle">
-        <button
-          class="ttog-btn"
-          class:ttog-active={algorithm === 'pca'}
-          onclick={() => {
-            if (algorithm !== 'pca') {
-              runProjectionRecompute('pca');
-            }
-          }}
-          disabled={isRecomputing || isLoading}
-        >
-          PCA
-        </button>
-        <button
-          class="ttog-btn"
-          class:ttog-active={algorithm === 'umap'}
-          onclick={() => {
-            if (algorithm !== 'umap') {
-              runProjectionRecompute('umap');
-            }
-          }}
-          disabled={isRecomputing || isLoading}
-        >
-          UMAP
-        </button>
+    {#if mapMode !== 'harmonic' && mapMode !== 'essentia' && mapMode !== 'genre_wheel'}
+      <!-- Algorithm toggle -->
+      <div class="toolbar-group">
+        <span class="toolbar-label">PROJECTION</span>
+        <div class="toolbar-toggle">
+          <button
+            class="ttog-btn"
+            class:ttog-active={algorithm === 'pca'}
+            onclick={() => {
+              if (algorithm !== 'pca') {
+                runProjectionRecompute('pca');
+              }
+            }}
+            disabled={isRecomputing || isLoading}
+          >
+            PCA
+          </button>
+          <button
+            class="ttog-btn"
+            class:ttog-active={algorithm === 'umap'}
+            onclick={() => {
+              if (algorithm !== 'umap') {
+                runProjectionRecompute('umap');
+              }
+            }}
+            disabled={isRecomputing || isLoading}
+          >
+            UMAP
+          </button>
+        </div>
       </div>
-    </div>
+    {/if}
 
     <!-- Sonic Vibe Search -->
     <div class="toolbar-group sonic-search-group">

@@ -13,6 +13,13 @@ export interface MappedTrackPoint {
   key: string | null;
   scale: string | null;
   algorithm?: string | null;
+  mood_happy?: number | null;
+  mood_sad?: number | null;
+  mood_aggressive?: number | null;
+  mood_relaxed?: number | null;
+  mood_party?: number | null;
+  mood_acoustic?: number | null;
+  mood_electronic?: number | null;
 }
 
 export const camelotMap: { [key: string]: { code: string; color: string } } = {
@@ -44,7 +51,7 @@ export const camelotMap: { [key: string]: { code: string; color: string } } = {
 
 export function resolveTrackColor(
   track: MappedTrackPoint,
-  colorCoding: 'genre' | 'camelot' | 'bpm',
+  colorCoding: 'genre' | 'camelot' | 'bpm' | 'mood',
   dynamicGenreColors: Record<string, string>,
   themeColors: { bpmCool: string; bpmHot: string; dotBorder: string; dotBorderWidth: number; canvasBg: string },
 ): string {
@@ -64,6 +71,33 @@ export function resolveTrackColor(
     const query = scale.toLowerCase() === "minor" ? `${k}m` : k;
     const match = camelotMap[query];
     return match ? match.color : "#aaaaaa";
+  } else if (colorCoding === 'mood') {
+    const happy = track.mood_happy ?? 0;
+    const sad = track.mood_sad ?? 0;
+    const aggressive = track.mood_aggressive ?? 0;
+    const relaxed = track.mood_relaxed ?? 0;
+    const party = track.mood_party ?? 0;
+    const acoustic = track.mood_acoustic ?? 0;
+    const electronic = track.mood_electronic ?? 0;
+
+    const moods = [
+      { name: 'Happy', val: happy, color: '#ffeb3b' },
+      { name: 'Sad', val: sad, color: '#2979ff' },
+      { name: 'Aggressive', val: aggressive, color: '#ff1744' },
+      { name: 'Relaxed', val: relaxed, color: '#00e676' },
+      { name: 'Party', val: party, color: '#d500f9' },
+      { name: 'Acoustic', val: acoustic, color: '#ff9100' },
+      { name: 'Electronic', val: electronic, color: '#00e5ff' }
+    ];
+
+    let maxMood = moods[0];
+    for (const m of moods) {
+      if (m.val > maxMood.val) {
+        maxMood = m;
+      }
+    }
+    if (maxMood.val <= 1e-5) return "#aaaaaa";
+    return maxMood.color;
   } else {
     const bpmVal = track.bpm || 120;
     const pct = Math.max(0, Math.min(1, (bpmVal - 70) / 110));

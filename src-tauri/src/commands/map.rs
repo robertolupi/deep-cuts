@@ -18,6 +18,13 @@ pub struct MappedTrackPoint {
     pub key: Option<String>,
     pub scale: Option<String>,
     pub algorithm: Option<String>,
+    pub mood_happy: Option<f64>,
+    pub mood_sad: Option<f64>,
+    pub mood_aggressive: Option<f64>,
+    pub mood_relaxed: Option<f64>,
+    pub mood_party: Option<f64>,
+    pub mood_acoustic: Option<f64>,
+    pub mood_electronic: Option<f64>,
 }
 
 #[derive(serde::Serialize)]
@@ -233,14 +240,16 @@ pub fn get_projection_coordinates(
     let sql = if music_only {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm
+                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm,
+                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id
          WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
     } else {
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
-                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm
+                COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm,
+                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id"
     };
@@ -260,6 +269,13 @@ pub fn get_projection_coordinates(
                 key: row.get(9)?,
                 scale: row.get(10)?,
                 algorithm: row.get(11)?,
+                mood_happy: row.get(12)?,
+                mood_sad: row.get(13)?,
+                mood_aggressive: row.get(14)?,
+                mood_relaxed: row.get(15)?,
+                mood_party: row.get(16)?,
+                mood_acoustic: row.get(17)?,
+                mood_electronic: row.get(18)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -529,10 +545,140 @@ pub async fn find_duplicate_pairs(
     Ok(pairs)
 }
 
-/// Runs UMAP on CLAP audio embeddings (and optionally blends description embeddings)
+
+// ── Harmonic Circle of Fifths and Spring Layout Helpers ──────────────────────
+
+struct SpringNode {
+    anchor_x: f64,
+    anchor_y: f64,
+    x: f64,
+    y: f64,
+    vx: f64,
+    vy: f64,
+}
+
+fn key_to_camelot(key: &str, scale: &str) -> Option<(u32, bool)> {
+    let is_minor = scale.trim().to_lowercase() == "minor" || key.ends_with('m');
+    let base_key = key.trim().trim_end_matches('m').trim_end_matches("Min").trim_end_matches("Maj").trim();
+
+    let norm_key = match base_key {
+        "C" => "C",
+        "C#" | "Db" => "C#",
+        "D" => "D",
+        "D#" | "Eb" => "Eb",
+        "E" => "E",
+        "F" => "F",
+        "F#" | "Gb" => "F#",
+        "G" => "G",
+        "G#" | "Ab" => "Ab",
+        "A" => "A",
+        "A#" | "Bb" => "Bb",
+        "B" | "Cb" => "B",
+        _ => return None,
+    };
+
+    if is_minor {
+        let hour = match norm_key {
+            "Ab" => 1,
+            "Eb" => 2,
+            "Bb" => 3,
+            "F"  => 4,
+            "C"  => 5,
+            "G"  => 6,
+            "D"  => 7,
+            "A"  => 8,
+            "E"  => 9,
+            "B"  => 10,
+            "F#" => 11,
+            "C#" => 12,
+            _ => return None,
+        };
+        Some((hour, true))
+    } else {
+        let hour = match norm_key {
+            "B"  => 1,
+            "F#" => 2,
+            "C#" => 3,
+            "Ab" => 4,
+            "Eb" => 5,
+            "Bb" => 6,
+            "F"  => 7,
+            "C"  => 8,
+            "G"  => 9,
+            "D"  => 10,
+            "A"  => 11,
+            "E"  => 12,
+            _ => return None,
+        };
+        Some((hour, false))
+    }
+}
+
+fn deterministic_genre_jitter(genre: &str) -> (f64, f64) {
+    if genre.trim().is_empty() {
+        return (0.0, 0.0);
+    }
+    let mut hash: u32 = 5381;
+    for c in genre.bytes() {
+        hash = ((hash << 5).wrapping_add(hash)).wrapping_add(c as u32);
+    }
+    let val_angle = ((hash & 0xFFFF) as f64 / 65535.0) * 2.0 - 1.0;
+    let val_radial = (((hash >> 16) & 0xFFFF) as f64 / 65535.0) * 2.0 - 1.0;
+    
+    (val_angle * 0.04, val_radial * 1.2)
+}
+
+fn run_spring_layout(nodes: &mut [SpringNode], iterations: usize) {
+    let k_spring = 0.32;
+    let k_repulsion = 0.8;
+    let damping = 0.70;
+    let min_dist_threshold = 1.6;
+
+    for _ in 0..iterations {
+        let mut fx = vec![0.0; nodes.len()];
+        let mut fy = vec![0.0; nodes.len()];
+
+        for i in 0..nodes.len() {
+            let ax = nodes[i].anchor_x - nodes[i].x;
+            let ay = nodes[i].anchor_y - nodes[i].y;
+            fx[i] += ax * k_spring;
+            fy[i] += ay * k_spring;
+
+            for j in 0..nodes.len() {
+                if i == j {
+                    continue;
+                }
+                let mut dx = nodes[i].x - nodes[j].x;
+                let mut dy = nodes[i].y - nodes[j].y;
+                let mut dist_sq = dx * dx + dy * dy;
+                
+                if dist_sq < 1e-4 {
+                    dx = 0.1 * (i as f64 - j as f64).signum();
+                    dy = 0.1;
+                    dist_sq = dx * dx + dy * dy;
+                }
+                let dist = dist_sq.sqrt();
+                if dist < min_dist_threshold {
+                    let force = k_repulsion / (dist_sq + 0.1);
+                    fx[i] += (dx / dist) * force;
+                    fy[i] += (dy / dist) * force;
+                }
+            }
+        }
+
+        for i in 0..nodes.len() {
+            nodes[i].vx = (nodes[i].vx + fx[i]) * damping;
+            nodes[i].vy = (nodes[i].vy + fy[i]) * damping;
+            nodes[i].x += nodes[i].vx;
+            nodes[i].y += nodes[i].vy;
+            nodes[i].x = nodes[i].x.clamp(2.0, 98.0);
+            nodes[i].y = nodes[i].y.clamp(2.0, 98.0);
+        }
+    }
+}
+
+/// Runs UMAP/PCA or Direct geometric mapping on tracks based on the chosen mode,
 /// and persists the 2D coordinates in `track_coords`. Emits `projection-updated` when done.
-/// When `music_only` is true, tracks classified as Non-Music by Essentia are excluded from
-/// the projection, matching the frontend `musicOnly` filter signal.
 #[tauri::command]
 pub async fn recompute_projection(
     music_only: bool,
@@ -541,6 +687,7 @@ pub async fn recompute_projection(
     n_neighbors: i32,
     min_dist: f64,
     perplexity: f64,
+    projection_mode: Option<String>,
     app: tauri::AppHandle,
     conn_state: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<usize, String> {
@@ -548,83 +695,353 @@ pub async fn recompute_projection(
     let effective_config =
         effective_projection_config(clap_weight, &algorithm, n_neighbors, min_dist, perplexity);
 
-    // Collect CLAP and description embeddings, optionally excluding non-music tracks
-    let (track_ids, blended_vectors) = {
-        let conn = conn_state.lock().map_err(|e| e.to_string())?;
-        let sql = if music_only {
-            "SELECT t.id, ae.embedding, de.embedding
-             FROM tracks t
-             JOIN audio_embeddings ae ON ae.track_id = t.id
-             LEFT JOIN description_embeddings de ON de.track_id = t.id
-             WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
-        } else {
-            "SELECT t.id, ae.embedding, de.embedding
-             FROM tracks t
-             JOIN audio_embeddings ae ON ae.track_id = t.id
-             LEFT JOIN description_embeddings de ON de.track_id = t.id"
-        };
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
+    let mode = projection_mode.unwrap_or_else(|| "hybrid".to_string());
+
+    let (track_ids, coords) = if mode == "harmonic" {
+        // Direct Circle of Fifths Layout + Spring simulation
+        let (ids, genres, bpms, keys, scales) = {
+            let conn = conn_state.lock().map_err(|e| e.to_string())?;
+            let sql = if music_only {
+                "SELECT id, COALESCE(detected_genre, genre), bpm, key, scale FROM tracks
+                 WHERE (detected_genre IS NULL OR detected_genre NOT LIKE 'Non-Music%')"
+            } else {
+                "SELECT id, COALESCE(detected_genre, genre), bpm, key, scale FROM tracks"
+            };
+            let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
                 let id: i64 = row.get(0)?;
-                let clap_blob: Vec<u8> = row.get(1)?;
-                let desc_blob_opt: Option<Vec<u8>> = row.get(2)?;
-                Ok((id, clap_blob, desc_blob_opt))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut ids = Vec::new();
-        let mut vecs = Vec::new();
-        let blend_weight = effective_config.clap_weight;
+                let genre: Option<String> = row.get(1)?;
+                let bpm: Option<f64> = row.get(2)?;
+                let key: Option<String> = row.get(3)?;
+                let scale: Option<String> = row.get(4)?;
+                Ok((id, genre.unwrap_or_default(), bpm, key, scale))
+            }).map_err(|e| e.to_string())?;
 
-        for row in rows.filter_map(|r| r.ok()) {
-            let (id, clap_blob, desc_blob_opt) = row;
-            let clap_embed = bytes_to_floats(&clap_blob);
-            let desc_embed_opt = desc_blob_opt.map(|b| bytes_to_floats(&b));
+            let mut ids = Vec::new();
+            let mut genres = Vec::new();
+            let mut bpms = Vec::new();
+            let mut keys = Vec::new();
+            let mut scales = Vec::new();
+            for r in rows.filter_map(|r| r.ok()) {
+                ids.push(r.0);
+                genres.push(r.1);
+                bpms.push(r.2);
+                keys.push(r.3);
+                scales.push(r.4);
+            }
+            (ids, genres, bpms, keys, scales)
+        };
 
-            let blended =
-                blended_projection_vector(&clap_embed, desc_embed_opt.as_deref(), blend_weight);
-
-            ids.push(id);
-            vecs.push(blended);
+        if ids.is_empty() {
+            return Err("No tracks found to compute projection.".to_string());
         }
-        (ids, vecs)
-    };
 
-    if blended_vectors.is_empty() {
-        return Err(
-            "No tracks with CLAP embeddings found. Run the analysis pipeline first.".to_string(),
-        );
-    }
+        let mut nodes: Vec<SpringNode> = Vec::with_capacity(ids.len());
+        for i in 0..ids.len() {
+            let bpm_val = bpms[i].unwrap_or(120.0);
+            let radial_base = 20.0 + ((bpm_val.clamp(50.0, 200.0) - 50.0) / 150.0) * 26.0;
 
-    let n = blended_vectors.len();
-    let coords: Vec<(f64, f64)> = if n < 4 {
-        // Too few points for UMAP/PCA — spread evenly on a horizontal line
-        (0..n)
-            .map(|i| {
-                let x = if n > 1 {
-                    i as f64 / (n - 1) as f64 * 100.0
+            let (theta_base, radial_mode) = if let (Some(k), Some(s)) = (&keys[i], &scales[i]) {
+                if let Some((hour, is_minor)) = key_to_camelot(k, s) {
+                    let rad_mode = if is_minor { -1.5 } else { 1.5 };
+                    (hour as f64 * (2.0 * std::f64::consts::PI / 12.0), rad_mode)
                 } else {
-                    50.0
-                };
-                (x, 50.0)
-            })
-            .collect()
-    } else {
-        match effective_config.algorithm.as_str() {
-            "pca" => {
-                let raw = compute_pca_2d(&blended_vectors)?;
-                standardize_to_100(&raw)
-            }
-            _ => {
-                let raw = rag_umap::convert_to_2d(blended_vectors)
-                    .map_err(|e| format!("UMAP projection failed: {:?}", e))?;
-                standardize_to_100(
-                    &raw.iter()
-                        .map(|v| (v[0] as f64, v[1] as f64))
-                        .collect::<Vec<_>>(),
-                )
-            }
+                    (0.0, 0.0)
+                }
+            } else {
+                (0.0, 0.0)
+            };
+
+            let (jitter_theta, jitter_radial) = deterministic_genre_jitter(&genres[i]);
+
+            let is_key_present = keys[i].is_some();
+            let (init_x, init_y) = if is_key_present {
+                let theta = theta_base + jitter_theta;
+                let r = (radial_base + radial_mode + jitter_radial).clamp(5.0, 48.0);
+                (50.0 + r * theta.cos(), 50.0 + r * theta.sin())
+            } else {
+                // Keyless tracks cluster at center shifted deterministic by genre
+                let r = (jitter_radial.abs() + 2.0).min(6.0);
+                (50.0 + r * jitter_theta.cos(), 50.0 + r * jitter_theta.sin())
+            };
+
+            nodes.push(SpringNode {
+                anchor_x: init_x,
+                anchor_y: init_y,
+                x: init_x,
+                y: init_y,
+                vx: 0.0,
+                vy: 0.0,
+            });
         }
+
+        run_spring_layout(&mut nodes, 4);
+
+        let final_coords = nodes.iter().map(|n| (n.x, n.y)).collect::<Vec<_>>();
+        (ids, final_coords)
+
+    } else if mode == "essentia" {
+        // Geometric Centroid layout based on the 7 radar chart moods
+        let (ids, genres, moods) = {
+            let conn = conn_state.lock().map_err(|e| e.to_string())?;
+
+            let sql = if music_only {
+                "SELECT id, COALESCE(detected_genre, genre), mood_happy, mood_party, mood_electronic, mood_aggressive, mood_sad, mood_relaxed, mood_acoustic
+                 FROM tracks WHERE (detected_genre IS NULL OR detected_genre NOT LIKE 'Non-Music%')"
+            } else {
+                "SELECT id, COALESCE(detected_genre, genre), mood_happy, mood_party, mood_electronic, mood_aggressive, mood_sad, mood_relaxed, mood_acoustic
+                 FROM tracks"
+            };
+            let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
+                let id: i64 = row.get(0)?;
+                let genre: Option<String> = row.get(1)?;
+                let happy: f64 = row.get::<_, Option<f64>>(2)?.unwrap_or(0.0);
+                let party: f64 = row.get::<_, Option<f64>>(3)?.unwrap_or(0.0);
+                let electronic: f64 = row.get::<_, Option<f64>>(4)?.unwrap_or(0.0);
+                let aggressive: f64 = row.get::<_, Option<f64>>(5)?.unwrap_or(0.0);
+                let sad: f64 = row.get::<_, Option<f64>>(6)?.unwrap_or(0.0);
+                let relaxed: f64 = row.get::<_, Option<f64>>(7)?.unwrap_or(0.0);
+                let acoustic: f64 = row.get::<_, Option<f64>>(8)?.unwrap_or(0.0);
+                Ok((id, genre.unwrap_or_default(), [happy, party, electronic, aggressive, sad, relaxed, acoustic]))
+            }).map_err(|e| e.to_string())?;
+
+            let mut ids = Vec::new();
+            let mut genres = Vec::new();
+            let mut moods = Vec::new();
+            for r in rows.filter_map(|r| r.ok()) {
+                ids.push(r.0);
+                genres.push(r.1);
+                moods.push(r.2);
+            }
+            (ids, genres, moods)
+        };
+
+        if ids.is_empty() {
+            return Err("No tracks found to compute projection.".to_string());
+        }
+
+        // Radar chart vertices angles: Happy at top (-pi/2), then clockwise
+        let theta_step = 2.0 * std::f64::consts::PI / 7.0;
+        let theta_start = -std::f64::consts::PI / 2.0;
+        let angles: Vec<f64> = (0..7).map(|i| theta_start + i as f64 * theta_step).collect();
+
+        let mut nodes: Vec<SpringNode> = Vec::with_capacity(ids.len());
+        for i in 0..ids.len() {
+            let mut sum_x = 0.0;
+            let mut sum_y = 0.0;
+            let mut sum_val = 0.0;
+            for j in 0..7 {
+                let val = moods[i][j];
+                sum_x += val * angles[j].cos();
+                sum_y += val * angles[j].sin();
+                sum_val += val;
+            }
+
+            let (init_x, init_y) = if sum_val > 1e-5 {
+                let avg_x = sum_x / 7.0;
+                let avg_y = sum_y / 7.0;
+                let centroid_r = (avg_x * avg_x + avg_y * avg_y).sqrt();
+                let theta = avg_y.atan2(avg_x);
+
+                let (jitter_theta, jitter_radial) = deterministic_genre_jitter(&genres[i]);
+                let theta_final = theta + jitter_theta;
+                let r = (centroid_r * 110.0 + jitter_radial).clamp(1.5, 48.0);
+                (50.0 + r * theta_final.cos(), 50.0 + r * theta_final.sin())
+            } else {
+                let (jitter_theta, jitter_radial) = deterministic_genre_jitter(&genres[i]);
+                let r = (jitter_radial.abs() + 2.0).min(6.0);
+                (50.0 + r * jitter_theta.cos(), 50.0 + r * jitter_theta.sin())
+            };
+
+            nodes.push(SpringNode {
+                anchor_x: init_x,
+                anchor_y: init_y,
+                x: init_x,
+                y: init_y,
+                vx: 0.0,
+                vy: 0.0,
+            });
+        }
+
+        run_spring_layout(&mut nodes, 4);
+
+        let final_coords = nodes.iter().map(|n| (n.x, n.y)).collect::<Vec<_>>();
+        (ids, final_coords)
+    } else if mode == "genre_wheel" {
+        // Direct Genre Circle Layout
+        let (ids, genres, bpms, keys, scales) = {
+            let conn = conn_state.lock().map_err(|e| e.to_string())?;
+            let sql = if music_only {
+                "SELECT id, COALESCE(detected_genre, genre), bpm, key, scale FROM tracks
+                 WHERE (detected_genre IS NULL OR detected_genre NOT LIKE 'Non-Music%')"
+            } else {
+                "SELECT id, COALESCE(detected_genre, genre), bpm, key, scale FROM tracks"
+            };
+            let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
+                let id: i64 = row.get(0)?;
+                let genre: Option<String> = row.get(1)?;
+                let bpm: Option<f64> = row.get(2)?;
+                let key: Option<String> = row.get(3)?;
+                let scale: Option<String> = row.get(4)?;
+                Ok((id, genre.unwrap_or_default(), bpm, key, scale))
+            }).map_err(|e| e.to_string())?;
+
+            let mut ids = Vec::new();
+            let mut genres = Vec::new();
+            let mut bpms = Vec::new();
+            let mut keys = Vec::new();
+            let mut scales = Vec::new();
+            for r in rows.filter_map(|r| r.ok()) {
+                ids.push(r.0);
+                genres.push(r.1);
+                bpms.push(r.2);
+                keys.push(r.3);
+                scales.push(r.4);
+            }
+            (ids, genres, bpms, keys, scales)
+        };
+
+        if ids.is_empty() {
+            return Err("No tracks found to compute projection.".to_string());
+        }
+
+        // Gather unique genres, sort alphabetically, and deduplicate
+        let mut unique_genres: Vec<String> = genres.iter()
+            .map(|g| g.trim().to_lowercase())
+            .filter(|g| !g.is_empty())
+            .collect();
+        unique_genres.sort();
+        unique_genres.dedup();
+
+        let num_genres = unique_genres.len().max(1);
+
+        let mut nodes: Vec<SpringNode> = Vec::with_capacity(ids.len());
+        for i in 0..ids.len() {
+            let norm_genre = genres[i].trim().to_lowercase();
+            let genre_idx = unique_genres.binary_search(&norm_genre).unwrap_or(0);
+            
+            // Base Angle (theta)
+            let theta_base = genre_idx as f64 * (2.0 * std::f64::consts::PI / num_genres as f64);
+
+            // Distance from center (r) based on BPM
+            let bpm_val = bpms[i].unwrap_or(120.0);
+            let radial_base = 20.0 + ((bpm_val.clamp(50.0, 200.0) - 50.0) / 150.0) * 26.0;
+
+            // Key-based jitter: Camelot keys hour and scale
+            let (jitter_theta, jitter_radial) = if let (Some(k), Some(s)) = (&keys[i], &scales[i]) {
+                if let Some((hour, is_minor)) = key_to_camelot(k, s) {
+                    let rad_mode = if is_minor { -1.0 } else { 1.0 };
+                    let theta_shift = (hour as f64 - 6.5) * 0.012;
+                    (theta_shift, rad_mode)
+                } else {
+                    (0.0, 0.0)
+                }
+            } else {
+                (0.0, 0.0)
+            };
+
+            let theta = theta_base + jitter_theta;
+            let r = (radial_base + jitter_radial).clamp(5.0, 48.0);
+
+            let init_x = 50.0 + r * theta.cos();
+            let init_y = 50.0 + r * theta.sin();
+
+            nodes.push(SpringNode {
+                anchor_x: init_x,
+                anchor_y: init_y,
+                x: init_x,
+                y: init_y,
+                vx: 0.0,
+                vy: 0.0,
+            });
+        }
+
+        run_spring_layout(&mut nodes, 4);
+
+        let final_coords = nodes.iter().map(|n| (n.x, n.y)).collect::<Vec<_>>();
+        (ids, final_coords)
+
+    } else {
+        // Collect CLAP and description embeddings (Hybrid/Sonic/Description mode)
+        let (ids, blended_vectors) = {
+            let conn = conn_state.lock().map_err(|e| e.to_string())?;
+            let sql = if music_only {
+                "SELECT t.id, ae.embedding, de.embedding
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id
+                 WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
+            } else {
+                "SELECT t.id, ae.embedding, de.embedding
+                 FROM tracks t
+                 JOIN audio_embeddings ae ON ae.track_id = t.id
+                 LEFT JOIN description_embeddings de ON de.track_id = t.id"
+            };
+            let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| {
+                    let id: i64 = row.get(0)?;
+                    let clap_blob: Vec<u8> = row.get(1)?;
+                    let desc_blob_opt: Option<Vec<u8>> = row.get(2)?;
+                    Ok((id, clap_blob, desc_blob_opt))
+                })
+                .map_err(|e| e.to_string())?;
+            let mut ids = Vec::new();
+            let mut vecs = Vec::new();
+            let blend_weight = effective_config.clap_weight;
+
+            for row in rows.filter_map(|r| r.ok()) {
+                let (id, clap_blob, desc_blob_opt) = row;
+                let clap_embed = bytes_to_floats(&clap_blob);
+                let desc_embed_opt = desc_blob_opt.map(|b| bytes_to_floats(&b));
+
+                let blended =
+                    blended_projection_vector(&clap_embed, desc_embed_opt.as_deref(), blend_weight);
+
+                ids.push(id);
+                vecs.push(blended);
+            }
+            (ids, vecs)
+        };
+
+        if blended_vectors.is_empty() {
+            return Err(
+                "No tracks with CLAP embeddings found. Run the analysis pipeline first.".to_string(),
+            );
+        }
+
+        let n = blended_vectors.len();
+        let final_coords: Vec<(f64, f64)> = if n < 4 {
+            (0..n)
+                .map(|i| {
+                    let x = if n > 1 {
+                        i as f64 / (n - 1) as f64 * 100.0
+                    } else {
+                        50.0
+                    };
+                    (x, 50.0)
+                })
+                .collect()
+        } else {
+            match effective_config.algorithm.as_str() {
+                "pca" => {
+                    let raw = compute_pca_2d(&blended_vectors)?;
+                    standardize_to_100(&raw)
+                }
+                _ => {
+                    let raw = rag_umap::convert_to_2d(blended_vectors)
+                        .map_err(|e| format!("UMAP projection failed: {:?}", e))?;
+                    standardize_to_100(
+                        &raw.iter()
+                            .map(|v| (v[0] as f64, v[1] as f64))
+                            .collect::<Vec<_>>(),
+                    )
+                }
+            }
+        };
+        (ids, final_coords)
     };
 
     // Persist inside a transaction, recording the music_only scope per row
@@ -816,5 +1233,51 @@ mod math_tests {
         assert_eq!(with_description.len(), 386);
         assert_eq!(without_description.len(), 386);
         assert!(without_description[2..].iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn test_key_to_camelot_mapping() {
+        assert_eq!(key_to_camelot("Am", "minor"), Some((8, true)));
+        assert_eq!(key_to_camelot("C", "major"), Some((8, false)));
+        assert_eq!(key_to_camelot("F#", "major"), Some((2, false)));
+        assert_eq!(key_to_camelot("G#m", "minor"), Some((1, true)));
+        assert_eq!(key_to_camelot("invalid_key", "major"), None);
+    }
+
+    #[test]
+    fn test_genre_jitter_is_deterministic() {
+        let genre1 = "Electronic";
+        let genre2 = "Electronic";
+        let genre3 = "Ambient";
+
+        let jitter1 = deterministic_genre_jitter(genre1);
+        let jitter2 = deterministic_genre_jitter(genre2);
+        let jitter3 = deterministic_genre_jitter(genre3);
+
+        assert_eq!(jitter1, jitter2);
+        assert_ne!(jitter1, jitter3);
+
+        assert!(jitter1.0 >= -0.15 && jitter1.0 <= 0.15);
+        assert!(jitter1.1 >= -2.0 && jitter1.1 <= 2.0);
+    }
+
+    #[test]
+    fn test_spring_layout_spreads_overlapping_nodes() {
+        // Two nodes placed at exactly the same anchor position (50.0, 50.0)
+        let mut nodes = vec![
+            SpringNode { anchor_x: 50.0, anchor_y: 50.0, x: 50.0, y: 50.0, vx: 0.0, vy: 0.0 },
+            SpringNode { anchor_x: 50.0, anchor_y: 50.0, x: 50.0, y: 50.0, vx: 0.0, vy: 0.0 },
+        ];
+
+        run_spring_layout(&mut nodes, 10);
+
+        // Verify that they have pushed each other apart
+        let dx = nodes[0].x - nodes[1].x;
+        let dy = nodes[0].y - nodes[1].y;
+        let dist = (dx * dx + dy * dy).sqrt();
+
+        assert!(dist > 0.5, "Nodes should have moved apart. Dist: {}", dist);
+        assert!(nodes[0].x.is_finite());
+        assert!(nodes[1].x.is_finite());
     }
 }
