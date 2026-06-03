@@ -198,9 +198,19 @@ impl super::AnalysisPass for EssentiaPass {
                             job.waveform_data.as_deref(),
                         );
                         let center = (audio_16k.len() as f64 * window_pct) as usize;
-                        let half = 16_000 * 30;
-                        let start = center.saturating_sub(half);
-                        let end = (center + half).min(audio_16k.len());
+                        let window_size = 16_000 * 60; // 60s
+                        let (start, end) = if audio_16k.len() <= window_size {
+                            (0, audio_16k.len())
+                        } else {
+                            let half = window_size / 2;
+                            let mut start = center.saturating_sub(half);
+                            let mut end = start + window_size;
+                            if end > audio_16k.len() {
+                                end = audio_16k.len();
+                                start = end - window_size;
+                            }
+                            (start, end)
+                        };
                         let spec =
                             crate::spectrogram::compute_log_mel_spectrogram(&audio_16k[start..end])?;
                         crate::spectrogram::extract_patches(&spec)

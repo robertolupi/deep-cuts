@@ -143,9 +143,19 @@ impl super::AnalysisPass for QwenPass {
             job.waveform_data.as_deref(),
         );
         let center_16k = (audio_16k_full.len() as f64 * window_pct) as usize;
-        let half_16k = 16000 * 15;
-        let start_idx = center_16k.saturating_sub(half_16k);
-        let end_idx = (center_16k + half_16k).min(audio_16k_full.len());
+        let window_size = 16000 * 30; // 30s
+        let (start_idx, end_idx) = if audio_16k_full.len() <= window_size {
+            (0, audio_16k_full.len())
+        } else {
+            let half = window_size / 2;
+            let mut start = center_16k.saturating_sub(half);
+            let mut end = start + window_size;
+            if end > audio_16k_full.len() {
+                end = audio_16k_full.len();
+                start = end - window_size;
+            }
+            (start, end)
+        };
         let audio_window = &audio_16k_full[start_idx..end_idx];
 
         // 3. Encode audio to WAV & Base64

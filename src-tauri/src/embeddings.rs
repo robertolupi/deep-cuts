@@ -402,9 +402,18 @@ pub fn preprocess_window_at_pct(
     let audio_48k = resample_audio(&audio, sample_rate, CLAP_SR)?;
 
     let center = (audio_48k.len() as f64 * pct) as usize;
-    let half = CLAP_10S_SAMPLES / 2;
-    let start = center.saturating_sub(half);
-    let end = (start + CLAP_10S_SAMPLES).min(audio_48k.len());
+    let (start, end) = if audio_48k.len() <= CLAP_10S_SAMPLES {
+        (0, audio_48k.len())
+    } else {
+        let half = CLAP_10S_SAMPLES / 2;
+        let mut start = center.saturating_sub(half);
+        let mut end = start + CLAP_10S_SAMPLES;
+        if end > audio_48k.len() {
+            end = audio_48k.len();
+            start = end - CLAP_10S_SAMPLES;
+        }
+        (start, end)
+    };
     let mut window = audio_48k[start..end].to_vec();
 
     if window.len() < CLAP_10S_SAMPLES && !window.is_empty() {

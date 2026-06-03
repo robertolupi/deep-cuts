@@ -183,20 +183,36 @@ class PlayerStore {
       return el;
     };
 
-    // Qwen Window (30s: 15s before, 15s after)
+    const getSlidingWindow = (c: number, windowSize: number) => {
+      if (this.duration <= windowSize) {
+        return { start: 0, end: this.duration };
+      }
+      const half = windowSize / 2;
+      let start = Math.max(0, c - half);
+      let end = start + windowSize;
+      if (end > this.duration) {
+        end = this.duration;
+        start = end - windowSize;
+      }
+      return { start, end };
+    };
+
+    // Qwen Window (30s)
+    const qwenWin = getSlidingWindow(center, 30);
     this.#regionsPlugin.addRegion({
-      start: Math.max(0, center - 15),
-      end: Math.min(this.duration, center + 15),
+      start: qwenWin.start,
+      end: qwenWin.end,
       color: theme.resolvedTheme === "light" ? "rgba(124, 45, 107, 0.06)" : "rgba(254, 0, 254, 0.06)",
       drag: false,
       resize: false,
       content: createMarkerLabel("Qwen (30s)"),
     });
 
-    // Essentia Window (60s: 30s before, 30s after)
+    // Essentia Window (60s)
+    const essentiaWin = getSlidingWindow(center, 60);
     this.#regionsPlugin.addRegion({
-      start: Math.max(0, center - 30),
-      end: Math.min(this.duration, center + 30),
+      start: essentiaWin.start,
+      end: essentiaWin.end,
       color: theme.resolvedTheme === "light" ? "rgba(13, 115, 119, 0.03)" : "rgba(0, 240, 255, 0.03)",
       drag: false,
       resize: false,
@@ -207,9 +223,10 @@ class PlayerStore {
     const clapPcts = selectClapWindowPcts(waveformData, this.duration);
     clapPcts.forEach((clapPct, idx) => {
       const c = clapPct * this.duration;
+      const clapWin = getSlidingWindow(c, 10);
       this.#regionsPlugin.addRegion({
-        start: Math.max(0, c - 5),
-        end: Math.min(this.duration, c + 5),
+        start: clapWin.start,
+        end: clapWin.end,
         color: theme.resolvedTheme === "light" ? "rgba(240, 160, 48, 0.05)" : "rgba(240, 160, 48, 0.08)",
         drag: false,
         resize: false,
