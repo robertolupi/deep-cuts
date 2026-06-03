@@ -49,9 +49,7 @@ impl super::AnalysisPass for BpmRefinementPass {
     }
 
     fn custom_reset(&self, conn: &Connection) -> Result<(), String> {
-        conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
-            .map_err(|e| e.to_string())?;
-        Ok(())
+        crate::bpm::reset_bpm_data(conn)
     }
 
     fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String> {
@@ -80,25 +78,7 @@ impl super::AnalysisPass for BpmRefinementPass {
 
     fn execute_job(&self, _app: &tauri::AppHandle, job: &Self::Job) -> Result<Self::Output, String> {
         let result = crate::bpm::correct_bpm(job.bpm_raw, job.detected_genre.as_deref());
-        let raw_result = match &result {
-            crate::bpm::CorrectResult::Corrected(v) => serde_json::json!({
-                "bpm_raw": job.bpm_raw,
-                "detected_genre": job.detected_genre,
-                "result": "corrected",
-                "rule": if job.bpm_raw.map_or(false, |b| b > *v) { "halved" } else { "doubled" },
-                "bpm_corrected": v,
-            }),
-            crate::bpm::CorrectResult::Unchanged => serde_json::json!({
-                "bpm_raw": job.bpm_raw,
-                "detected_genre": job.detected_genre,
-                "result": "unchanged",
-            }),
-            crate::bpm::CorrectResult::Null => serde_json::json!({
-                "bpm_raw": job.bpm_raw,
-                "detected_genre": job.detected_genre,
-                "result": "nulled",
-            }),
-        }.to_string();
+        let raw_result = crate::bpm::format_bpm_result_json(job.bpm_raw, job.detected_genre.as_deref(), &result);
         Ok((result, raw_result))
     }
 
@@ -110,22 +90,7 @@ impl super::AnalysisPass for BpmRefinementPass {
         _duration_ms: i64,
     ) -> Result<(), String> {
         let (result, _) = output;
-        match result {
-            crate::bpm::CorrectResult::Corrected(new_bpm) => {
-                conn.execute(
-                    "UPDATE tracks SET bpm = ?1 WHERE id = ?2",
-                    rusqlite::params![new_bpm, job.track_id],
-                ).map_err(|e| e.to_string())?;
-            }
-            crate::bpm::CorrectResult::Null => {
-                conn.execute(
-                    "UPDATE tracks SET bpm = NULL WHERE id = ?1",
-                    rusqlite::params![job.track_id],
-                ).map_err(|e| e.to_string())?;
-            }
-            crate::bpm::CorrectResult::Unchanged => {}
-        }
-        Ok(())
+        crate::bpm::save_bpm_result(conn, job.track_id, &result)
     }
 
     fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
@@ -136,15 +101,13 @@ impl super::AnalysisPass for BpmRefinementPass {
 impl BpmRefinementPass {
     pub const SPEC: super::PassSpec = super::PassSpec {
         name: "bpm_refinement",
-        priority: 35,
+        priority: 55,
         version: pass_version::BPM_REFINEMENT,
         dependencies: &["essentia"],
         owned_columns: &["bpm"],
         owned_tables: &[],
         custom_reset: Some(|conn| {
-            conn.execute("UPDATE tracks SET bpm = bpm_raw WHERE bpm_raw IS NOT NULL", [])
-                .map_err(|e| e.to_string())?;
-            Ok(())
+            crate::bpm::reset_bpm_data(conn)
         }),
     };
 }
