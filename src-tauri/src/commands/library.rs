@@ -512,38 +512,25 @@ pub async fn search_clap_tracks(
 
 /// Perform a hybrid similarity search combining sonic (CLAP) and semantic (Qwen description) queries.
 #[tauri::command]
-pub async fn search_hybrid_vibe(
-    query: String,
+/// Merges CLAP and semantic result lists into a single ranked list.
+/// Each result's score is linearly blended: `clap_weight * clap_score + (1 - clap_weight) * sem_score`.
+/// Tracks that appear in only one list receive their weighted score with the other component as zero.
+/// Final scores are clamped to [0, 100] and the list is truncated to `limit`.
+fn merge_search_results(
+    clap_results: Vec<SemanticSearchResult>,
+    semantic_results: Vec<SemanticSearchResult>,
     clap_weight: f64,
     limit: Option<usize>,
-    app_handle: tauri::AppHandle,
-    conn_state: tauri::State<'_, Mutex<Connection>>,
-) -> Result<Vec<SemanticSearchResult>, AppError> {
-    let trimmed = query.trim();
-    if trimmed.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    if (clap_weight - 1.0).abs() < 1e-6 {
-        return search_clap_tracks(query, limit, app_handle, conn_state).await;
-    }
-    if clap_weight.abs() < 1e-6 {
-        return search_semantic_tracks(query, limit, app_handle, conn_state).await;
-    }
-
-    // Hybrid: search both, merge and scale by weights
-    let search_limit = Some(5000);
-    let clap_results = search_clap_tracks(query.clone(), search_limit, app_handle.clone(), conn_state.clone()).await?;
-    let semantic_results = search_semantic_tracks(query, search_limit, app_handle, conn_state).await?;
-
-    let mut merged: std::collections::HashMap<i64, SemanticSearchResult> = std::collections::HashMap::new();
+) -> Vec<SemanticSearchResult> {
+    let sem_weight = 1.0 - clap_weight;
+    let mut merged: std::collections::HashMap<i64, SemanticSearchResult> =
+        std::collections::HashMap::new();
 
     for mut r in clap_results {
         r.score *= clap_weight;
         merged.insert(r.id, r);
     }
 
-    let sem_weight = 1.0 - clap_weight;
     for r in semantic_results {
         if let Some(existing) = merged.get_mut(&r.id) {
             existing.score += r.score * sem_weight;
@@ -565,7 +552,35 @@ pub async fn search_hybrid_vibe(
         results.truncate(lim);
     }
 
-    Ok(results)
+    results
+}
+
+/// Perform a hybrid similarity search combining sonic (CLAP) and semantic (Qwen description) queries.
+#[tauri::command]
+pub async fn search_hybrid_vibe(
+    query: String,
+    clap_weight: f64,
+    limit: Option<usize>,
+    app_handle: tauri::AppHandle,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<SemanticSearchResult>, AppError> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    if (clap_weight - 1.0).abs() < 1e-6 {
+        return search_clap_tracks(query, limit, app_handle, conn_state).await;
+    }
+    if clap_weight.abs() < 1e-6 {
+        return search_semantic_tracks(query, limit, app_handle, conn_state).await;
+    }
+
+    let search_limit = Some(5000);
+    let clap_results = search_clap_tracks(query.clone(), search_limit, app_handle.clone(), conn_state.clone()).await?;
+    let semantic_results = search_semantic_tracks(query, search_limit, app_handle, conn_state).await?;
+
+    Ok(merge_search_results(clap_results, semantic_results, clap_weight, limit))
 }
 
 
@@ -1087,6 +1102,91 @@ mod tests {
         // Retrieve non-existent track
         let track_none = Track::find(&conn, 999).unwrap();
         assert!(track_none.is_none());
+    }
+
+    // ── merge_search_results ──────────────────────────────────────────────────
+
+    fn make_result(id: i64, score: f64) -> SemanticSearchResult {
+        SemanticSearchResult {
+            id,
+            title: None,
+            filename: format!("track_{id}.mp3"),
+            artist: None,
+            genre: None,
+            bpm: None,
+            key: None,
+            scale: None,
+            score,
+        }
+    }
+
+    #[test]
+    fn test_merge_scores_are_weighted_blend_for_shared_tracks() {
+        let clap = vec![make_result(1, 80.0), make_result(2, 60.0)];
+        let sem  = vec![make_result(1, 40.0), make_result(2, 20.0)];
+        let results = merge_search_results(clap, sem, 0.7, None);
+
+        // id=1: 80*0.7 + 40*0.3 = 56 + 12 = 68
+        // id=2: 60*0.7 + 20*0.3 = 42 +  6 = 48
+        let r1 = results.iter().find(|r| r.id == 1).unwrap();
+        let r2 = results.iter().find(|r| r.id == 2).unwrap();
+        assert!((r1.score - 68.0).abs() < 1e-9, "id=1 score was {}", r1.score);
+        assert!((r2.score - 48.0).abs() < 1e-9, "id=2 score was {}", r2.score);
+    }
+
+    #[test]
+    fn test_merge_clap_only_track_gets_clap_weight_applied() {
+        let clap = vec![make_result(10, 90.0)];
+        let sem  = vec![];
+        let results = merge_search_results(clap, sem, 0.6, None);
+
+        assert_eq!(results.len(), 1);
+        assert!((results[0].score - 54.0).abs() < 1e-9, "score was {}", results[0].score);
+    }
+
+    #[test]
+    fn test_merge_semantic_only_track_gets_sem_weight_applied() {
+        let clap = vec![];
+        let sem  = vec![make_result(20, 80.0)];
+        let results = merge_search_results(clap, sem, 0.6, None);
+
+        assert_eq!(results.len(), 1);
+        // sem_weight = 0.4 → 80 * 0.4 = 32
+        assert!((results[0].score - 32.0).abs() < 1e-9, "score was {}", results[0].score);
+    }
+
+    #[test]
+    fn test_merge_results_are_sorted_descending_by_score() {
+        let clap = vec![make_result(1, 30.0), make_result(2, 90.0), make_result(3, 60.0)];
+        let results = merge_search_results(clap, vec![], 1.0, None);
+
+        let scores: Vec<f64> = results.iter().map(|r| r.score).collect();
+        let mut sorted = scores.clone();
+        sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        assert_eq!(scores, sorted, "results should be sorted descending");
+    }
+
+    #[test]
+    fn test_merge_scores_are_clamped_to_100() {
+        // Intentionally inflate scores past 100
+        let clap = vec![make_result(1, 200.0)];
+        let results = merge_search_results(clap, vec![], 1.0, None);
+
+        assert!(results[0].score <= 100.0, "score {} exceeds 100", results[0].score);
+    }
+
+    #[test]
+    fn test_merge_respects_limit() {
+        let clap: Vec<SemanticSearchResult> = (1..=10).map(|i| make_result(i, i as f64)).collect();
+        let results = merge_search_results(clap, vec![], 1.0, Some(3));
+
+        assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn test_merge_empty_inputs_returns_empty() {
+        let results = merge_search_results(vec![], vec![], 0.5, None);
+        assert!(results.is_empty());
     }
 }
 

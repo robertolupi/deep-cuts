@@ -1235,49 +1235,186 @@ mod math_tests {
         assert!(without_description[2..].iter().all(|&v| v == 0.0));
     }
 
+    // ── key_to_camelot ────────────────────────────────────────────────────────
+
     #[test]
-    fn test_key_to_camelot_mapping() {
-        assert_eq!(key_to_camelot("Am", "minor"), Some((8, true)));
-        assert_eq!(key_to_camelot("C", "major"), Some((8, false)));
-        assert_eq!(key_to_camelot("F#", "major"), Some((2, false)));
-        assert_eq!(key_to_camelot("G#m", "minor"), Some((1, true)));
-        assert_eq!(key_to_camelot("invalid_key", "major"), None);
+    fn test_key_to_camelot_all_major_hours() {
+        // Camelot wheel: 12 major keys, each with its expected hour (1–12)
+        let cases = [
+            ("B",  "major", 1u32),
+            ("F#", "major", 2),
+            ("C#", "major", 3),
+            ("Ab", "major", 4),
+            ("Eb", "major", 5),
+            ("Bb", "major", 6),
+            ("F",  "major", 7),
+            ("C",  "major", 8),
+            ("G",  "major", 9),
+            ("D",  "major", 10),
+            ("A",  "major", 11),
+            ("E",  "major", 12),
+        ];
+        for (key, scale, hour) in cases {
+            assert_eq!(
+                key_to_camelot(key, scale),
+                Some((hour, false)),
+                "major key {key} should be hour {hour}"
+            );
+        }
     }
 
     #[test]
-    fn test_genre_jitter_is_deterministic() {
-        let genre1 = "Electronic";
-        let genre2 = "Electronic";
-        let genre3 = "Ambient";
+    fn test_key_to_camelot_all_minor_hours() {
+        let cases = [
+            ("Ab", "minor", 1u32),
+            ("Eb", "minor", 2),
+            ("Bb", "minor", 3),
+            ("F",  "minor", 4),
+            ("C",  "minor", 5),
+            ("G",  "minor", 6),
+            ("D",  "minor", 7),
+            ("A",  "minor", 8),
+            ("E",  "minor", 9),
+            ("B",  "minor", 10),
+            ("F#", "minor", 11),
+            ("C#", "minor", 12),
+        ];
+        for (key, scale, hour) in cases {
+            assert_eq!(
+                key_to_camelot(key, scale),
+                Some((hour, true)),
+                "minor key {key} should be hour {hour}"
+            );
+        }
+    }
 
-        let jitter1 = deterministic_genre_jitter(genre1);
-        let jitter2 = deterministic_genre_jitter(genre2);
-        let jitter3 = deterministic_genre_jitter(genre3);
+    #[test]
+    fn test_key_to_camelot_enharmonic_equivalents() {
+        // Db == C#, Gb == F#, G# == Ab  (all should return the same result)
+        assert_eq!(key_to_camelot("Db", "major"), key_to_camelot("C#", "major"));
+        assert_eq!(key_to_camelot("Gb", "major"), key_to_camelot("F#", "major"));
+        assert_eq!(key_to_camelot("G#", "minor"), key_to_camelot("Ab", "minor"));
+        assert_eq!(key_to_camelot("D#", "minor"), key_to_camelot("Eb", "minor"));
+        assert_eq!(key_to_camelot("A#", "minor"), key_to_camelot("Bb", "minor"));
+        assert_eq!(key_to_camelot("Cb", "major"), key_to_camelot("B", "major"));
+    }
 
-        assert_eq!(jitter1, jitter2);
-        assert_ne!(jitter1, jitter3);
+    #[test]
+    fn test_key_to_camelot_minor_suffix_overrides_scale_param() {
+        // "Am" should be treated as minor regardless of the scale argument
+        assert_eq!(key_to_camelot("Am", "major"), Some((8, true)));
+        assert_eq!(key_to_camelot("Am", "minor"), Some((8, true)));
+        // "G#m" likewise
+        assert_eq!(key_to_camelot("G#m", "major"), Some((1, true)));
+    }
 
-        assert!(jitter1.0 >= -0.15 && jitter1.0 <= 0.15);
-        assert!(jitter1.1 >= -2.0 && jitter1.1 <= 2.0);
+    #[test]
+    fn test_key_to_camelot_unknown_returns_none() {
+        assert_eq!(key_to_camelot("X", "major"), None);
+        assert_eq!(key_to_camelot("", "minor"), None);
+        assert_eq!(key_to_camelot("H", "major"), None);
+    }
+
+    // ── deterministic_genre_jitter ────────────────────────────────────────────
+
+    #[test]
+    fn test_genre_jitter_is_deterministic_and_stable() {
+        // Same input → same output every call
+        assert_eq!(
+            deterministic_genre_jitter("Electronic"),
+            deterministic_genre_jitter("Electronic")
+        );
+        // Different genres → different jitter
+        assert_ne!(
+            deterministic_genre_jitter("Electronic"),
+            deterministic_genre_jitter("Ambient")
+        );
+    }
+
+    #[test]
+    fn test_genre_jitter_empty_string_is_zero() {
+        assert_eq!(deterministic_genre_jitter(""), (0.0, 0.0));
+    }
+
+    #[test]
+    fn test_genre_jitter_output_is_within_mathematical_bounds() {
+        // val_angle  = (hash & 0xFFFF) / 65535.0 * 2.0 - 1.0  → [-1, 1], then * 0.04 → [-0.04, 0.04]
+        // val_radial = same raw → [-1, 1], then * 1.2          → [-1.2, 1.2]
+        let genres = ["Electronic", "Jazz", "Classical", "Hip-Hop", "Ambient", "Metal", "Pop"];
+        for g in genres {
+            let (angle, radial) = deterministic_genre_jitter(g);
+            assert!(
+                angle >= -0.04 && angle <= 0.04,
+                "angle jitter {angle} out of [-0.04, 0.04] for genre {g}"
+            );
+            assert!(
+                radial >= -1.2 && radial <= 1.2,
+                "radial jitter {radial} out of [-1.2, 1.2] for genre {g}"
+            );
+        }
+    }
+
+    // ── run_spring_layout ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_spring_layout_single_node_no_panic() {
+        let mut nodes = vec![
+            SpringNode { anchor_x: 50.0, anchor_y: 50.0, x: 50.0, y: 50.0, vx: 0.0, vy: 0.0 },
+        ];
+        run_spring_layout(&mut nodes, 20);
+        assert!(nodes[0].x.is_finite() && nodes[0].y.is_finite());
     }
 
     #[test]
     fn test_spring_layout_spreads_overlapping_nodes() {
-        // Two nodes placed at exactly the same anchor position (50.0, 50.0)
         let mut nodes = vec![
             SpringNode { anchor_x: 50.0, anchor_y: 50.0, x: 50.0, y: 50.0, vx: 0.0, vy: 0.0 },
             SpringNode { anchor_x: 50.0, anchor_y: 50.0, x: 50.0, y: 50.0, vx: 0.0, vy: 0.0 },
         ];
-
         run_spring_layout(&mut nodes, 10);
 
-        // Verify that they have pushed each other apart
         let dx = nodes[0].x - nodes[1].x;
         let dy = nodes[0].y - nodes[1].y;
         let dist = (dx * dx + dy * dy).sqrt();
+        assert!(dist > 0.5, "Nodes should have moved apart. Dist: {dist}");
+    }
 
-        assert!(dist > 0.5, "Nodes should have moved apart. Dist: {}", dist);
-        assert!(nodes[0].x.is_finite());
-        assert!(nodes[1].x.is_finite());
+    #[test]
+    fn test_spring_layout_all_nodes_stay_in_bounds() {
+        // 8 nodes at various positions — clamping must keep all within [2, 98]
+        let anchors: &[(f64, f64)] = &[
+            (10.0, 10.0), (90.0, 90.0), (50.0, 50.0), (50.0, 50.0),
+            (1.0,  1.0),  (99.0, 99.0), (30.0, 70.0), (70.0, 30.0),
+        ];
+        let mut nodes: Vec<SpringNode> = anchors.iter().map(|&(ax, ay)| SpringNode {
+            anchor_x: ax, anchor_y: ay, x: ax, y: ay, vx: 0.0, vy: 0.0,
+        }).collect();
+
+        run_spring_layout(&mut nodes, 50);
+
+        for n in &nodes {
+            assert!(n.x >= 2.0 && n.x <= 98.0, "x={} out of [2, 98]", n.x);
+            assert!(n.y >= 2.0 && n.y <= 98.0, "y={} out of [2, 98]", n.y);
+            assert!(n.x.is_finite() && n.y.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_spring_layout_anchor_pull_keeps_nodes_near_anchor() {
+        // With well-separated anchors and no neighbours close enough to repel,
+        // nodes should settle within a reasonable distance of their anchors.
+        let mut nodes = vec![
+            SpringNode { anchor_x: 20.0, anchor_y: 20.0, x: 20.0, y: 20.0, vx: 0.0, vy: 0.0 },
+            SpringNode { anchor_x: 80.0, anchor_y: 80.0, x: 80.0, y: 80.0, vx: 0.0, vy: 0.0 },
+        ];
+        run_spring_layout(&mut nodes, 100);
+
+        for (i, n) in nodes.iter().enumerate() {
+            let dist = ((n.x - n.anchor_x).powi(2) + (n.y - n.anchor_y).powi(2)).sqrt();
+            assert!(
+                dist < 5.0,
+                "node {i} ended up {dist:.2} units from its anchor — anchor pull too weak"
+            );
+        }
     }
 }
