@@ -40,7 +40,7 @@ impl super::AnalysisPass for DescriptionEmbedPass {
     }
 
     fn dependencies(&self) -> &'static [&'static str] {
-        &["qwen"]
+        &["qwen", "essentia"]
     }
 
     fn owned_columns(&self) -> &'static [&'static str] {
@@ -158,7 +158,7 @@ impl DescriptionEmbedPass {
         name: "description_embed",
         priority: 60,
         version: pass_version::DESCRIPTION_EMBED,
-        dependencies: &["qwen"],
+        dependencies: &["qwen", "essentia"],
         owned_columns: &[],
         owned_tables: &["description_embeddings"],
         custom_reset: None,

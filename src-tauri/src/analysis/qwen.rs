@@ -12,6 +12,7 @@ pub struct QwenJob {
     pub scale: Option<String>,
     pub genre: Option<String>,
     pub waveform_data: Option<String>,
+    pub is_music: Option<i64>,
     #[allow(dead_code)]
     pub duration_seconds: i64,
 }
@@ -44,12 +45,11 @@ impl super::AnalysisPass for QwenPass {
     }
 
     fn dependencies(&self) -> &'static [&'static str] {
-        &["audio_analysis", "bpm_correction", "clap"]
+        &["audio_analysis", "bpm_correction", "clap", "essentia"]
     }
 
     fn owned_columns(&self) -> &'static [&'static str] {
         &[
-            "is_music",
             "ai_genre",
             "ai_mood",
             "ai_instruments",
@@ -79,7 +79,7 @@ impl super::AnalysisPass for QwenPass {
         let mut stmt = conn
             .prepare(
                 "SELECT tp.id, tp.track_id, t.path, t.bpm, t.key, t.scale, t.genre,
-                        t.waveform_data, t.duration_seconds
+                        t.waveform_data, t.is_music, t.duration_seconds
              FROM track_passes tp
              JOIN tracks t ON t.id = tp.track_id
              WHERE tp.status = ?1 AND tp.pass_name = 'qwen'
@@ -98,7 +98,8 @@ impl super::AnalysisPass for QwenPass {
                     scale: row.get(5)?,
                     genre: row.get(6)?,
                     waveform_data: row.get(7)?,
-                    duration_seconds: row.get(8)?,
+                    is_music: row.get(8)?,
+                    duration_seconds: row.get(9)?,
                 })
             })
             .map_err(|e| e.to_string())?
@@ -113,6 +114,14 @@ impl super::AnalysisPass for QwenPass {
         app: &tauri::AppHandle,
         job: &Self::Job,
     ) -> Result<Self::Output, String> {
+        if job.is_music == Some(0) {
+            log::info!("[qwen] Track {} is non-music. Skipping.", job.track_id);
+            return Ok(QwenOutput {
+                parsed: ParsedQwenResponse { ai_genre: None, ai_mood: None, ai_instruments: None, description: None },
+                raw_response: String::new(),
+            });
+        }
+
         let bpm = job.bpm.unwrap_or(120.0);
         let key = job.key.as_deref().unwrap_or("C");
         let scale = job.scale.as_deref().unwrap_or("major");
@@ -134,28 +143,6 @@ impl super::AnalysisPass for QwenPass {
         // 3. Encode audio to WAV & Base64
         let wav_bytes = crate::dsp::encode_audio_to_wav(audio_window, 16000);
         let base64_audio = crate::dsp::base64_encode(&wav_bytes);
-
-        // 4. Formulate prompt
-        let mut prompt = format!(
-            "The measured tempo of this track is approximately {:.0} BPM and the detected key is {} {}.",
-            bpm, key, scale
-        );
-        if let Some(g) = &job.genre {
-            if !g.trim().is_empty() {
-                prompt.push_str(&format!(
-                    " The file metadata tags this track as \"{}\", though that label may be broad or imprecise.",
-                    g
-                ));
-            }
-        }
-        prompt.push_str(
-            "\nListen carefully and respond strictly in English and using ONLY the following format, one field per line, nothing else:\n\n\
-            MUSIC: yes or no (is this music, as opposed to speech, podcast, sound effects, or silence?)\n\
-            GENRE: genre and subgenre in a few words\n\
-            MOOD: mood and emotional feel in a few words\n\
-            INSTRUMENTS: main instruments, comma-separated\n\
-            DESCRIPTION: two to three sentences of plain prose describing the track"
-        );
 
         // Retrieve CLAP embedding for this track from the database if available
         let audio_embedding: Option<Vec<f32>> = {
@@ -239,8 +226,8 @@ impl super::AnalysisPass for QwenPass {
                             "type": "text",
                             "text": format!(
                                 "Listen carefully to this audio. The measured tempo is approximately {:.0} BPM and the detected key is {} {}. {}\n\
-                                First, is this track music (as opposed to speech, podcast, sound effects, or silence)? Respond strictly in English in this format:\n\
-                                MUSIC: yes or no",
+                                What is the genre and subgenre of this track in a few words? Respond strictly in English in this format:\n\
+                                GENRE: genre and subgenre",
                                 bpm, key, scale,
                                 job.genre.as_ref().map_or("".to_string(), |g| format!("The file metadata tags it as \"{}\".", g))
                             )
@@ -254,90 +241,28 @@ impl super::AnalysisPass for QwenPass {
                 job.track_id, outer_attempts, max_outer_attempts
             );
 
-            // Step 1: MUSIC
-            let mut is_music = None;
-            let mut music_content = String::new();
-            let mut step_success = false;
-
-            for attempt in 1..=3 {
-                match query_completions(&serde_json::json!(messages)) {
-                    Ok(content) => {
-                        let has_chinese = content.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
-                        let parsed = parse_qwen_response(&content);
-                        if parsed.is_music.is_some() && !has_chinese {
-                            is_music = parsed.is_music;
-                            music_content = content;
-                            step_success = true;
-                            break;
-                        }
-
-                        messages.push(serde_json::json!({
-                            "role": "assistant",
-                            "content": content
-                        }));
-                        messages.push(serde_json::json!({
-                            "role": "user",
-                            "content": "CRITICAL: Please respond strictly in English and use the format: MUSIC: yes or no"
-                        }));
-                    }
-                    Err(e) => {
-                        log::warn!("[qwen] Step 1 (music) attempt {} failed: {}", attempt, e);
-                    }
-                }
-            }
-
-            if !step_success || is_music.is_none() {
-                log::warn!("[qwen] Failed to resolve MUSIC status for track {}", job.track_id);
-                continue;
-            }
-
-            // Early exit if it is not music
-            if is_music == Some(0) {
-                let parsed = ParsedQwenResponse {
-                    is_music: Some(0),
-                    ai_genre: None,
-                    ai_mood: None,
-                    ai_instruments: None,
-                    description: None,
-                };
-                let raw_response = serde_json::to_string(&messages).unwrap_or_default();
-                
-                // Preemptively save raw response
-                if let Some(conn_mutex) = app.try_state::<std::sync::Mutex<rusqlite::Connection>>() {
-                    if let Ok(conn) = conn_mutex.lock() {
-                        let _ = conn.execute(
-                            "UPDATE track_passes SET raw_result = ?1 WHERE track_id = ?2 AND pass_name = 'qwen'",
-                            rusqlite::params![raw_response, job.track_id],
-                        );
-                    }
-                }
-                return Ok(QwenOutput { parsed, raw_response });
-            }
-
-            messages.push(serde_json::json!({
-                "role": "assistant",
-                "content": music_content
-            }));
-
-            // Steps 2 to 5: GENRE, MOOD, INSTRUMENTS, DESCRIPTION
+            // Steps: GENRE (initial message already sent), MOOD, INSTRUMENTS, DESCRIPTION
             let mut ai_genre = None;
             let mut ai_mood = None;
             let mut ai_instruments = None;
             let mut description = None;
 
-            let steps = vec![
-                ("genre", "What is the genre and subgenre of this track in a few words? Respond strictly in English in this format:\nGENRE: genre and subgenre"),
-                ("mood", "What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),
-                ("instruments", "What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),
-                ("description", "Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),
+            // (step_name, follow_up_prompt — None means use the already-queued initial message)
+            let steps: Vec<(&str, Option<&str>)> = vec![
+                ("genre", None),
+                ("mood", Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel")),
+                ("instruments", Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments")),
+                ("description", Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description")),
             ];
 
             let mut all_steps_ok = true;
             for (step_name, step_prompt) in steps {
-                messages.push(serde_json::json!({
-                    "role": "user",
-                    "content": step_prompt
-                }));
+                if let Some(prompt_text) = step_prompt {
+                    messages.push(serde_json::json!({
+                        "role": "user",
+                        "content": prompt_text
+                    }));
+                }
 
                 let mut current_step_success = false;
                 for attempt in 1..=3 {
@@ -400,7 +325,6 @@ impl super::AnalysisPass for QwenPass {
             }
 
             let parsed = ParsedQwenResponse {
-                is_music,
                 ai_genre,
                 ai_mood,
                 ai_instruments,
@@ -498,7 +422,6 @@ impl super::AnalysisPass for QwenPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        let is_music_val = output.parsed.is_music;
         let ai_genre_val = output.parsed.ai_genre.as_deref();
         let ai_mood_val = output.parsed.ai_mood.as_deref();
         let ai_instruments_val = output.parsed.ai_instruments.as_deref();
@@ -506,14 +429,12 @@ impl super::AnalysisPass for QwenPass {
 
         conn.execute(
             "UPDATE tracks SET
-                is_music = ?1,
-                ai_genre = ?2,
-                ai_mood = ?3,
-                ai_instruments = ?4,
-                description = ?5
-             WHERE id = ?6",
+                ai_genre = ?1,
+                ai_mood = ?2,
+                ai_instruments = ?3,
+                description = ?4
+             WHERE id = ?5",
             rusqlite::params![
-                is_music_val,
                 ai_genre_val,
                 ai_mood_val,
                 ai_instruments_val,
@@ -538,7 +459,6 @@ impl super::AnalysisPass for QwenPass {
 
     fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
         let fields_found: Vec<&str> = [
-            output.parsed.is_music.map(|_| "is_music"),
             output.parsed.ai_genre.as_ref().map(|_| "genre"),
             output.parsed.ai_mood.as_ref().map(|_| "mood"),
             output.parsed.ai_instruments.as_ref().map(|_| "instruments"),
@@ -547,7 +467,7 @@ impl super::AnalysisPass for QwenPass {
         .iter()
         .filter_map(|x| *x)
         .collect();
-        let all_fields = ["is_music", "genre", "mood", "instruments", "description"];
+        let all_fields = ["genre", "mood", "instruments", "description"];
         let missing: Vec<&str> = all_fields
             .iter()
             .filter(|f| !fields_found.contains(*f))
@@ -565,9 +485,8 @@ impl QwenPass {
         name: "qwen",
         priority: 50,
         version: pass_version::QWEN,
-        dependencies: &["audio_analysis", "bpm_correction", "clap"],
+        dependencies: &["audio_analysis", "bpm_correction", "clap", "essentia"],
         owned_columns: &[
-            "is_music",
             "ai_genre",
             "ai_mood",
             "ai_instruments",
@@ -586,7 +505,6 @@ pub struct QwenOutput {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Clone)]
 pub struct ParsedQwenResponse {
-    pub is_music: Option<i64>,
     pub ai_genre: Option<String>,
     pub ai_mood: Option<String>,
     pub ai_instruments: Option<String>,
@@ -688,7 +606,6 @@ fn split_segment_on_keywords(segment: &str) -> Vec<&str> {
 }
 
 pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
-    let mut is_music = None;
     let mut ai_genre = None;
     let mut ai_mood = None;
     let mut ai_instruments = None;
@@ -721,9 +638,7 @@ pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
             if val.is_empty() {
                 continue;
             }
-            if key_upper.contains("MUSIC") {
-                is_music = is_music.or(Some(if val.to_lowercase().contains("yes") { 1 } else { 0 }));
-            } else if key_upper.contains("GENRE") {
+            if key_upper.contains("GENRE") {
                 ai_genre = ai_genre.or(Some(val));
             } else if key_upper.contains("MOOD") {
                 ai_mood = ai_mood.or(Some(val));
@@ -740,14 +655,10 @@ pub fn parse_qwen_response(content: &str) -> ParsedQwenResponse {
         if !content.trim().is_empty() {
             log::warn!("[qwen] Failed to parse structured description. Falling back to raw response output.");
             description = Some(content.to_string());
-            if is_music.is_none() {
-                is_music = Some(1);
-            }
         }
     }
 
     ParsedQwenResponse {
-        is_music,
         ai_genre,
         ai_mood,
         ai_instruments,
@@ -764,7 +675,6 @@ mod tests {
     fn test_parse_standard_response() {
         let content = "MUSIC: yes\nGENRE: Electronic, Techno\nMOOD: aggressive, driving\nINSTRUMENTS: synthesizer, drum machine\nDESCRIPTION: A heavy pounding techno track.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("Electronic, Techno"));
         assert_eq!(res.ai_mood.as_deref(), Some("aggressive, driving"));
         assert_eq!(
@@ -781,7 +691,6 @@ mod tests {
     fn test_parse_bolded_response() {
         let content = "**MUSIC**: yes\n**GENRE**: House\n**MOOD**: happy\n**INSTRUMENTS**: piano\n**DESCRIPTION**: A bright house song.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("House"));
         assert_eq!(res.description.as_deref(), Some("A bright house song."));
     }
@@ -791,7 +700,6 @@ mod tests {
         let content =
             "1. MUSIC: yes\n2. GENRE: Ambient\n3. DESCRIPTION: A very quiet ambient soundscape.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("Ambient"));
         assert_eq!(
             res.description.as_deref(),
@@ -804,7 +712,6 @@ mod tests {
         let content =
             "Just a plain paragraph describing the track completely without headers or colons.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1)); // fallback defaults to 1
         assert_eq!(res.description.as_deref(), Some(content));
     }
 
@@ -813,7 +720,6 @@ mod tests {
         // Model emits \\n as text instead of real newlines
         let content = "MUSIC: yes\\nGENRE: dance, electronic\\nMOOD: happy, summer\\nINSTRUMENTS: bass, drum\\nDESCRIPTION: A groovy summer track.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("dance, electronic"));
         assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
         assert_eq!(res.ai_instruments.as_deref(), Some("bass, drum"));
@@ -825,7 +731,6 @@ mod tests {
         // Model uses semicolons as field separators instead of newlines
         let content = "MUSIC: yes; GENRE: electronic, house, techno; MOOD: energetic, groovy; INSTRUMENTS: synthesizer, bass, drums; DESCRIPTION: A lively dance track.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("electronic, house, techno"));
         assert_eq!(res.ai_mood.as_deref(), Some("energetic, groovy"));
         assert_eq!(
@@ -840,7 +745,6 @@ mod tests {
     /// track_passes.raw_result and is committed alongside the test.
     ///
     /// Assertions per case:
-    ///   - is_music is Some (always parseable; the fallback guarantees description)
     ///   - description is Some and non-empty
     ///   - ai_genre / ai_mood / ai_instruments are Some when the raw response
     ///     contains the expected English header (flagged as expect_* in the fixture)
@@ -864,9 +768,6 @@ mod tests {
         for f in &fixtures {
             let res = parse_qwen_response(&f.content);
 
-            if res.is_music.is_none() {
-                failures.push(format!("{}: is_music is None", f.filename));
-            }
             match &res.description {
                 None => failures.push(format!("{}: description is None", f.filename)),
                 Some(d) if d.trim().is_empty() => {
@@ -900,7 +801,6 @@ mod tests {
         // Single-line response with comma/period delimiters and mixed-case headers
         let content = "MUSIC: yes, genres: dance, deephouse, electronic, in mood: happy, summer. Instruments: synth, synth_lead. Description: A dance track perfect for a beach party, with a deep, summer vibe, featuring synthetic instruments and a lead synth that creates a happy mood.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("dance, deephouse, electronic"));
         assert_eq!(res.ai_mood.as_deref(), Some("happy, summer"));
         assert_eq!(res.ai_instruments.as_deref(), Some("synth, synth_lead"));
@@ -911,7 +811,6 @@ mod tests {
     fn test_parse_no_delimiter_headers() {
         let content = "MUSIC: yes GENRE: country, outlaw country Mood: drinking, partying Instruments: acoustic guitar, fiddle, pedal steel, harmonica, drums, banjo DESCRIPTION: This track is a lively example of outlaw country music, with a festive mood that fits well into a setting of drinking and partying. The acoustic guitar and fiddle lead the melody, backed up by the pedal steel, harmonica, drums, and banjo.";
         let res = parse_qwen_response(content);
-        assert_eq!(res.is_music, Some(1));
         assert_eq!(res.ai_genre.as_deref(), Some("country, outlaw country"));
         assert_eq!(res.ai_mood.as_deref(), Some("drinking, partying"));
         assert_eq!(
@@ -928,5 +827,6 @@ mod tests {
         assert!(deps.contains(&"clap"));
         assert!(deps.contains(&"audio_analysis"));
         assert!(deps.contains(&"bpm_correction"));
+        assert!(deps.contains(&"essentia"));
     }
 }

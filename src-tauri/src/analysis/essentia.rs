@@ -56,7 +56,8 @@ impl super::AnalysisPass for EssentiaPass {
         &[
             "detected_genre", "detected_vocal", "detected_vocal_confidence",
             "mood_happy", "mood_sad", "mood_aggressive", "mood_relaxed",
-            "mood_party", "mood_acoustic", "mood_electronic"
+            "mood_party", "mood_acoustic", "mood_electronic",
+            "is_music",
         ]
     }
 
@@ -99,6 +100,12 @@ impl super::AnalysisPass for EssentiaPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
+        let is_music: i64 = if output.genre.as_deref().map_or(false, |g| g.starts_with("Non-Music")) {
+            0
+        } else {
+            1
+        };
+
         conn.execute(
             "UPDATE tracks SET
                 detected_genre             = ?1,
@@ -110,8 +117,9 @@ impl super::AnalysisPass for EssentiaPass {
                 mood_relaxed               = ?7,
                 mood_party                 = ?8,
                 mood_acoustic              = ?9,
-                mood_electronic            = ?10
-             WHERE id = ?11",
+                mood_electronic            = ?10,
+                is_music                   = ?11
+             WHERE id = ?12",
             rusqlite::params![
                 output.genre,
                 output.vocal,
@@ -123,6 +131,7 @@ impl super::AnalysisPass for EssentiaPass {
                 output.mood_party,
                 output.mood_acoustic,
                 output.mood_electronic,
+                is_music,
                 job.track_id,
             ],
         ).map_err(|e| e.to_string())?;
@@ -319,7 +328,8 @@ impl EssentiaPass {
         owned_columns: &[
             "detected_genre", "detected_vocal", "detected_vocal_confidence",
             "mood_happy", "mood_sad", "mood_aggressive", "mood_relaxed",
-            "mood_party", "mood_acoustic", "mood_electronic"
+            "mood_party", "mood_acoustic", "mood_electronic",
+            "is_music",
         ],
         owned_tables: &[],
         custom_reset: None,

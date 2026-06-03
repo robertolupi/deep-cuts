@@ -29,7 +29,7 @@ class PlayerStore {
   #spectrogramContainer = $state<HTMLDivElement | null>(null);
 
   // ── Container registration (called by PlayerBar.svelte via $effect) ─────────
-  register(waveform: HTMLDivElement, spectrogram: HTMLDivElement) {
+  register(waveform: HTMLDivElement, spectrogram: HTMLDivElement | null) {
     this.#waveformContainer   = waveform;
     this.#spectrogramContainer = spectrogram;
   }
@@ -81,15 +81,15 @@ class PlayerStore {
       barRadius:   2,
       height:      75,
       normalize:   true,
-      plugins: [
+      plugins: this.#spectrogramContainer ? [
         Spectrogram.create({
-          container:   this.#spectrogramContainer!,
+          container:   this.#spectrogramContainer,
           labels:      true,
           fftSamples:  512,
           height:      75,
           labelsColor: resolvedTheme === "light" ? "#57534e" : "var(--sg-primary)",
         }),
-      ],
+      ] : [],
     });
 
     // Theme-aware progress gradient

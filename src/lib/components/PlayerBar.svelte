@@ -19,7 +19,7 @@
   }
 
   $effect(() => {
-    if (waveformContainer && spectrogramContainer) {
+    if (waveformContainer) {
       player.register(waveformContainer, spectrogramContainer);
     }
   });
@@ -32,6 +32,7 @@
   const isPlaying     = $derived(player.isPlaying);
   const currentTime   = $derived(player.currentTime);
   const duration      = $derived(player.duration);
+  const isMusic       = $derived(selectedTrack?.is_music !== 0);
 
   function getRevealLabel(): string {
     if (typeof navigator !== "undefined") {
@@ -50,9 +51,11 @@
     <div class="waveform-outer">
       <div bind:this={waveformContainer} class="waveform-canvas-wrap"></div>
     </div>
+    {#if isMusic}
     <div class="spectrogram-outer">
       <div bind:this={spectrogramContainer} class="spectrogram-canvas-wrap"></div>
     </div>
+    {/if}
 
     <div class="playback-controls-row">
       <div style="display: flex; gap: 0.75rem; align-items: center;">
@@ -114,6 +117,7 @@
           <span style="vertical-align: middle;">{revealLabel}</span>
         </button>
 
+        {#if isMusic}
         <button
           class="btn-secondary {showSpectrogram ? 'pulse-glow-cyan' : ''}"
           onclick={toggleSpectrogram}
@@ -126,6 +130,7 @@
           </svg>
           <span style="vertical-align: middle;">Spectrogram</span>
         </button>
+        {/if}
       </div>
     </div>
   </div>
