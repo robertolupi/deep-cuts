@@ -17,6 +17,7 @@ class LibraryStore {
   scanTotalCount = $state(0);
   
   tauriConnected = $state(false);
+  analysisRunning = $state(false);
 
   // Initialize and load initial database states
   async init() {
@@ -26,13 +27,25 @@ class LibraryStore {
       await this.fetchTracks();
       this.tauriConnected = true;
 
+      // Sync analysisRunning with the backend on startup
+      invoke<boolean>("is_analysis_running").then(v => { this.analysisRunning = v; }).catch(() => {});
+
       // Reload tracks after each analysis phase completes so extracted data is visible
       await listen<any>("analysis-phase-complete", () => {
         this.fetchTracks();
       });
 
+      await listen<any>("analysis-progress", () => {
+        this.analysisRunning = true;
+      });
+
       await listen<any>("analysis-complete", () => {
+        this.analysisRunning = false;
         this.fetchTracks();
+      });
+
+      await listen<any>("analysis-error", () => {
+        this.analysisRunning = false;
       });
 
       // Listen for AcoustID dynamic enrichment events to refresh the library and details view

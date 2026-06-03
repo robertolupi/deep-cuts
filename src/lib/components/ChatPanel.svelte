@@ -15,6 +15,7 @@
   const MAX_REGION_SECS = 240; // 4 minutes — matches backend cap
 
   const track = $derived(player.selectedTrack);
+  const analysisRunning = $derived(library.analysisRunning);
 
   let messages    = $state<Message[]>([]);
   let streaming   = $state(false);
@@ -381,7 +382,7 @@
               {/if}
             {:else}
               <!-- Session list for this track -->
-              <button class="session-item session-item-new" onclick={startNewSession}>
+              <button class="session-item session-item-new" onclick={startNewSession} disabled={analysisRunning}>
                 + New Chat
               </button>
               {#if trackSessions.length > 0}
@@ -454,6 +455,10 @@
       <div class="error-banner">{modelError}</div>
     {/if}
 
+    {#if analysisRunning}
+      <div class="analysis-running-banner">Analysis pipeline is running — chat is disabled to prevent llama-server conflicts. Wait for analysis to finish.</div>
+    {/if}
+
     <!-- Input -->
     <div class="input-row">
       <textarea
@@ -461,13 +466,13 @@
         placeholder="Ask something about this track…"
         bind:value={inputText}
         onkeydown={handleKeydown}
-        disabled={streaming}
+        disabled={streaming || analysisRunning}
         rows="2"
       ></textarea>
       <button
         class="send-btn"
         onclick={sendMessage}
-        disabled={streaming || !inputText.trim()}
+        disabled={streaming || !inputText.trim() || analysisRunning}
         aria-label="Send"
       >
         {#if streaming}
@@ -770,6 +775,19 @@
     color: #ff6b6b;
     background: rgba(255, 80, 80, 0.08);
     border: 1px solid rgba(255, 80, 80, 0.25);
+    border-radius: 4px;
+    word-break: break-word;
+  }
+
+  .analysis-running-banner {
+    flex-shrink: 0;
+    margin: 0 16px 8px;
+    padding: 8px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #f0a030;
+    background: rgba(240, 160, 48, 0.08);
+    border: 1px solid rgba(240, 160, 48, 0.25);
     border-radius: 4px;
     word-break: break-word;
   }
