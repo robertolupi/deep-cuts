@@ -19,10 +19,10 @@ const KEY_NAMES: [&str; 12] = [
 pub struct AudioAnalysisResult {
     pub duration_seconds: u64,
     pub waveform_data: String,
-    pub bpm: f64,
-    pub key: String,
-    pub scale: String,
-    pub key_strength: f64,
+    pub bpm: Option<f64>,
+    pub key: Option<String>,
+    pub scale: Option<String>,
+    pub key_strength: Option<f64>,
     pub loudness_lufs: f64,
     pub loudness_range: f64,
     pub silence_regions: String,
@@ -359,8 +359,13 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
         return Err("Audio too short for analysis".to_string());
     }
 
-    let (key, scale, key_strength) = compute_key_from_mono(cropped, sample_rate)?;
-    let bpm = compute_bpm_from_mono(cropped, sample_rate)?;
+    let (key, scale, key_strength, bpm) = match analyze_key_and_bpm_joint(cropped, sample_rate) {
+        Ok((k, s, ks, b)) => (Some(k), Some(s), Some(ks), Some(b)),
+        Err(e) => {
+            log::warn!("[run_audio_analysis] Joint key/BPM analysis failed: {}. Setting fields to NULL.", e);
+            (None, None, None, None)
+        }
+    };
 
     Ok(AudioAnalysisResult {
         duration_seconds,
@@ -394,12 +399,16 @@ fn downsample_profile(raw: &[f32], target: usize) -> Vec<f32> {
         .collect()
 }
 
-fn compute_key_from_mono(
+fn analyze_key_and_bpm_joint(
     samples: &[f32],
     sample_rate: u32,
-) -> Result<(String, String, f64), String> {
+) -> Result<(String, String, f64, f64), String> {
     const FFT_SIZE: usize = 4096;
-    const HOP_SIZE: usize = 2048;
+    const HOP_SIZE: usize = 1024;
+
+    if samples.is_empty() {
+        return Err("Audio too short for analysis".to_string());
+    }
 
     let hann: Vec<f32> = (0..FFT_SIZE)
         .map(|n| {
@@ -409,45 +418,219 @@ fn compute_key_from_mono(
 
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(FFT_SIZE);
-    let mut buf: Vec<Complex<f32>> = vec![Complex::new(0.0, 0.0); FFT_SIZE];
-    let mut chroma = [0.0f64; 12];
+    let mut fft_buf = vec![Complex::new(0.0, 0.0); FFT_SIZE];
 
-    let sr = sample_rate as f64;
-    let mut frame_start = 0;
+    let block_len = 10 * sample_rate as usize;
 
-    while frame_start + FFT_SIZE <= samples.len() {
-        for (i, c) in buf.iter_mut().enumerate() {
-            c.re = samples[frame_start + i] * hann[i];
-            c.im = 0.0;
-        }
-        fft.process(&mut buf);
+    let mut run_analysis_loop = |apply_filter: bool| -> (usize, [f64; 12], Vec<f64>) {
+        let mut active_count = 0;
+        let mut global_chroma = [0.0f64; 12];
+        let mut global_ac = Vec::new();
 
-        for k in 1..FFT_SIZE / 2 {
-            let freq = k as f64 * sr / FFT_SIZE as f64;
-            if freq < 65.0 || freq > 4000.0 {
+        for block in samples.chunks(block_len) {
+            if block.len() < FFT_SIZE {
                 continue;
             }
-            let mag = (buf[k].re as f64).hypot(buf[k].im as f64);
-            let semitone = 12.0 * (freq / 440.0).log2() + 69.0;
-            let pc = (semitone.round() as i64).rem_euclid(12) as usize;
-            chroma[pc] += mag;
+
+            // Cheap RMS check
+            let sum_sq: f32 = block.iter().map(|&x| x * x).sum();
+            let rms = (sum_sq / block.len() as f32).sqrt();
+            let rms_min = if apply_filter { 0.005 } else { 0.001 };
+            if rms < rms_min {
+                continue;
+            }
+
+            let mut onset = Vec::new();
+            let mut prev_mag = vec![0.0f32; FFT_SIZE / 2];
+            let mut block_chroma = [0.0f64; 12];
+            let mut spectral_flatness_sum = 0.0f64;
+            let mut frame_count = 0;
+
+            let mut frame_start = 0;
+            while frame_start + FFT_SIZE <= block.len() {
+                for (i, c) in fft_buf.iter_mut().enumerate() {
+                    c.re = block[frame_start + i] * hann[i];
+                    c.im = 0.0;
+                }
+                fft.process(&mut fft_buf);
+
+                let mut flux = 0.0f32;
+                let sr = sample_rate as f64;
+
+                let mut log_sum = 0.0f64;
+                let mut mag_sum = 0.0f64;
+                let num_bins = FFT_SIZE / 2;
+
+                for k in 1..num_bins {
+                    let mag = (fft_buf[k].re as f64).hypot(fft_buf[k].im as f64);
+                    let mag_f = mag as f32;
+
+                    // Onset (Flux)
+                    let diff = mag_f - prev_mag[k];
+                    if diff > 0.0 {
+                        flux += diff;
+                    }
+                    prev_mag[k] = mag_f;
+
+                    // Flatness metrics
+                    log_sum += (mag + 1e-7).ln();
+                    mag_sum += mag;
+
+                    // Key (Chroma)
+                    let freq = k as f64 * sr / FFT_SIZE as f64;
+                    if freq >= 65.0 && freq <= 4000.0 {
+                        let semitone = 12.0 * (freq / 440.0).log2() + 69.0;
+                        let pc = (semitone.round() as i64).rem_euclid(12) as usize;
+                        block_chroma[pc] += mag;
+                    }
+                }
+
+                onset.push(flux);
+
+                let arithmetic_mean = mag_sum / (num_bins - 1) as f64;
+                let geometric_mean = (log_sum / (num_bins - 1) as f64).exp();
+                let flatness = if arithmetic_mean > 0.0 {
+                    geometric_mean / arithmetic_mean
+                } else {
+                    1.0
+                };
+                spectral_flatness_sum += flatness;
+                frame_count += 1;
+
+                frame_start += HOP_SIZE;
+            }
+
+            if frame_count < 10 {
+                continue;
+            }
+
+            let mean_onset = onset.iter().sum::<f32>() / onset.len() as f32;
+            let var_onset = onset.iter().map(|&x| (x - mean_onset).powi(2)).sum::<f32>() / onset.len() as f32;
+            let avg_flatness = spectral_flatness_sum / frame_count as f64;
+
+            if apply_filter {
+                if var_onset < 0.01 || avg_flatness > 0.75 {
+                    continue;
+                }
+            }
+
+            // Autocorrelation accumulation
+            let fps = sample_rate as f64 / HOP_SIZE as f64;
+            let lag_min = ((fps * 60.0 / 210.0).ceil() as usize).max(1);
+            let lag_max = ((fps * 60.0 / 40.0).floor() as usize).min(onset.len() / 2);
+
+            if global_ac.is_empty() {
+                global_ac = vec![0.0; lag_max + 1];
+            }
+
+            let mean = onset.iter().sum::<f32>() / onset.len() as f32;
+            for lag in lag_min..=lag_max {
+                let ac: f64 = (0..onset.len() - lag)
+                    .map(|i| (onset[i] - mean) as f64 * (onset[i + lag] - mean) as f64)
+                    .sum();
+                global_ac[lag] += ac;
+            }
+
+            // Chroma accumulation
+            let total_chroma: f64 = block_chroma.iter().sum();
+            if total_chroma > 0.0 {
+                for i in 0..12 {
+                    global_chroma[i] += block_chroma[i] / total_chroma;
+                }
+            }
+
+            active_count += 1;
         }
 
-        frame_start += HOP_SIZE;
+        (active_count, global_chroma, global_ac)
+    };
+
+    let (mut active_block_count, mut global_chroma, mut global_ac) = run_analysis_loop(true);
+
+    if active_block_count == 0 {
+        // Fallback: Run without block filtering
+        let res = run_analysis_loop(false);
+        active_block_count = res.0;
+        global_chroma = res.1;
+        global_ac = res.2;
     }
 
-    let total: f64 = chroma.iter().sum();
-    if total > 0.0 {
-        chroma.iter_mut().for_each(|v| *v /= total);
+    if active_block_count == 0 || global_ac.is_empty() {
+        return Err("Audio too short or silent for joint analysis".to_string());
     }
 
-    // HPCP-style harmonic suppression
-    let mut suppressed = chroma;
+    // Resolve BPM from global autocorrelation
+    let fps = sample_rate as f64 / HOP_SIZE as f64;
+    let lag_min = ((fps * 60.0 / 210.0).ceil() as usize).max(1);
+    let lag_max = ((fps * 60.0 / 40.0).floor() as usize).min(global_ac.len() - 1);
+
+    let mut best_score = f64::NEG_INFINITY;
+    let mut best_lag = lag_min;
+
+    for lag in lag_min..=lag_max {
+        let ac = global_ac[lag];
+        let bpm_at_lag = fps * 60.0 / lag as f64;
+        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
+            1.2
+        } else {
+            1.0
+        };
+        if ac * pref > best_score {
+            best_score = ac * pref;
+            best_lag = lag;
+        }
+    }
+
+    let ac_fn = |l: usize| -> f64 {
+        if l < lag_min || l > lag_max {
+            return 0.0;
+        }
+        let ac = global_ac[l];
+        let bpm_at_lag = fps * 60.0 / l as f64;
+        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
+            1.2
+        } else {
+            1.0
+        };
+        ac * pref
+    };
+
+    let half_lag = best_lag / 2;
+    if half_lag >= lag_min && best_score > 0.0 && ac_fn(half_lag) > 0.70 * best_score {
+        best_lag = half_lag;
+    }
+
+    let refined_lag = if best_lag > lag_min && best_lag < lag_max {
+        let y0 = global_ac[best_lag - 1];
+        let y1 = global_ac[best_lag];
+        let y2 = global_ac[best_lag + 1];
+        let denom = y0 - 2.0 * y1 + y2;
+        if denom.abs() > 1e-10 {
+            best_lag as f64 - 0.5 * (y2 - y0) / denom
+        } else {
+            best_lag as f64
+        }
+    } else {
+        best_lag as f64
+    };
+
+    let bpm = fps * 60.0 / refined_lag;
+    let bpm = if bpm < 70.0 { bpm * 2.0 } else { bpm };
+    let bpm = (bpm * 100.0).round() / 100.0;
+
+    // Resolve Key from global chroma
+    let total_c: f64 = global_chroma.iter().sum();
+    let mut normalized_chroma = global_chroma;
+    if total_c > 0.0 {
+        normalized_chroma.iter_mut().for_each(|v| *v /= total_c);
+    }
+
+    let mut suppressed = normalized_chroma;
     for i in 0..12 {
         let fifth = (i + 7) % 12;
-        suppressed[fifth] = (suppressed[fifth] - 0.55 * chroma[i]).max(0.0);
+        suppressed[fifth] = (suppressed[fifth] - 0.55 * normalized_chroma[i]).max(0.0);
         let third = (i + 4) % 12;
-        suppressed[third] = (suppressed[third] - 0.30 * chroma[i]).max(0.0);
+        suppressed[third] = (suppressed[third] - 0.30 * normalized_chroma[i]).max(0.0);
     }
     let total_s: f64 = suppressed.iter().sum();
     if total_s > 0.0 {
@@ -477,120 +660,8 @@ fn compute_key_from_mono(
         KEY_NAMES[best_key].to_string(),
         best_scale.to_string(),
         (best_corr * 10000.0).round() / 10000.0,
+        bpm,
     ))
-}
-
-fn compute_bpm_from_mono(samples: &[f32], sample_rate: u32) -> Result<f64, String> {
-    const FFT_SIZE: usize = 1024;
-    const HOP_SIZE: usize = 512;
-
-    let hann: Vec<f32> = (0..FFT_SIZE)
-        .map(|n| {
-            0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (FFT_SIZE - 1) as f32).cos())
-        })
-        .collect();
-
-    let mut planner = FftPlanner::<f32>::new();
-    let fft = planner.plan_fft_forward(FFT_SIZE);
-    let mut buf: Vec<Complex<f32>> = vec![Complex::new(0.0, 0.0); FFT_SIZE];
-    let mut prev_mag: Vec<f32> = vec![0.0; FFT_SIZE / 2];
-    let mut onset: Vec<f32> = Vec::new();
-
-    let mut frame_start = 0;
-    while frame_start + FFT_SIZE <= samples.len() {
-        for (i, c) in buf.iter_mut().enumerate() {
-            c.re = samples[frame_start + i] * hann[i];
-            c.im = 0.0;
-        }
-        fft.process(&mut buf);
-
-        let mut flux = 0.0f32;
-        for k in 0..FFT_SIZE / 2 {
-            let mag = (buf[k].re as f64).hypot(buf[k].im as f64) as f32;
-            let diff = mag - prev_mag[k];
-            if diff > 0.0 {
-                flux += diff;
-            }
-            prev_mag[k] = mag;
-        }
-        onset.push(flux);
-        frame_start += HOP_SIZE;
-    }
-
-    let n = onset.len();
-    if n < 30 {
-        return Err("Audio too short for BPM detection".to_string());
-    }
-
-    let fps = sample_rate as f64 / HOP_SIZE as f64;
-    let lag_min = ((fps * 60.0 / 210.0).ceil() as usize).max(1);
-    let lag_max = ((fps * 60.0 / 40.0).floor() as usize).min(n / 2);
-    let mean = onset.iter().sum::<f32>() / n as f32;
-
-    let mut best_score = f64::NEG_INFINITY;
-    let mut best_lag = lag_min;
-
-    for lag in lag_min..=lag_max {
-        let ac: f64 = (0..n - lag)
-            .map(|i| (onset[i] - mean) as f64 * (onset[i + lag] - mean) as f64)
-            .sum();
-        let bpm_at_lag = fps * 60.0 / lag as f64;
-        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
-            1.2
-        } else {
-            1.0
-        };
-        if ac * pref > best_score {
-            best_score = ac * pref;
-            best_lag = lag;
-        }
-    }
-
-    // Check if double tempo (half lag) has a strong enough score
-    let ac_fn = |l: usize| -> f64 {
-        if l < lag_min || l > lag_max {
-            return 0.0;
-        }
-        let ac: f64 = (0..n - l)
-            .map(|i| (onset[i] - mean) as f64 * (onset[i + l] - mean) as f64)
-            .sum();
-        let bpm_at_lag = fps * 60.0 / l as f64;
-        let pref = if (80.0..=160.0).contains(&bpm_at_lag) {
-            1.2
-        } else {
-            1.0
-        };
-        ac * pref
-    };
-
-    let half_lag = best_lag / 2;
-    if half_lag >= lag_min && best_score > 0.0 && ac_fn(half_lag) > 0.70 * best_score {
-        best_lag = half_lag;
-    }
-
-    // Sub-sample refinement via parabolic interpolation
-    let refined_lag = if best_lag > lag_min && best_lag < lag_max {
-        let ac = |l: usize| -> f64 {
-            (0..n - l)
-                .map(|i| (onset[i] - mean) as f64 * (onset[i + l] - mean) as f64)
-                .sum()
-        };
-        let y0 = ac(best_lag - 1);
-        let y1 = ac(best_lag);
-        let y2 = ac(best_lag + 1);
-        let denom = y0 - 2.0 * y1 + y2;
-        if denom.abs() > 1e-10 {
-            best_lag as f64 - 0.5 * (y2 - y0) / denom
-        } else {
-            best_lag as f64
-        }
-    } else {
-        best_lag as f64
-    };
-
-    let bpm = fps * 60.0 / refined_lag;
-    let bpm = if bpm < 70.0 { bpm * 2.0 } else { bpm };
-    Ok((bpm * 100.0).round() / 100.0)
 }
 
 fn pearson_with_rotation(chroma: &[f64; 12], profile: &[f64; 12], root: usize) -> f64 {
@@ -747,16 +818,16 @@ mod tests {
         let result = run_audio_analysis(&path).expect("mp3 analysis failed");
         assert!(result.duration_seconds > 0, "duration should be non-zero");
         assert!(
-            (40.0..=220.0).contains(&result.bpm),
-            "bpm {} out of range",
+            (40.0..=220.0).contains(&result.bpm.unwrap()),
+            "bpm {:?} out of range",
             result.bpm
         );
         assert!(
-            KEY_NAMES.contains(&result.key.as_str()),
-            "unexpected key: {}",
+            KEY_NAMES.contains(&result.key.as_deref().unwrap()),
+            "unexpected key: {:?}",
             result.key
         );
-        assert!(result.scale == "major" || result.scale == "minor");
+        assert!(result.scale.as_deref().unwrap() == "major" || result.scale.as_deref().unwrap() == "minor");
         assert!(result.loudness_lufs < 0.0, "LUFS should be negative");
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
@@ -770,11 +841,11 @@ mod tests {
         let result = run_audio_analysis(&path).expect("wav analysis failed");
         assert!(result.duration_seconds > 0);
         assert!(
-            (40.0..=220.0).contains(&result.bpm),
-            "bpm {} out of range",
+            (40.0..=220.0).contains(&result.bpm.unwrap()),
+            "bpm {:?} out of range",
             result.bpm
         );
-        assert!(KEY_NAMES.contains(&result.key.as_str()));
+        assert!(KEY_NAMES.contains(&result.key.as_deref().unwrap()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
@@ -786,11 +857,11 @@ mod tests {
         let result = run_audio_analysis(&path).expect("flac analysis failed");
         assert!(result.duration_seconds > 0);
         assert!(
-            (40.0..=220.0).contains(&result.bpm),
-            "bpm {} out of range",
+            (40.0..=220.0).contains(&result.bpm.unwrap()),
+            "bpm {:?} out of range",
             result.bpm
         );
-        assert!(KEY_NAMES.contains(&result.key.as_str()));
+        assert!(KEY_NAMES.contains(&result.key.as_deref().unwrap()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
@@ -802,11 +873,11 @@ mod tests {
         let result = run_audio_analysis(&path).expect("m4a analysis failed");
         assert!(result.duration_seconds > 0);
         assert!(
-            (40.0..=220.0).contains(&result.bpm),
-            "bpm {} out of range",
+            (40.0..=220.0).contains(&result.bpm.unwrap()),
+            "bpm {:?} out of range",
             result.bpm
         );
-        assert!(KEY_NAMES.contains(&result.key.as_str()));
+        assert!(KEY_NAMES.contains(&result.key.as_deref().unwrap()));
         assert!(result.loudness_lufs < 0.0);
         let waveform: Vec<f32> = serde_json::from_str(&result.waveform_data).unwrap();
         assert_eq!(waveform.len(), 128);
@@ -815,9 +886,9 @@ mod tests {
     #[test]
     fn test_compute_bpm_too_short() {
         let samples = vec![0.0f32; 1000];
-        let result = compute_bpm_from_mono(&samples, 44100);
+        let result = analyze_key_and_bpm_joint(&samples, 44100);
         assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "Audio too short for BPM detection");
+        assert_eq!(result.err().unwrap(), "Audio too short or silent for joint analysis");
     }
 
     #[test]
