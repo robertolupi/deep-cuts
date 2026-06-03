@@ -6,6 +6,7 @@
   import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
   import { player } from '$lib/stores/player.svelte';
   import { library } from '$lib/stores/library.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
 
   type Message = { role: 'user' | 'assistant'; content: string };
   interface ChatSession { id: number; track_id: number; title: string; window_start_secs: number | null; window_duration_secs: number | null; created_at: number; updated_at: number; }
@@ -60,7 +61,7 @@
 
     const wsOpts: ConstructorParameters<typeof WaveSurfer>[0] = {
       container:     waveformEl,
-      waveColor:     'rgba(255,255,255,0.12)',
+      waveColor:     theme.resolvedTheme === 'light' ? 'rgba(28, 25, 23, 0.35)' : 'rgba(255,255,255,0.12)',
       progressColor: 'transparent',
       cursorWidth:   0,
       barWidth:      2,
@@ -91,7 +92,7 @@
       const region = regionsPlugin.addRegion({
         start:     0,
         end,
-        color:     'rgba(0, 240, 255, 0.12)',
+        color:     theme.resolvedTheme === 'light' ? 'rgba(13, 115, 119, 0.12)' : 'rgba(0, 240, 255, 0.12)',
         drag:      true,
         resize:    true,
         maxLength: MAX_REGION_SECS,
@@ -191,7 +192,6 @@
       modelError = '';
       if (t) {
         bootModel();
-        mountRegionSelector(t.path, player.duration);
         loadTrackSessions(t.id).then(() => {
           if (trackSessions.length > 0) openSession(trackSessions[0]);
         });
@@ -199,6 +199,15 @@
         destroyChatWs();
         trackSessions = [];
       }
+    }
+  });
+
+  // Re-build region selector when track or theme changes
+  $effect(() => {
+    const t = track;
+    const _resolvedTheme = theme.resolvedTheme;
+    if (t) {
+      mountRegionSelector(t.path, player.duration);
     }
   });
 
@@ -616,6 +625,11 @@
   :global(.waveform-wrap .wavesurfer-region) {
     border-left:  2px solid rgba(0, 240, 255, 0.7) !important;
     border-right: 2px solid rgba(0, 240, 255, 0.7) !important;
+  }
+
+  :global(html[data-theme="light"] .waveform-wrap .wavesurfer-region) {
+    border-left:  2px solid rgba(13, 115, 119, 0.7) !important;
+    border-right: 2px solid rgba(13, 115, 119, 0.7) !important;
   }
 
   .region-hint {
