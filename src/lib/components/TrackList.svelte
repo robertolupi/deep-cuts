@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { formatDuration } from '$lib/utils/format';
   import { filters } from '$lib/stores/filters.svelte';
   import { library } from '$lib/stores/library.svelte';
@@ -30,7 +31,9 @@
     const idx = filters.filteredTracks.findIndex(t => t.id === selectedTrack!.id);
     if (idx === -1) return;
     const targetPage = Math.floor(idx / PAGE_SIZE);
-    if (targetPage !== currentPage) currentPage = targetPage;
+    untrack(() => {
+      if (targetPage !== currentPage) currentPage = targetPage;
+    });
   });
 
   // Keep selected track smoothly scrolled into view when selected or when re-sorted due to metadata updates
