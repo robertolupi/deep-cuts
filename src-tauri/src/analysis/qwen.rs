@@ -298,7 +298,7 @@ impl super::AnalysisPass for QwenPass {
 
                         // Strip any "LABEL: " prefix the model echoed back; use the whole
                         // content as fallback so verbose responses are stored rather than lost.
-                        let value = strip_label_prefix(&content, step_name);
+                        let value = clean_qwen_tags(&content, step_name);
 
                         match step_name {
                             "genre" => ai_genre = Some(value),
@@ -580,6 +580,177 @@ fn skip_chars(s: &str, from: usize, chars: &[char]) -> usize {
     s[from..].len() - s[from..].trim_start_matches(chars).len()
 }
 
+/// Clean, normalize, and strip narrative framing and fillers from Qwen responses
+/// based on the target field name (genre, mood, instruments, description).
+fn clean_qwen_tags(content: &str, step_name: &str) -> String {
+    // 1. Initial label strip
+    let stripped = strip_label_prefix(content, step_name);
+    if step_name == "description" {
+        return stripped;
+    }
+
+    let cleaned = stripped.to_lowercase();
+
+    // Early return if the response indicates missing or unknown information
+    if cleaned.contains("not explicitly")
+        || cleaned.contains("not specified")
+        || cleaned.contains("cannot be determined")
+        || cleaned.contains("cannot be identified")
+        || cleaned.contains("unknown since")
+        || cleaned.contains("no specific")
+        || cleaned.contains("not provided")
+        || cleaned.contains("does not provide")
+    {
+        return "".to_string();
+    }
+
+    // Replace period, slashes, and quotes with comma/space before tokenizing
+    let mut normalized = cleaned
+        .replace('.', " ")
+        .replace('/', ", ")
+        .replace('\'', "")
+        .replace('\"', "");
+
+    // 2. Multi-word Whitelist Protection
+    // Protect these terms from being split into separate words by underscoring them
+    const MULTI_WORD_WHITELIST: &[&str] = &[
+        "acoustic guitar", "electric guitar", "electric bass", "acoustic bass",
+        "pedal steel guitar", "pedal steel", "steel guitar", "drum machine",
+        "synthesizer pad", "synthesizer pads", "synth pads", "synth pad",
+        "string section", "brass instruments", "brass section", "wind instruments",
+        "woodwind instruments", "backing vocals", "lead vocals", "lead guitar",
+        "alternative rock", "classic rock", "hard rock", "industrial rock",
+        "noise rock", "psychedelic rock", "country rock", "roots reggae",
+        "hip hop", "acid jazz", "free jazz", "ambient techno", "deephouse",
+        "deep house", "minimal techno", "liquid funk", "lo fi", "avant garde",
+        "new age", "easy listening", "folk rock", "folk pop", "synth pop",
+        "indie rock", "indie pop", "slow tempo", "fast paced", "heart broken",
+        "laid back", "dark ambient", "spacey synth", "sound collage", "chicago blues",
+        "harmonica blues"
+    ];
+
+    for term in MULTI_WORD_WHITELIST {
+        normalized = normalized.replace(term, &term.replace(' ', "_"));
+    }
+
+    // Normalize separators like " and " or " or " to commas
+    normalized = normalized.replace(" and ", ", ");
+    normalized = normalized.replace(" or ", ", ");
+
+    // 3. Word-Level Grammatical Structure Downvoting
+    // Split into words to find grammatical narrative regions (e.g. "the ... are")
+    let words: Vec<&str> = normalized.split_whitespace().collect();
+    let mut penalties = vec![0.0f32; words.len()];
+
+    let start_markers = &["the", "this"];
+    let end_markers = &["is", "are", "belongs", "belong", "consists", "consist", "falls", "has"];
+
+    let mut in_narrative = false;
+    for i in 0..words.len() {
+        let w = words[i];
+        if start_markers.contains(&w) {
+            in_narrative = true;
+        } else if end_markers.contains(&w) {
+            in_narrative = false;
+        } else if in_narrative {
+            penalties[i] = -1.0;
+        }
+    }
+
+    // 4. Scoring & Filtering
+    const COMBINED_WHITELIST: &[&str] = &[
+        "guitar", "guitarist", "bass", "bassist", "piano", "pianist", "violin",
+        "violinist", "synth", "synthesizer", "synths", "synthesizers", "drums",
+        "drum", "drummer", "drumming", "vocals", "vocal", "vocalist", "percussion",
+        "saxophone", "sax", "trumpet", "cello", "flute", "accordion", "sitar",
+        "oud", "banjo", "harmonica", "cavaquinho", "fiddle", "claps", "clap",
+        "techno", "house", "ambient", "trance", "blues", "rock", "pop", "jazz",
+        "classical", "folk", "country", "americana", "samba", "mpb", "sertanejo",
+        "gospel", "soul", "funk", "soundtrack", "opera", "rap", "reggae",
+        "disco", "ska", "dub", "glitch", "contemplative", "relaxing", "calm",
+        "melodic", "sentimental", "introspective", "reflective", "laidback",
+        "energetic", "joyful", "happy", "sad", "dark", "hypnotic", "uplifting",
+        "atmospheric", "dreamy", "inspiring", "heavy", "epic", "intense",
+        "nostalgic", "romantic", "upbeat", "chill", "cold", "chaotic", "dissonant",
+        "minimal", "soundtrack", "world"
+    ];
+
+    const STOPWORDS: &[&str] = &[
+        "the", "a", "an", "and", "or", "in", "of", "on", "at", "by", "for", "with",
+        "about", "to", "this", "that", "it", "is", "are", "was", "were", "be",
+        "been", "being", "belongs", "belong", "consists", "consist", "features",
+        "feature", "featured", "featuring", "include", "includes", "including",
+        "main", "major", "minor", "likely", "possibly", "possible", "some",
+        "subtle", "prominent", "various", "dominant", "traditional", "genre",
+        "genres", "subgenre", "subgenres", "mood", "moods", "feel", "feeling",
+        "feelings", "vibe", "vibes", "track", "tracks", "song", "songs", "music",
+        "piece", "pieces", "instrument", "instruments", "instrumental",
+        "instrumentation", "sound", "sounds", "soundscape", "elements",
+        "element", "influences", "influence", "highly", "extremely", "very",
+        "described", "describe", "description", "accompanied", "accompaniment",
+        "specifically", "style", "styles"
+    ];
+
+    let mut result_tokens = Vec::new();
+
+    // Rebuild the string with words joined by spaces
+    let rebuilt_normalized = words.join(" ");
+
+    for token in rebuilt_normalized.split(',') {
+        let clean_token = token.trim();
+        if clean_token.is_empty() {
+            continue;
+        }
+
+        // We split the token into individual words to calculate scores
+        let token_words: Vec<&str> = clean_token.split_whitespace().collect();
+        let mut clean_token_words = Vec::new();
+
+        for tw in token_words {
+            let w_clean = tw.trim_matches(|c: char| !c.is_alphanumeric() && c != '_').to_string();
+            if w_clean.is_empty() {
+                continue;
+            }
+
+            // Exclude noise
+            if w_clean == "n/a" || w_clean == "none" || w_clean == "not specified" || w_clean == "unknown" {
+                continue;
+            }
+
+            // Find index in original words list to get penalty
+            let mut penalty = 0.0f32;
+            if let Some(pos) = words.iter().position(|&orig| {
+                orig.trim_matches(|c: char| !c.is_alphanumeric() && c != '_') == w_clean
+            }) {
+                penalty = penalties[pos];
+            }
+
+            let mut score = 0.0f32 + penalty;
+
+            if w_clean.contains('_') || COMBINED_WHITELIST.contains(&w_clean.as_str()) {
+                score += 1.5;
+            }
+
+            if STOPWORDS.contains(&w_clean.as_str()) {
+                score -= 1.5;
+            }
+
+            if score >= 0.0 {
+                clean_token_words.push(w_clean.replace('_', " "));
+            }
+        }
+
+        if !clean_token_words.is_empty() {
+            let assembled_token = clean_token_words.join(" ");
+            if !result_tokens.contains(&assembled_token) {
+                result_tokens.push(assembled_token);
+            }
+        }
+    }
+
+    result_tokens.join(", ")
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -606,6 +777,39 @@ mod tests {
         for (step, input, expected) in cases {
             assert_eq!(
                 super::strip_label_prefix(input, step),
+                expected,
+                "step={step:?} input={input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_clean_qwen_tags() {
+        let cases = [
+            // Instruments
+            ("instruments", "INSTRUMENTS: acoustic guitar, drums", "acoustic guitar, drums"),
+            ("instruments", "The main instruments in this track are piano and violin.", "piano, violin"),
+            ("instruments", "subtle synthesizer pads, prominent drums", "synthesizer pads, drums"),
+            ("instruments", "traditional acoustic guitar instruments, various percussion instruments", "acoustic guitar, percussion"),
+            ("instruments", "not specified", ""),
+            ("instruments", "the instruments in the track are not specified.", ""),
+            
+            // Genre
+            ("genre", "GENRE: traditional country style", "country"),
+            ("genre", "This piece belongs to electronic / techno and house subgenres.", "electronic, techno, house"),
+            ("genre", "The genre of the track is techno.", "techno"),
+            ("genre", "the genre of the track is 'ambient, soundtrack' and the subgenre is 'newage'.", "ambient, soundtrack, newage"),
+            ("genre", "the genre is rock and the subgenre is industrial.", "rock, industrial"),
+            
+            // Mood
+            ("mood", "MOOD: highly energetic vibe", "energetic"),
+            ("mood", "extremely calm feel, introspective vibes", "calm, introspective"),
+            ("mood", "The mood of the track is introspective and reflective.", "introspective, reflective"),
+            ("mood", "the mood and emotional feel of this track cannot be determined from the provided information.", ""),
+        ];
+        for (step, input, expected) in cases {
+            assert_eq!(
+                super::clean_qwen_tags(input, step),
                 expected,
                 "step={step:?} input={input:?}"
             );
