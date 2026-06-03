@@ -6,6 +6,20 @@ constrained enough to avoid hallucination.
 
 Test with: `tools/feedback.sh <audio-file> "<prompt>"`
 
+## Context from the Qwen2-Audio technical report
+
+The model scores **6.79/10** on the AIR-Bench Chat-Benchmark-Music (MusicCaps subset),
+outperforming Gemini 1.5 Pro (5.06). MusicCaps captions describe genre, mood,
+instrumentation, vocals, tempo feel, production style, and cultural origin — so the
+model was trained to produce and evaluate exactly these kinds of descriptions.
+
+Key training signals that inform our choices:
+- **Multilingual ASR** across many languages → language detection is very reliable
+- **Speech Emotion Recognition (SER)** → likely transfers to emotional quality of singing
+- **Vocal Sound Classification** → distinguishes vocal types/styles
+- **MusicCaps-style descriptions** → cultural/geographic origin, rhythm feel, vocal style
+  are all part of the training distribution
+
 ---
 
 ## 1. Lyrics Language
@@ -199,17 +213,101 @@ COMPLEXITY: minimal, moderate, or complex
 
 ---
 
+## 11. Vocal Style
+
+**Likelihood: 4/5**
+
+Essentia detects vocal *presence* well, but says nothing about style. Qwen2-Audio's
+Vocal Sound Classification training makes this a good fit. Useful for discovery
+("find me tracks with raspy male vocals" or "operatic soprano").
+
+Proposed DB column: `ai_vocal_style TEXT`
+
+```
+How would you describe the vocal style in this track?
+Examples: smooth, raspy, falsetto, operatic, choir, spoken word, rap, auto-tuned.
+If there are no vocals, answer "instrumental".
+Respond in this format:
+VOCAL STYLE: description or "instrumental"
+```
+
+---
+
+## 12. Geographic / Cultural Origin
+
+**Likelihood: 3/5**
+
+MusicCaps captions frequently include cultural markers (Brazilian bossa nova, Irish
+folk, West African highlife). This is part of the model's training distribution.
+Works well for music with strong idiomatic markers; weaker for generic Western pop.
+
+Proposed DB column: `ai_origin TEXT`
+
+```
+What is the geographic or cultural origin of this music?
+Examples: Brazilian, Irish, West African, Jamaican, Indian classical, Japanese.
+If the origin is unclear or generic Western pop/rock, answer "Western" or "unclear".
+Respond in this format:
+ORIGIN: origin
+```
+
+---
+
+## 13. Rhythm Feel
+
+**Likelihood: 4/5**
+
+Distinct from tempo and danceability. Captures the groove character: syncopated,
+straight, shuffle, swing, Latin, polyrhythmic. MusicCaps descriptions include this.
+Useful alongside numeric BPM and tempo feel for playlist matching.
+
+Proposed DB column: `ai_rhythm TEXT`
+
+```
+How would you describe the rhythmic feel or groove of this track?
+Examples: straight, syncopated, shuffle, swing, Latin, polyrhythmic, rubato.
+Respond in this format:
+RHYTHM: description
+```
+
+---
+
+## 14. Emotional Tone of Vocals
+
+**Likelihood: 4/5**
+
+Qwen2-Audio was trained on Speech Emotion Recognition (SER), which likely transfers
+to sung emotion. This is richer than the overall mood field — a track can have a
+"melancholic" mood but "tender" vocals, or an "aggressive" mood with "desperate"
+vocals. Only meaningful when vocals are present.
+
+Proposed DB column: `ai_vocal_emotion TEXT`
+
+```
+What is the emotional tone or feeling conveyed by the vocals in this track?
+Examples: tender, joyful, melancholic, desperate, angry, serene, playful.
+If there are no vocals, answer "instrumental".
+Respond in this format:
+VOCAL EMOTION: emotion or "instrumental"
+```
+
+---
+
 ## Priority order for implementation
 
-| # | Field              | Likelihood | Value  | Notes                                    |
-|---|--------------------|------------|--------|------------------------------------------|
-| 1 | Lyrics language    | 5/5        | High   | No overlap with existing signals         |
-| 2 | Acoustic vs electronic | 5/5   | High   | Complements essentia mood_acoustic score |
-| 3 | Energy level       | 4/5        | High   | Complements mood, distinct from BPM      |
-| 4 | Tempo feel         | 4/5        | Medium | Complements numeric BPM                  |
-| 5 | Danceability       | 4/5        | Medium | Useful filter                            |
-| 6 | Listening context  | 3/5        | High   | High value if quality holds up           |
-| 7 | Decade / era       | 3/5        | Medium | Unreliable for AI-generated music        |
-| 8 | Complexity         | 3/5        | Medium | May need better scale                    |
-| 9 | Live vs studio     | 3/5        | Low    | Modest value, moderate error rate        |
-|10 | Lyrical themes     | 2/5        | High   | High value but unreliable cross-language |
+| #  | Field                  | Likelihood | Value  | Notes                                             |
+|----|------------------------|------------|--------|---------------------------------------------------|
+|  1 | Lyrics language        | 5/5        | High   | Strong multilingual ASR training; no essentia overlap |
+|  2 | Acoustic vs electronic | 5/5        | High   | Complements essentia mood_acoustic score          |
+|  3 | Energy level           | 4/5        | High   | Complements mood, distinct from BPM               |
+|  4 | Vocal style            | 4/5        | High   | No essentia equivalent; in training distribution  |
+|  5 | Rhythm feel            | 4/5        | High   | In MusicCaps distribution; complements BPM        |
+|  6 | Emotional tone (vocals)| 4/5        | High   | SER training transfers to sung emotion            |
+|  7 | Tempo feel             | 4/5        | Medium | Complements numeric BPM                           |
+|  8 | Danceability           | 4/5        | Medium | Useful filter; also planned as essentia model     |
+|  9 | Listening context      | 3/5        | High   | High value if quality holds up                    |
+| 10 | Geographic origin      | 3/5        | Medium | Works for idiomatic music; weak on generic pop    |
+| 11 | Decade / era           | 3/5        | Medium | Unreliable for AI-generated retro music           |
+| 12 | Complexity             | 3/5        | Medium | May need better scale                             |
+| 13 | Live vs studio         | 3/5        | Low    | Modest value, moderate error rate                 |
+| 14 | Lyrical themes         | 2/5        | High   | High value but unreliable cross-language          |
