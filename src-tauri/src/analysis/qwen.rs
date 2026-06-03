@@ -300,6 +300,17 @@ impl super::AnalysisPass for QwenPass {
                         // content as fallback so verbose responses are stored rather than lost.
                         let value = clean_qwen_tags(&content, step_name);
 
+                        if step_name == "description" {
+                            if is_invalid_description(&value) {
+                                log::warn!(
+                                    "[qwen] Track {} step 'description' returned invalid/generic text: {:?} — retrying attempt",
+                                    job.track_id, value
+                                );
+                                all_steps_ok = false;
+                                break;
+                            }
+                        }
+
                         match step_name {
                             "genre" => ai_genre = Some(value),
                             "mood" => ai_mood = Some(value),
@@ -530,6 +541,14 @@ pub struct ParsedQwenResponse {
     pub description: Option<String>,
 }
 
+
+fn is_invalid_description(desc: &str) -> bool {
+    let val_lower = desc.trim().to_lowercase();
+    val_lower == "not provided"
+        || val_lower == "description"
+        || val_lower == "description."
+        || val_lower.contains("not provided in the provided information")
+}
 
 /// Strip an echoed label prefix from a model response, tolerating variations in case,
 /// markdown decoration, plural, and separator style.
@@ -842,6 +861,17 @@ mod tests {
                 "step={step:?} input={input:?}"
             );
         }
+    }
+
+    #[test]
+    fn test_is_invalid_description() {
+        assert!(super::is_invalid_description("Not provided"));
+        assert!(super::is_invalid_description("description"));
+        assert!(super::is_invalid_description("description."));
+        assert!(super::is_invalid_description("The description of the track is not provided in the provided information."));
+        
+        // Valid descriptions
+        assert!(!super::is_invalid_description("A beautiful and ambient classical piece with soft pianos."));
     }
 
     #[test]
