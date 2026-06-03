@@ -131,7 +131,7 @@ impl Track {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
                     is_stale
-             FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
+             FROM tracks ORDER BY filename ASC",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Self {
