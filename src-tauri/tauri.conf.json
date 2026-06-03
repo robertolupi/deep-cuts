@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Deep Cuts Dashboard",
+        "title": "Deep Cuts",
         "width": 1200,
         "height": 950,
         "resizable": true,
