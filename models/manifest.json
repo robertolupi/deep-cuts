@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "min_app_version": "0.1.2",
+  "min_app_version": "0.1.3",
   "update_notice": null,
   "models": {
     "qwen": {

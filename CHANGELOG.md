@@ -2,10 +2,19 @@
 
 All notable changes to Deep Cuts will be documented here.
 
-## [Unreleased] — 0.1.3
+## [0.1.3] — 2026-06-03
 
 ### Features
 
+- **Downgrade llama-server for Metal Audio Stability**: Reverted the bundled `llama-server` to version `b9432` to resolve a critical upstream Metal regression (in `b9433+`) that caused Qwen2-Audio prompts to enter an infinite `@@@` token loop.
+- **Improved Music Map Projections & Layouts**: Added *Mood Centroid* projection, *Genre Wheel* circle layout, *Mood coloring scheme* with auto-color toggling, and generalized similarity queries with customizable sonic/description blend weighting.
+- **Logarithmic Contour Heatmap Overlays**: Integrated D3 density contour overlays on the Music Map to visualize density clusters of sonic similarity.
+- **Fuzzy Gaussian BPM Correction & Joint Preprocessing**: Implemented fuzzy Gaussian correction passes and joint Key/BPM preprocessing to improve alignment and fallback reliability.
+- **IDF-Scaled Hybrid Search**: Implemented term-frequency (IDF) scaling for hybrid text/vector searches, combining CLAP audio similarity and textual descriptions.
+- **Loudest Region & Analysis Window Markers**: Added visual markers in the player waveform showing the exact 10-second high-energy window analyzed by Essentia/Qwen.
+- **Non-Music Skip Optimization**: Automatically checks if a track is non-music (derived from Essentia genre probabilities) and skips heavy spectrogram and AI passes.
+- **App Log Opener & License Viewer**: Added an application log file opener and a view of the bundled AGPL-3.0 license directly in the Settings drawer.
+- **Faceted & Extended Search**: Composer field is now fully indexed and matched by text filters. Collapsible legend added to the Music Map with automatic hiding on pan/zoom.
 - **Mood Filtering**: Seven mood axes (happy, sad, aggressive, relaxed, party, acoustic, electronic) exposed as dual-handle histogram range sliders in the filter sidebar, backed by Essentia mood scores.
 - **Mood Radar**: Spider/radar chart visualisation in the track detail pane showing the full mood profile of the selected track.
 - **Chat Session Persistence**: Chat conversations are now saved to the database with full-text search and a session picker, so you can return to previous Q&A sessions for any track.
@@ -22,6 +31,9 @@ All notable changes to Deep Cuts will be documented here.
 
 - **Scope Reset Pass**: Fixed the reset analysis pass action to correctly scope the database and column resets to the current track only (preventing multi-track reset bugs).
 - **Theme Visibility & Contrast**: Improved the visibility and contrast of WaveSurfer waveforms and the Mood Radar spider chart when using the light theme.
+- **Pagination**: Replaced load-more behavior with pagination to avoid performance degradation when updating search filters on large libraries.
+- **Bounds-Aware Windows**: Fixed bounds-checking for Qwen, Essentia, and CLAP analysis windows on very short audio files.
+- **UI & Theme Enhancements**: Integrated theme-aware waveform styling in the chat pane, unified Update/Network cards, and disabled chat input during active pipeline analysis.
 
 ---
 
