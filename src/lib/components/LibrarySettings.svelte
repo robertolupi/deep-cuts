@@ -297,31 +297,11 @@
       {/if}
     </div>
 
-    <!-- App Updates card -->
-    <div class="sg-card">
-      <div class="card-header">
-        <span class="card-title">App Updates</span>
-        <span class="card-subtitle">Keep Deep Cuts and its models up to date</span>
-      </div>
-
-      <div class="update-toggle-row">
-        <label class="update-checkbox-label">
-          <input
-            type="checkbox"
-            checked={checkUpdatesEnabled}
-            onchange={(e) => toggleUpdateSettings(e.currentTarget.checked)}
-            class="update-checkbox"
-          />
-          <span class="checkbox-text">Check for updates on startup</span>
-        </label>
-      </div>
-    </div>
-
     <!-- Network Settings card -->
     <div class="sg-card">
       <div class="card-header">
         <span class="card-title">Network Settings</span>
-        <span class="card-subtitle">Enrich missing library information dynamically</span>
+        <span class="card-subtitle">Control network access and online metadata fetches</span>
       </div>
 
       <div class="update-toggle-row">
@@ -333,6 +313,18 @@
             class="update-checkbox"
           />
           <span class="checkbox-text">Fetch metadata from MusicBrainz (AcoustID)</span>
+        </label>
+      </div>
+
+      <div class="update-toggle-row">
+        <label class="update-checkbox-label">
+          <input
+            type="checkbox"
+            checked={checkUpdatesEnabled}
+            onchange={(e) => toggleUpdateSettings(e.currentTarget.checked)}
+            class="update-checkbox"
+          />
+          <span class="checkbox-text">Check for updates on startup</span>
         </label>
       </div>
     </div>
