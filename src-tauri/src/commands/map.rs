@@ -383,7 +383,7 @@ pub fn search_similar_tracks_audio(
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| a.id.cmp(&b.id))
     });
-    rows.truncate(20);
+    rows.truncate(50);
     Ok(rows)
 }
 
