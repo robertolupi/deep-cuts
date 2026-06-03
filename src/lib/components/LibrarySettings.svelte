@@ -3,6 +3,7 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { library } from "$lib/stores/library.svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { player } from "$lib/stores/player.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
   import { onMount } from "svelte";
 
@@ -342,6 +343,18 @@
             class="update-checkbox"
           />
           <span class="checkbox-text">Write .dc.json sidecar files after analysis</span>
+        </label>
+      </div>
+
+      <div class="update-toggle-row">
+        <label class="update-checkbox-label">
+          <input
+            type="checkbox"
+            checked={player.showLoudestMarker}
+            onchange={(e) => player.setShowLoudestMarker(e.currentTarget.checked)}
+            class="update-checkbox"
+          />
+          <span class="checkbox-text">Show loudest analysis windows on player</span>
         </label>
       </div>
     </div>
