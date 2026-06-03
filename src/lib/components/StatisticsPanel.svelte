@@ -587,14 +587,18 @@
               <td class="pass-name">{row.label}</td>
               <td>
                 <div class="cov-wrap">
-                  <div class="cov-bar" style="width:{row.pctA}%;background:{COLOR_A}"></div>
+                  <div class="cov-track">
+                    <div class="cov-bar" style="width:{row.pctA}%;background:{COLOR_A}"></div>
+                  </div>
                   <span class="cov-pct">{row.pctA.toFixed(0)}%</span>
                 </div>
               </td>
               {#if statsB}
                 <td>
                   <div class="cov-wrap">
-                    <div class="cov-bar" style="width:{row.pctB ?? 0}%;background:{COLOR_B}"></div>
+                    <div class="cov-track">
+                      <div class="cov-bar" style="width:{row.pctB ?? 0}%;background:{COLOR_B}"></div>
+                    </div>
                     <span class="cov-pct">{(row.pctB ?? 0).toFixed(0)}%</span>
                   </div>
                 </td>
@@ -800,9 +804,11 @@
 
   .pass-name { color: var(--sg-on-surface,#e3e1e9); font-size: 9px; white-space: nowrap; }
 
-  .cov-wrap { display: flex; align-items: center; gap: 6px; min-width: 120px; }
+  .cov-wrap { display: flex; align-items: center; gap: 8px; }
 
-  .cov-bar { height: 6px; border-radius: 3px; flex-shrink: 0; min-width: 0; max-width: 80px; }
+  .cov-track { width: 80px; height: 6px; background: rgba(255,255,255,0.04); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+
+  .cov-bar { height: 100%; border-radius: 3px; }
 
   .cov-pct { font-size: 8px; color: var(--sg-outline,#849495); min-width: 28px; }
 
