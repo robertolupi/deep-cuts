@@ -2,7 +2,6 @@
   import { invoke } from '@tauri-apps/api/core';
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
   import { curation } from "$lib/stores/curation.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
@@ -114,10 +113,10 @@
           <span class="format-badge">{ext}</span>
           <h3 class="track-title">{track.title || track.filename}</h3>
           {#if track.artist}
-            <button class="track-artist filter-link" onclick={() => { filters.searchQuery = track!.artist!; ui.activeView = 'table'; }}>{track.artist}</button>
+            <button class="track-artist filter-link" onclick={() => { filters.searchQuery = track!.artist!; }}>{track.artist}</button>
           {/if}
           {#if track.album}
-            <button class="track-album filter-link" onclick={() => { filters.searchQuery = track!.album!; ui.activeView = 'table'; }}>{track.album}{track.year ? ` · ${track.year}` : ''}</button>
+            <button class="track-album filter-link" onclick={() => { filters.searchQuery = track!.album!; }}>{track.album}{track.year ? ` · ${track.year}` : ''}</button>
           {/if}
           {#if track.genre}
             <p class="track-genre">{track.genre}</p>
@@ -231,7 +230,7 @@
                 class:tag-discarded={tag.discard}
                 style="color:{theme.color};background:{active ? theme.border : theme.bg};border-color:{theme.border}"
                 title="{tag.discard ? '✗ discarded · ' : ''}{tag.source}{scoreStr}"
-                onclick={() => { if (!tag.discard) { filters.toggleTag(tag.name); ui.activeView = 'table'; } }}
+                onclick={() => { if (!tag.discard) { filters.toggleTag(tag.name); } }}
               >{tag.name.split(':').slice(1).join(':')}<span class="tag-ns">{tag.name.split(':')[0]}</span></button>
             {/each}
           </div>
