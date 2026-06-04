@@ -110,10 +110,12 @@
   });
 
   // Format a duration in seconds as a compact human-readable string:
+  //   < 1s   → "423ms"
   //   < 60s  → "42s"
   //   < 1h   → "3m 07s"
   //   >= 1h  → "1h 23m 07s"
   function formatDuration(seconds: number): string {
+    if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
     const s = Math.round(seconds);
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
