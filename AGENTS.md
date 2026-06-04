@@ -28,6 +28,10 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/query-db/SKILL.md](skills/query-db/SKILL.md)
    - **Use when**: Formulating database queries or interacting with the SQLite database directly.
 
+6. **UI Design**
+   - **Path**: [skills/ui-design/SKILL.md](skills/ui-design/SKILL.md)
+   - **Use when**: Designing, editing, or styling user interface components, and managing multi-theme compatibility.
+
 ## Repository Layout
 
 ```
