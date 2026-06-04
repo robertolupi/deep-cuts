@@ -56,33 +56,10 @@ Multiple named layouts, each computed from a different feature space, let the us
 
 ---
 
-## Data Model
+## Status
 
-### New table: `map_layouts`
-
-```sql
-CREATE TABLE map_layouts (
-    id           INTEGER PRIMARY KEY,
-    name         TEXT NOT NULL,        -- 'acoustic', 'semantic', 'mood', 'rhythmic', 'tonal', 'hybrid'
-    params_json  TEXT,                 -- UMAP hyperparameters + feature weights used
-    computed_at  INTEGER,              -- Unix epoch; NULL if not yet computed
-    track_count  INTEGER               -- library size at compute time; used to detect staleness
-);
-```
-
-### New table: `map_coordinates`
-
-Currently coordinates are stored in a single `map_coordinates` table keyed by track ID. Add a `layout_id` foreign key:
-
-```sql
-ALTER TABLE map_coordinates ADD COLUMN layout_id INTEGER REFERENCES map_layouts(id);
-```
-
-Existing rows get `layout_id = 1` (acoustic / default). Each layout has its own set of (x, y) coordinates per track.
-
-### Staleness
-
-A layout is considered stale when `track_count` differs from the current library size, or when the underlying analysis data (CLAP embeddings, Essentia scores, etc.) has been updated for a significant fraction of tracks. Stale layouts show a "recompute" badge in the UI, same as today.
+* **Implemented**: The map projection modes (`sonic`, `description`, `hybrid`, `essentia`, `harmonic`, `genre_wheel`) are fully implemented and switchable in the Svelte frontend (`MusicMap.svelte`) and backend `map.rs`. Position interpolation / transitions between layouts are also functional.
+* **Not Implemented**: The `map_layouts` and coordinate layout tracking database tables, param serialization, and layout staleness logic in SQLite are not implemented. Projections are computed dynamically on-demand.
 
 ---
 

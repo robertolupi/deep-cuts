@@ -172,16 +172,13 @@ Runs as a lightweight pre-pass during track analysis (before CLAP), using only t
 
 ---
 
-## Implementation Order
+## Status
 
-| Step | Change | Depends on |
-|---|---|---|
-| 1 | Percentile clipping in `standardize_to_100` | Nothing — immediate fix |
-| 2 | Silence detection pass + DB migration | Nothing |
-| 3 | Energy-based CLAP window selection | Step 2 (silence mask) |
-| 4 | `is_non_music` flag + filtering from projection | Steps 2, 3 |
-| 5 | Alternative projection algorithms (PCA, t-SNE) | Step 1 |
-| 6 | Outlier satellite region | Step 5 |
-| 7 | Expose algorithm params in settings UI | Steps 5, 6 |
-
-Steps 1 and 2 are independent quick wins. Steps 3–4 require a full re-analysis of the library after deployment.
+* **Implemented**:
+  - **Percentile clipping** in `standardize_to_100` (clipping p1–p99) is fully active in `commands/map.rs`.
+  - **Silence detection** pass is fully implemented in `analysis/audio.rs` (populating `silence_regions` and `has_long_silence`).
+  - **Energy-based CLAP window selection** is implemented in `embeddings.rs` (utilizing `select_clap_window_pcts` which selects three loudest spaced bins based on waveform data).
+  - **Non-Music Filtering**: Classification via Essentia `is_music` check is implemented, and coordinates projection excludes non-music tracks when `musicOnly` is true.
+  - **Alternative Projections**: Svelte map mode supports multiple layout/projections (`sonic`, `description`, `hybrid`, `essentia`, `harmonic`, `genre_wheel`).
+* **Not Implemented / Deferred**:
+  - Outlier satellite regions ("Pinned HUD Mini-Map Inset") and settings configuration UI panels for custom algorithm hyper-parameters.

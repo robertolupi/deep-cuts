@@ -137,74 +137,14 @@ This bridges the fuzzy mood system with the tagging system described in `tagging
 
 ---
 
-## Agreed Implementation Plan (2026-06-02)
+## Status
 
-### Decision: sliders for filtering, radar for display only
-
-The radar is **not** used as a filter input — dragging 7 axes simultaneously is too much cognitive load and the 0–1 raw scale is misleading without knowing the library distribution. Instead:
-
-- **Filtering** uses per-mood `RangeSlider` components with a histogram background showing the actual distribution of values in the library. Same pattern as the existing BPM filter.
-- **Display** uses a read-only radar in `TrackDetailPane` to replace the current flat mood bars — richer at-a-glance fingerprint.
-- **Statistics** keeps the existing radar for set comparison (already works).
-
-### Step 1 — Extract `MoodRadar.svelte`
-
-The working D3 radar lives in `src/lib/components/StatisticsPanel.svelte`, function `renderMoodRadar` (~lines 225–271). Extract it into `src/lib/components/MoodRadar.svelte` with props:
-
-```typescript
-moodA: MoodValues;           // primary polygon
-moodB?: MoodValues;          // optional overlay
-```
-
-Where `MoodValues = { happy, sad, aggressive, relaxed, party, acoustic, electronic: number | null }`.
-
-Replace the inline call in `StatisticsPanel` with `<MoodRadar moodA={...} moodB={...} />`.
-Add `<MoodRadar moodA={trackMood} />` to `TrackDetailPane` replacing the flat mood bars.
-
-### Step 2 — Add mood filter state
-
-In `src/lib/stores/filters.svelte.ts`, add 7 optional range pairs (all default to `[0, 1]`):
-
-```typescript
-moodHappy:      [number, number] = [0, 1];
-moodSad:        [number, number] = [0, 1];
-moodAggressive: [number, number] = [0, 1];
-moodRelaxed:    [number, number] = [0, 1];
-moodParty:      [number, number] = [0, 1];
-moodAcoustic:   [number, number] = [0, 1];
-moodElectronic: [number, number] = [0, 1];
-```
-
-Wire them into the `filteredTracks` derived computation (same pattern as `minBpm`/`maxBpm`).
-
-### Step 3 — Extend `RangeSlider.svelte` with histogram
-
-`src/lib/components/RangeSlider.svelte` already has `min`, `max`, `step`, `minValue`, `maxValue`, `unit`. Add an optional `distribution` prop:
-
-```typescript
-distribution?: number[];  // normalised bucket heights 0–1, length = number of bins
-```
-
-Render thin semi-transparent bars behind the track fill. Derive the histogram from `library.tracks` on the frontend — no backend changes needed.
-
-### Step 4 — Add mood sliders to `FilterSidebar.svelte`
-
-Add a collapsible "MOOD" section after the BPM section in `src/lib/components/FilterSidebar.svelte`. One `RangeSlider` per mood dimension, each showing the library distribution behind it. Only show when at least one track in the library has mood data (`coverage_mood > 0`).
-
-Also retrofit the existing BPM slider to use the histogram background once Step 3 is done.
-
-### Key files
-
-| File | Role |
-|------|------|
-| `src/lib/components/StatisticsPanel.svelte` | Source of `renderMoodRadar` to extract |
-| `src/lib/components/TrackDetailPane.svelte` | Add read-only `MoodRadar` replacing flat bars |
-| `src/lib/components/RangeSlider.svelte` | Extend with `distribution` prop |
-| `src/lib/components/FilterSidebar.svelte` | Add mood sliders section |
-| `src/lib/stores/filters.svelte.ts` | Add mood range state + filtering logic |
-| `src/lib/stores/library.svelte.ts` | Source of `library.tracks` for histogram data |
-
-No backend changes, no new IPC commands, no DB migrations needed.
+* **Implemented**: 
+  - Reusable `<MoodRadar />` component (`MoodRadar.svelte`) accepting `moodA` and `moodB` in read-only mode for `TrackDetailPane.svelte` and `StatisticsPanel.svelte`.
+  - 7 mood ranges with default `[0, 1]` filtering logic in `filters.svelte.ts`.
+  - Histograms in `RangeSlider.svelte` dynamically rendering values based on library distributions.
+  - Interactive mood range sliders in the Collapsible "MOOD" section of `FilterSidebar.svelte` with live histogram backgrounds.
+* **Not Implemented**: Interactive dragging of radar vertices to adjust filters (as the decision was made to use sliders for filtering and radar for display only). Named mood profiles JSON exports are also not implemented.
 
 ---
 

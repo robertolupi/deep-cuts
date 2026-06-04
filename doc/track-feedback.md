@@ -19,10 +19,13 @@ ask_qwen(track_id, question, window_start_secs, window_duration_secs, history) -
 
 The audio attachment is only included on the first turn. Subsequent turns in `history` are text-only, keeping the payload small.
 
-## Remaining work
+## Status
 
-- [ ] `chat_history` DB migration — `(id, track_id, role, content, created_at)` — persist conversations across sessions
-- [ ] `get_chat_history(track_id)` and `save_chat_message(track_id, role, content)` IPC commands
+* **Implemented**: 
+  - Chat tab UI (`ChatPanel.svelte`), back-end llama-server controller (`llama.rs`), and the `ask_qwen` IPC command (`chat.rs`).
+  - Audio-slicing and token-by-token streaming response events (`chat_token`).
+  - Conversation persistence via SQLite databases (`chat_sessions` and `chat_messages` tables via `19_chat_history.sql` migration).
+  - Saved chat session lookups and message insertion via Rust IPC commands (`get_chat_messages`, `save_chat_message`, `create_chat_session`, etc.).
 
 ## Cross-References
 

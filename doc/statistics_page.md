@@ -186,21 +186,18 @@ Charts are rendered with D3 on canvas/SVG, consistent with the map view. No thir
 
 ---
 
-## Open Questions
+## Status
 
-1. **Export** — should statistics be exportable (CSV of aggregates, PNG of charts)? Natural ask for a "production habits" workflow.
-
-2. **Percentile mode** — the prototype normalised mood scores to percentile rank within the collection, making skewed distributions more readable. Worth offering as a toggle on mood charts.
-
-3. **Which charts need interactivity** — clicking a bar in the genre chart to filter to those tracks, for example, would be powerful but complex. Scope for v1: all charts are read-only; interactivity in a follow-up.
-
-4. **Saved statistics snapshots** — rather than a separate snapshot mechanism, the `analysis_results` versioning table (`private/analysis-data-retention.md`) already stores timestamped pass outputs. Querying it at a historical `ran_at` timestamp gives a past view of any track set's statistics for free — "here's how the mood profile of your References folder looked 3 months ago vs today."
-
----
-
-## Cross-References
-
-- **Playlists & saved searches** (`playlists_and_saved_searches.md`) — these are the primary track set inputs. The nearest-neighbour overlap section can directly suggest tracks to add to a playlist, turning a statistical observation into a curation action.
-- **Tag system** (`tagging_ideas.md`) — the analysis coverage section can auto-apply a `needs-analysis` tag to tracks missing a given pass, making coverage gaps immediately actionable as a saved search.
-- **Mood filtering / radar** (`mood_filtering_ideas.md`) — the mood centroid radar thumbnail in the summary KPIs reuses the radar component, making any track set's mood profile comparable at a glance without opening the filter sidebar.
-- **Analysis data retention** (`private/analysis-data-retention.md`) — versioned pass results enable historical comparison without a separate snapshot mechanism; past statistics are derivable from `analysis_results` timestamps.
+* **Implemented**:
+  - The Svelte frontend (`StatisticsPanel.svelte`) and backend `statistics.rs` are fully functional.
+  - Supports comparing **up to 2 track sets** side-by-side (Set A vs. Set B: e.g. Full Library vs. a selected watched directory).
+  - Summary KPIs (track counts, durations, average BPM/stddev, modes, vocals, loudness, analyzed coverages).
+  - D3 histograms for BPM, Duration, and Loudness (LUFS) distributions.
+  - Chromatic Key frequencies, Major vs. Minor bar trackers, and top 20 genres horizontal bars.
+  - Read-only `<MoodRadar />` overlays showing mood centroids.
+  - Vocal character and top 15 instrument mentions distributions.
+  - Color-coded analysis pass coverage charts.
+* **Not Implemented / Deferred**:
+  - 3-set comparisons (currently capped at 2).
+  - Venn-style track overlap counts and acoustic vector similarity (centroid distance, nearest-neighbor cross-set distance distributions).
+  - Genre treemaps, Mood x BPM heatmaps, Camelot wheel density wheels, and Listening History tracking.

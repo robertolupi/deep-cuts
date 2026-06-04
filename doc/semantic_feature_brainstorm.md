@@ -8,15 +8,15 @@ Welcome to the central feature planning index. Deep Cuts is equipped with a robu
 
 Below is a comparison of all evaluated features, ranked in order of **Priority Score**:
 
-| Feature Area | Standalone Evaluation Doc | Effort | Uncertainty | Perf. Impact | Wow Factor | Priority | Sizing (Dev-Days) |
+| Feature Area | Standalone Evaluation Doc Section | Effort | Uncertainty | Perf. Impact | Wow Factor | Priority | Sizing (Dev-Days) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | ~~**1. Local NLP Semantic Search**~~ | ~~implemented~~ | | | | | | |
-| **2. Blended "Sounds vs. Feels" Slider** | [sounds_feels_similarity_slider.md](feature-evaluations/sounds_feels_similarity_slider.md) | 3 / 10 | 2 / 10 | 1 / 10 | 9 / 10 | **9.0 / 10** | 3.5 Days |
-| **3. Music Producer & Sampling Suite** | [producer_sampling_features.md](feature-evaluations/producer_sampling_features.md) | 6 / 10 | 3 / 10 | 2 / 10 | 9 / 10 | **8.5 / 10** | 6.0 Days |
-| **4. UMAP Density Contours & Map Layering** | [umap_density_contours_map_layering.md](feature-evaluations/umap_density_contours_map_layering.md) | 4 / 10 | 3 / 10 | 3 / 10 | 9 / 10 | **8.0 / 10** | 4.5 Days |
-| **5. DJ & Live Performance Suite** | [dj_performance_features.md](feature-evaluations/dj_performance_features.md) | 7 / 10 | 4 / 10 | 2 / 10 | 8 / 10 | **7.5 / 10** | 7.0 Days |
-| **6. Pathfinding Playlists (Transitions)** | [pathfinding_playlists_transitions.md](feature-evaluations/pathfinding_playlists_transitions.md) | 5 / 10 | 4 / 10 | 1 / 10 | 8 / 10 | **7.0 / 10** | 5.0 Days |
-| **7. Sonic DNA & Multimodal QA** | [sonic_dna_multimodal_qa.md](feature-evaluations/sonic_dna_multimodal_qa.md) | 9 / 10 | 8 / 10 | 8 / 10 | 10 / 10 | **5.5 / 10** | 18.0 Days |
+| **2. Blended "Sounds vs. Feels" Slider** | [roadmap_ideas.md#5-sounds-vs-feels-similarity-slider](roadmap_ideas.md#5-sounds-vs-feels-similarity-slider) | 3 / 10 | 2 / 10 | 1 / 10 | 9 / 10 | **9.0 / 10** | 3.5 Days |
+| **3. Music Producer & Sampling Suite** | [roadmap_ideas.md#3-music-producer--sampling-features](roadmap_ideas.md#3-music-producer--sampling-features) | 6 / 10 | 3 / 10 | 2 / 10 | 9 / 10 | **8.5 / 10** | 6.0 Days |
+| **4. UMAP Density Contours & Map Layering** | [roadmap_ideas.md#6-umap-density-contours--map-layering](roadmap_ideas.md#6-umap-density-contours--map-layering) | 4 / 10 | 3 / 10 | 3 / 10 | 9 / 10 | **8.0 / 10** | 4.5 Days |
+| **5. DJ & Live Performance Suite** | [roadmap_ideas.md#1-dj--live-performance-features](roadmap_ideas.md#1-dj--live-performance-features) | 7 / 10 | 4 / 10 | 2 / 10 | 8 / 10 | **7.5 / 10** | 7.0 Days |
+| **6. Pathfinding Playlists (Transitions)** | [roadmap_ideas.md#2-pathfinding-playlists--transitions](roadmap_ideas.md#2-pathfinding-playlists--transitions) | 5 / 10 | 4 / 10 | 1 / 10 | 8 / 10 | **7.0 / 10** | 5.0 Days |
+| **7. Sonic DNA & Multimodal QA** | [roadmap_ideas.md#4-sonic-dna--multimodal-qa](roadmap_ideas.md#4-sonic-dna--multimodal-qa) | 9 / 10 | 8 / 10 | 8 / 10 | 10 / 10 | **5.5 / 10** | 18.0 Days |
 
 ---
 
@@ -24,35 +24,29 @@ Below is a comparison of all evaluated features, ranked in order of **Priority S
 
 ### ~~1. 🔍 Local NLP Semantic Search~~ ✅ Implemented
 
-### 1. 🎚️ [Blended "Sounds vs. Feels" Slider](feature-evaluations/sounds_feels_similarity_slider.md)
+### 2. 🎚️ [Blended "Sounds vs. Feels" Slider](roadmap_ideas.md#5-sounds-vs-feels-similarity-slider)
 * **Synopsis**: An interactive sidebar in the player panel providing real-time transitional suggestions. A visual slider lets the user blend acoustic similarity (CLAP 512-d) and conceptual similarity (MiniLM 384-d) scores using a linear interpolation formula.
 * **Why it's a priority**: High visual impact, standard distance-merging math, and lightning-fast pre-computed vector lookups.
 
-### 3. 🎛️ [Music Producer & Sampling Suite](feature-evaluations/producer_sampling_features.md)
-* **Synopsis**: Provides dragging zones for external reference mixing (BPM/Key/LUFS checks), D3-based spectral overlays comparing Work-In-Progress vs. Reference mixes, UMAP-based "Crate Digger" obscurity indexing, clean instrumental scrapers, and automated tempo stretch/pitch transposing calculators.
-* **Why it's a priority**: Highly practical tools for producers; the Obscurity Index and Pitch Transposer can be built in less than 2 days, while the D3 overlay provides a premium mix visualizer.
+### 3. 🎛️ [Music Producer & Sampling Suite](roadmap_ideas.md#3-music-producer--sampling-features)
+* **Synopsis**: Provides dragging zones for reference mixing (BPM/Key/LUFS checks), OBscurity Index sorting, lazy vocal separation, and file tag writeback of key/BPM.
+* **Why it's a priority**: Highly practical tools for producers; the Obscurity Index and Pitch Transposer can be built in less than 2 days.
 
-### 4. 🗺️ [UMAP Density Contours & Map Layering](feature-evaluations/umap_density_contours_map_layering.md)
-* **Synopsis**: Overlays transparent, glowing neon topographic density lines on the 2D Music Map using D3-contour density grids. Integrates sidebar checkboxes to dim non-matching dots and highlight specific musical instruments.
-* **Why it's a priority**: Extreme visual wow-factor that sets the app's styling apart, requiring optimized canvas redrawing routines.
+### 4. 🗺️ [UMAP Density Contours & Map Layering](roadmap_ideas.md#6-umap-density-contours--map-layering)
+* **Synopsis**: Overlays transparent, glowing neon topographic density lines on the 2D Music Map using D3-contour density grids. Integrates sidebar checkboxes to dim non-matching dots.
+* **Why it's a priority**: Extreme visual wow-factor that sets the app's styling apart.
 
-### 5. 🌡️ [DJ & Live Performance Suite](feature-evaluations/dj_performance_features.md)
-* **Synopsis**: Categorizes tracks into 5 Energy Levels using Qwen descriptor lists, highlights compatible Camelot Keys on UMAP, monitors playlist Vibe Drift alerting DJs to massive gaps, and implements a Double Drop Clash Meter analyzing 24-band spectral overlays.
-* **Why it's a priority**: Highly professional mixing aids; the UMAP key highlighting and Vibe Drift indicators are very easy to build, while the double drop requires careful DSP frequency-correlation calculations.
+### 5. 🌡️ [DJ & Live Performance Suite](roadmap_ideas.md#1-dj--live-performance-features)
+* **Synopsis**: Categorizes tracks into 5 Energy Levels, highlights compatible Camelot Keys on UMAP, monitors playlist Vibe Drift, and implements a Double Drop Clash Meter.
+* **Why it's a priority**: Highly professional mixing aids; key highlighting is lightweight, while double drop compatibility requires spectral profiling.
 
-### 6. 🔀 [Pathfinding Playlists (Transitions)](feature-evaluations/pathfinding_playlists_transitions.md)
+### 6. 🔀 [Pathfinding Playlists (Transitions)](roadmap_ideas.md#2-pathfinding-playlists--transitions)
 * **Synopsis**: DJ playlist compiler that builds transitional paths on the map. The user clicks a Start Song and an End Song, and the Rust backend constructs a $k$-NN graph of 2D coordinates, runs an $A^*$ or Dijkstra shortest path search, and returns an acoustically smooth progression.
-* **BPM/Key Edge Weights & Island-Bridging**: 
-  - To prevent paths from jumping between vastly different tempos or discordant keys, the transition graph's edge weights are not solely based on 2D map distance.
-  - **Dynamic Edge Weights**: Edge weight calculates as:
-    `weight = distance_2d * (1.0 + bpm_penalty) * (1.0 + camelot_key_penalty)`
-    Where the BPM penalty increases with tempo delta, and the key penalty increases based on harmonic distance on the Camelot wheel.
-  - **Island-Bridging**: In UMAP projections, isolated sub-clusters ("islands") can create disconnected components, trapping the search. The pathfinder implements an **Island-Bridging heuristic**: it detects disconnected sub-graphs and dynamically creates sparse "bridges" (virtual edges with high transition penalties) connecting nearest-neighbor bridgehead nodes, guaranteeing a viable path from start to end without causing drastic musical jars.
-* **Why it's a priority**: Unique playlisting utility with low backend performance footprint but requiring graph bridging heuristics for disconnected islands.
+* **Why it's a priority**: Unique playlisting utility with low backend performance footprint.
 
-### 7. 🧬 [Sonic DNA & Multimodal QA](feature-evaluations/sonic_dna_multimodal_qa.md)
+### 7. 🧬 [Sonic DNA & Multimodal QA](roadmap_ideas.md#4-sonic-dna--multimodal-qa)
 * **Synopsis**: A research-grade AI audio module featuring: continuous sliding-window CLAP analysis matching tracks via Rust Dynamic Time Warping (DTW), DSP frequency pre-filters (LPF/HPF/BPF), and an interactive Chat QA sidebar allowing users to conversationalize directly with selected WAV files using the local Qwen2-Audio server.
-* **Why it's a priority**: Incredible, futuristic capability, but representing an $18$-day R&D hurdle with high risks of VRAM exhaustion, llama-server multimodal overflows, and 50x database storage bloat.
+* **Why it's a priority**: Incredible, futuristic capability, but representing a high-risk R&D effort.
 
 ---
 
