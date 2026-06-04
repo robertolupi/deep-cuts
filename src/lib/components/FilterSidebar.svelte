@@ -9,6 +9,28 @@
 
   let collapsed = $state(false);
   let moodOpen  = $state(false);
+
+  // Tag autocomplete
+  let tagInput = $state("");
+  let tagInputFocused = $state(false);
+  const tagSuggestions = $derived.by(() => {
+    const q = tagInput.trim().toLowerCase();
+    if (!q || !tagInputFocused) return [];
+    return library.allTags
+      .filter(t => t.toLowerCase().includes(q) && !filters.selectedTags.includes(t))
+      .slice(0, 12);
+  });
+  function addTag(tag: string) {
+    filters.toggleTag(tag);
+    tagInput = "";
+  }
+  function onTagKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter" && tagSuggestions.length > 0) {
+      addTag(tagSuggestions[0]);
+      e.preventDefault();
+    }
+    if (e.key === "Escape") { tagInput = ""; tagInputFocused = false; }
+  }
   let newPlaylistName = $state("");
   let isCreatingPlaylist = $state(false);
   let deletePlaylistId = $state<number | null>(null);
@@ -191,7 +213,8 @@
     filters.moodElectronicMin > 0 || filters.moodElectronicMax < 1 ||
     filters.musicOnly ||
     filters.vocalFilter !== "all" ||
-    filters.similarToTrack !== null
+    filters.similarToTrack !== null ||
+    filters.selectedTags.length > 0
   );
 
   function clearAll() {
@@ -207,6 +230,7 @@
     filters.musicOnly     = false;
     filters.vocalFilter   = "all";
     filters.clearSimilar();
+    filters.clearTags();
     curation.activeSavedSearch = null;
   }
 </script>
@@ -319,6 +343,53 @@
           {/if}
         </div>
       </div>
+    </div>
+
+    <!-- Tag filter -->
+    <div class="sidebar-section">
+      <span class="section-label">TAGS</span>
+
+      {#if filters.selectedTags.length > 0}
+        <div class="tag-chips-wrap">
+          {#each filters.selectedTags as tag}
+            <button class="tag-filter-chip tag-filter-chip-active" onclick={() => filters.toggleTag(tag)}>
+              <span class="tfc-label">{tag.split(':').slice(1).join(':')}</span>
+              <span class="tfc-ns">{tag.split(':')[0]}</span>
+              <span class="tfc-remove">×</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      <div class="tag-input-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Add tag filter…"
+          bind:value={tagInput}
+          onfocus={() => tagInputFocused = true}
+          onblur={() => setTimeout(() => { tagInputFocused = false; }, 150)}
+          onkeydown={onTagKeydown}
+          class="search-input tag-search-input"
+        />
+        {#if tagInput}
+          <button class="clear-x" onclick={() => tagInput = ""}>×</button>
+        {/if}
+      </div>
+
+      {#if tagSuggestions.length > 0}
+        <div class="tag-suggestions">
+          {#each tagSuggestions as suggestion}
+            <button class="tag-suggestion-item" onmousedown={() => addTag(suggestion)}>
+              <span class="tsi-label">{suggestion.split(':').slice(1).join(':')}</span>
+              <span class="tsi-ns">{suggestion.split(':')[0]}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
     <!-- Active filter chips & Saved Search actions -->
@@ -1524,5 +1595,112 @@
   .playlist-suggestion-item:hover {
     background: rgba(0, 240, 255, 0.08);
     color: var(--sg-primary, #00f0ff);
+  }
+
+  /* ── Tag filter ── */
+  .tag-chips-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .tag-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,240,255,0.35);
+    background: rgba(0,240,255,0.08);
+    color: var(--sg-primary, #00f0ff);
+    cursor: pointer;
+    transition: filter 0.12s;
+  }
+
+  .tag-filter-chip:hover { filter: brightness(1.3); }
+
+  .tfc-ns {
+    font-size: 8px;
+    opacity: 0.5;
+    font-weight: 400;
+  }
+
+  .tfc-remove {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-left: 1px;
+  }
+
+  .tag-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 5px;
+    padding: 0 8px;
+    height: 28px;
+    transition: border-color 0.15s;
+  }
+
+  .tag-input-wrap:focus-within {
+    border-color: rgba(0,240,255,0.4);
+  }
+
+  .tag-input-icon { color: var(--sg-outline, #849495); flex-shrink: 0; }
+
+  .tag-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-on-surface, #e3e1e9);
+    padding: 0;
+    height: 100%;
+  }
+
+  .tag-search-input::placeholder { color: var(--sg-outline, #849495); }
+
+  .tag-suggestions {
+    margin-top: 4px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .tag-suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+  }
+
+  .tag-suggestion-item:hover { background: rgba(0,240,255,0.06); }
+
+  .tsi-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sg-on-surface, #e3e1e9);
+    font-weight: 600;
+  }
+
+  .tsi-ns {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8px;
+    color: var(--sg-outline, #849495);
   }
 </style>

@@ -165,6 +165,55 @@ pub fn get_tags_for_tracks(
     Ok(map)
 }
 
+/// Returns a map of track_id → list of tag names for every track in the library.
+#[tauri::command]
+pub fn get_all_track_tags(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<HashMap<i64, Vec<String>>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT tt.track_id, t.name
+         FROM track_tags tt
+         JOIN tags t ON t.id = tt.tag_id
+         ORDER BY tt.track_id, t.name",
+    )?;
+
+    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    })?;
+    for row in rows.flatten() {
+        map.entry(row.0).or_default().push(row.1);
+    }
+    Ok(map)
+}
+
+/// Returns all distinct tag names in the library, sorted, for autocomplete.
+#[tauri::command]
+pub fn get_all_tags(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<String>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT t.name
+         FROM tags t
+         JOIN track_tags tt ON tt.tag_id = t.id
+         ORDER BY t.name",
+    )?;
+
+    let tags = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .flatten()
+        .collect();
+    Ok(tags)
+}
+
 /// Writes a .dc.json sidecar file next to the given track's audio file.
 #[tauri::command]
 pub fn save_sidecar(

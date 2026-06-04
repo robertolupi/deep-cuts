@@ -8,6 +8,8 @@ class LibraryStore {
   directories = $state<WatchedDirectory[]>([]);
   tracks = $state<Track[]>([]);
   trackCount = $state(0);
+  trackTagMap = $state<Map<number, string[]>>(new Map());
+  allTags = $state<string[]>([]);
   staleCount = $derived(this.tracks.filter(t => t.is_stale === 1).length);
   
   isScanning = $state(false);
@@ -97,6 +99,16 @@ class LibraryStore {
 
   async fetchTracks() {
     this.tracks = await invoke<Track[]>("get_tracks");
+    this.fetchTags();
+  }
+
+  async fetchTags() {
+    const [rawMap, allTags] = await Promise.all([
+      invoke<Record<number, string[]>>("get_all_track_tags"),
+      invoke<string[]>("get_all_tags"),
+    ]);
+    this.trackTagMap = new Map(Object.entries(rawMap).map(([k, v]) => [Number(k), v]));
+    this.allTags = allTags;
   }
 
   async addDirectory(name: string, path: string) {

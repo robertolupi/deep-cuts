@@ -107,6 +107,8 @@ pub fn run() {
             commands::library::get_tracks,
             commands::library::get_track,
             commands::library::get_tags_for_tracks,
+            commands::library::get_all_track_tags,
+            commands::library::get_all_tags,
             commands::library::reveal_in_finder,
             commands::library::open_log_dir,
             commands::library::get_cover_art,

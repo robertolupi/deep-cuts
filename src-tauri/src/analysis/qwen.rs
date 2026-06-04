@@ -50,7 +50,6 @@ impl super::AnalysisPass for QwenPass {
 
     fn owned_columns(&self) -> &'static [&'static str] {
         &[
-            "ai_genre",
             "ai_mood",
             "ai_instruments",
             "description",
@@ -117,7 +116,7 @@ impl super::AnalysisPass for QwenPass {
         if job.is_music == Some(0) {
             log::info!("[qwen] Track {} is non-music. Skipping.", job.track_id);
             return Ok(QwenOutput {
-                parsed: ParsedQwenResponse { ai_genre: None, ai_mood: None, ai_instruments: None, description: None },
+                parsed: ParsedQwenResponse { ai_feel: None, ai_instruments: None, description: None },
                 tags: Vec::new(),
                 raw_response: String::new(),
             });
@@ -254,8 +253,8 @@ impl super::AnalysisPass for QwenPass {
                             "type": "text",
                             "text": format!(
                                 "Listen carefully to this audio. The measured tempo is approximately {:.0} BPM and the detected key is {} {}. {}\n\
-                                What is the genre and subgenre of this track in a few words? Respond strictly in English in this format:\n\
-                                GENRE: genre and subgenre",
+                                Describe the mood, emotional feel, and overall atmosphere of this track in a few words. Respond strictly in English in this format:\n\
+                                FEEL: comma-separated descriptors",
                                 bpm, key, scale,
                                 job.genre.as_ref().map_or("".to_string(), |g| format!("The file metadata tags it as \"{}\".", g))
                             )
@@ -264,20 +263,17 @@ impl super::AnalysisPass for QwenPass {
                 })
             ];
 
-            let mut ai_genre = None;
-            let mut ai_mood = None;
+            let mut ai_feel = None;
             let mut ai_instruments = None;
             let mut description = None;
 
             // (step_name, follow-up prompt — None reuses the initial message, tag_namespace — Some emits tags)
             let steps: Vec<(&str, Option<&str>, Option<&str>)> = vec![
-                ("genre",        None,        Some("genre")),
-                ("mood",         Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),                                                                                                                Some("mood")),
-                ("instruments",  Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),                                                                                                            Some("inst")),
-                ("description",  Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                  None),
-                ("tags_vibe",    Some("Suggest 3 creative tags capturing the atmosphere, vibe, or style of this song, without repeating any genres, moods, instruments, or descriptions already discussed. Respond strictly in English in this format:\nVIBE_TAGS: ethereal, hypnotic, raw"),              Some("vibe")),
-                ("tags_vocals",  Some("Identify the singer voice type (e.g. male, female, instrumental, ensemble, choir) and the lyrics language (e.g. english, spanish, instrumental), without repeating categories already discussed. Respond strictly in this format:\nVOCAL_TAGS: male, english"), Some("vocal")),
-                ("tags_context", Some("Suggest 2 tags for suitable listening contexts (e.g. study, club, sleep, workout) and 1 tag for the estimated release decade (e.g. 1980s, 2000s), without repeating categories already discussed. Respond strictly in this format:\nCONTEXT_TAGS: study, workout, 1990s"), Some("context")),
+                ("feel",         None,                                                                                                                                                                                                                                                                          Some("feel")),
+                ("instruments",  Some("What are the main instruments playing in this track, comma-separated? Only list instruments you can clearly hear — do not infer from genre. Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),                                                  Some("inst")),
+                ("description",  Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                             None),
+                ("tags_vocals",  Some("Identify the singer voice type (e.g. male, female, instrumental, ensemble, choir) and the lyrics language (e.g. english, spanish, instrumental). Respond strictly in this format:\nVOCAL_TAGS: voice type, language"),                                                  Some("vocal")),
+                ("tags_context", Some("Suggest 2 to 3 tags for suitable listening contexts specific to this song. Pick contexts that genuinely fit this specific song. Respond strictly in this format:\nCONTEXT_TAGS: context1, context2"), Some("context")),
             ];
 
             let mut all_steps_ok = true;
@@ -326,8 +322,7 @@ impl super::AnalysisPass for QwenPass {
                         }
 
                         match step_name {
-                            "genre" => ai_genre = Some(value),
-                            "mood" => ai_mood = Some(value),
+                            "feel" => ai_feel = Some(value),
                             "instruments" => ai_instruments = Some(value),
                             "description" => description = Some(value),
                             _ => {}
@@ -369,8 +364,7 @@ impl super::AnalysisPass for QwenPass {
             }
 
             let parsed = ParsedQwenResponse {
-                ai_genre,
-                ai_mood,
+                ai_feel,
                 ai_instruments,
                 description: description.clone(),
             };
@@ -467,21 +461,18 @@ impl super::AnalysisPass for QwenPass {
         output: Self::Output,
         _duration_ms: i64,
     ) -> Result<(), String> {
-        let ai_genre_val = output.parsed.ai_genre.as_deref();
-        let ai_mood_val = output.parsed.ai_mood.as_deref();
+        let ai_feel_val = output.parsed.ai_feel.as_deref();
         let ai_instruments_val = output.parsed.ai_instruments.as_deref();
         let description_val = output.parsed.description.as_deref();
 
         conn.execute(
             "UPDATE tracks SET
-                ai_genre = ?1,
-                ai_mood = ?2,
-                ai_instruments = ?3,
-                description = ?4
-             WHERE id = ?5",
+                ai_mood = ?1,
+                ai_instruments = ?2,
+                description = ?3
+             WHERE id = ?4",
             rusqlite::params![
-                ai_genre_val,
-                ai_mood_val,
+                ai_feel_val,    // stored in ai_mood column for backward compat
                 ai_instruments_val,
                 description_val,
                 job.track_id
@@ -514,15 +505,14 @@ impl super::AnalysisPass for QwenPass {
 
     fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
         let fields_found: Vec<&str> = [
-            output.parsed.ai_genre.as_ref().map(|_| "genre"),
-            output.parsed.ai_mood.as_ref().map(|_| "mood"),
+            output.parsed.ai_feel.as_ref().map(|_| "feel"),
             output.parsed.ai_instruments.as_ref().map(|_| "instruments"),
             output.parsed.description.as_ref().map(|_| "description"),
         ]
         .iter()
         .filter_map(|x| *x)
         .collect();
-        let all_fields = ["genre", "mood", "instruments", "description"];
+        let all_fields = ["feel", "instruments", "description"];
         let missing: Vec<&str> = all_fields
             .iter()
             .filter(|f| !fields_found.contains(*f))
@@ -542,7 +532,6 @@ impl QwenPass {
         version: pass_version::QWEN,
         dependencies: &["audio_analysis", "bpm_correction", "clap", "essentia"],
         owned_columns: &[
-            "ai_genre",
             "ai_mood",
             "ai_instruments",
             "description",
@@ -563,8 +552,7 @@ pub struct QwenOutput {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Clone)]
 pub struct ParsedQwenResponse {
-    pub ai_genre: Option<String>,
-    pub ai_mood: Option<String>,
+    pub ai_feel: Option<String>,
     pub ai_instruments: Option<String>,
     pub description: Option<String>,
 }
@@ -586,8 +574,7 @@ fn is_invalid_description(desc: &str) -> bool {
 ///   "Genre Electronic, Pop"   |  "**Genres**: Electronic, Pop"
 fn strip_label_prefix(content: &str, step_name: &str) -> String {
     let label = match step_name {
-        "genre"        => "genre",
-        "mood"         => "mood",
+        "feel"         => "feel",
         "instruments"  => "instrument", // matches both "instrument" and "instruments"
         "description"  => "description",
         "tags_vibe"    => "vibe_tag",   // matches "vibe_tags", "vibe_tag"
@@ -740,16 +727,16 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
 
     const STOPWORDS: &[&str] = &[
         // Format placeholder echoes from prompt templates
-        "tag1", "tag2", "tag3", "context1", "context2", "decade",
-        "voice_type", "language", "era_decade",
+        "tag1", "tag2", "tag3", "context1", "context2",
+        "voice_type", "language", "era_decade", "decade",
         "the", "a", "an", "and", "or", "in", "of", "on", "at", "by", "for", "with",
         "about", "to", "this", "that", "it", "is", "are", "was", "were", "be",
         "been", "being", "belongs", "belong", "consists", "consist", "features",
         "feature", "featured", "featuring", "include", "includes", "including",
         "main", "major", "minor", "likely", "possibly", "possible", "some",
         "subtle", "prominent", "various", "dominant", "traditional", "genre",
-        "genres", "subgenre", "subgenres", "mood", "moods", "feel", "feeling",
-        "feelings", "vibe", "vibes", "track", "tracks", "song", "songs", "music",
+        "genres", "subgenre", "subgenres", "mood", "moods", "feeling",
+        "feelings", "vibe", "vibes", "feel", "track", "tracks", "song", "songs", "music",
         "piece", "pieces", "instrument", "instruments", "instrumental",
         "instrumentation", "sound", "sounds", "soundscape", "elements",
         "element", "influences", "influence", "highly", "extremely", "very",
@@ -832,14 +819,9 @@ mod tests {
     #[test]
     fn test_strip_label_prefix() {
         let cases = [
-            ("genre",       "GENRE: Electronic, Pop",      "Electronic, Pop"),
-            ("genre",       "genre. Electronic, Pop",      "Electronic, Pop"),
-            ("genre",       "Genre Electronic, Pop",       "Electronic, Pop"),
-            ("genre",       "**Genres**: Electronic, Pop", "Electronic, Pop"),
-            ("genre",       "GENRE- Electronic, Pop",      "Electronic, Pop"),
-            ("mood",        "MOOD: dark, hypnotic",        "dark, hypnotic"),
-            ("mood",        "mood. dark, hypnotic",        "dark, hypnotic"),
-            ("mood",        "Mood dark, hypnotic",         "dark, hypnotic"),
+            ("feel",        "FEEL: dark, hypnotic",        "dark, hypnotic"),
+            ("feel",        "feel. dark, hypnotic",        "dark, hypnotic"),
+            ("feel",        "Feel dark, hypnotic",         "dark, hypnotic"),
             ("instruments", "INSTRUMENTS: guitar, bass",   "guitar, bass"),
             ("instruments", "instrument. guitar, bass",    "guitar, bass"),
             ("description", "DESCRIPTION: A mellow track.", "A mellow track."),
@@ -869,26 +851,14 @@ mod tests {
             ("instruments", "n/a", ""),
             ("instruments", "specified", ""),
             
-            // Genre
-            ("genre", "GENRE: traditional country style", "country"),
-            ("genre", "This piece belongs to electronic / techno and house subgenres.", "electronic, techno, house"),
-            ("genre", "The genre of the track is techno.", "techno"),
-            ("genre", "the genre of the track is 'ambient, soundtrack' and the subgenre is 'newage'.", "ambient, soundtrack, newage"),
-            ("genre", "rock, falls under classic rock", "rock, classic rock"),
-            ("genre", "pop, its experimental pop", "pop, experimental pop"),
-            ("genre", "pop, international pop, often referred as world pop", "pop, international pop, world pop"),
-            ("genre", "sertanejo, sertanejo universitário", "sertanejo, sertanejo universitário"),
-            ("genre", "the genre is rock and the subgenre is industrial.", "rock, industrial"),
-            
-            // Mood
-            ("mood", "MOOD: highly energetic vibe", "energetic"),
-            ("mood", "extremely calm feel, introspective vibes", "calm, introspective"),
-            ("mood", "The mood of the track is introspective and reflective.", "introspective, reflective"),
-            ("mood", "the mood and emotional feel of this track cannot be determined from the provided information.", ""),
-            ("mood", "emotional, aims evoke sense inner peace", "emotional, peace"),
-            ("mood", "None specified", ""),
-            ("mood", "n/a", ""),
-            ("mood", "n", ""),
+            // Feel
+            ("feel", "FEEL: highly energetic vibe", "energetic"),
+            ("feel", "extremely calm, introspective vibes", "calm, introspective"),
+            ("feel", "The feel of the track is introspective and reflective.", "introspective, reflective"),
+            ("feel", "emotional, aims evoke sense inner peace", "emotional, peace"),
+            ("feel", "None specified", ""),
+            ("feel", "n/a", ""),
+            ("feel", "n", ""),
         ];
         for (step, input, expected) in cases {
             assert_eq!(

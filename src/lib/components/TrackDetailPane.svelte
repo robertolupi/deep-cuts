@@ -215,11 +215,13 @@
           <div class="ai-tags">
             {#each trackTags as tag}
               {@const theme = tagTheme(tag)}
+              {@const active = filters.selectedTags.includes(tag)}
               <button
                 class="detail-tag-chip"
-                style="color:{theme.color};background:{theme.bg};border-color:{theme.border}"
-                title="Filter by {tag}"
-                onclick={() => { filters.searchQuery = tag; ui.activeView = 'table'; }}
+                class:tag-active={active}
+                style="color:{theme.color};background:{active ? theme.border : theme.bg};border-color:{theme.border}"
+                title="{active ? 'Remove filter' : 'Filter by'} {tag}"
+                onclick={() => { filters.toggleTag(tag); ui.activeView = 'table'; }}
               >{tag.split(':').slice(1).join(':')}<span class="tag-ns">{tag.split(':')[0]}</span></button>
             {/each}
           </div>

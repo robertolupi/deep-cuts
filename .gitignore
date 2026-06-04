@@ -26,3 +26,5 @@ doc/private/
 # Claude auto-memory (local only)
 memory/
 tools/.venv
+tools/validate_tags_results.json
+tools/tag_quality_report.md

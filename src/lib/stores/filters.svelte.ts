@@ -34,6 +34,8 @@ function createFiltersStore() {
   let moodAcousticMin   = $state(0); let moodAcousticMax   = $state(1);
   let moodElectronicMin = $state(0); let moodElectronicMax = $state(1);
 
+  let selectedTags = $state<string[]>([]);
+
   let clapQuery = $state("");
   let clapTrackIds = $state<Set<number>>(new Set());
   let clapTrackScores = $state<Map<number, number>>(new Map());
@@ -129,6 +131,12 @@ function createFiltersStore() {
       // CLAP Sonic AI search
       if (clapQuery.trim()) {
         if (!clapTrackIds.has(t.id)) return false;
+      }
+
+      // Tag filter (AND — track must have every selected tag)
+      if (selectedTags.length > 0) {
+        const trackTags = library.trackTagMap.get(t.id) ?? [];
+        if (!selectedTags.every(tag => trackTags.includes(tag))) return false;
       }
 
       return true;
@@ -322,6 +330,14 @@ function createFiltersStore() {
     },
     clearKeys() { selectedKeys = []; },
 
+    get selectedTags() { return selectedTags; },
+    toggleTag(tag: string) {
+      selectedTags = selectedTags.includes(tag)
+        ? selectedTags.filter(t => t !== tag)
+        : [...selectedTags, tag];
+    },
+    clearTags() { selectedTags = []; },
+
     clearAll() {
       searchQuery          = "";
       semanticQuery        = "";
@@ -347,6 +363,7 @@ function createFiltersStore() {
       semanticTrackScores  = new Map();
       clapTrackIds         = new Set();
       clapTrackScores      = new Map();
+      selectedTags         = [];
     },
   };
 }
