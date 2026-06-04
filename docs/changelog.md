@@ -4,7 +4,7 @@ title: Changelog
 permalink: /changelog/
 ---
 
-<div class="content-wrapper">
+<div class="content-wrapper" markdown="1">
 
 # Changelog
 
