@@ -62,7 +62,7 @@
       .map(([id, info]) => ({
         id,
         date: new Date(info.start).toLocaleString(),
-        duration_sec: ((info.end - info.start) / 1000).toFixed(1),
+        duration_sec: formatDuration((info.end - info.start) / 1000),
         passes: info.passes,
         timestamp: info.start,
       }))
@@ -108,6 +108,20 @@
       renderGanttChart();
     }
   });
+
+  // Format a duration in seconds as a compact human-readable string:
+  //   < 60s  → "42s"
+  //   < 1h   → "3m 07s"
+  //   >= 1h  → "1h 23m 07s"
+  function formatDuration(seconds: number): string {
+    const s = Math.round(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const rem = s % 60;
+    if (h > 0) return `${h}h ${m}m ${String(rem).padStart(2, "0")}s`;
+    if (m > 0) return `${m}m ${String(rem).padStart(2, "0")}s`;
+    return `${rem}s`;
+  }
 
   const PASS_ORDER = [
     "audio_analysis",
@@ -171,7 +185,7 @@
     svg
       .append("g")
       .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(xScale).ticks(6).tickFormat((d) => `${d}s`))
+      .call(d3.axisBottom(xScale).ticks(6).tickFormat((d) => formatDuration(d as number)))
       .call((g) => g.select(".domain").attr("stroke", "rgba(255,255,255,0.1)"))
       .call((g) => g.selectAll(".tick line").attr("stroke", "rgba(255,255,255,0.1)"))
       .call((g) => g.selectAll(".tick text").attr("fill", "var(--sg-outline, #849495)").style("font-family", "JetBrains Mono").style("font-size", "9px"));
@@ -285,16 +299,16 @@
                 </div>
                 <div class="latency-stats">
                   <div class="stat-main">
-                    <span class="val">{(stat.avg_duration_ms / 1000).toFixed(2)}s</span>
+                    <span class="val">{formatDuration(stat.avg_duration_ms / 1000)}</span>
                     <span class="lbl">AVERAGE</span>
                   </div>
                   <div class="stat-row">
                     <div>
-                      <span class="val-sub">{(stat.min_duration_ms / 1000).toFixed(2)}s</span>
+                      <span class="val-sub">{formatDuration(stat.min_duration_ms / 1000)}</span>
                       <span class="lbl-sub">MIN</span>
                     </div>
                     <div>
-                      <span class="val-sub">{(stat.max_duration_ms / 1000).toFixed(2)}s</span>
+                      <span class="val-sub">{formatDuration(stat.max_duration_ms / 1000)}</span>
                       <span class="lbl-sub">MAX</span>
                     </div>
                   </div>
@@ -328,7 +342,7 @@
                     <div class="run-meta">
                       <span>{r.passes} passes</span>
                       <span>·</span>
-                      <span>{r.duration_sec}s</span>
+                      <span>{r.duration_sec}</span>
                     </div>
                   </button>
                 {/each}
@@ -366,7 +380,7 @@
                       </div>
                       <div class="span-field">
                         <span class="label">WALL-CLOCK</span>
-                        <span class="value">{((selectedSpan.ended_at - selectedSpan.started_at) / 1000).toFixed(2)}s</span>
+                        <span class="value">{formatDuration((selectedSpan.ended_at - selectedSpan.started_at) / 1000)}</span>
                       </div>
                       <div class="span-field">
                         <span class="label">TRACKS</span>
@@ -384,7 +398,7 @@
                       {/if}
                       <div class="span-field">
                         <span class="label">AVG / TRACK</span>
-                        <span class="value">{selectedSpan.total > 0 ? (((selectedSpan.ended_at - selectedSpan.started_at) / selectedSpan.total) / 1000).toFixed(2) : "—"}s</span>
+                        <span class="value">{selectedSpan.total > 0 ? formatDuration(((selectedSpan.ended_at - selectedSpan.started_at) / selectedSpan.total) / 1000) : "—"}</span>
                       </div>
                     </div>
                   {/if}
