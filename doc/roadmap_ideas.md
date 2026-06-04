@@ -42,7 +42,7 @@ Tools dedicated to sampling, crate digging, and DAW compatibility:
 Research-level audio intelligence capabilities:
 - **Sonic DNA & DTW**: Timbral evolution mapping over whole durations using sliding-window CLAP extractions plotted on a timeline (showing intros, drops, vocal entries). Use Dynamic Time Warping (DTW) to align timelines of different tracks to spot cross-track similarities.
 - **Acoustic EQ Prefiltering**: Isolate low-pass (<150Hz), high-pass (>2kHz), or band-pass (300Hz-3kHz) regions before generating spectrograms to compare tracks strictly by drum groove, percussive swing, or vocal texture.
-- **Multimodal Chat QA**: Sidebar conversational chat utilizing local Qwen2-Audio to answer questions about the delivery of the singer, tension builds, or structure.
+- **Multimodal Chat QA** ✅: Implemented in `ChatPanel.svelte` + `src-tauri/src/commands/chat.rs`. User selects a waveform region, types a question, Qwen2-Audio responds with streaming tokens. Conversation history persisted in SQLite. See `doc/track-feedback.md`.
 
 ---
 
@@ -50,7 +50,7 @@ Research-level audio intelligence capabilities:
 
 ### Status
 - **Backend**: Implemented in `src-tauri/src/commands/map.rs` via `search_similar_tracks_audio` and `blended_embedding_distance` (blending CLAP acoustic and MiniLM description embeddings).
-- **Frontend**: **Not Implemented**. Needs a slider UI in Svelte 5 to dynamically control the `clap_weight` parameter, morphing the similar track search results in real time with animations.
+- **Frontend**: Implemented in `ActiveFilterChips.svelte` — a "Feels ←→ Sounds" slider appears below the active filter chips when a similarity search is active. Each movement re-runs the search with the new `clap_weight`. Stashed pending manual testing.
 
 ---
 
@@ -58,18 +58,18 @@ Research-level audio intelligence capabilities:
 
 ### Status
 - **Implemented**: `src/lib/components/MusicMap.svelte` computes and renders background density contour layers using `d3.contourDensity()` reactive state.
-- **Not Implemented**: Lasso-to-playlist selection, floating labels for acoustic regions mapped via HDBSCAN clustering, and Web Worker offloading for contour computations to prevent main-thread lag.
+- **Not Implemented**: Lasso-to-playlist selection, floating labels for acoustic regions mapped via HDBSCAN clustering, Web Worker offloading for contour computations.
 
 ---
 
-## 7. Tagging Systems
+## 7. Tagging Systems ✅ (core implemented)
 
-### Concept
-A unified query layer over all tags (Essentia, MusicBrainz, Qwen, and user-defined tags):
-- Schema proposal: `tags` and `track_tags` tables.
-- visual namespaces (e.g. `mood:`, `genre:`, `instrument:`, `source:`).
-- Autocomplete, boolean logic search inputs, and parent-child tags hierarchy.
-- **Qwen Auto-Tagging & Suggestions**: Leverage the local Qwen model to suggest creative, non-repetitive descriptive tags (e.g., `#tension-building-beats`, `#ominous-soundscapes`, `#sonorous-textures`) based on the analyzed sonic characteristics and existing descriptions. This will require a tag normalization engine to clean, lower-case, and merge minor tag variations (such as consolidating "Ambient electronic" and "ambient-electronic" or mapping duplicates).
+### Status
+- **Implemented**: `tags` and `track_tags` schema with `source`, `score`, and `discard` columns. Namespaced tags (`feel:`, `inst:`, `mood:`, `mastering:`, `vocal:`) written by Essentia and Qwen passes. Tag filter with autocomplete in `FilterSidebar`. Tags displayed with source and score in `TrackDetailPane`. Tag filter excludes discarded tags.
+- **Not Implemented**: Boolean logic (AND/OR) across tags, parent-child tag hierarchy, user-defined manual tags, Qwen free-form tag suggestions.
+
+### Alternatives tried and discarded
+CLAP concept tagging (AudioSet label matching via KNN) had ~91% discard rate when validated by Qwen and incompatible label vocabularies. See `doc/autotagging.md` for full post-mortem.
 
 ---
 
