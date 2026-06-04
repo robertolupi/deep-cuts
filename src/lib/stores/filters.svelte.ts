@@ -21,6 +21,8 @@ function createFiltersStore() {
   let similarToTrack = $state<{ id: number; title: string } | null>(null);
   let similarTrackIds = $state<Set<number>>(new Set());
   let isSimilarLoading = $state(false);
+  // 0.0 = pure feels (description/semantic), 1.0 = pure sounds (CLAP/acoustic), default 0.5
+  let similarBlend = $state(0.5);
 
   let semanticTrackIds = $state<Set<number>>(new Set());
   let semanticTrackScores = $state<Map<number, number>>(new Map());
@@ -295,6 +297,8 @@ function createFiltersStore() {
     },
     clearDirectories() { selectedDirectoryIds = []; },
     get similarToTrack()   { return similarToTrack; },
+    get similarBlend()     { return similarBlend; },
+    set similarBlend(v: number) { similarBlend = v; },
     get isSimilarLoading() { return isSimilarLoading; },
     get filteredTracks()   { return filteredTracks; },
     get autoName()         { return autoName; },
@@ -307,7 +311,7 @@ function createFiltersStore() {
       isSimilarLoading = true;
       try {
         const results = await invoke<{ id: number; distance: number }[]>(
-          'search_similar_tracks_audio', { trackId: track.id }
+          'search_similar_tracks_audio', { trackId: track.id, clapWeight: similarBlend }
         );
         similarTrackIds = new Set(results.map(r => r.id));
         similarToTrack  = track;
@@ -318,9 +322,26 @@ function createFiltersStore() {
       }
     },
 
+    async setSimilarBlend(blend: number) {
+      similarBlend = blend;
+      if (!similarToTrack) return;
+      isSimilarLoading = true;
+      try {
+        const results = await invoke<{ id: number; distance: number }[]>(
+          'search_similar_tracks_audio', { trackId: similarToTrack.id, clapWeight: blend }
+        );
+        similarTrackIds = new Set(results.map(r => r.id));
+      } catch (err: any) {
+        ui.showToast(`Similarity search failed: ${err?.toString() ?? 'unknown error'}`, 'error');
+      } finally {
+        isSimilarLoading = false;
+      }
+    },
+
     clearSimilar() {
       similarToTrack  = null;
       similarTrackIds = new Set();
+      similarBlend    = 0.5;
     },
 
     toggleKey(key: string) {

@@ -5,11 +5,13 @@
   import { curation } from "$lib/stores/curation.svelte";
   import RangeSlider from "./RangeSlider.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
+  import ActiveFilterChips from "./ActiveFilterChips.svelte";
+  import MoodSection from "./MoodSection.svelte";
+  import SavedSearchList from "./SavedSearchList.svelte";
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
 
   let collapsed = $state(false);
-  let moodOpen  = $state(false);
 
   // Tag autocomplete
   let tagInput = $state("");
@@ -46,28 +48,6 @@
   let newPlaylistName = $state("");
   let isCreatingPlaylist = $state(false);
   let deletePlaylistId = $state<number | null>(null);
-  let deleteSearchId = $state<number | null>(null);
-  let saveToPlaylistOpen = $state(false);
-  let saveToNewPlaylistName = $state("");
-  let saveToNewPlaylistMode = $state(false);
-  let isSavingSearch = $state(false);
-  let newSavedSearchName = $state("");
-
-  function getSerializedFilterState(): string {
-    return JSON.stringify({
-      searchQuery: filters.searchQuery,
-      semanticQuery: filters.semanticQuery,
-      clapQuery: filters.clapQuery,
-      genreFilter: filters.genreFilter,
-      minBpm: filters.minBpm,
-      maxBpm: filters.maxBpm,
-      selectedKeys: filters.selectedKeys,
-      selectedScale: filters.selectedScale,
-      musicOnly: filters.musicOnly,
-      vocalFilter: filters.vocalFilter,
-      selectedDirectoryIds: filters.selectedDirectoryIds,
-    });
-  }
 
   function applySerializedFilterState(queryJson: string) {
     try {
@@ -93,53 +73,12 @@
     }
   }
 
-  async function handleCreateSavedSearch() {
-    const finalName = newSavedSearchName.trim() || filters.autoName;
-    if (!finalName) return;
-    const q = getSerializedFilterState();
-    const id = await curation.createSavedSearch(finalName, q);
-    if (id) {
-      newSavedSearchName = "";
-      isSavingSearch = false;
-    }
-  }
-
-  async function handleUpdateActiveSavedSearch() {
-    if (!curation.activeSavedSearch) return;
-    const q = getSerializedFilterState();
-    await curation.updateSavedSearch(curation.activeSavedSearch.id, q);
-  }
-
   function handleOpenSavedSearch(search: import('$lib/types').SavedSearch) {
     curation.activePlaylist = null;
     curation.activePlaylistTracks = [];
     curation.activeSavedSearch = search;
     applySerializedFilterState(search.query_json);
     ui.sidebarTab = "filters";
-  }
-
-  async function handleExportM3U() {
-    const list = filters.filteredTracks;
-    if (list.length === 0) {
-      ui.showToast("No tracks to export", "error");
-      return;
-    }
-    const tracksPayload = list.map(t => ({
-      path: t.path,
-      title: t.title ?? null,
-      artist: t.artist ?? null,
-      duration_seconds: t.duration_seconds ?? null
-    }));
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const exported = await invoke<boolean>('export_m3u_playlist', { tracks: tracksPayload });
-      if (exported) {
-        ui.showToast(`Exported ${list.length} tracks to M3U successfully!`, "success");
-      }
-    } catch (e: any) {
-      console.error("Failed to export M3U playlist:", e);
-      ui.showToast(e, "error");
-    }
   }
 
   onMount(() => {
@@ -405,173 +344,7 @@
     </div>
 
     <!-- Active filter chips & Saved Search actions -->
-    {#if hasActiveFilters || curation.activeSavedSearch}
-      <div class="sidebar-section active-chips">
-        {#if hasActiveFilters}
-          {#each filters.selectedDirectoryIds as id}
-            {@const dir = library.directories.find(d => d.id === id)}
-            {#if dir}
-              <button class="chip chip-active" onclick={() => filters.toggleDirectoryId(id)}>
-                {dir.name} ×
-              </button>
-            {/if}
-          {/each}
-          {#if filters.genreFilter}
-            <button class="chip chip-active" onclick={() => filters.genreFilter = ""}>
-              {filters.genreFilter} ×
-            </button>
-          {/if}
-          {#if filters.semanticQuery}
-            <button class="chip chip-active chip-semantic" onclick={() => filters.semanticQuery = ""}>
-              ✨ {filters.semanticQuery} ×
-            </button>
-          {/if}
-          {#if filters.clapQuery}
-            <button class="chip chip-active chip-clap" onclick={() => filters.clapQuery = ""}>
-              🎵 {filters.clapQuery} ×
-            </button>
-          {/if}
-          {#each filters.selectedKeys as k}
-            <button class="chip chip-active" onclick={() => filters.toggleKey(k)}>
-              {k} ×
-            </button>
-          {/each}
-          {#if filters.selectedScale !== "all"}
-            <button class="chip chip-active" onclick={() => filters.selectedScale = "all"}>
-              {filters.selectedScale} ×
-            </button>
-          {/if}
-          {#if filters.minBpm !== 20 || filters.maxBpm !== 250}
-            <button class="chip chip-active" onclick={() => { filters.minBpm = 20; filters.maxBpm = 250; }}>
-              {Math.round(filters.minBpm)}–{Math.round(filters.maxBpm)} BPM ×
-            </button>
-          {/if}
-          {#if filters.moodHappyMin > 0 || filters.moodHappyMax < 1 || filters.moodSadMin > 0 || filters.moodSadMax < 1 || filters.moodAggressiveMin > 0 || filters.moodAggressiveMax < 1 || filters.moodRelaxedMin > 0 || filters.moodRelaxedMax < 1 || filters.moodPartyMin > 0 || filters.moodPartyMax < 1 || filters.moodAcousticMin > 0 || filters.moodAcousticMax < 1 || filters.moodElectronicMin > 0 || filters.moodElectronicMax < 1}
-            <button class="chip chip-active" onclick={() => { filters.moodHappyMin=0; filters.moodHappyMax=1; filters.moodSadMin=0; filters.moodSadMax=1; filters.moodAggressiveMin=0; filters.moodAggressiveMax=1; filters.moodRelaxedMin=0; filters.moodRelaxedMax=1; filters.moodPartyMin=0; filters.moodPartyMax=1; filters.moodAcousticMin=0; filters.moodAcousticMax=1; filters.moodElectronicMin=0; filters.moodElectronicMax=1; }}>
-              Mood filter ×
-            </button>
-          {/if}
-          {#if filters.musicOnly}
-            <button class="chip chip-active" onclick={() => filters.musicOnly = false}>
-              Music only ×
-            </button>
-          {/if}
-          {#if filters.vocalFilter !== "all"}
-            <button class="chip chip-active" onclick={() => filters.vocalFilter = "all"}>
-              {filters.vocalFilter === "voice" ? "Vocals" : "Instrumental"} ×
-            </button>
-          {/if}
-          {#if filters.similarToTrack}
-            <button class="chip chip-active chip-similar" onclick={() => filters.clearSimilar()}>
-              ≈ {filters.similarToTrack.title} ×
-            </button>
-          {/if}
-          <button class="chip chip-clear" onclick={clearAll}>Clear all</button>
-        {/if}
-
-        <!-- Saved Search actions -->
-        <div class="save-search-actions" style="margin-top: 10px; width: 100%; display: flex; flex-direction: column; gap: 6px;">
-          {#if curation.activeSavedSearch}
-            {#if isSavingSearch}
-              <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
-                <input 
-                  type="text" 
-                  placeholder={filters.autoName} 
-                  bind:value={newSavedSearchName} 
-                  class="search-input"
-                  style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
-                />
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
-                  <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = false}>Cancel</button>
-                </div>
-              </div>
-            {:else}
-              <div style="display: flex; gap: 6px; width: 100%;">
-                <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleUpdateActiveSavedSearch}>
-                  💾 Update Smart Search
-                </button>
-                <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = true}>
-                  💾 Save as New Search
-                </button>
-              </div>
-            {/if}
-          {:else if hasActiveFilters}
-            {#if isSavingSearch}
-              <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
-                <input 
-                  type="text" 
-                  placeholder={filters.autoName} 
-                  bind:value={newSavedSearchName} 
-                  class="search-input"
-                  style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
-                />
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
-                  <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => isSavingSearch = false}>Cancel</button>
-                </div>
-              </div>
-            {:else}
-              <button class="action-btn action-btn-primary" style="width: 100%; justify-content: center;" onclick={() => isSavingSearch = true}>
-                💾 Save as Smart Search
-              </button>
-            {/if}
-          {/if}
-
-          {#if filters.filteredTracks.length > 0}
-            <button class="action-btn" style="width: 100%; justify-content: center; border-color: rgba(254, 0, 254, 0.35); color: var(--sg-secondary, #fe00fe); background: rgba(254, 0, 254, 0.08);" onclick={handleExportM3U}>
-              📤 Export results as M3U ({filters.filteredTracks.length})
-            </button>
-            <!-- Save filtered results to a playlist -->
-            <div class="save-to-playlist-wrap">
-              <button class="action-btn" style="width: 100%; justify-content: center;" onclick={() => { saveToPlaylistOpen = !saveToPlaylistOpen; saveToNewPlaylistMode = false; saveToNewPlaylistName = ""; }}>
-                🟣 Save {filters.filteredTracks.length} tracks to playlist ▾
-              </button>
-              {#if saveToPlaylistOpen}
-                <div class="playlist-dropdown">
-                  {#if saveToNewPlaylistMode}
-                    <div style="display: flex; flex-direction: column; gap: 6px; padding: 6px;">
-                      <input
-                        type="text"
-                        placeholder="New playlist name..."
-                        bind:value={saveToNewPlaylistName}
-                        class="search-input"
-                        style="padding-left: 8px; font-size: 11px;"
-                      />
-                      <div style="display: flex; gap: 4px;">
-                        <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={async () => {
-                          if (!saveToNewPlaylistName.trim()) return;
-                          const id = await curation.createPlaylist(saveToNewPlaylistName.trim());
-                          if (id) {
-                            await curation.addTracksToPlaylist(id, filters.filteredTracks.map(t => t.id));
-                          }
-                          saveToPlaylistOpen = false;
-                          saveToNewPlaylistMode = false;
-                          saveToNewPlaylistName = "";
-                        }}>Create & Add</button>
-                        <button class="action-btn" style="flex: 1; justify-content: center;" onclick={() => saveToNewPlaylistMode = false}>Back</button>
-                      </div>
-                    </div>
-                  {:else}
-                    {#each curation.playlists as pl}
-                      <button class="playlist-dropdown-item" onclick={async () => {
-                        await curation.addTracksToPlaylist(pl.id, filters.filteredTracks.map(t => t.id));
-                        saveToPlaylistOpen = false;
-                      }}>
-                        🟣 {pl.name}
-                      </button>
-                    {/each}
-                    <button class="playlist-dropdown-item playlist-dropdown-new" onclick={() => saveToNewPlaylistMode = true}>
-                      + New playlist…
-                    </button>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      </div>
-    {/if}
+    <ActiveFilterChips {hasActiveFilters} {clearAll} />
 
     <!-- Watched directory filter -->
     {#if library.directories.length > 1}
@@ -707,40 +480,7 @@
     </div>
     <!-- Mood sliders -->
     {#if hasMoodData}
-    <div class="sidebar-section">
-      <button class="section-label-row mood-toggle" onclick={() => moodOpen = !moodOpen}>
-        <span class="section-label" style="margin-bottom:0;">MOOD</span>
-        <span class="mood-chevron" class:open={moodOpen}>▸</span>
-      </button>
-      {#if moodOpen}
-        <div class="mood-sliders">
-          {#snippet moodSlider(label: string)}
-            <span class="mood-dim-label">{label}</span>
-          {/snippet}
-          <div class="mood-dim">{@render moodSlider('Happy')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodHappyMin}      bind:maxValue={filters.moodHappyMax}      distribution={moodDistributions.happy}      formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Sad')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodSadMin}        bind:maxValue={filters.moodSadMax}        distribution={moodDistributions.sad}        formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Aggressive')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodAggressiveMin} bind:maxValue={filters.moodAggressiveMax} distribution={moodDistributions.aggressive} formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Relaxed')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodRelaxedMin}    bind:maxValue={filters.moodRelaxedMax}    distribution={moodDistributions.relaxed}    formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Party')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodPartyMin}      bind:maxValue={filters.moodPartyMax}      distribution={moodDistributions.party}      formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Acoustic')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodAcousticMin}   bind:maxValue={filters.moodAcousticMax}   distribution={moodDistributions.acoustic}   formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-          <div class="mood-dim">{@render moodSlider('Electronic')}
-            <RangeSlider min={0} max={1} step={0.01} bind:minValue={filters.moodElectronicMin} bind:maxValue={filters.moodElectronicMax} distribution={moodDistributions.electronic} formatValue={(v) => (v*100).toFixed(0)+'%'} />
-          </div>
-        </div>
-      {/if}
-    </div>
+    <MoodSection distributions={moodDistributions} />
     {/if}
 
     <!-- Vocal / Instrumental -->
@@ -837,33 +577,7 @@
     </div>
 
     <!-- Saved Searches Section -->
-    <div class="sidebar-section">
-      <span class="section-label">🔍 Saved Searches</span>
-      <div class="curation-list" style="display: flex; flex-direction: column; gap: 4px;">
-        {#each curation.savedSearches as search}
-          <div class="curation-item-row" style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; border-radius: 4px; background: rgba(255,255,255,0.02);">
-            <button 
-              class="curation-item-name-btn" 
-              style="background: none; border: none; text-align: left; padding: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;"
-              onclick={() => handleOpenSavedSearch(search)}
-            >
-              <span class="curation-item-name" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {curation.activeSavedSearch?.id === search.id ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'};">🔍 {search.name}</span>
-            </button>
-            {#if deleteSearchId === search.id}
-              <div style="display: flex; gap: 4px; align-items: center;">
-                <button class="mini-confirm-btn" style="color: #ff5555; background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => { curation.deleteSavedSearch(search.id); deleteSearchId = null; }}>Confirm</button>
-                <button class="mini-confirm-btn" style="color: var(--sg-outline); background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => deleteSearchId = null}>Cancel</button>
-              </div>
-            {:else}
-              <button class="mini-delete-btn" style="background: none; border: none; color: var(--sg-outline); cursor: pointer; font-size: 11px; padding: 2px;" onclick={() => deleteSearchId = search.id} title="Delete Saved Search">🗑️</button>
-            {/if}
-          </div>
-        {/each}
-        {#if curation.savedSearches.length === 0}
-          <p class="empty-list-text" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); text-align: center; margin: 0.5rem 0;">No saved searches created yet.</p>
-        {/if}
-      </div>
-    </div>
+    <SavedSearchList onopen={handleOpenSavedSearch} />
   {/if}
   </div>
   {:else}
@@ -1060,13 +774,6 @@
     padding: 0 2px;
   }
 
-  /* ── Chips ── */
-  .active-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
   .genre-wrap {
     position: relative;
   }
@@ -1103,36 +810,6 @@
   .genre-suggestion-item:hover {
     background: rgba(0,240,255,0.08);
     color: var(--sg-primary, #00f0ff);
-  }
-
-  .chip {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
-    color: var(--sg-outline, #849495);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-
-  .chip:hover {
-    border-color: rgba(0,240,255,0.4);
-    color: var(--sg-on-surface, #e3e1e9);
-  }
-
-  .chip-active {
-    border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.1);
-    color: var(--sg-primary, #00f0ff);
-  }
-
-  .chip-clear {
-    border-color: rgba(255,255,255,0.08);
-    color: var(--sg-outline, #849495);
-    font-style: italic;
   }
 
   /* ── Watched directory list ── */
@@ -1182,26 +859,6 @@
 
   .dir-check { flex-shrink: 0; margin-left: auto; }
 
-  .chip-similar {
-    border-color: rgba(254,0,254,0.45) !important;
-    background: rgba(254,0,254,0.08) !important;
-    color: var(--sg-secondary, #fe00fe) !important;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .chip-semantic {
-    border-color: rgba(0, 240, 255, 0.45) !important;
-    background: rgba(0, 240, 255, 0.08) !important;
-    color: var(--sg-primary, #00f0ff) !important;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .search-inputs-container {
     display: flex;
     flex-direction: column;
@@ -1234,16 +891,6 @@
   .spinner-circle {
     stroke-linecap: round;
     opacity: 0.75;
-  }
-
-  .chip-clap {
-    border-color: rgba(254, 0, 254, 0.45) !important;
-    background: rgba(254, 0, 254, 0.08) !important;
-    color: var(--sg-secondary, #fe00fe) !important;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .clap-wrap .search-icon {
@@ -1355,52 +1002,6 @@
     background: rgba(0,240,255,0.08);
   }
 
-  /* ── Mood sliders ── */
-  .mood-toggle {
-    display: flex;
-    width: 100%;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0;
-  }
-
-  .mood-chevron {
-    font-size: 9px;
-    color: var(--sg-outline, #849495);
-    transition: transform 0.15s;
-    display: inline-block;
-  }
-
-  .mood-chevron.open {
-    transform: rotate(90deg);
-  }
-
-  .mood-sliders {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    margin-top: 0.55rem;
-  }
-
-  .mood-dim {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .mood-dim-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--sg-outline, #849495);
-  }
-
   /* ── Music only toggle ── */
   .toggle-row {
     display: flex;
@@ -1490,88 +1091,6 @@
     background: rgba(255, 255, 255, 0.08);
     color: var(--sg-primary, #00f0ff);
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-
-  /* ── Design System Buttons ── */
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 5px 12px;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 4px;
-    background: rgba(255,255,255,0.04);
-    color: var(--sg-outline, #849495);
-    cursor: pointer;
-    transition: all 0.12s;
-  }
-
-  .action-btn:hover:not(:disabled) {
-    border-color: rgba(255,255,255,0.25);
-    color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.08);
-  }
-
-  .action-btn-primary {
-    border-color: rgba(0,240,255,0.35);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
-  }
-
-  .action-btn-primary:hover {
-    background: rgba(0,240,255,0.14) !important;
-    border-color: var(--sg-primary, #00f0ff) !important;
-    color: var(--sg-primary, #00f0ff) !important;
-  }
-
-  /* ── Save to playlist dropdown ── */
-  .save-to-playlist-wrap {
-    position: relative;
-    width: 100%;
-  }
-
-  .playlist-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background: var(--sg-surface-container, #1e1f25);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 4px;
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    max-height: 200px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
-  }
-
-  .playlist-dropdown-item {
-    background: none;
-    border: none;
-    text-align: left;
-    padding: 7px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
-    color: var(--sg-outline, #849495);
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-  }
-
-  .playlist-dropdown-item:hover {
-    background: rgba(0,240,255,0.08);
-    color: var(--sg-primary, #00f0ff);
-  }
-
-  .playlist-dropdown-new {
-    border-top: 1px solid rgba(255,255,255,0.06);
-    color: var(--sg-primary, #00f0ff);
-    font-style: italic;
   }
 
   /* ── Playlist Autocomplete Suggestions ── */

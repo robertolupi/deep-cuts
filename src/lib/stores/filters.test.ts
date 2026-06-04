@@ -385,6 +385,71 @@ describe("FiltersStore — similarTo filter", () => {
     await filters.setSimilarTo({ id: 99, title: "Ghost Track" });
     expect(filters.similarToTrack).toBeNull();
   });
+
+  it("setSimilarTo passes clapWeight to the IPC call", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce([{ id: 1, distance: 0.1 }]);
+    filters.similarBlend = 0.8; // use setter
+    await filters.setSimilarTo({ id: 42, title: "Test Track" });
+    expect(invoke).toHaveBeenCalledWith("search_similar_tracks_audio", {
+      trackId: 42,
+      clapWeight: 0.8,
+    });
+  });
+
+  it("clearSimilar resets similarBlend to 0.5", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce([]);
+    await filters.setSimilarBlend(0.9);
+    filters.clearSimilar();
+    expect(filters.similarBlend).toBe(0.5);
+  });
+});
+
+describe("FiltersStore — similarBlend", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("starts at 0.5", () => {
+    expect(filters.similarBlend).toBe(0.5);
+  });
+
+  it("setSimilarBlend updates the blend value", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce([]);
+    // No active search — blend updates but no IPC call
+    await filters.setSimilarBlend(0.25);
+    expect(filters.similarBlend).toBe(0.25);
+  });
+
+  it("setSimilarBlend re-runs the search when a track is active", async () => {
+    // Seed an active similar search
+    vi.mocked(invoke).mockResolvedValueOnce([{ id: 7, distance: 0.2 }]);
+    await filters.setSimilarTo({ id: 7, title: "Active Track" });
+
+    vi.mocked(invoke).mockResolvedValueOnce([{ id: 7, distance: 0.15 }]);
+    await filters.setSimilarBlend(0.1);
+
+    expect(invoke).toHaveBeenLastCalledWith("search_similar_tracks_audio", {
+      trackId: 7,
+      clapWeight: 0.1,
+    });
+    expect(filters.similarBlend).toBe(0.1);
+  });
+
+  it("setSimilarBlend does not call IPC when no track is active", async () => {
+    const callsBefore = vi.mocked(invoke).mock.calls.length;
+    await filters.setSimilarBlend(0.75);
+    expect(vi.mocked(invoke).mock.calls.length).toBe(callsBefore);
+    expect(filters.similarBlend).toBe(0.75);
+  });
+
+  it("isSimilarLoading resets to false after setSimilarBlend failure", async () => {
+    // Seed an active track via direct state manipulation (IPC already tested above)
+    vi.mocked(invoke).mockResolvedValueOnce([{ id: 5, distance: 0.2 }]);
+    await filters.setSimilarTo({ id: 5, title: "Track" });
+    expect(filters.similarToTrack).not.toBeNull();
+
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("network error"));
+    await filters.setSimilarBlend(0.9);
+    expect(filters.isSimilarLoading).toBe(false);
+  });
 });
 
 describe("FiltersStore — playlist filter", () => {
