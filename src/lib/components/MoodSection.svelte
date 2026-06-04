@@ -89,6 +89,17 @@
     gap: 3px;
   }
 
+  .section-label {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sg-outline, #849495);
+    margin-bottom: 0;
+  }
+
   .mood-dim-label {
     font-family: "JetBrains Mono", monospace;
     font-size: 8px;
