@@ -60,9 +60,10 @@
   }
 
   async function handleCreateSavedSearch() {
-    if (!newSavedSearchName.trim()) return;
+    const finalName = newSavedSearchName.trim() || filters.autoName;
+    if (!finalName) return;
     const q = getSerializedFilterState();
-    const id = await curation.createSavedSearch(newSavedSearchName.trim(), q);
+    const id = await curation.createSavedSearch(finalName, q);
     if (id) {
       newSavedSearchName = "";
       isSavingSearch = false;
@@ -392,7 +393,7 @@
               <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
                 <input 
                   type="text" 
-                  placeholder="New smart search name..." 
+                  placeholder={filters.autoName} 
                   bind:value={newSavedSearchName} 
                   class="search-input"
                   style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
@@ -417,7 +418,7 @@
               <div class="inline-save-form" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 8px; border-radius:4px; width: 100%; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
                 <input 
                   type="text" 
-                  placeholder="Smart search name..." 
+                  placeholder={filters.autoName} 
                   bind:value={newSavedSearchName} 
                   class="search-input"
                   style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"

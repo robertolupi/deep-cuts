@@ -3,6 +3,7 @@ import { library } from "$lib/stores/library.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { curation } from "$lib/stores/curation.svelte";
 import { invoke } from "@tauri-apps/api/core";
+import { generateSmartName } from "$lib/utils/naming";
 
 export type ScaleFilter = "all" | "major" | "minor";
 
@@ -158,6 +159,23 @@ function createFiltersStore() {
     return results;
   });
 
+  const autoName = $derived.by(() => {
+    return generateSmartName({
+      searchQuery,
+      semanticQuery,
+      clapQuery,
+      genreFilter,
+      minBpm,
+      maxBpm,
+      selectedKeys,
+      selectedScale,
+      vocalFilter,
+      musicOnly,
+      similarToTrack,
+      selectedDirectoryIds
+    }, library.directories);
+  });
+
   async function runSemanticSearch(q: string) {
     const queryText = q.trim();
     if (!queryText) {
@@ -271,6 +289,7 @@ function createFiltersStore() {
     get similarToTrack()   { return similarToTrack; },
     get isSimilarLoading() { return isSimilarLoading; },
     get filteredTracks()   { return filteredTracks; },
+    get autoName()         { return autoName; },
     get isSemanticLoading() { return isSemanticLoading; },
     get semanticTrackScores() { return semanticTrackScores; },
     get isClapLoading() { return isClapLoading; },
