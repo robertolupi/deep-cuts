@@ -46,6 +46,17 @@ pub struct RawTelemetryPayload {
     pub system_events: Vec<SystemEventRow>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AggregatedPassSpan {
+    pub run_id: String,
+    pub pass_name: String,
+    pub started_at: i64,
+    pub ended_at: i64,
+    pub total: i64,
+    pub succeeded: i64,
+    pub failed: i64,
+}
+
 #[tauri::command]
 pub fn get_telemetry_summary(
     state: tauri::State<'_, MetricsState>,
@@ -157,5 +168,40 @@ pub fn get_raw_telemetry_payload(
         pipeline_metrics,
         system_events,
     })
+}
+
+#[tauri::command]
+pub fn get_pipeline_run_traces(
+    state: tauri::State<'_, MetricsState>,
+) -> Result<Vec<AggregatedPassSpan>, AppError> {
+    let conn = state.0.lock().map_err(|_| AppError::Generic("Metrics lock poisoned".to_string()))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT run_id, pass_name,
+                MIN(started_at) as started_at,
+                MAX(ended_at)   as ended_at,
+                COUNT(*)        as total,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as succeeded,
+                SUM(CASE WHEN status = 'failed'  THEN 1 ELSE 0 END) as failed
+         FROM pipeline_metrics
+         GROUP BY run_id, pass_name
+         ORDER BY run_id, started_at"
+    ).map_err(AppError::Database)?;
+
+    let spans = stmt.query_map([], |row| {
+        Ok(AggregatedPassSpan {
+            run_id: row.get(0)?,
+            pass_name: row.get(1)?,
+            started_at: row.get(2)?,
+            ended_at: row.get(3)?,
+            total: row.get(4)?,
+            succeeded: row.get(5)?,
+            failed: row.get(6)?,
+        })
+    }).map_err(AppError::Database)?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(spans)
 }
 

@@ -24,41 +24,38 @@
     error_message: string | null;
   }
 
-  interface SystemEventRow {
-    id: number;
-    event_type: string;
-    details: string | null;
-    duration_ms: number | null;
-    created_at: string;
-  }
-
   interface TelemetrySummary {
     latencies: LatencyStat[];
     recent_failures: PipelineMetricRow[];
   }
 
-  interface RawTelemetryPayload {
-    pipeline_metrics: PipelineMetricRow[];
-    system_events: SystemEventRow[];
+  interface AggregatedPassSpan {
+    run_id: string;
+    pass_name: string;
+    started_at: number;
+    ended_at: number;
+    total: number;
+    succeeded: number;
+    failed: number;
   }
 
   let activeTab = $state<"latency" | "traces" | "failures">("latency");
   let summary = $state<TelemetrySummary>({ latencies: [], recent_failures: [] });
-  let rawPayload = $state<RawTelemetryPayload>({ pipeline_metrics: [], system_events: [] });
+  let traceSpans = $state<AggregatedPassSpan[]>([]);
   let isLoading = $state(false);
   let errorMessage = $state("");
 
-  // Trace selection state
+  // Derive the run list from aggregated spans
   let runs = $derived.by(() => {
-    const runMap = new Map<string, { start: number; end: number; count: number }>();
-    for (const m of rawPayload.pipeline_metrics) {
-      const existing = runMap.get(m.run_id);
+    const runMap = new Map<string, { start: number; end: number; passes: number }>();
+    for (const s of traceSpans) {
+      const existing = runMap.get(s.run_id);
       if (existing) {
-        existing.start = Math.min(existing.start, m.started_at);
-        existing.end = Math.max(existing.end, m.ended_at);
-        existing.count += 1;
+        existing.start = Math.min(existing.start, s.started_at);
+        existing.end = Math.max(existing.end, s.ended_at);
+        existing.passes += 1;
       } else {
-        runMap.set(m.run_id, { start: m.started_at, end: m.ended_at, count: 1 });
+        runMap.set(s.run_id, { start: s.started_at, end: s.ended_at, passes: 1 });
       }
     }
     return Array.from(runMap.entries())
@@ -66,29 +63,32 @@
         id,
         date: new Date(info.start).toLocaleString(),
         duration_sec: ((info.end - info.start) / 1000).toFixed(1),
-        count: info.count,
+        passes: info.passes,
         timestamp: info.start,
       }))
       .sort((a, b) => b.timestamp - a.timestamp);
   });
 
   let selectedRunId = $state<string>("");
-  let selectedSpan = $state<PipelineMetricRow | null>(null);
+  let selectedSpan = $state<AggregatedPassSpan | null>(null);
 
-  // Filter metrics for the selected run
-  let runMetrics = $derived(
-    rawPayload.pipeline_metrics.filter((m) => m.run_id === selectedRunId)
+  // Spans for the selected run, ordered by start time
+  let runSpans = $derived(
+    traceSpans
+      .filter((s) => s.run_id === selectedRunId)
+      .sort((a, b) => a.started_at - b.started_at)
   );
 
-  // SVG dimensions for D3 chart
   let chartContainer = $state<HTMLDivElement | null>(null);
 
   async function loadData() {
     isLoading = true;
     errorMessage = "";
     try {
-      summary = await invoke<TelemetrySummary>("get_telemetry_summary");
-      rawPayload = await invoke<RawTelemetryPayload>("get_raw_telemetry_payload");
+      [summary, traceSpans] = await Promise.all([
+        invoke<TelemetrySummary>("get_telemetry_summary"),
+        invoke<AggregatedPassSpan[]>("get_pipeline_run_traces"),
+      ]);
       if (runs.length > 0 && !selectedRunId) {
         selectedRunId = runs[0].id;
       }
@@ -103,30 +103,50 @@
     loadData();
   });
 
-  // Watch tab selection & selected run to render D3 Gantt chart
   $effect(() => {
-    if (activeTab === "traces" && runMetrics.length > 0 && chartContainer) {
+    if (activeTab === "traces" && runSpans.length > 0 && chartContainer) {
       renderGanttChart();
     }
   });
+
+  const PASS_ORDER = [
+    "audio_analysis",
+    "bpm_correction",
+    "clap",
+    "essentia",
+    "bpm_refinement",
+    "qwen",
+    "description_embed",
+  ];
+
+  const PASS_COLORS: Record<string, string> = {
+    audio_analysis:    "#00f0ff",
+    bpm_correction:    "#9b5de5",
+    clap:              "#ff007f",
+    essentia:          "#00f5d4",
+    bpm_refinement:    "#fee440",
+    qwen:              "#ff9f1c",
+    description_embed: "#00bbf9",
+  };
 
   function renderGanttChart() {
     if (!chartContainer) return;
     d3.select(chartContainer).selectAll("*").remove();
 
-    const metrics = [...runMetrics].sort((a, b) => a.started_at - b.started_at);
-    const minTime = d3.min(metrics, (d) => d.started_at) || 0;
-    const maxTime = d3.max(metrics, (d) => d.ended_at) || 0;
+    const spans = runSpans;
+    const minTime = d3.min(spans, (d) => d.started_at) ?? 0;
+    const maxTime = d3.max(spans, (d) => d.ended_at) ?? 0;
     const totalDuration = maxTime - minTime || 1;
 
-    // Unique track IDs
-    const trackIds = Array.from(new Set(metrics.map((d) => d.track_id))).sort((a, b) => a - b);
+    // Y domain: passes present in this run, in pipeline order
+    const presentPasses = PASS_ORDER.filter((p) => spans.some((s) => s.pass_name === p));
+    // Append any unknown passes not in PASS_ORDER
+    spans.forEach((s) => { if (!presentPasses.includes(s.pass_name)) presentPasses.push(s.pass_name); });
 
-    // Layout configuration
-    const margin = { top: 20, right: 30, bottom: 40, left: 70 };
+    const margin = { top: 16, right: 30, bottom: 36, left: 130 };
     const width = chartContainer.clientWidth - margin.left - margin.right;
-    const rowHeight = 32;
-    const height = Math.max(120, trackIds.length * rowHeight);
+    const rowHeight = 36;
+    const height = presentPasses.length * rowHeight;
 
     const svg = d3
       .select(chartContainer)
@@ -136,90 +156,94 @@
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Scales
     const xScale = d3
       .scaleLinear()
-      .domain([0, totalDuration / 1000]) // In seconds
+      .domain([0, totalDuration / 1000])
       .range([0, width]);
 
     const yScale = d3
-      .scaleBand<number>()
-      .domain(trackIds)
+      .scaleBand<string>()
+      .domain(presentPasses)
       .range([0, height])
-      .padding(0.25);
+      .padding(0.3);
 
-    // Color scale for pass names
-    const colors: Record<string, string> = {
-      audio_analysis: "#00f0ff", // Cyber Cyan
-      bpm_correction: "#9b5de5", // Violet
-      clap: "#ff007f",           // Studio Pink
-      essentia: "#00f5d4",       // Mint Teal
-      bpm_refinement: "#fee440", // Yellow
-      qwen: "#ff9f1c",           // Orange
-      description_embed: "#00bbf9" // Sky Blue
-    };
-
-    // Draw X Axis (Time in seconds)
+    // X axis
     svg
       .append("g")
       .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(xScale).ticks(8).tickFormat((d) => `${d}s`))
+      .call(d3.axisBottom(xScale).ticks(6).tickFormat((d) => `${d}s`))
       .call((g) => g.select(".domain").attr("stroke", "rgba(255,255,255,0.1)"))
       .call((g) => g.selectAll(".tick line").attr("stroke", "rgba(255,255,255,0.1)"))
       .call((g) => g.selectAll(".tick text").attr("fill", "var(--sg-outline, #849495)").style("font-family", "JetBrains Mono").style("font-size", "9px"));
 
-    // Draw Y Axis (Track IDs)
+    // Y axis (pass names)
     svg
       .append("g")
-      .call(d3.axisLeft(yScale).tickFormat((d) => `Track ${d}`))
-      .call((g) => g.select(".domain").attr("stroke", "rgba(255,255,255,0.1)"))
-      .call((g) => g.selectAll(".tick line").attr("stroke", "rgba(255,255,255,0.1)"))
-      .call((g) => g.selectAll(".tick text").attr("fill", "var(--sg-outline, #849495)").style("font-family", "JetBrains Mono").style("font-size", "9px"));
+      .call(d3.axisLeft(yScale))
+      .call((g) => g.select(".domain").remove())
+      .call((g) => g.selectAll(".tick line").remove())
+      .call((g) => g.selectAll(".tick text")
+        .attr("fill", (d: any) => PASS_COLORS[d] ?? "#e3e1e9")
+        .style("font-family", "JetBrains Mono")
+        .style("font-size", "10px")
+        .style("font-weight", "700"));
 
-    // Draw horizontal grid lines
-    svg
-      .selectAll(".grid-line")
-      .data(trackIds)
+    // Horizontal grid lines
+    svg.selectAll(".grid-line")
+      .data(presentPasses)
       .enter()
       .append("line")
-      .attr("x1", 0)
-      .attr("x2", width)
-      .attr("y1", (d) => (yScale(d) || 0) + yScale.bandwidth() / 2)
-      .attr("y2", (d) => (yScale(d) || 0) + yScale.bandwidth() / 2)
+      .attr("x1", 0).attr("x2", width)
+      .attr("y1", (d) => (yScale(d) ?? 0) + yScale.bandwidth() / 2)
+      .attr("y2", (d) => (yScale(d) ?? 0) + yScale.bandwidth() / 2)
       .attr("stroke", "rgba(255,255,255,0.03)")
       .attr("stroke-dasharray", "2,2");
 
-    // Draw Bars for each metric span
-    svg
-      .selectAll(".bar")
-      .data(metrics)
+    // Bars
+    svg.selectAll(".bar")
+      .data(spans)
       .enter()
       .append("rect")
       .attr("class", "bar")
       .attr("x", (d) => xScale((d.started_at - minTime) / 1000))
-      .attr("y", (d) => yScale(d.track_id) || 0)
-      .attr("width", (d) => Math.max(3, xScale((d.ended_at - minTime) / 1000) - xScale((d.started_at - minTime) / 1000)))
+      .attr("y", (d) => yScale(d.pass_name) ?? 0)
+      .attr("width", (d) => Math.max(4, xScale((d.ended_at - minTime) / 1000) - xScale((d.started_at - minTime) / 1000)))
       .attr("height", yScale.bandwidth())
-      .attr("fill", (d) => colors[d.pass_name] || "#ffffff")
+      .attr("fill", (d) => PASS_COLORS[d.pass_name] ?? "#ffffff")
       .attr("rx", 3)
-      .style("cursor", "pointer")
-      .style("opacity", (d) => (selectedSpan && selectedSpan.id === d.id ? 1.0 : 0.75))
-      .style("stroke", (d) => (selectedSpan && selectedSpan.id === d.id ? "#ffffff" : "none"))
+      .style("cursor", "default")
+      .style("opacity", 0.7)
+      .style("stroke", "none")
       .style("stroke-width", "1.5px")
-      .on("mouseover", function () {
-        d3.select(this).style("opacity", 1.0);
-      })
-      .on("mouseout", function (event, d) {
-        if (!selectedSpan || selectedSpan.id !== d.id) {
-          d3.select(this).style("opacity", 0.75);
-        }
-      })
-      .on("click", (event, d) => {
+      .on("mouseover", (_, d) => {
         selectedSpan = d;
-        // Trigger re-render of bars to show selection border
         svg.selectAll(".bar")
-          .style("opacity", (b: any) => (b.id === d.id ? 1.0 : 0.75))
-          .style("stroke", (b: any) => (b.id === d.id ? "#ffffff" : "none"));
+          .style("opacity", (b: any) => (b.pass_name === d.pass_name ? 1.0 : 0.4))
+          .style("stroke", (b: any) => (b.pass_name === d.pass_name ? "#ffffff" : "none"));
+      })
+      .on("mouseout", () => {
+        selectedSpan = null;
+        svg.selectAll(".bar").style("opacity", 0.7).style("stroke", "none");
+      });
+
+    // Track count labels inside bars (if wide enough)
+    svg.selectAll(".bar-label")
+      .data(spans)
+      .enter()
+      .append("text")
+      .attr("class", "bar-label")
+      .attr("x", (d) => xScale((d.started_at - minTime) / 1000) + Math.max(4, xScale((d.ended_at - minTime) / 1000) - xScale((d.started_at - minTime) / 1000)) / 2)
+      .attr("y", (d) => (yScale(d.pass_name) ?? 0) + yScale.bandwidth() / 2 + 1)
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle")
+      .style("font-family", "JetBrains Mono")
+      .style("font-size", "8px")
+      .style("font-weight", "700")
+      .style("fill", "rgba(0,0,0,0.7)")
+      .style("pointer-events", "none")
+      .text((d) => {
+        const barWidth = Math.max(4, xScale((d.ended_at - minTime) / 1000) - xScale((d.started_at - minTime) / 1000));
+        return barWidth >= 28 ? `${d.total}` : "";
       });
   }
 </script>
@@ -302,9 +326,9 @@
                   >
                     <div class="run-date">{r.date}</div>
                     <div class="run-meta">
-                      <span>{r.count} passes</span>
+                      <span>{r.passes} passes</span>
                       <span>·</span>
-                      <span>{r.duration_sec}s duration</span>
+                      <span>{r.duration_sec}s</span>
                     </div>
                   </button>
                 {/each}
@@ -320,15 +344,8 @@
               <div class="trace-visualizer-container">
                 <div class="visualizer-header">
                   <div>
-                    <span class="visualizer-title">Run Trace: {selectedRunId}</span>
-                    <p class="visualizer-subtitle">Timeline view of concurrent decoders and model inferences</p>
-                  </div>
-                  <div class="legend">
-                    <span class="legend-item"><span class="color-dot audio_analysis"></span>Audio</span>
-                    <span class="legend-item"><span class="color-dot clap"></span>CLAP</span>
-                    <span class="legend-item"><span class="color-dot essentia"></span>Essentia</span>
-                    <span class="legend-item"><span class="color-dot qwen"></span>Qwen</span>
-                    <span class="legend-item"><span class="color-dot description_embed"></span>Embed</span>
+                    <span class="visualizer-title">Run {new Date(runs.find(r => r.id === selectedRunId)?.timestamp ?? 0).toLocaleString()}</span>
+                    <p class="visualizer-subtitle">Aggregated wall-clock span per pipeline phase — click a bar for details</p>
                   </div>
                 </div>
 
@@ -339,38 +356,36 @@
                   {#if !selectedSpan}
                     <div class="span-details-empty">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                      Select any trace span bar in the Gantt chart to inspect execution details and timings.
+                      Hover over any bar in the Gantt chart to inspect execution details and timings.
                     </div>
                   {:else}
                     <div class="span-details-content">
                       <div class="span-field">
-                        <span class="label">PASS NAME</span>
+                        <span class="label">PASS</span>
                         <span class="value pass-name-val {selectedSpan.pass_name}">{selectedSpan.pass_name}</span>
                       </div>
                       <div class="span-field">
-                        <span class="label">ANONYMOUS TRACK ID</span>
-                        <span class="value font-mono">#{selectedSpan.track_id}</span>
+                        <span class="label">WALL-CLOCK</span>
+                        <span class="value">{((selectedSpan.ended_at - selectedSpan.started_at) / 1000).toFixed(2)}s</span>
                       </div>
                       <div class="span-field">
-                        <span class="label">STATUS</span>
-                        <span class="value status-val {selectedSpan.status}">{selectedSpan.status.toUpperCase()}</span>
+                        <span class="label">TRACKS</span>
+                        <span class="value">{selectedSpan.total}</span>
                       </div>
                       <div class="span-field">
-                        <span class="label">DURATION</span>
-                        <span class="value">{(selectedSpan.duration_ms / 1000).toFixed(3)} seconds</span>
+                        <span class="label">SUCCEEDED</span>
+                        <span class="value status-val success">{selectedSpan.succeeded}</span>
                       </div>
-                      {#if selectedSpan.audio_duration_sec}
+                      {#if selectedSpan.failed > 0}
                         <div class="span-field">
-                          <span class="label">AUDIO LENGTH</span>
-                          <span class="value">{selectedSpan.audio_duration_sec.toFixed(1)} seconds (x{ (selectedSpan.audio_duration_sec / (selectedSpan.duration_ms / 1000)).toFixed(1) } speed)</span>
+                          <span class="label">FAILED</span>
+                          <span class="value status-val failed">{selectedSpan.failed}</span>
                         </div>
                       {/if}
-                      {#if selectedSpan.error_message}
-                        <div class="span-field error-field">
-                          <span class="label">ERROR MESSAGE</span>
-                          <pre class="error-msg">{selectedSpan.error_message}</pre>
-                        </div>
-                      {/if}
+                      <div class="span-field">
+                        <span class="label">AVG / TRACK</span>
+                        <span class="value">{selectedSpan.total > 0 ? (((selectedSpan.ended_at - selectedSpan.started_at) / selectedSpan.total) / 1000).toFixed(2) : "—"}s</span>
+                      </div>
                     </div>
                   {/if}
                 </div>
@@ -713,34 +728,6 @@
     color: var(--sg-outline, #849495);
     margin: 2px 0 0 0;
   }
-
-  .legend {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
-    color: var(--sg-outline, #849495);
-  }
-
-  .color-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-
-  .color-dot.audio_analysis { background-color: #00f0ff; }
-  .color-dot.clap { background-color: #ff007f; }
-  .color-dot.essentia { background-color: #00f5d4; }
-  .color-dot.qwen { background-color: #ff9f1c; }
-  .color-dot.description_embed { background-color: #00bbf9; }
 
   .d3-chart-container {
     width: 100%;
