@@ -10,17 +10,21 @@
 </script>
 
 <SettingsCard title="About Deep Cuts" subtitle={appVersion ? `v${appVersion}` : undefined} class="about-card">
-  <p class="about-desc">
-    A local-first music intelligence desktop app that analyzes your audio library with machine
-    learning — BPM, key, genre, mood, and semantic embeddings — so producers can filter, search,
-    and discover reference tracks by sonic characteristics. Everything runs on your machine,
-    with no cloud dependency.
-  </p>
-  <div class="about-meta">
+  <div class="about-body">
+    <img src="/deep_cuts_transparent.png" alt="Deep Cuts logo" class="about-logo" />
+    <p class="about-desc">
+      A local-first music intelligence desktop app that analyzes your audio library with machine
+      learning — BPM, key, genre, mood, and semantic embeddings — so producers can filter, search,
+      and discover reference tracks by sonic characteristics. Everything runs on your machine,
+      with no cloud dependency.
+    </p>
+    <div class="about-meta">
     <span class="about-copyright">© 2025 <a class="about-link" href="https://www.rlupi.com" target="_blank" rel="noopener noreferrer">Roberto Lupi</a></span>
     <span class="about-sep">·</span>
     <span class="about-license-sep">·</span>
     <button class="about-license" onclick={onOpenLicense}>GNU AGPL v3</button>
+    </div>
+    <div class="about-body-clear"></div>
   </div>
 
   <div class="model-credits-list">
@@ -84,6 +88,26 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .about-body {
+    display: block;
+    overflow: hidden;
+  }
+
+  .about-body-clear {
+    clear: both;
+  }
+
+  .about-logo {
+    float: right;
+    width: 280px;
+    height: 280px;
+    object-fit: contain;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.25));
+    margin-left: 16px;
+    margin-bottom: 8px;
   }
 
   .about-desc {
