@@ -480,7 +480,7 @@
     </div>
     <!-- Mood sliders -->
     {#if hasMoodData}
-    <MoodSection distributions={moodDistributions} />
+    <MoodSection />
     {/if}
 
     <!-- Vocal / Instrumental -->
