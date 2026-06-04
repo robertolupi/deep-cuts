@@ -116,13 +116,12 @@
   //   >= 1h  → "1h 23m 07s"
   function formatDuration(seconds: number): string {
     if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
-    const s = Math.round(seconds);
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const rem = s % 60;
-    if (h > 0) return `${h}h ${m}m ${String(rem).padStart(2, "0")}s`;
-    if (m > 0) return `${m}m ${String(rem).padStart(2, "0")}s`;
-    return `${rem}s`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const rem = seconds % 60;
+    if (h > 0) return `${h}h ${m}m ${String(Math.round(rem)).padStart(2, "0")}s`;
+    if (m > 0) return `${m}m ${String(Math.round(rem)).padStart(2, "0")}s`;
+    return `${rem.toFixed(1)}s`;
   }
 
   const PASS_ORDER = [
