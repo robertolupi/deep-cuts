@@ -1,6 +1,6 @@
 # Technical Feasibility & Performance Analysis
 
-This document provides a comparative analysis of the 6 proposed features we brainstormed. Each analysis details the implementation complexity, database changes required, and user interface responsiveness guidelines.
+This document provides a comparative analysis of the 5 proposed features we brainstormed. Each analysis details the implementation complexity, database changes required, and user interface responsiveness guidelines.
 
 ---
 
@@ -12,8 +12,7 @@ This document provides a comparative analysis of the 6 proposed features we brai
 | **2. Spectral Map Projections** | **High** | Yes (migration) | High (Offloaded to Rust thread pool; Svelte animations 60fps) | 7.0 Days |
 | **3. Mastering Style Auto-Tagging** | **Medium** | Yes (migration) | High (Background calculations; Svelte displays statically) | 3.0 Days |
 | **4. Playlist Drag-to-Reorder & Visualizer UI** | **Medium-High** | No (schema ready) | High (Optimistic UI state; Svelte `animate:flip`) | 4.0 Days |
-| **5. Saved Search Smart Auto-Naming** | **Low** | No (schema ready) | High (Derived Svelte 5 state is instant <0.1ms) | 1.5 Days |
-| **6. Vibe-Based Playlist Recommendations** | **Medium** | No (schema ready) | High (Rust background thread vectors distance check <2ms) | 2.5 Days |
+| **5. Vibe-Based Playlist Recommendations** | **Medium** | No (schema ready) | High (Rust background thread vectors distance check <2ms) | 2.5 Days |
 
 ---
 
@@ -39,11 +38,8 @@ This document provides a comparative analysis of the 6 proposed features we brai
 * **Database Requirements**: **None**. The database schema is already updated via Migration 18 (`playlists` and `playlist_tracks` tables are present with `position` columns).
 * **UI Interactivity & Responsiveness**: **High**. Svelte `animate:flip` handles the coordinate morphs smoothly. The drag-and-drop system should implement optimistic UI updates so the list reorders instantly, before sending the async SQLite reordering transaction (which takes 2–10ms) to Tauri.
 
-### 5. Saved Search Smart Auto-Naming
-* **Complexity**: **Low**. The name generation is a deterministic, pure function of the active Svelte filter store (`src/lib/stores/filters.svelte.ts`). It compiles queries, keys, genres, BPM, and mood parameters into a human-readable string.
-* **Database Requirements**: **None**. The existing `saved_searches` table (defined in migration 18) already has a `name` column. If we need to track if a name was custom-edited or auto-generated, we can store an `isAutoNamed` boolean flag inside the existing `query_json` field to avoid schema modifications.
-* **UI Interactivity & Responsiveness**: **High**. Computing the auto-name is trivial (<0.1ms) and can be bound to a Svelte 5 `$derived` state, providing real-time name previews as sliders and text inputs are adjusted. No Rust offloading or Web Workers are required.
-### 6. Vibe-Based Playlist Recommendations
+### 5. Vibe-Based Playlist Recommendations
 * **Complexity**: **Medium**. The underlying 512-d CLAP audio embeddings, 384-d MiniLM text embeddings, and Essentia classifier columns are already stored in the DB, meaning the backend vector similarity foundation is ready. No new models are required.
 * **Database Requirements**: **None**. The schema already supports playlists, playlist tracks, and high-dimensional embeddings with foreign keys and indexes. 
 * **UI Interactivity & Responsiveness**: **High**. By offloading the centroid matching calculations to a Tauri Rust command (which executes on a background thread pool), the UI will easily maintain 60fps on the main thread. A distance check against 10,000 tracks completes in under 2ms in Rust.
+
