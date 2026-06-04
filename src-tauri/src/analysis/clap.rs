@@ -115,6 +115,7 @@ impl super::AnalysisPass for ClapPass {
         &self,
         app: &tauri::AppHandle,
         conn_arc: &Arc<Mutex<Connection>>,
+        run_id: &str,
     ) -> Result<(), String> {
         let config = crate::hardware::PipelineConfig::auto_tune();
 
@@ -221,6 +222,11 @@ impl super::AnalysisPass for ClapPass {
         drop(tx);
 
         for prepped in rx {
+            let start_time_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
+
             let (result, elapsed_ms) = match prepped.result {
                 Ok(mel_windows) => {
                     let start = std::time::Instant::now();
@@ -231,6 +237,20 @@ impl super::AnalysisPass for ClapPass {
                     Err(format!("Preprocessing failed: {}", e)),
                     prepped.elapsed_ms,
                 ),
+            };
+            let ended_time_ms = start_time_ms + elapsed_ms;
+
+            // Fetch audio duration:
+            let audio_dur = {
+                if let Ok(c) = conn_arc.lock() {
+                    c.query_row(
+                        "SELECT duration_seconds FROM tracks WHERE id = ?1",
+                        rusqlite::params![prepped.track_id],
+                        |row| row.get::<_, Option<f64>>(0)
+                    ).unwrap_or(None)
+                } else {
+                    None
+                }
             };
 
             let conn = super::lock_analysis_conn(conn_arc, self.name())?;
@@ -267,6 +287,18 @@ impl super::AnalysisPass for ClapPass {
                                 "pass_name": self.name(),
                                 "status": pass_status::FAILED,
                             }));
+                            crate::metrics_database::log_pipeline_metric(
+                                app,
+                                run_id,
+                                prepped.track_id,
+                                self.name(),
+                                "failed",
+                                elapsed_ms,
+                                start_time_ms,
+                                ended_time_ms,
+                                audio_dur,
+                                Some(&e)
+                            );
                         }
                         Ok(()) => {
                             let _ = conn.execute(
@@ -285,6 +317,18 @@ impl super::AnalysisPass for ClapPass {
                                 "pass_name": self.name(),
                                 "status": pass_status::DONE,
                             }));
+                            crate::metrics_database::log_pipeline_metric(
+                                app,
+                                run_id,
+                                prepped.track_id,
+                                self.name(),
+                                "success",
+                                elapsed_ms,
+                                start_time_ms,
+                                ended_time_ms,
+                                audio_dur,
+                                None
+                            );
                         }
                     }
                 }
@@ -301,6 +345,18 @@ impl super::AnalysisPass for ClapPass {
                             "pass_name": self.name(),
                             "status": pass_status::FAILED,
                         }),
+                    );
+                    crate::metrics_database::log_pipeline_metric(
+                        app,
+                        run_id,
+                        prepped.track_id,
+                        self.name(),
+                        "failed",
+                        elapsed_ms,
+                        start_time_ms,
+                        ended_time_ms,
+                        audio_dur,
+                        Some(&e)
                     );
                 }
             }

@@ -30,14 +30,17 @@ pub fn run_audio_analysis_phase(
     conn_arc: &Arc<Mutex<Connection>>,
     pending: Vec<super::SpoolJob>,
     concurrency: usize,
+    run_id: &str,
 ) -> Vec<std::thread::JoinHandle<()>> {
     let queue = Arc::new(Mutex::new(VecDeque::from(pending)));
     let mut handles = Vec::new();
+    let run_id_clone = run_id.to_string();
 
     for _ in 0..concurrency {
         let queue_clone = Arc::clone(&queue);
         let conn_clone = Arc::clone(conn_arc);
         let app_clone = app.clone();
+        let run_id_clone = run_id_clone.clone();
 
         handles.push(std::thread::spawn(move || {
             loop {
@@ -56,8 +59,13 @@ pub fn run_audio_analysis_phase(
                 };
 
                 let start = std::time::Instant::now();
+                let start_time_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as i64;
                 let result = dsp::run_audio_analysis(&job.path);
                 let elapsed_ms = start.elapsed().as_millis() as i64;
+                let ended_time_ms = start_time_ms + elapsed_ms;
 
                 let conn = match conn_clone.lock() {
                     Ok(conn) => conn,
@@ -130,6 +138,18 @@ pub fn run_audio_analysis_phase(
                             "track_id": job.track_id,
                             "status": pass_status::DONE,
                         }));
+                        crate::metrics_database::log_pipeline_metric(
+                            &app_clone,
+                            &run_id_clone,
+                            job.track_id,
+                            "audio_analysis",
+                            "success",
+                            elapsed_ms,
+                            start_time_ms,
+                            ended_time_ms,
+                            Some(analysis.duration_seconds as f64),
+                            None
+                        );
                     }
                     Err(e) => {
                         let _ = conn.execute(
@@ -141,6 +161,18 @@ pub fn run_audio_analysis_phase(
                             "track_id": job.track_id,
                             "status": pass_status::FAILED,
                         }));
+                        crate::metrics_database::log_pipeline_metric(
+                            &app_clone,
+                            &run_id_clone,
+                            job.track_id,
+                            "audio_analysis",
+                            "failed",
+                            elapsed_ms,
+                            start_time_ms,
+                            ended_time_ms,
+                            None,
+                            Some(&e)
+                        );
                     }
                 }
             }

@@ -22,6 +22,9 @@ pub struct SidecarData {
     /// Per-pass algorithm/model version at the time this sidecar was written.
     #[serde(default)]
     pub pass_versions: HashMap<String, u32>,
+    /// Map of pass_name -> last_run_at timestamp string ("YYYY-MM-DD HH:MM:SS")
+    #[serde(default)]
+    pub pass_run_times: HashMap<String, String>,
     /// Flattened dynamic ML fields driven dynamically by PASS_REGISTRY
     #[serde(flatten)]
     pub ml_metadata: HashMap<String, serde_json::Value>,
@@ -114,22 +117,27 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         }
     }
 
-    // Record the pass_version for every DONE pass directly from the DB column
+    // Record the pass_version and last_run_at for every DONE pass directly from the DB column
     let mut pass_versions: HashMap<String, u32> = HashMap::new();
+    let mut pass_run_times: HashMap<String, String> = HashMap::new();
     let mut stmt = conn.prepare(
-        "SELECT pass_name, pass_version FROM track_passes WHERE track_id = ?1 AND status = 2",
+        "SELECT pass_name, pass_version, last_run_at FROM track_passes WHERE track_id = ?1 AND status = 2",
     )?;
-    let rows: Vec<(String, u32)> = stmt
-        .query_map([track_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+    let rows: Vec<(String, u32, Option<String>)> = stmt
+        .query_map([track_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
         .filter_map(|r| r.ok())
         .collect();
-    for (pass_name, version) in rows {
-        pass_versions.insert(pass_name, version);
+    for (pass_name, version, last_run) in rows {
+        pass_versions.insert(pass_name.clone(), version);
+        if let Some(t) = last_run {
+            pass_run_times.insert(pass_name, t);
+        }
     }
 
     let sidecar = SidecarData {
         version: 1,
         pass_versions,
+        pass_run_times,
         ml_metadata,
     };
     let json = serde_json::to_string_pretty(&sidecar)?;
@@ -139,6 +147,12 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
 
 fn sidecar_pass_version(sidecar: &SidecarData, pass: &str) -> u32 {
     *sidecar.pass_versions.get(pass).unwrap_or(&0)
+}
+
+fn parse_sqlite_timestamp(ts: &str) -> Option<i64> {
+    chrono::NaiveDateTime::parse_from_str(ts, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|dt| dt.and_utc().timestamp())
 }
 
 /// Reads the sidecar and restores its ML fields into the database.
@@ -151,11 +165,31 @@ pub fn restore(
         return Ok(());
     };
 
+    let track_last_modified: i64 = conn.query_row(
+        "SELECT last_modified FROM tracks WHERE id = ?1",
+        [track_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
     let m = &sidecar.ml_metadata;
 
     // Dynamically restore fields driven by PASS_REGISTRY specs
     for spec in crate::analysis::PASS_REGISTRY {
-        if sidecar_pass_version(&sidecar, spec.name) >= spec.version {
+        let sidecar_version = sidecar_pass_version(&sidecar, spec.name);
+
+        let sidecar_run_time = sidecar.pass_run_times.get(spec.name).cloned();
+        let is_up_to_date = if let Some(ref run_time_str) = sidecar_run_time {
+            if let Some(run_time_epoch) = parse_sqlite_timestamp(run_time_str) {
+                track_last_modified <= run_time_epoch
+            } else {
+                false
+            }
+        } else {
+            // No timestamp in sidecar — treat as stale so all passes are reset and re-run.
+            false
+        };
+
+        if sidecar_version >= spec.version && is_up_to_date {
             // A. Restore columns
             if !spec.owned_columns.is_empty() {
                 let mut set_clauses = Vec::new();
@@ -227,11 +261,15 @@ pub fn restore(
                 }
             }
 
-            // C. Update track pass status to DONE
+            // C. Update track pass status to DONE, writing the last_run_at back to DB
+            let db_last_run = sidecar_run_time.clone().unwrap_or_else(|| {
+                chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()
+            });
+
             conn.execute(
-                "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = CURRENT_TIMESTAMP
-                 WHERE track_id = ?2 AND pass_name = ?3",
-                rusqlite::params![spec.version, track_id, spec.name],
+                "UPDATE track_passes SET status = 2, pass_version = ?1, last_run_at = ?2
+                 WHERE track_id = ?3 AND pass_name = ?4",
+                rusqlite::params![spec.version, db_last_run, track_id, spec.name],
             )?;
         }
     }
@@ -375,8 +413,8 @@ mod tests {
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
-             VALUES (1, 'audio_analysis', 10, 2, ?1)",
+            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version, last_run_at) \
+             VALUES (1, 'audio_analysis', 10, 2, ?1, '2000-01-01 00:00:01')",
             rusqlite::params![pass_version::AUDIO_ANALYSIS],
         )
         .unwrap();
@@ -564,4 +602,123 @@ mod tests {
 
         cleanup(&dir, &track_path);
     }
+
+    #[test]
+    fn test_restore_skips_when_track_modified_after_run() {
+        let (dir, track_path) = temp_track("stale_run");
+        let run_time_str = "2026-06-04 10:00:00";
+        let run_time_epoch = parse_sqlite_timestamp(run_time_str).unwrap();
+
+        let sidecar_content = format!(
+            r#"{{"version":1,"pass_versions":{{"audio_analysis":1}},"pass_run_times":{{"audio_analysis":"{}"}},"bpm":120.0}}"#,
+            run_time_str
+        );
+        std::fs::write(path_for(&track_path), sidecar_content).unwrap();
+
+        // 1. Stale cache (track modified after pass run) -> skip restore
+        {
+            let conn = setup_test_db();
+            conn.execute(
+                "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+                [dir.to_string_lossy().as_ref()],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
+                 VALUES (1, 1, ?1, 'song.mp3', 5, ?2, 0)",
+                rusqlite::params![&track_path, run_time_epoch + 10],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+                 VALUES (1, 'audio_analysis', 10, 0, 0)",
+                [],
+            )
+            .unwrap();
+
+            restore(&conn, 1, &track_path).unwrap();
+
+            let bpm: Option<f64> = conn
+                .query_row("SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(bpm, None);
+            let status: i64 = conn
+                .query_row("SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(status, 0);
+        }
+
+        // 2. Valid cache (track modified before pass run) -> restore
+        {
+            let conn = setup_test_db();
+            conn.execute(
+                "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+                [dir.to_string_lossy().as_ref()],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
+                 VALUES (1, 1, ?1, 'song.mp3', 5, ?2, 0)",
+                rusqlite::params![&track_path, run_time_epoch - 10],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+                 VALUES (1, 'audio_analysis', 10, 0, 0)",
+                [],
+            )
+            .unwrap();
+
+            restore(&conn, 1, &track_path).unwrap();
+
+            let bpm: Option<f64> = conn
+                .query_row("SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(bpm, Some(120.0));
+            let status: i64 = conn
+                .query_row("SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(status, 2);
+        }
+
+        cleanup(&dir, &track_path);
+    }
+
+    #[test]
+    fn test_restore_skips_when_sidecar_has_no_pass_run_times() {
+        let (dir, track_path) = temp_track("no_run_times");
+
+        // Old-format sidecar with no pass_run_times field at all
+        let sidecar_content = r#"{"version":1,"pass_versions":{"audio_analysis":1},"bpm":99.0}"#;
+        std::fs::write(path_for(&track_path), sidecar_content).unwrap();
+
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', ?1)",
+            [dir.to_string_lossy().as_ref()],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds) \
+             VALUES (1, 1, ?1, 'song.mp3', 5, 1000, 0)",
+            [&track_path],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status, pass_version) \
+             VALUES (1, 'audio_analysis', 10, 0, 0)",
+            [],
+        ).unwrap();
+
+        restore(&conn, 1, &track_path).unwrap();
+
+        // Pass must remain pending and bpm must stay NULL
+        let bpm: Option<f64> = conn
+            .query_row("SELECT bpm FROM tracks WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(bpm, None);
+        let status: i64 = conn
+            .query_row("SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'audio_analysis'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(status, 0);
+
+        cleanup(&dir, &track_path);
+    }
 }
+

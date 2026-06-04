@@ -183,15 +183,30 @@ Adding the `SPEC` to `PASS_REGISTRY` automatically handles:
 
 ### 4. Call the Phase Submodule in the pipeline runner
 
-Inside `PipelineManager::run()` background loop in `src-tauri/src/analysis/mod.rs`, invoke your pass using the generic `run_pass_pipeline` runner:
+Inside `PipelineManager::run()` background loop in `src-tauri/src/analysis/mod.rs`, invoke your pass using the generic `run_pass_pipeline` runner. Pass the `run_id_spawn` string so metrics are attributed to the same pipeline run:
 ```rust
 // ── Phase X: Your Pass ─────────────────────────────────────────────
 log::info!("[pipeline] starting your_pass phase");
-if let Err(e) = analysis::run_pass_pipeline(&app, &conn_arc, your_pass::YourPass) {
-    analysis::emit_pipeline_error(&app, "your_pass", e);
+if let Err(e) = run_pass_pipeline(&app, &conn_arc, your_pass::YourPass, &run_id_spawn) {
+    emit_pipeline_error(&app, "your_pass", e);
 }
-log::info!("[pipeline] your_pass phase done");
 ```
+
+The `run_id_spawn` variable is already declared near the top of the background thread closure — do not create a new one.
+
+---
+
+---
+
+## Metrics instrumentation
+
+Every pass automatically gets per-track metrics logged to the telemetry database via `crate::metrics_database::log_pipeline_metric(...)`. This is called inside the default `run_pass` implementation in `analysis/mod.rs` for passes that use `run_pass_pipeline`.
+
+**Custom passes** (like `ClapPass` and `EssentiaPass`) that override `run_pass` must call `log_pipeline_metric` themselves at each success/failure site. See `src-tauri/src/analysis/clap.rs` for the pattern.
+
+The `run_id` parameter threads through the entire pipeline so that all spans from a single invocation share the same `run_id` in `pipeline_metrics`. Always forward `run_id` — never generate a new one inside a pass.
+
+To inspect the metrics after a run, see the `query-metrics-db` skill or use the in-app Telemetry Inspector (Library Settings → Inspect Telemetry & Traces).
 
 ---
 
@@ -201,3 +216,5 @@ log::info!("[pipeline] your_pass phase done");
 |---------|---------|-----|
 | Forgetting to register in `PASS_REGISTRY` | Pass is skipped, resets do not work, and sidecar does not back up your new fields | Append your pass `SPEC` to `PASS_REGISTRY` in `analysis/mod.rs` |
 | Performing DB queries inside `execute_job` | Locking issues or thread contention on heavy work | Load all needed fields upfront inside your `load_jobs` implementation |
+| Creating a new `run_id` inside a pass | Metrics for that pass appear as a separate run in the Telemetry Inspector | Forward the `run_id` passed into `run_pass` / `run_pass_pipeline` |
+| Overriding `run_pass` without calling `log_pipeline_metric` | Pass has no latency data in the Telemetry Inspector | Call `log_pipeline_metric` at every success/failure branch, like `ClapPass` does |

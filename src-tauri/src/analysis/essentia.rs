@@ -142,6 +142,7 @@ impl super::AnalysisPass for EssentiaPass {
         &self,
         app: &tauri::AppHandle,
         conn_arc: &Arc<Mutex<Connection>>,
+        run_id: &str,
     ) -> Result<(), String> {
         let config = crate::hardware::PipelineConfig::auto_tune();
 
@@ -246,7 +247,10 @@ impl super::AnalysisPass for EssentiaPass {
         drop(tx);
 
         for prepped in rx {
-            let start = std::time::Instant::now();
+            let start_time_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
 
             let result = if prepped.patches.is_empty() {
                 Err("Preprocessing failed".to_string())
@@ -254,7 +258,25 @@ impl super::AnalysisPass for EssentiaPass {
                 crate::classifier::run_classifier_inference(&prepped.patches, Some(app))
             };
 
-            let elapsed_ms = start.elapsed().as_millis() as i64;
+            let ended_time_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
+            let elapsed_ms = ended_time_ms - start_time_ms;
+
+            // Fetch audio duration:
+            let audio_dur = {
+                if let Ok(c) = conn_arc.lock() {
+                    c.query_row(
+                        "SELECT duration_seconds FROM tracks WHERE id = ?1",
+                        rusqlite::params![prepped.track_id],
+                        |row| row.get::<_, Option<f64>>(0)
+                    ).unwrap_or(None)
+                } else {
+                    None
+                }
+            };
+
             let conn = super::lock_analysis_conn(conn_arc, self.name())?;
 
             match result {
@@ -297,6 +319,18 @@ impl super::AnalysisPass for EssentiaPass {
                             "status": pass_status::DONE,
                         }),
                     );
+                    crate::metrics_database::log_pipeline_metric(
+                        app,
+                        run_id,
+                        prepped.track_id,
+                        self.name(),
+                        "success",
+                        elapsed_ms,
+                        start_time_ms,
+                        ended_time_ms,
+                        audio_dur,
+                        None
+                    );
                 }
                 Err(e) => {
                     log::error!("[essentia] Track {} failed: {}", prepped.track_id, e);
@@ -312,6 +346,18 @@ impl super::AnalysisPass for EssentiaPass {
                             "pass_name": self.name(),
                             "status": pass_status::FAILED,
                         }),
+                    );
+                    crate::metrics_database::log_pipeline_metric(
+                        app,
+                        run_id,
+                        prepped.track_id,
+                        self.name(),
+                        "failed",
+                        elapsed_ms,
+                        start_time_ms,
+                        ended_time_ms,
+                        audio_dur,
+                        Some(&e)
                     );
                 }
             }

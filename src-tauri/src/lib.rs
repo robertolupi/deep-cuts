@@ -6,6 +6,7 @@ mod bpm;
 mod classifier;
 pub mod commands;
 mod database;
+mod metrics_database;
 mod dsp;
 mod embeddings;
 pub mod error;
@@ -58,6 +59,17 @@ pub fn run() {
                 }
                 Err(err) => {
                     log::error!("Database initialization failed: {}", err);
+                }
+            }
+
+            // Initialize metrics database manager and bootstrap SQLite
+            let metrics_manager = metrics_database::MetricsDbManager::new(app.handle());
+            match metrics_manager.connect_and_migrate() {
+                Ok(conn) => {
+                    app.manage(metrics_database::MetricsState(Mutex::new(conn)));
+                }
+                Err(err) => {
+                    log::error!("Metrics database initialization failed: {}", err);
                 }
             }
 
@@ -145,8 +157,10 @@ pub fn run() {
             commands::playlists::get_playlists_for_track,
             commands::playlists::remove_track_from_playlist_by_id,
             commands::playlists::export_m3u_playlist,
-            commands::statistics::get_track_stats,
-        ])
+             commands::statistics::get_track_stats,
+             commands::telemetry::get_telemetry_summary,
+             commands::telemetry::get_raw_telemetry_payload,
+         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

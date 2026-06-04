@@ -7,3 +7,4 @@ pub mod map;
 pub mod manifest;
 pub mod playlists;
 pub mod statistics;
+pub mod telemetry;

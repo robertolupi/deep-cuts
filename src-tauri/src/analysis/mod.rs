@@ -130,6 +130,7 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
         &self,
         app: &tauri::AppHandle<R>,
         conn_arc: &Arc<Mutex<Connection>>,
+        run_id: &str,
     ) -> Result<(), String> {
         let jobs = {
             let conn = lock_analysis_conn(conn_arc, self.name())?;
@@ -151,8 +152,25 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
 
         for job in jobs {
             let start = std::time::Instant::now();
+            let start_time_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
             let result = self.execute_job(app, &job);
             let duration_ms = start.elapsed().as_millis() as i64;
+            let ended_time_ms = start_time_ms + duration_ms;
+
+            let audio_dur = {
+                if let Ok(conn) = lock_analysis_conn(conn_arc, self.name()) {
+                    conn.query_row(
+                        "SELECT duration_seconds FROM tracks WHERE id = ?1",
+                        rusqlite::params![job.track_id()],
+                        |row| row.get::<_, Option<f64>>(0)
+                    ).unwrap_or(None)
+                } else {
+                    None
+                }
+            };
 
             let conn = lock_analysis_conn(conn_arc, self.name())?;
             match result {
@@ -173,6 +191,18 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
                                 "pass_name": self.name(),
                                 "status": pass_status::FAILED,
                             }));
+                            crate::metrics_database::log_pipeline_metric(
+                                app,
+                                run_id,
+                                job.track_id(),
+                                self.name(),
+                                "failed",
+                                duration_ms,
+                                start_time_ms,
+                                ended_time_ms,
+                                audio_dur,
+                                Some(&e)
+                            );
                         }
                         Ok(()) => {
                             conn.execute(
@@ -191,6 +221,18 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
                                 "pass_name": self.name(),
                                 "status": pass_status::DONE,
                             }));
+                            crate::metrics_database::log_pipeline_metric(
+                                app,
+                                run_id,
+                                job.track_id(),
+                                self.name(),
+                                "success",
+                                duration_ms,
+                                start_time_ms,
+                                ended_time_ms,
+                                audio_dur,
+                                None
+                            );
                         }
                     }
                 }
@@ -204,6 +246,18 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
                         "pass_name": self.name(),
                         "status": pass_status::FAILED,
                     }));
+                    crate::metrics_database::log_pipeline_metric(
+                        app,
+                        run_id,
+                        job.track_id(),
+                        self.name(),
+                        "failed",
+                        duration_ms,
+                        start_time_ms,
+                        ended_time_ms,
+                        audio_dur,
+                        Some(&e)
+                    );
                 }
             }
         }
@@ -219,8 +273,9 @@ pub fn run_pass_pipeline<R: tauri::Runtime, P: AnalysisPass<R>>(
     app: &tauri::AppHandle<R>,
     conn_arc: &Arc<Mutex<Connection>>,
     pass: P,
+    run_id: &str,
 ) -> Result<(), String> {
-    pass.run_pass(app, conn_arc)
+    pass.run_pass(app, conn_arc, run_id)
 }
 
 // ── Pass Specification & Registry ──────────────────────────────────────────
@@ -441,6 +496,23 @@ impl PipelineManager {
         let _guard = ActiveGuard;
         let sleep_preventer = SleepPreventer::new();
 
+        let run_id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .to_string();
+        let run_start_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        crate::metrics_database::log_system_event(
+            &app,
+            "pipeline_start",
+            Some(&format!("run_id={}", run_id)),
+            None,
+        );
+
         let pending: Vec<SpoolJob> = {
             let conn = conn_mutex.lock().map_err(|e| e.to_string())?;
 
@@ -515,6 +587,12 @@ impl PipelineManager {
 
         if total == 0 && !has_pending_passes {
             log::info!("[pipeline] nothing to do, returning early");
+            crate::metrics_database::log_system_event(
+                &app,
+                "pipeline_end",
+                Some(&format!("run_id={} (nothing to do)", run_id)),
+                Some(0),
+            );
             return Ok(());
         }
         log::info!(
@@ -531,9 +609,11 @@ impl PipelineManager {
                 .map_err(|e| e.to_string())?
         }));
 
-        let handles = audio::run_audio_analysis_phase(&app, &conn_arc, pending, concurrency);
+        let run_id_clone = run_id.clone();
+        let handles = audio::run_audio_analysis_phase(&app, &conn_arc, pending, concurrency, &run_id_clone);
 
         // Wait for workers on a background thread so the IPC call returns immediately.
+        let run_id_spawn = run_id.clone();
         std::thread::spawn(move || {
             let _guard = _guard;
             let _preventer_guard = sleep_preventer;
@@ -551,37 +631,37 @@ impl PipelineManager {
 
             // ── Phase 1b: BPM correction ──────────────────────────────────────
             log::info!("[pipeline] starting bpm_correction phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_correction::BpmCorrectionPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_correction::BpmCorrectionPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "bpm_correction", e);
             }
 
             // ── Phase 2: CLAP ─────────────────────────────────────────────────
             log::info!("[pipeline] starting clap phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, clap::ClapPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, clap::ClapPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "clap", e);
             }
 
             // ── Phase 3: Essentia classifier ──────────────────────────────────
             log::info!("[pipeline] starting essentia phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, essentia::EssentiaPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, essentia::EssentiaPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "essentia", e);
             }
 
             // ── Phase 4: BPM refinement ───────────────────────────────────────
             log::info!("[pipeline] starting bpm_refinement phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_refinement::BpmRefinementPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_refinement::BpmRefinementPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "bpm_refinement", e);
             }
 
             // ── Phase 5: Qwen listener ────────────────────────────────────────
             log::info!("[pipeline] starting qwen phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, qwen::QwenPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, qwen::QwenPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "qwen", e);
             }
 
             // ── Phase 6: Description embedding ────────────────────────────────
             log::info!("[pipeline] starting description_embed phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, description_embed::DescriptionEmbedPass) {
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, description_embed::DescriptionEmbedPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "description_embed", e);
             }
 
@@ -598,6 +678,18 @@ impl PipelineManager {
                     rusqlite::params![pass_status::PENDING, pass_status::IN_PROGRESS, pass_status::FAILED],
                 );
             }
+
+            let elapsed_ms = (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64) - run_start_time;
+
+            crate::metrics_database::log_system_event(
+                &app,
+                "pipeline_end",
+                Some(&format!("run_id={}", run_id_spawn)),
+                Some(elapsed_ms),
+            );
 
             let _ = app.emit("analysis-complete", ());
         });
@@ -811,7 +903,7 @@ mod tests {
         let conn_arc = Arc::new(Mutex::new(conn));
 
         // 2. Run generic pipeline
-        let result = run_pass_pipeline(app.handle(), &conn_arc, MockPass);
+        let result = run_pass_pipeline(app.handle(), &conn_arc, MockPass, "test_run_id");
         assert!(result.is_ok());
 
         // 3. Assert DB state updates correctly

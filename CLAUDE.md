@@ -24,7 +24,11 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/query-db/SKILL.md](skills/query-db/SKILL.md)
    - **Use when**: Formulating database queries or interacting with the SQLite database directly.
 
-5. **Adding an Analysis Pass**
+5. **Querying the Metrics / Telemetry Database**
+   - **Path**: [skills/query-metrics-db/SKILL.md](skills/query-metrics-db/SKILL.md)
+   - **Use when**: Inspecting pipeline performance data, latency stats, failure logs, or the `telemetry.db` file.
+
+6. **Adding an Analysis Pass**
    - **Path**: [skills/add-analysis-pass/SKILL.md](skills/add-analysis-pass/SKILL.md)
    - **Use when**: Adding a new pass to the analysis pipeline (e.g. essentia, qwen, bpm_correction).
 
