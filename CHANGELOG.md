@@ -2,6 +2,22 @@
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.4] — 2026-06-04
+
+### Features
+
+- **Autotagging & Unified Tags UI**: Introduced a system to automatically emit namespace-prefixed tags from multiple analysis stages. Added a unified Tags section in the track detail pane displaying colored chips that filter the library on click. Includes synonym caching, prompt example cleanup, and instrument hallucination guards.
+- **Pipeline Metrics Database & Diagnostics Drawer**: Implemented automatic latency and status tracking per track/pass in a local `metrics.db`. Added a diagnostics drawer under Library Settings featuring average latency cards, a recent failures log, and a D3 Gantt trace view aggregated by pass for large libraries.
+- **Saved Search Smart Auto-Naming**: Automatically generates descriptive, human-readable names for saved searches based on active filters, complete with Vitest unit tests.
+- **Analysis Coverage Panel Stats**: Added detailed Qwen metadata coverage statistics to the library Analysis Coverage panel.
+
+### Fixes
+
+- **TrackList Pagination Reactivity Loop**: Resolved a bug where the TrackList pagination would reset unexpectedly due to a reactivity loop in the `selectedTrack` state effect.
+- **Duration Formatting in UI**: Replaced raw seconds with formatted `H:MM:SS` duration strings in the track list, and added millisecond formatting for sub-second durations in the metrics inspector.
+
+---
+
 ## [0.1.3] — 2026-06-03
 
 ### Features
