@@ -14,7 +14,10 @@ This document outlines the technical design and query flow to leverage local Qwe
 
 ## 2. Model Prompting & Pipeline Integration
 
-The current Qwen analysis pass in [qwen.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/analysis/qwen.rs#L271-L277) executes a multi-step conversation loop. We can add a 5th step specifically for creative tags.
+The current Qwen analysis pass in [qwen.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/analysis/qwen.rs#L271-L277) executes a multi-step conversation loop. Rather than asking a single general tagging question (which can result in generic or repetitive answers), we will split the query into focused questions targeting separate aspects:
+- **Vocals**: Identifying singer characteristics (e.g. `male vocal`, `female vocal`, `instrumental`, `duet`) and language (e.g. `english`, `spanish`, `instrumental`).
+- **Vibe/Atmosphere**: Creative descriptors of the emotional style and sonic atmosphere.
+- **Context/Era**: Suitable listening situations (e.g. `club`, `workout`, `sleep`) and estimated decade/release era.
 
 ### Proposed Step Configuration
 ```rust
@@ -23,8 +26,10 @@ let steps: Vec<(&str, Option<&str>)> = vec![
     ("mood", Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel")),
     ("instruments", Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments")),
     ("description", Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description")),
-    // New Step
-    ("tags", Some("Suggest 5 other descriptive tags (as a comma-separated list) that capture the vibe, atmosphere, or style of this song, ensuring they are not repetitions of what we have already discussed. Respond strictly in English in this format:\nTAGS: tag1, tag2, tag3, tag4, tag5")),
+    // Focused Aspect Tagging Steps:
+    ("tags_vibe", Some("Suggest 3 creative tags capturing the atmosphere, vibe, or style of this song, without repeating any genres, moods, instruments, or descriptions already discussed. Respond strictly in English in this format:\nVIBE_TAGS: tag1, tag2, tag3")),
+    ("tags_vocals", Some("Identify the singer voice type (e.g., male, female, instrumental, ensemble, choir) and lyrics language, without repeating any categories already discussed. Respond strictly in this format:\nVOCAL_TAGS: voice_type, language")),
+    ("tags_context", Some("Suggest 2 tags indicating suitable listening contexts (e.g. study, club, sleep, workout) and 1 tag indicating the estimated release decade/era, without repeating any categories already discussed. Respond strictly in this format:\nCONTEXT_TAGS: context1, context2, era_decade")),
 ];
 ```
 
