@@ -24,7 +24,7 @@
     error_message: string | null;
   }
 
-  interface TelemetrySummary {
+  interface MetricsSummary {
     latencies: LatencyStat[];
     recent_failures: PipelineMetricRow[];
   }
@@ -40,7 +40,7 @@
   }
 
   let activeTab = $state<"latency" | "traces" | "failures">("latency");
-  let summary = $state<TelemetrySummary>({ latencies: [], recent_failures: [] });
+  let summary = $state<MetricsSummary>({ latencies: [], recent_failures: [] });
   let traceSpans = $state<AggregatedPassSpan[]>([]);
   let isLoading = $state(false);
   let errorMessage = $state("");
@@ -86,7 +86,7 @@
     errorMessage = "";
     try {
       [summary, traceSpans] = await Promise.all([
-        invoke<TelemetrySummary>("get_telemetry_summary"),
+        invoke<MetricsSummary>("get_metrics_summary"),
         invoke<AggregatedPassSpan[]>("get_pipeline_run_traces"),
       ]);
       if (runs.length > 0 && !selectedRunId) {
@@ -262,7 +262,7 @@
   }
 </script>
 
-<div class="telemetry-panel">
+<div class="metrics-panel">
   <!-- Tabs Navigation -->
   <div class="tabs-nav">
     <button class="tab-btn" class:active={activeTab === "latency"} onclick={() => activeTab = "latency"}>Average Latencies</button>
@@ -442,7 +442,7 @@
 </div>
 
 <style>
-  .telemetry-panel {
+  .metrics-panel {
     display: flex;
     flex-direction: column;
     height: 600px;

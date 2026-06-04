@@ -158,8 +158,8 @@ pub fn run() {
             commands::playlists::remove_track_from_playlist_by_id,
             commands::playlists::export_m3u_playlist,
              commands::statistics::get_track_stats,
-             commands::telemetry::get_telemetry_summary,
-             commands::telemetry::get_pipeline_run_traces,
+             commands::metrics::get_metrics_summary,
+             commands::metrics::get_pipeline_run_traces,
          ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

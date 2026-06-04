@@ -200,13 +200,13 @@ The `run_id_spawn` variable is already declared near the top of the background t
 
 ## Metrics instrumentation
 
-Every pass automatically gets per-track metrics logged to the telemetry database via `crate::metrics_database::log_pipeline_metric(...)`. This is called inside the default `run_pass` implementation in `analysis/mod.rs` for passes that use `run_pass_pipeline`.
+Every pass automatically gets per-track metrics logged to the metrics database via `crate::metrics_database::log_pipeline_metric(...)`. This is called inside the default `run_pass` implementation in `analysis/mod.rs` for passes that use `run_pass_pipeline`.
 
 **Custom passes** (like `ClapPass` and `EssentiaPass`) that override `run_pass` must call `log_pipeline_metric` themselves at each success/failure site. See `src-tauri/src/analysis/clap.rs` for the pattern.
 
 The `run_id` parameter threads through the entire pipeline so that all spans from a single invocation share the same `run_id` in `pipeline_metrics`. Always forward `run_id` — never generate a new one inside a pass.
 
-To inspect the metrics after a run, see the `query-metrics-db` skill or use the in-app Telemetry Inspector (Library Settings → Inspect Telemetry & Traces).
+To inspect the metrics after a run, see the `query-metrics-db` skill or use the in-app Metrics Inspector (Library Settings → Inspect Pipeline Metrics).
 
 ---
 
@@ -216,5 +216,5 @@ To inspect the metrics after a run, see the `query-metrics-db` skill or use the 
 |---------|---------|-----|
 | Forgetting to register in `PASS_REGISTRY` | Pass is skipped, resets do not work, and sidecar does not back up your new fields | Append your pass `SPEC` to `PASS_REGISTRY` in `analysis/mod.rs` |
 | Performing DB queries inside `execute_job` | Locking issues or thread contention on heavy work | Load all needed fields upfront inside your `load_jobs` implementation |
-| Creating a new `run_id` inside a pass | Metrics for that pass appear as a separate run in the Telemetry Inspector | Forward the `run_id` passed into `run_pass` / `run_pass_pipeline` |
-| Overriding `run_pass` without calling `log_pipeline_metric` | Pass has no latency data in the Telemetry Inspector | Call `log_pipeline_metric` at every success/failure branch, like `ClapPass` does |
+| Creating a new `run_id` inside a pass | Metrics for that pass appear as a separate run in the Metrics Inspector | Forward the `run_id` passed into `run_pass` / `run_pass_pipeline` |
+| Overriding `run_pass` without calling `log_pipeline_metric` | Pass has no latency data in the Metrics Inspector | Call `log_pipeline_metric` at every success/failure branch, like `ClapPass` does |

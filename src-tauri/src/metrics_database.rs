@@ -20,7 +20,7 @@ impl MetricsDbManager {
             fs::create_dir_all(&log_dir).expect("Failed to create App Log Directory");
         }
 
-        let db_path = log_dir.join("telemetry.db");
+        let db_path = log_dir.join("metrics.db");
         MetricsDbManager { db_path }
     }
 

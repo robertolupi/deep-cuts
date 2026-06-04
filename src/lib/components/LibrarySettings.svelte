@@ -5,7 +5,7 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { player } from "$lib/stores/player.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
-  import TelemetryInspector from "./TelemetryInspector.svelte";
+  import MetricsInspector from "./MetricsInspector.svelte";
   import { onMount } from "svelte";
   import licenseText from "../../../LICENSE.md?raw";
 
@@ -83,7 +83,7 @@
   let sidecarEnabled = $state(false);
   let showModelDownloaderDrawer = $state(false);
   let showLicenseDrawer = $state(false);
-  let showTelemetryDrawer = $state(false);
+  let showMetricsDrawer = $state(false);
 
 
   async function loadModelPathSetting() {
@@ -363,11 +363,11 @@
       </div>
 
       <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.85rem; margin-top: 0.25rem; display: flex; flex-direction: column; gap: 8px;">
-        <button class="sg-btn sg-btn-primary" onclick={() => showTelemetryDrawer = true} style="width: 100%; justify-content: center;">
+        <button class="sg-btn sg-btn-primary" onclick={() => showMetricsDrawer = true} style="width: 100%; justify-content: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
           </svg>
-          Inspect Telemetry & Traces
+          Inspect Pipeline Metrics
         </button>
         <button class="sg-btn" onclick={openLogDir} style="width: 100%; justify-content: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -567,18 +567,18 @@
   </div>
 {/if}
 
-{#if showTelemetryDrawer}
-  <div class="drawer-overlay" onclick={() => { showTelemetryDrawer = false; }}>
+{#if showMetricsDrawer}
+  <div class="drawer-overlay" onclick={() => { showMetricsDrawer = false; }}>
     <div class="drawer-content" onclick={(e) => e.stopPropagation()} style="width: 850px; max-width: 95vw;">
       <div class="drawer-header">
         <div class="drawer-header-left">
-          <h3 class="drawer-title">Pipeline Diagnostics & Telemetry</h3>
+          <h3 class="drawer-title">Pipeline Metrics</h3>
           <p class="drawer-subtitle">Inspect performance traces, latency statistics, and diagnostic logs</p>
         </div>
-        <button class="drawer-close-btn" onclick={() => { showTelemetryDrawer = false; }}>×</button>
+        <button class="drawer-close-btn" onclick={() => { showMetricsDrawer = false; }}>×</button>
       </div>
       <div class="drawer-body" style="overflow-y: auto;">
-        <TelemetryInspector />
+        <MetricsInspector />
       </div>
     </div>
   </div>

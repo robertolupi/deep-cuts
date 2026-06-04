@@ -1,24 +1,24 @@
 ---
 name: query-metrics-db
-description: How to locate and query the deep-cuts telemetry/metrics SQLite database
+description: How to locate and query the deep-cuts pipeline metrics SQLite database
 ---
 
-# Querying the Metrics (Telemetry) Database
+# Querying the Pipeline Metrics Database
 
-The app maintains a second SQLite database — separate from the main library DB — that records pipeline performance metrics and system lifecycle events.
+The app maintains a second SQLite database — separate from the main library DB — that records pipeline performance metrics and system lifecycle events. All data stays on the local machine and is never transmitted.
 
 ---
 
 ## Database location
 
 ```
-~/Library/Logs/com.rlupi.deep-cuts/telemetry.db
+~/Library/Logs/com.rlupi.deep-cuts/metrics.db
 ```
 
 Store it in a shell variable to avoid retyping:
 
 ```bash
-TDB="$HOME/Library/Logs/com.rlupi.deep-cuts/telemetry.db"
+MDB="$HOME/Library/Logs/com.rlupi.deep-cuts/metrics.db"
 ```
 
 ---
@@ -33,7 +33,7 @@ One row per analysis pass execution (success or failure).
 |--------|------|-------------|
 | `id` | INTEGER | Auto-increment PK |
 | `run_id` | TEXT | Shared across all passes in a pipeline run (Unix ms timestamp as string) |
-| `track_id` | INTEGER | Anonymised track ID (no filenames stored) |
+| `track_id` | INTEGER | Track ID (no filenames stored) |
 | `pass_name` | TEXT | e.g. `audio_analysis`, `clap`, `essentia`, `qwen`, `description_embed` |
 | `status` | TEXT | `success` or `failed` |
 | `duration_ms` | INTEGER | Wall-clock time for just this pass on this track |
@@ -61,14 +61,14 @@ Pipeline lifecycle events.
 ### Recent pipeline runs
 
 ```bash
-sqlite3 "$TDB" ".headers on" ".mode column" \
+sqlite3 "$MDB" ".headers on" ".mode column" \
   "SELECT * FROM system_events ORDER BY id DESC LIMIT 20;"
 ```
 
 ### Pass latency summary (all time)
 
 ```bash
-sqlite3 "$TDB" ".headers on" ".mode column" "
+sqlite3 "$MDB" ".headers on" ".mode column" "
 SELECT pass_name, status,
        COUNT(*) as cnt,
        ROUND(AVG(duration_ms)/1000.0, 2) as avg_s,
@@ -83,7 +83,7 @@ ORDER BY pass_name, status;"
 
 ```bash
 RUN_ID="1780560383909"
-sqlite3 "$TDB" ".headers on" ".mode column" "
+sqlite3 "$MDB" ".headers on" ".mode column" "
 SELECT pass_name, track_id, status, duration_ms, audio_duration_sec
 FROM pipeline_metrics
 WHERE run_id = '$RUN_ID'
@@ -93,7 +93,7 @@ ORDER BY started_at;"
 ### Recent failures with error messages
 
 ```bash
-sqlite3 "$TDB" ".headers on" ".mode column" "
+sqlite3 "$MDB" ".headers on" ".mode column" "
 SELECT pass_name, track_id, error_message, datetime(started_at/1000, 'unixepoch') as started
 FROM pipeline_metrics
 WHERE status = 'failed'
@@ -103,7 +103,7 @@ ORDER BY id DESC LIMIT 20;"
 ### Real-time speed ratio (audio processed per second of wall clock)
 
 ```bash
-sqlite3 "$TDB" ".headers on" ".mode column" "
+sqlite3 "$MDB" ".headers on" ".mode column" "
 SELECT pass_name,
        ROUND(AVG(audio_duration_sec / (duration_ms / 1000.0)), 1) as avg_realtime_ratio
 FROM pipeline_metrics
@@ -116,8 +116,8 @@ GROUP BY pass_name;"
 ## Safety notes
 
 - **Do not write to the DB while the app is running.** External writes can corrupt in-flight WAL transactions.
-- The metrics DB grows unboundedly — clear it via the **Privacy & Raw JSON** tab in the Telemetry Inspector (Library Settings → Inspect Telemetry & Traces → Privacy & Raw JSON → Clear Telemetry), or with:
+- The metrics DB grows unboundedly — clear it with:
 
 ```bash
-sqlite3 "$TDB" "DELETE FROM pipeline_metrics; DELETE FROM system_events;"
+sqlite3 "$MDB" "DELETE FROM pipeline_metrics; DELETE FROM system_events;"
 ```

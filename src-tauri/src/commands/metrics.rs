@@ -35,13 +35,13 @@ pub struct SystemEventRow {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct TelemetrySummary {
+pub struct MetricsSummary {
     pub latencies: Vec<LatencyStat>,
     pub recent_failures: Vec<PipelineMetricRow>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct RawTelemetryPayload {
+pub struct RawMetricsPayload {
     pub pipeline_metrics: Vec<PipelineMetricRow>,
     pub system_events: Vec<SystemEventRow>,
 }
@@ -58,12 +58,11 @@ pub struct AggregatedPassSpan {
 }
 
 #[tauri::command]
-pub fn get_telemetry_summary(
+pub fn get_metrics_summary(
     state: tauri::State<'_, MetricsState>,
-) -> Result<TelemetrySummary, AppError> {
+) -> Result<MetricsSummary, AppError> {
     let conn = state.0.lock().map_err(|_| AppError::Generic("Metrics lock poisoned".to_string()))?;
 
-    // 1. Get average latencies
     let mut stmt = conn.prepare(
         "SELECT pass_name, AVG(duration_ms) as avg_dur, MIN(duration_ms) as min_dur, MAX(duration_ms) as max_dur, COUNT(*) as cnt
          FROM pipeline_metrics
@@ -83,7 +82,6 @@ pub fn get_telemetry_summary(
     .filter_map(|r| r.ok())
     .collect();
 
-    // 2. Get recent failures
     let mut stmt = conn.prepare(
         "SELECT id, run_id, track_id, pass_name, status, duration_ms, started_at, ended_at, audio_duration_sec, error_message
          FROM pipeline_metrics
@@ -109,19 +107,17 @@ pub fn get_telemetry_summary(
     .filter_map(|r| r.ok())
     .collect();
 
-    Ok(TelemetrySummary {
+    Ok(MetricsSummary {
         latencies,
         recent_failures,
     })
 }
 
-#[tauri::command]
-pub fn get_raw_telemetry_payload(
-    state: tauri::State<'_, MetricsState>,
-) -> Result<RawTelemetryPayload, AppError> {
-    let conn = state.0.lock().map_err(|_| AppError::Generic("Metrics lock poisoned".to_string()))?;
-
-    // 1. Get all pipeline metrics
+/// Debug-only: not registered as a Tauri command; query via sqlite3 CLI instead.
+#[allow(dead_code)]
+pub fn get_raw_metrics_payload(
+    conn: &rusqlite::Connection,
+) -> Result<RawMetricsPayload, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, run_id, track_id, pass_name, status, duration_ms, started_at, ended_at, audio_duration_sec, error_message
          FROM pipeline_metrics
@@ -145,7 +141,6 @@ pub fn get_raw_telemetry_payload(
     .filter_map(|r| r.ok())
     .collect();
 
-    // 2. Get all system events
     let mut stmt = conn.prepare(
         "SELECT id, event_type, details, duration_ms, created_at
          FROM system_events
@@ -164,7 +159,7 @@ pub fn get_raw_telemetry_payload(
     .filter_map(|r| r.ok())
     .collect();
 
-    Ok(RawTelemetryPayload {
+    Ok(RawMetricsPayload {
         pipeline_metrics,
         system_events,
     })
@@ -204,4 +199,3 @@ pub fn get_pipeline_run_traces(
 
     Ok(spans)
 }
-
