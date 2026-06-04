@@ -271,10 +271,13 @@ impl super::AnalysisPass for QwenPass {
 
             // (step_name, follow-up prompt — None reuses the initial message, tag_namespace — Some emits tags)
             let steps: Vec<(&str, Option<&str>, Option<&str>)> = vec![
-                ("genre",       None,       Some("genre")),
-                ("mood",        Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),        Some("mood")),
-                ("instruments", Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"), Some("inst")),
-                ("description", Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),         None),
+                ("genre",        None,        Some("genre")),
+                ("mood",         Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),                                                                                                                Some("mood")),
+                ("instruments",  Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),                                                                                                            Some("inst")),
+                ("description",  Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                  None),
+                ("tags_vibe",    Some("Suggest 3 creative tags capturing the atmosphere, vibe, or style of this song, without repeating any genres, moods, instruments, or descriptions already discussed. Respond strictly in English in this format:\nVIBE_TAGS: ethereal, hypnotic, raw"),              Some("vibe")),
+                ("tags_vocals",  Some("Identify the singer voice type (e.g. male, female, instrumental, ensemble, choir) and the lyrics language (e.g. english, spanish, instrumental), without repeating categories already discussed. Respond strictly in this format:\nVOCAL_TAGS: male, english"), Some("vocal")),
+                ("tags_context", Some("Suggest 2 tags for suitable listening contexts (e.g. study, club, sleep, workout) and 1 tag for the estimated release decade (e.g. 1980s, 2000s), without repeating categories already discussed. Respond strictly in this format:\nCONTEXT_TAGS: study, workout, 1990s"), Some("context")),
             ];
 
             let mut all_steps_ok = true;
@@ -583,10 +586,13 @@ fn is_invalid_description(desc: &str) -> bool {
 ///   "Genre Electronic, Pop"   |  "**Genres**: Electronic, Pop"
 fn strip_label_prefix(content: &str, step_name: &str) -> String {
     let label = match step_name {
-        "genre"       => "genre",
-        "mood"        => "mood",
-        "instruments" => "instrument", // matches both "instrument" and "instruments"
-        "description" => "description",
+        "genre"        => "genre",
+        "mood"         => "mood",
+        "instruments"  => "instrument", // matches both "instrument" and "instruments"
+        "description"  => "description",
+        "tags_vibe"    => "vibe_tag",   // matches "vibe_tags", "vibe_tag"
+        "tags_vocals"  => "vocal_tag",  // matches "vocal_tags", "vocal_tag"
+        "tags_context" => "context_tag", // matches "context_tags", "context_tag"
         _ => return content.trim().to_string(),
     };
 
@@ -632,6 +638,8 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
     if step_name == "description" {
         return stripped;
     }
+    // Tags steps use the same cleaning pipeline as genre/mood/inst
+    // (no special-casing needed beyond what follows)
 
     let cleaned = stripped.to_lowercase();
 
@@ -731,6 +739,9 @@ fn clean_qwen_tags(content: &str, step_name: &str) -> String {
     ];
 
     const STOPWORDS: &[&str] = &[
+        // Format placeholder echoes from prompt templates
+        "tag1", "tag2", "tag3", "context1", "context2", "decade",
+        "voice_type", "language", "era_decade",
         "the", "a", "an", "and", "or", "in", "of", "on", "at", "by", "for", "with",
         "about", "to", "this", "that", "it", "is", "are", "was", "were", "be",
         "been", "being", "belongs", "belong", "consists", "consist", "features",

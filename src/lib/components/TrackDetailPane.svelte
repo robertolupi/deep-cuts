@@ -61,7 +61,24 @@
   } : null);
 
   const hasMoods = $derived(trackMood != null && Object.values(trackMood).some(v => v != null));
-  const hasAi    = $derived(!!track?.description || !!track?.ai_genre || !!track?.ai_mood);
+
+  // Map a tag's namespace prefix to a { color, bg, border } theme
+  function tagTheme(tag: string): { color: string; bg: string; border: string } {
+    const prefix = tag.split(':')[0];
+    switch (prefix) {
+      case 'genre':     return { color: '#fe00fe', bg: 'rgba(254,0,254,0.08)',   border: 'rgba(254,0,254,0.35)' };
+      case 'mood':      return { color: '#c87800', bg: 'rgba(200,120,0,0.10)',   border: 'rgba(200,120,0,0.40)' };
+      case 'inst':      return { color: '#00f0ff', bg: 'rgba(0,240,255,0.07)',   border: 'rgba(0,240,255,0.30)' };
+      case 'vibe':      return { color: '#ff9f1c', bg: 'rgba(255,159,28,0.08)',  border: 'rgba(255,159,28,0.35)' };
+      case 'vocal':     return { color: '#9b5de5', bg: 'rgba(155,93,229,0.08)', border: 'rgba(155,93,229,0.35)' };
+      case 'context':   return { color: '#00bbf9', bg: 'rgba(0,187,249,0.07)',  border: 'rgba(0,187,249,0.30)' };
+      case 'bpm':       return { color: '#fee440', bg: 'rgba(254,228,64,0.07)', border: 'rgba(254,228,64,0.30)' };
+      case 'key':       return { color: '#00f5d4', bg: 'rgba(0,245,212,0.07)',  border: 'rgba(0,245,212,0.30)' };
+      case 'mastering': return { color: '#849495', bg: 'rgba(132,148,149,0.07)', border: 'rgba(132,148,149,0.25)' };
+      case 'len':       return { color: '#849495', bg: 'rgba(132,148,149,0.07)', border: 'rgba(132,148,149,0.25)' };
+      default:          return { color: '#fe00fe', bg: 'rgba(254,0,254,0.08)',   border: 'rgba(254,0,254,0.35)' };
+    }
+  }
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');
 
   const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'clap', 'essentia', 'bpm_refinement', 'qwen', 'description_embed'];
@@ -183,46 +200,29 @@
         {/if}
       </div>
 
-      <!-- AI description (Studio Pink) -->
-      {#if hasAi}
+      <!-- Tags (all sources, colored by namespace prefix) -->
+      {#if trackTags.length > 0}
         <div class="section">
           <div class="section-header ai-header">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2a9 9 0 0 1 9 9c0 3.18-1.65 5.97-4.13 7.6L17 21H7l.13-2.4A9 9 0 0 1 3 11a9 9 0 0 1 9-9z"/>
-              <line x1="9" y1="9" x2="9.01" y2="9"/>
+              <line x1="9" y1="9" x2="15.01" y2="9"/>
               <line x1="15" y1="9" x2="15.01" y2="9"/>
               <path d="M9 13a3 3 0 0 0 6 0"/>
             </svg>
-            <span class="section-label ai-label">AI DESCRIPTION</span>
+            <span class="section-label ai-label">TAGS</span>
           </div>
-          {#if track.description}
-            <p class="ai-prose">{track.description}</p>
-          {/if}
-          {#if track.ai_genre || track.ai_mood || track.ai_instruments}
-            <div class="ai-tags">
-              {#if track.ai_genre}
-                {#each track.ai_genre.split(',') as genre}
-                  {#if genre.trim()}
-                    <span class="ai-tag ai-tag-genre">{genre.trim()}</span>
-                  {/if}
-                {/each}
-              {/if}
-              {#if track.ai_mood}
-                {#each track.ai_mood.split(',') as mood}
-                  {#if mood.trim()}
-                    <span class="ai-tag ai-tag-mood">{mood.trim()}</span>
-                  {/if}
-                {/each}
-              {/if}
-              {#if track.ai_instruments}
-                {#each track.ai_instruments.split(',') as inst}
-                  {#if inst.trim()}
-                    <span class="ai-tag ai-tag-instrument">{inst.trim()}</span>
-                  {/if}
-                {/each}
-              {/if}
-            </div>
-          {/if}
+          <div class="ai-tags">
+            {#each trackTags as tag}
+              {@const theme = tagTheme(tag)}
+              <button
+                class="detail-tag-chip"
+                style="color:{theme.color};background:{theme.bg};border-color:{theme.border}"
+                title="Filter by {tag}"
+                onclick={() => { filters.searchQuery = tag; ui.activeView = 'table'; }}
+              >{tag.split(':').slice(1).join(':')}<span class="tag-ns">{tag.split(':')[0]}</span></button>
+            {/each}
+          </div>
         </div>
       {/if}
 
@@ -264,22 +264,6 @@
                 </span>
               </div>
             {/if}
-          </div>
-        </div>
-      {/if}
-
-      <!-- Tags -->
-      {#if trackTags.length > 0}
-        <div class="section">
-          <span class="section-label">TAGS</span>
-          <div class="tags-wrap">
-            {#each trackTags as tag}
-              <button
-                class="detail-tag-chip"
-                title="Filter by {tag}"
-                onclick={() => { filters.searchQuery = tag; ui.activeView = 'table'; }}
-              >{tag}</button>
-            {/each}
           </div>
         </div>
       {/if}
@@ -645,58 +629,30 @@
     gap: 4px;
   }
 
-  .ai-tag {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    padding: 2px 7px;
-    border-radius: 999px;
-  }
-
-  /* genre — Studio Pink */
-  .ai-tag-genre {
-    border: 1px solid rgba(254,0,254,0.35);
-    color: var(--sg-secondary, #fe00fe);
-    background: rgba(254,0,254,0.08);
-  }
-
-  /* mood — amber/warm */
-  .ai-tag-mood {
-    border: 1px solid rgba(200,120,0,0.45);
-    color: #c87800;
-    background: rgba(200,120,0,0.1);
-  }
-
-  /* instruments — Cyber Cyan */
-  .ai-tag-instrument {
-    border: 1px solid rgba(0,240,255,0.3);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.07);
-  }
-
-  /* ── Tags section ── */
-  .tags-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
   .detail-tag-chip {
     font-family: "JetBrains Mono", monospace;
     font-size: 9px;
     font-weight: 600;
-    padding: 3px 8px;
+    padding: 2px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(254, 0, 254, 0.3);
-    color: var(--sg-secondary, #fe00fe);
-    background: rgba(254, 0, 254, 0.07);
+    border: 1px solid;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
+    transition: filter 0.12s;
     letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .detail-tag-chip:hover {
-    background: rgba(254, 0, 254, 0.15);
-    border-color: rgba(254, 0, 254, 0.6);
+    filter: brightness(1.25);
+  }
+
+  /* Dimmed namespace prefix shown after the label */
+  .tag-ns {
+    font-size: 8px;
+    opacity: 0.5;
+    font-weight: 400;
   }
 
   /* ── Mood radar ── */

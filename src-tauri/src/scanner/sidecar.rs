@@ -11,7 +11,7 @@ pub mod pass_version {
     pub const ESSENTIA: u32 = 1;
     pub const BPM_CORRECTION: u32 = 1;
     pub const BPM_REFINEMENT: u32 = 1;
-    pub const QWEN: u32 = 1;
+    pub const QWEN: u32 = 2;
     pub const DESCRIPTION_EMBED: u32 = 1;
 }
 
