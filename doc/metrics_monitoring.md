@@ -68,8 +68,20 @@ In cloud architectures, Prometheus pulls metrics via HTTP endpoints. For a deskt
 
 ---
 
-## 4. Diagnostics Export Flow
+## 4. Diagnostics Export & Interactive Inspection Modal
 
-To assist developers in debugging issues, we will add a utility under "Library Settings" in the UI:
-1. **Export Telemetry Button**: Zips the `telemetry.db` and the standard log files (`app.log`) into a single file: `deep_cuts_diagnostics_[date].zip`.
-2. **Review Dialog**: Displays the exact JSON content of the metrics to the user first to guarantee that no private filenames or track metadata are leaked before export.
+To reassure privacy-minded users and provide transparency, the diagnostic flow includes an interactive **Telemetry Inspector Dialog** in the settings panel:
+
+### 1. Transparency & Inspection
+* Before exporting the diagnostics bundle, clicking **"Inspect Telemetry Database"** opens a modal displaying the exact raw data stored in `telemetry.db` in a scrollable, syntax-highlighted JSON viewer.
+* **Privacy Assurance**: The viewer demonstrates that the database stores only numeric durations, status codes, and anonymized metrics — **no file paths, music metadata (titles, artist names), or private content keys** are leaked.
+
+### 2. Predefined Metric Views
+Instead of exposing a generic SQL query interface, the modal provides simple, tabbed preset views of the diagnostic data:
+- **Average Latency**: Displays a clean table of average execution durations grouped by pass name.
+- **Failures & Errors**: Shows a list of recent failed passes along with their specific error messages.
+- **Raw Payload**: Shows the exact raw JSON object that will be packaged into the diagnostic bundle.
+
+### 3. Verification & Export
+Once the user reviews the exact metrics and confirms that the log files are clean, they can click **"Approve & Export Diagnostics Zip"** to download the bundle.
+
