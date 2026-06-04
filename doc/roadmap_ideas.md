@@ -83,12 +83,11 @@ Record user humming or mumbling via `getUserMedia` and match it against the libr
 
 ---
 
-## 9. BPM Detection Improvements
+## 9. BPM Detection Improvements ✅
 
-### Concept
-Address octave errors and envelope pollution in ambient intros, vocals, or spoken-word segments:
-- **Block Slicing & Voting**: Slice audio into 10-second segments, ignore silent/ambient zones via a silence mask, run autocorrelation, and let blocks vote on the tempo.
-- **Fuzzy Genre Post-Correction**: Refactor hard thresholds to Gaussian probability profiles matching genres (e.g., Essentia, Qwen, or iTunes style metadata) to select the correct multiplier (half/double/raw).
+### Status
+- **Block Slicing & Voting**: Implemented in `src-tauri/src/dsp.rs` — audio sliced into 10-second blocks, silent/ambient blocks filtered by RMS energy, autocorrelation aggregated globally, with a fallback that re-runs without block filtering if no active blocks are found.
+- **Fuzzy Genre Post-Correction**: Implemented in `src-tauri/src/bpm.rs` via `genre_bpm_profile()` (centroid + std_dev per genre) and `correct_bpm()` (Gaussian scoring of raw/half/double candidates). Applied in two passes: `bpm_correction` (iTunes-style `genre`) and `bpm_refinement` (Essentia `detected_genre`).
 
 ---
 
