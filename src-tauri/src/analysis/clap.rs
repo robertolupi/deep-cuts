@@ -366,6 +366,17 @@ impl super::AnalysisPass for ClapPass {
             let _ = h.join();
         }
 
+        // ── Batch concept tagging ─────────────────────────────────────────────
+        // Run over all stored audio embeddings (not just this batch) so z-scores
+        // reflect the full library distribution.
+        log::info!("[clap] Starting concept tagging pass…");
+        {
+            let conn = super::lock_analysis_conn(conn_arc, self.name())?;
+            if let Err(e) = run_concept_tagging(&conn, app) {
+                log::error!("[clap] Concept tagging failed: {}", e);
+            }
+        }
+
         let _ = app.emit(
             "analysis-phase-complete",
             serde_json::json!({ "pass": self.name() }),
@@ -382,7 +393,200 @@ impl ClapPass {
         dependencies: &["audio_analysis"],
         owned_columns: &[],
         owned_tables: &["audio_embeddings", "track_coords"],
-        owned_tag_sources: &[],
+        owned_tag_sources: &["clap"],
         custom_reset: None,
     };
+}
+
+// ── Concept tagging ───────────────────────────────────────────────────────────
+
+/// Maps AudioSet label → (namespace, tag_label) in the existing tag taxonomy.
+const CONCEPT_MAP: &[(&str, &str, &str)] = &[
+    // Instruments
+    ("Acoustic guitar",                      "inst",  "acoustic guitar"),
+    ("Electric guitar",                      "inst",  "electric guitar"),
+    ("Bass guitar",                          "inst",  "bass guitar"),
+    ("Double bass",                          "inst",  "double bass"),
+    ("Steel guitar, slide guitar",           "inst",  "slide guitar"),
+    ("Plucked string instrument",            "inst",  "plucked string"),
+    ("Bowed string instrument",              "inst",  "bowed string"),
+    ("String section",                       "inst",  "strings"),
+    ("Violin, fiddle",                       "inst",  "violin"),
+    ("Cello",                                "inst",  "cello"),
+    ("Piano",                                "inst",  "piano"),
+    ("Electric piano",                       "inst",  "electric piano"),
+    ("Keyboard (musical)",                   "inst",  "keyboard"),
+    ("Hammond organ",                        "inst",  "hammond organ"),
+    ("Electronic organ",                     "inst",  "electronic organ"),
+    ("Organ",                                "inst",  "organ"),
+    ("Synthesizer",                          "inst",  "synthesizer"),
+    ("Drum kit",                             "inst",  "drums"),
+    ("Drum machine",                         "inst",  "drum machine"),
+    ("Bass drum",                            "inst",  "bass drum"),
+    ("Snare drum",                           "inst",  "snare"),
+    ("Hi-hat",                               "inst",  "hi-hat"),
+    ("Cymbal",                               "inst",  "cymbal"),
+    ("Percussion",                           "inst",  "percussion"),
+    ("Mallet percussion",                    "inst",  "mallet percussion"),
+    ("Vibraphone",                           "inst",  "vibraphone"),
+    ("Trumpet",                              "inst",  "trumpet"),
+    ("Brass instrument",                     "inst",  "brass"),
+    ("Wind instrument, woodwind instrument", "inst",  "woodwind"),
+    ("Flute",                                "inst",  "flute"),
+    ("Saxophone",                            "inst",  "saxophone"),
+    ("Harmonica",                            "inst",  "harmonica"),
+    ("Harpsichord",                          "inst",  "harpsichord"),
+    ("Tapping (guitar technique)",           "inst",  "guitar tapping"),
+    ("Singing bowl",                         "inst",  "singing bowl"),
+    // Vocals
+    ("Male singing",                         "vocal", "male"),
+    ("Female singing",                       "vocal", "female"),
+    ("Child singing",                        "vocal", "child"),
+    ("Choir",                                "vocal", "choir"),
+    ("Singing",                              "vocal", "singing"),
+    ("Vocal music",                          "vocal", "vocals"),
+    ("Synthetic singing",                    "vocal", "synthetic"),
+    ("Beatboxing",                           "vocal", "beatbox"),
+    ("Opera",                                "vocal", "opera"),
+    ("Chant",                                "vocal", "chant"),
+    ("Humming",                              "vocal", "humming"),
+    ("Whistling",                            "vocal", "whistling"),
+    ("Yodeling",                             "vocal", "yodeling"),
+    ("Rapping",                              "vocal", "rap"),
+    // Feel
+    ("Angry music",                          "feel",  "angry"),
+    ("Happy music",                          "feel",  "happy"),
+    ("Sad music",                            "feel",  "sad"),
+    ("Scary music",                          "feel",  "scary"),
+    ("Tender music",                         "feel",  "tender"),
+    ("Exciting music",                       "feel",  "exciting"),
+    ("Funny music",                          "feel",  "funny"),
+];
+
+const CONCEPT_TEMPLATES: [&str; 3] = [
+    "a song featuring {}",
+    "music with {}",
+    "{}",
+];
+
+const ZSCORE_THRESHOLD: f32 = 1.5;
+const MAX_TAGS_PER_TRACK: usize = 15;
+
+/// Embed a single concept by averaging over the three prompt templates.
+fn embed_concept(concept: &str, app: &tauri::AppHandle) -> Result<Vec<f32>, String> {
+    let mut sum = vec![0.0f32; 512];
+    for tmpl in &CONCEPT_TEMPLATES {
+        let text = tmpl.replace("{}", concept);
+        let emb = embeddings::run_clap_text_embed(&text, Some(app))?;
+        for (s, v) in sum.iter_mut().zip(emb.iter()) {
+            *s += v;
+        }
+    }
+    let norm: f32 = sum.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for s in &mut sum {
+            *s /= norm;
+        }
+    }
+    Ok(sum)
+}
+
+/// Run CLAP concept tagging over all tracks that have audio embeddings.
+/// Z-scores similarities per concept across the library and writes tags
+/// with source='clap' for tracks that exceed the threshold.
+pub fn run_concept_tagging(conn: &Connection, app: &tauri::AppHandle) -> Result<(), String> {
+    log::info!("[clap] Loading audio embeddings for concept tagging…");
+
+    // Load all (track_id, embedding) pairs
+    let mut stmt = conn.prepare(
+        "SELECT track_id, embedding FROM audio_embeddings"
+    ).map_err(|e| e.to_string())?;
+
+    let rows: Vec<(i64, Vec<f32>)> = stmt
+        .query_map([], |row| {
+            let track_id: i64 = row.get(0)?;
+            let blob: Vec<u8> = row.get(1)?;
+            Ok((track_id, blob))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .filter_map(|(tid, blob)| {
+            if blob.len() == 512 * 4 {
+                let mut v: Vec<f32> = blob.chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect();
+                let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                if norm > 0.0 { for x in &mut v { *x /= norm; } }
+                Some((tid, v))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if rows.is_empty() {
+        log::info!("[clap] No audio embeddings found — skipping concept tagging");
+        return Ok(());
+    }
+
+    let track_ids: Vec<i64> = rows.iter().map(|(tid, _)| *tid).collect();
+    let audio_mat: Vec<&Vec<f32>> = rows.iter().map(|(_, v)| v).collect();
+    let n = track_ids.len();
+    let m = CONCEPT_MAP.len();
+
+    log::info!("[clap] Embedding {} concepts for {} tracks…", m, n);
+
+    // sim_matrix[i * m + j] = similarity of track i to concept j
+    let mut sim_matrix = vec![0.0f32; n * m];
+    for (j, (concept_label, _, _)) in CONCEPT_MAP.iter().enumerate() {
+        match embed_concept(concept_label, app) {
+            Ok(cvec) => {
+                for (i, audio_v) in audio_mat.iter().enumerate() {
+                    let dot: f32 = audio_v.iter().zip(cvec.iter()).map(|(a, b)| a * b).sum();
+                    sim_matrix[i * m + j] = dot;
+                }
+            }
+            Err(e) => {
+                log::warn!("[clap] Failed to embed concept '{}': {}", concept_label, e);
+            }
+        }
+    }
+
+    // Z-score per concept (column)
+    let mut z_matrix = sim_matrix.clone();
+    for j in 0..m {
+        let col: Vec<f32> = (0..n).map(|i| sim_matrix[i * m + j]).collect();
+        let mean = col.iter().sum::<f32>() / n as f32;
+        let variance = col.iter().map(|x| (x - mean) * (x - mean)).sum::<f32>() / n as f32;
+        let std = variance.sqrt() + 1e-9;
+        for i in 0..n {
+            z_matrix[i * m + j] = (sim_matrix[i * m + j] - mean) / std;
+        }
+    }
+
+    // Wipe all existing clap-source tags
+    conn.execute("DELETE FROM track_tags WHERE source = 'clap'", [])
+        .map_err(|e| e.to_string())?;
+
+    // Write new tags
+    let mut total_tags = 0usize;
+    for (i, &track_id) in track_ids.iter().enumerate() {
+        // Collect all concepts above threshold, sorted by z-score descending
+        let mut above: Vec<(usize, f32)> = (0..m)
+            .filter_map(|j| {
+                let z = z_matrix[i * m + j];
+                if z >= ZSCORE_THRESHOLD { Some((j, z)) } else { None }
+            })
+            .collect();
+        above.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        for (j, _) in above.into_iter().take(MAX_TAGS_PER_TRACK) {
+            let (_, ns, label) = CONCEPT_MAP[j];
+            super::upsert_track_tag(conn, track_id, ns, label, "clap")?;
+            total_tags += 1;
+        }
+    }
+
+    log::info!("[clap] Concept tagging done — {} tags written across {} tracks", total_tags, n);
+    Ok(())
 }

@@ -7,7 +7,7 @@ pub const SUFFIX: &str = ".dc.json";
 /// Current algorithm/model version for each analysis pass.
 pub mod pass_version {
     pub const AUDIO_ANALYSIS: u32 = 1;
-    pub const CLAP: u32 = 2;
+    pub const CLAP: u32 = 3;
     pub const ESSENTIA: u32 = 1;
     pub const BPM_CORRECTION: u32 = 1;
     pub const BPM_REFINEMENT: u32 = 1;

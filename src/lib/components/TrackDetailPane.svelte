@@ -201,6 +201,13 @@
       </div>
 
       <!-- Tags (all sources, colored by namespace prefix) -->
+      {#if track.description}
+        <div class="section">
+          <span class="section-label ai-label">DESCRIPTION</span>
+          <p class="ai-prose">{track.description}</p>
+        </div>
+      {/if}
+
       {#if trackTags.length > 0}
         <div class="section">
           <div class="section-header ai-header">

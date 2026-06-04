@@ -386,7 +386,7 @@ impl super::AnalysisPass for QwenPass {
             }
 
             // ── CLAP tag validation ──────────────────────────────────────────────
-            // Load tags written by the clap_concepts pass and ask qwen to confirm.
+            // Load tags written by the clap pass and ask qwen to confirm.
             // This is a cheap text-only follow-up — audio is already parsed above.
             let mut confirmed_clap_tags: Vec<String> = Vec::new();
             let clap_tags_for_track: Vec<String> = if let Some(conn_mutex) =
@@ -396,7 +396,7 @@ impl super::AnalysisPass for QwenPass {
                     conn.prepare(
                         "SELECT tg.name FROM track_tags tt
                          JOIN tags tg ON tg.id = tt.tag_id
-                         WHERE tt.track_id = ?1 AND tt.source = 'clap_concepts'
+                         WHERE tt.track_id = ?1 AND tt.source = 'clap'
                          ORDER BY tg.name",
                     )
                     .and_then(|mut stmt| {
@@ -587,15 +587,15 @@ impl super::AnalysisPass for QwenPass {
             super::upsert_track_tag(conn, job.track_id, namespace, label, "qwen")?;
         }
 
-        // Wipe previous clap_concepts tags and rewrite only the ones qwen confirmed
+        // Wipe previous clap tags and rewrite only the ones qwen confirmed
         conn.execute(
-            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'clap_concepts'",
+            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'clap'",
             rusqlite::params![job.track_id],
         ).map_err(|e| e.to_string())?;
 
         for tag in &output.confirmed_clap_tags {
             if let Some((ns, label)) = tag.split_once(':') {
-                super::upsert_track_tag(conn, job.track_id, ns, label, "clap_concepts")?;
+                super::upsert_track_tag(conn, job.track_id, ns, label, "clap")?;
             }
         }
 
@@ -656,7 +656,7 @@ pub struct QwenOutput {
     pub parsed: ParsedQwenResponse,
     /// Tags accumulated from steps that declare a namespace: (namespace, label).
     pub tags: Vec<(String, String)>,
-    /// clap_concepts tags confirmed by qwen as correct (stored as "ns:label").
+    /// clap tags confirmed by qwen as correct (stored as "ns:label").
     pub confirmed_clap_tags: Vec<String>,
     pub raw_response: String,
 }

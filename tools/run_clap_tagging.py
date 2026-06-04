@@ -11,7 +11,7 @@ and tag a track if its z-score exceeds a threshold. This means ubiquitous
 concepts (e.g. "Drum") only tag tracks that are *particularly* drum-heavy,
 not every song.
 
-Results are written to the DB as source='clap_concepts', tag name '<namespace>:<label>'
+Results are written to the DB as source='clap', tag name '<namespace>:<label>'
 where namespace is one of: inst, vocal, genre, feel — matching the existing tag taxonomy.
 
 Usage:
@@ -89,50 +89,6 @@ CONCEPT_MAP: dict[str, tuple[str, str]] = {
     "Whistling":                          ("vocal", "whistling"),
     "Yodeling":                           ("vocal", "yodeling"),
     "Rapping":                            ("vocal", "rap"),
-    # ── Genre ───────────────────────────────────────────────────────────────
-    "Blues":                              ("genre", "blues"),
-    "Jazz":                               ("genre", "jazz"),
-    "Swing music":                        ("genre", "swing"),
-    "Rock music":                         ("genre", "rock"),
-    "Rock and roll":                      ("genre", "rock and roll"),
-    "Progressive rock":                   ("genre", "progressive rock"),
-    "Psychedelic rock":                   ("genre", "psychedelic rock"),
-    "Punk rock":                          ("genre", "punk"),
-    "Heavy metal":                        ("genre", "heavy metal"),
-    "Folk music":                         ("genre", "folk"),
-    "Gospel music":                       ("genre", "gospel"),
-    "Christian music":                    ("genre", "christian"),
-    "Soul music":                         ("genre", "soul"),
-    "Funk":                               ("genre", "funk"),
-    "Rhythm and blues":                   ("genre", "r&b"),
-    "Reggae":                             ("genre", "reggae"),
-    "Hip hop music":                      ("genre", "hip hop"),
-    "Disco":                              ("genre", "disco"),
-    "Dance music":                        ("genre", "dance"),
-    "Electronic music":                   ("genre", "electronic"),
-    "Electronic dance music":             ("genre", "edm"),
-    "Electronica":                        ("genre", "electronica"),
-    "Techno":                             ("genre", "techno"),
-    "House music":                        ("genre", "house"),
-    "Trance music":                       ("genre", "trance"),
-    "Drum and bass":                      ("genre", "drum and bass"),
-    "Classical music":                    ("genre", "classical"),
-    "Ambient music":                      ("genre", "ambient"),
-    "New-age music":                      ("genre", "new age"),
-    "Carnatic music":                     ("genre", "carnatic"),
-    "Salsa music":                        ("genre", "salsa"),
-    "Music of Latin America":             ("genre", "latin"),
-    "Music of Africa":                    ("genre", "african"),
-    "Music of Asia":                      ("genre", "asian"),
-    "Music of Bollywood":                 ("genre", "bollywood"),
-    "Afrobeat":                           ("genre", "afrobeat"),
-    "Flamenco":                           ("genre", "flamenco"),
-    "Middle Eastern music":               ("genre", "middle eastern"),
-    "Traditional music":                  ("genre", "traditional"),
-    "Video game music":                   ("genre", "video game"),
-    "Soundtrack music":                   ("genre", "soundtrack"),
-    "Lullaby":                            ("genre", "lullaby"),
-    "Drum and bass":                      ("genre", "drum and bass"),
     # ── Feel ────────────────────────────────────────────────────────────────
     "Angry music":                        ("feel", "angry"),
     "Happy music":                        ("feel", "happy"),
@@ -246,7 +202,7 @@ def upsert_tag(conn, track_id: int, tag_name: str):
     tag_id = conn.execute("SELECT id FROM tags WHERE name = ?", (tag_name,)).fetchone()[0]
     conn.execute(
         """INSERT OR REPLACE INTO track_tags (track_id, tag_id, source)
-           VALUES (?, ?, 'clap_concepts')""",
+           VALUES (?, ?, 'clap')""",
         (track_id, tag_id),
     )
 
@@ -347,7 +303,7 @@ def main():
 
     # Write to DB
     print("\nWriting tags to DB…")
-    conn.execute("DELETE FROM track_tags WHERE source = 'clap_concepts'")
+    conn.execute("DELETE FROM track_tags WHERE source = 'clap'")
     for tid, tags in tags_per_track.items():
         for tag in tags:
             upsert_tag(conn, tid, tag)

@@ -92,7 +92,7 @@ Respond ONLY with valid JSON in exactly this format, no prose:
 # ── Database helpers ──────────────────────────────────────────────────────────
 
 def load_track_data(audio_path: Path) -> dict | None:
-    """Return qwen + clap_concepts tags and debug fields for the track at audio_path."""
+    """Return qwen + clap tags and debug fields for the track at audio_path."""
     try:
         import sqlite_vec
         conn = sqlite3.connect(str(DB_PATH))
@@ -115,7 +115,7 @@ def load_track_data(audio_path: Path) -> dict | None:
         tag_rows = conn.execute(
             """SELECT tg.name, tt.source FROM track_tags tt
                JOIN tags tg ON tg.id = tt.tag_id
-               WHERE tt.track_id = ? AND tt.source IN ('qwen', 'clap_concepts')
+               WHERE tt.track_id = ? AND tt.source IN ('qwen', 'clap')
                ORDER BY tt.source, tg.name""",
             (track_id,)
         ).fetchall()
@@ -124,7 +124,7 @@ def load_track_data(audio_path: Path) -> dict | None:
 
         all_tags    = [r["name"] for r in tag_rows]
         qwen_tags   = [r["name"] for r in tag_rows if r["source"] == "qwen"]
-        clap_tags   = [r["name"] for r in tag_rows if r["source"] == "clap_concepts"]
+        clap_tags   = [r["name"] for r in tag_rows if r["source"] == "clap"]
 
         return {
             "track_id":   track_id,
@@ -352,12 +352,20 @@ def main():
         tv = r.get("tag_validation")
         if not isinstance(tv, dict) or "correct" not in tv:
             continue
+        db = r.get("db") or {}
+        qwen_set = set(db.get("qwen_tags", []))
+        clap_set  = set(db.get("clap_tags",  []))
         for tag in tv["correct"] + tv["incorrect"]:
-            src = "clap" if tag.startswith("clap:") else "qwen"
-            total_by_source[src] += 1
+            # Use DB source sets — clap tags share namespaces with qwen tags
+            if tag in clap_set:
+                total_by_source["clap"] += 1
+            elif tag in qwen_set:
+                total_by_source["qwen"] += 1
         for tag in tv["correct"]:
-            src = "clap" if tag.startswith("clap:") else "qwen"
-            correct_by_source[src] += 1
+            if tag in clap_set:
+                correct_by_source["clap"] += 1
+            elif tag in qwen_set:
+                correct_by_source["qwen"] += 1
     for src in ["qwen", "clap"]:
         t = total_by_source[src]
         c = correct_by_source[src]

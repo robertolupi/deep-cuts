@@ -37,8 +37,15 @@ class LibraryStore {
         this.fetchTracks();
       });
 
+      let tagsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
       await listen<any>("analysis-progress", () => {
         this.analysisRunning = true;
+        // Debounce tag refresh so the filter stays current without flooding the DB.
+        if (tagsRefreshTimer) clearTimeout(tagsRefreshTimer);
+        tagsRefreshTimer = setTimeout(() => {
+          this.fetchTags();
+          tagsRefreshTimer = null;
+        }, 2000);
       });
 
       await listen<any>("analysis-complete", () => {
