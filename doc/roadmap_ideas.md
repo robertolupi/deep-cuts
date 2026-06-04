@@ -69,6 +69,7 @@ A unified query layer over all tags (Essentia, MusicBrainz, Qwen, and user-defin
 - Schema proposal: `tags` and `track_tags` tables.
 - visual namespaces (e.g. `mood:`, `genre:`, `instrument:`, `source:`).
 - Autocomplete, boolean logic search inputs, and parent-child tags hierarchy.
+- **Qwen Auto-Tagging & Suggestions**: Leverage the local Qwen model to suggest creative, non-repetitive descriptive tags (e.g., `#tension-building-beats`, `#ominous-soundscapes`, `#sonorous-textures`) based on the analyzed sonic characteristics and existing descriptions. This will require a tag normalization engine to clean, lower-case, and merge minor tag variations (such as consolidating "Ambient electronic" and "ambient-electronic" or mapping duplicates).
 
 ---
 
