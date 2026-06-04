@@ -1,0 +1,97 @@
+---
+layout: default
+title: Home
+---
+
+<!-- Hero Section -->
+<section class="hero">
+  <span class="hero-tag">100% Offline & Private</span>
+  <h1>Analyze Your Music Library with <span class="hero-gradient">Deep Cuts</span></h1>
+  <p class="hero-desc">An offline-first desktop studio audio analyzer and reference library organizer. Reveal the underlying musical and sonic structure of your tracks using local DSP and private machine learning.</p>
+  <div class="hero-actions">
+    <a href="https://github.com/robertolupi/deep-cuts/releases" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+      Download for macOS (Apple Silicon)
+    </a>
+    <a href="https://github.com/robertolupi/deep-cuts" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+      View GitHub Repo
+    </a>
+  </div>
+</section>
+
+<!-- Feature Grid Section -->
+<section class="features-section">
+  <div class="section-header">
+    <h2>Advanced Audio Intelligence Features</h2>
+    <p>Everything you need to index, query, study, and understand your local sound files—without external cloud APIs.</p>
+  </div>
+
+  <div class="features-grid">
+    <!-- Card 1 -->
+    <div class="feature-card">
+      <span class="feature-icon">📊</span>
+      <h3>Audio DSP Pipeline</h3>
+      <p>Computes spectral-flux onset BPM, harmonic Krumhansl-Schmuckler key & scale profiles, precise integrated LUFS loudness (EBU R128), and builds beautiful 128-point RMS energy waveforms.</p>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="feature-card">
+      <span class="feature-icon">🧠</span>
+      <h3>Essentia Classifiers</h3>
+      <p>Leverages Discogs-Effnet ONNX models to extract vocal/instrumental separation ratios, 400 hierarchical genre classifications, and seven mood indicators (happy, aggressive, party, etc.).</p>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="feature-card">
+      <span class="feature-icon">🗺️</span>
+      <h3>UMAP Music Map</h3>
+      <p>Projects your entire collection into a zoomable 2D map via LAION CLAP acoustic embeddings. Discover sonic density clusters, scan popular genres, and locate similar tracks visually.</p>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="feature-card">
+      <span class="feature-icon">💬</span>
+      <h3>Local Audio Chat</h3>
+      <p>Have an interactive text session with any audio track. Ask questions about vocal placement, track structure, or mixing balance powered locally by Qwen2-Audio and llama-server.</p>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="feature-card">
+      <span class="feature-icon">⚡</span>
+      <h3>Semantic & KNN Search</h3>
+      <p>Use term-frequency hybrid search or vector matching to find tracks that sound acoustically similar or match natural language queries like "dark tech house base drop".</p>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="feature-card">
+      <span class="feature-icon">🔍</span>
+      <h3>AcoustID & Sidecars</h3>
+      <p>Acoustic fingerprinting automatically downloads missing tags and metadata. Store all computations in sidecar <code>.dc.json</code> files so your library analysis survives relocations.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack Section -->
+<section class="tech-section">
+  <div class="tech-container">
+    <h2>Built With Modern Native Tech</h2>
+    <p>Highly optimized performance using Rust backend computations and a lightweight, reactive Svelte frontend.</p>
+    <div class="tech-grid">
+      <div class="tech-item">
+        <span class="tech-name">Tauri v2</span>
+        <span class="tech-desc">Rust Native OS Bindings</span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-name">Svelte 5</span>
+        <span class="tech-desc">Reactive UI & State</span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-name">SQLite & sqlite-vec</span>
+        <span class="tech-desc">Vector Vector Database</span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-name">ONNX Runtime</span>
+        <span class="tech-desc">Local Neural Inference</span>
+      </div>
+    </div>
+  </div>
+</section>
