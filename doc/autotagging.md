@@ -1,6 +1,6 @@
 # Auto-Tagging System
 
-Deep Cuts builds a rich tag vocabulary for every track through three cooperating analysis passes. Tags are stored in a normalized `tags` / `track_tags` schema (see `database.rs`) where each row carries a `source` column that identifies which pass wrote it. When a pass is re-run it deletes its own source rows and rewrites them from scratch, leaving tags from other sources untouched.
+Deep Cuts builds a rich tag vocabulary for every track through cooperating analysis passes. Tags are stored in a normalized `tags` / `track_tags` schema (see `database.rs`) where each row carries a `source` column that identifies which pass wrote it. When a pass is re-run it deletes its own source rows and rewrites them from scratch, leaving tags from other sources untouched.
 
 ---
 
@@ -16,7 +16,9 @@ CREATE TABLE tags (
 CREATE TABLE track_tags (
     track_id INTEGER NOT NULL,
     tag_id   INTEGER NOT NULL,
-    source   TEXT NOT NULL,   -- 'clap', 'essentia', or 'qwen'
+    source   TEXT NOT NULL,   -- 'essentia' or 'qwen'
+    score    REAL,            -- pass-specific confidence or distance score
+    discard  INTEGER NOT NULL DEFAULT 0,  -- soft-deletion flag (reserved for future use)
     PRIMARY KEY (track_id, tag_id),
     FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id)   REFERENCES tags(id)   ON DELETE CASCADE
@@ -25,33 +27,20 @@ CREATE TABLE track_tags (
 
 ---
 
-## Pass 1 — CLAP (source: `clap`)
+## Pass 1 — CLAP (source: none — embeddings only)
 
-**File**: [`src-tauri/src/analysis/clap.rs`](../src-tauri/src/analysis/clap.rs)  
-**Priority**: 20 (runs early, depends only on `audio_analysis`)
+**File**: [`src-tauri/src/analysis/clap.rs`](../src-tauri/src/analysis/clap.rs)
+**Priority**: 20 (depends only on `audio_analysis`)
 
-The CLAP pass encodes every track as a 512-dim audio embedding using the CLAP model and stores it in `audio_embeddings`. After all tracks are processed it runs a library-wide **concept tagging** step:
+The CLAP pass encodes every track as a 512-dimensional audio embedding using the CLAP (Contrastive Language-Audio Pretraining) model and stores it in the `audio_embeddings` table. **This pass writes no tags.** The embedding is used by downstream passes for audio-text similarity verification.
 
-1. Embeds each concept in `CONCEPT_MAP` using three text prompt templates (`"a song featuring {}"`, `"music with {}"`, `"{}"`), averaged and L2-normalised.
-2. Computes the dot-product similarity of every (track, concept) pair, building an `n × m` matrix.
-3. **Z-scores each concept column** across the library. Tracks that score ≥ 1.5 standard deviations above the library mean for a concept receive that tag (capped at 15 tags per track).
-4. Deletes all existing `source='clap'` rows and writes the new set.
-
-The concept map covers ~65 AudioSet labels mapped to four namespaces:
-
-| Namespace | Examples |
-|-----------|---------|
-| `inst`    | acoustic guitar, piano, synthesizer, drums, violin, saxophone, … |
-| `vocal`   | male, female, choir, rap, opera, beatbox, … |
-| `feel`    | angry, happy, sad, tender, exciting, … |
-
-CLAP tags are provisional — they are validated and potentially pruned by the Qwen pass that runs later.
+Three audio windows are sampled per track (targeting the highest-energy region of the waveform profile) and their embeddings are pooled into a single representative vector. The result is stored as a raw float32 blob in little-endian byte order.
 
 ---
 
 ## Pass 2 — Essentia (source: `essentia`)
 
-**File**: [`src-tauri/src/analysis/essentia.rs`](../src-tauri/src/analysis/essentia.rs)  
+**File**: [`src-tauri/src/analysis/essentia.rs`](../src-tauri/src/analysis/essentia.rs)
 **Priority**: 40 (depends on `audio_analysis`, `bpm_correction`)
 
 Essentia runs pre-trained ONNX classifiers on a mel-spectrogram of each track and writes two tag namespaces:
@@ -69,26 +58,24 @@ Any Essentia mood probability ≥ 0.75 fires a tag:
 
 ## Pass 3 — Qwen (source: `qwen`)
 
-**File**: [`src-tauri/src/analysis/qwen.rs`](../src-tauri/src/analysis/qwen.rs)  
+**File**: [`src-tauri/src/analysis/qwen.rs`](../src-tauri/src/analysis/qwen.rs)
 **Priority**: 50 (depends on `audio_analysis`, `bpm_correction`, `clap`, `essentia`)
 
-Qwen2-Audio listens to the actual audio and runs a **multi-turn conversation** with the local llama-server. Each step extends the same conversation so later answers build on earlier context, reducing repetition.
+Qwen2-Audio listens to 30 seconds of audio (centered on the highest-energy window) and runs a **multi-turn conversation** with the local llama-server. Each step extends the same conversation so later answers build on earlier context.
 
 ### Conversation steps
 
 | Step | Prompt (abbreviated) | Output stored | Tag namespace |
 |------|----------------------|---------------|---------------|
-| `feel` | *(initial system message — genre/feel)* | `tracks.ai_mood` | `feel` |
+| `feel` | *(initial message — genre/feel, tempo, key context)* | `tracks.ai_mood` | `feel` |
 | `instruments` | List instruments you can clearly hear | `tracks.ai_instruments` | `inst` |
 | `description` | Two to three prose sentences describing the track | `tracks.description` | — |
-| `tags_vocals` | Voice type and lyrics language | — | `vocal` |
-| `tags_context` | 2–3 suitable listening context tags | — | `context` |
 
-If any step returns Chinese characters or the description is generic/invalid, the attempt is retried. On step failure the best partial result is saved rather than discarding everything.
+If any step returns Chinese characters or the description is generic/invalid, the attempt is retried up to three times. On step failure the best partial result is saved rather than discarding everything.
 
-### CLAP validation follow-up
+### CLAP similarity verification
 
-After the main steps complete, Qwen reads the current `source='clap'` tags from the database and is asked to confirm which ones are correct given the audio it just heard. Only confirmed tags are re-written as `source='clap'`; the rest are discarded. This cross-pass validation ensures CLAP's statistical guesses are grounded by audio understanding.
+After all steps complete, the description text is embedded with CLAP's text encoder and its cosine similarity to the track's audio embedding is computed. If similarity ≥ 0.28 the result passes immediately; otherwise the attempt with the highest similarity across the three retries is kept. This acts as a consistency check — descriptions that don't match the audio at all (e.g. from a server hallucination) are deprioritised.
 
 ### Tag cleaning
 
@@ -101,11 +88,11 @@ Raw model output passes through `clean_qwen_tags` which strips label prefixes (e
 ```
 audio_analysis
     └─ bpm_correction
-            └─ clap ──────────────────────────────┐
-            └─ essentia ──────────────────────────┤
-                                                  ▼
-                                              qwen (validates clap, writes feel/inst/vocal/context)
-                                                  └─ description_embed
+            └─ clap (embeddings only) ────────────────┐
+            └─ essentia ──────────────────────────────┤
+                                                      ▼
+                                             qwen (feel / inst / description)
+                                                      └─ description_embed
 ```
 
 ---
@@ -114,8 +101,48 @@ audio_analysis
 
 | Namespace | Written by | Meaning |
 |-----------|-----------|---------|
-| `inst`    | clap, qwen | Instruments heard in the track |
-| `vocal`   | clap, essentia, qwen | Voice type / language |
-| `feel`    | clap, qwen | Emotional character |
+| `inst`    | qwen | Instruments heard in the track |
+| `vocal`   | essentia | Voice presence / type |
+| `feel`    | qwen | Emotional character |
 | `mood`    | essentia | Mood classifier output |
-| `context` | qwen | Suitable listening situations |
+
+---
+
+## Alternatives Considered
+
+### CLAP concept tagging (discarded)
+
+**Approach**: Use the CLAP audio embedding to tag tracks by measuring cosine similarity between the track embedding and a set of text concept embeddings. Concepts were drawn from AudioSet labels mapped to the `inst`, `vocal`, and `feel` namespaces (~37 labels). Each concept was embedded by averaging three prompt templates (`"a song featuring {}"`, `"music with {}"`, `"{}"`). Per-track tags were selected using a sqlite-vec KNN query (`SELECT concept_idx, distance FROM _clap_concepts WHERE embedding MATCH ? AND k = 15`), writing the nearest concepts as `source='clap'` tags.
+
+**Earlier variant**: A z-score approach computed the full `n × m` (tracks × concepts) dot-product matrix in Python and tagged tracks scoring ≥ 1.5 standard deviations above the library mean per concept. This was replaced with per-track KNN because z-scores are not comparable across concepts and the batch approach was fragile.
+
+**Why it failed**:
+1. **Low precision**: When Qwen2-Audio was asked to confirm CLAP's proposed tags for each track, it discarded ~91% of them. The distance score from the KNN query was not predictive of whether Qwen would agree — the score distribution for confirmed vs. discarded tags was nearly identical (mean difference ~0.006).
+2. **Vocabulary mismatch**: CLAP uses AudioSet-derived label names (`inst:electric guitar`, `inst:synthesizer`) while Qwen generates free-form labels (`inst:guitar`, `inst:synth`). There was zero exact-label overlap, making Precision/Recall/F1 evaluation degenerate (all TPs = 0).
+3. **`feel` namespace unreliable**: CLAP's ability to distinguish emotional feel via text-audio similarity was too noisy to be useful in a library context where the user will filter by feel.
+
+**Conclusion**: The signal-to-noise ratio of CLAP concept tagging is too low to surface to users. The embedding itself remains valuable for audio-text similarity verification (used by the Qwen pass) and will likely be useful for future similarity search / nearest-neighbour features.
+
+---
+
+### Qwen CLAP validation step (discarded)
+
+**Approach**: After Qwen completed its own `feel` / `instruments` / `description` steps, a fourth turn was added asking it to confirm which CLAP-proposed tags were correct: *"An audio similarity model also suggested these tags … which are correct?"*. Confirmed tags were kept; the rest were soft-deleted (`discard = 1`).
+
+**Why it failed**: The fundamental issue was the vocabulary mismatch described above. Even when Qwen did confirm tags, the confirmed set was ~9% of all CLAP proposals — too sparse to be useful, and the confirmed labels still didn't align with Qwen's own free-form instrument names. The extra LLM turn added latency (≈15 s/track at local inference speed) for negligible gain.
+
+---
+
+### Qwen `tags_context` step (discarded)
+
+**Approach**: A conversation step asking Qwen to suggest 2–3 listening context tags (e.g. `context:driving`, `context:studying`).
+
+**Why it failed**: The outputs were far too generic and inconsistent — the same track would get entirely different context tags across runs, and many tags bore no relationship to the actual audio. Removed without replacement.
+
+---
+
+### Qwen `tags_vocals` step (discarded)
+
+**Approach**: A conversation step asking Qwen to identify voice type and lyrics language, writing to the `vocal` namespace.
+
+**Why it failed**: Language detection was frequently wrong — Italian-language songs were tagged as English, and other non-English tracks were mislabelled. The `vocals:present` / `vocals:instrumental` signal is already handled more reliably by the Essentia classifier. Removed; `vocal` tags now come only from Essentia.

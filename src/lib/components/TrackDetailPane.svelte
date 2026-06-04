@@ -14,7 +14,8 @@
   let trackPlaylists = $state<import('$lib/types').Playlist[]>([]);
   let playlistSelectQuery = $state("");
   let selectedPlaylistToAdd = $state<import('$lib/types').Playlist | null>(null);
-  let trackTags = $state<string[]>([]);
+  type TagMeta = { name: string; source: string; score: number | null; discard: boolean };
+  let trackTags = $state<TagMeta[]>([]);
 
   async function loadTrackPlaylists() {
     if (track) {
@@ -36,7 +37,7 @@
     const id = track?.id;
     trackTags = [];
     if (!id) return;
-    invoke<Record<number, string[]>>('get_tags_for_tracks', { trackIds: [id] })
+    invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [id] })
       .then(raw => { trackTags = raw[id] ?? []; })
       .catch(() => {});
   });
@@ -221,15 +222,17 @@
           </div>
           <div class="ai-tags">
             {#each trackTags as tag}
-              {@const theme = tagTheme(tag)}
-              {@const active = filters.selectedTags.includes(tag)}
+              {@const theme = tagTheme(tag.name)}
+              {@const active = filters.selectedTags.includes(tag.name)}
+              {@const scoreStr = tag.score != null ? ` · score ${tag.score.toFixed(3)}` : ''}
               <button
                 class="detail-tag-chip"
                 class:tag-active={active}
+                class:tag-discarded={tag.discard}
                 style="color:{theme.color};background:{active ? theme.border : theme.bg};border-color:{theme.border}"
-                title="{active ? 'Remove filter' : 'Filter by'} {tag}"
-                onclick={() => { filters.toggleTag(tag); ui.activeView = 'table'; }}
-              >{tag.split(':').slice(1).join(':')}<span class="tag-ns">{tag.split(':')[0]}</span></button>
+                title="{tag.discard ? '✗ discarded · ' : ''}{tag.source}{scoreStr}"
+                onclick={() => { if (!tag.discard) { filters.toggleTag(tag.name); ui.activeView = 'table'; } }}
+              >{tag.name.split(':').slice(1).join(':')}<span class="tag-ns">{tag.name.split(':')[0]}</span></button>
             {/each}
           </div>
         </div>
@@ -653,8 +656,14 @@
     gap: 4px;
   }
 
-  .detail-tag-chip:hover {
+  .detail-tag-chip:hover:not(.tag-discarded) {
     filter: brightness(1.25);
+  }
+
+  .tag-discarded {
+    opacity: 0.35;
+    cursor: default;
+    text-decoration: line-through;
   }
 
   /* Dimmed namespace prefix shown after the label */

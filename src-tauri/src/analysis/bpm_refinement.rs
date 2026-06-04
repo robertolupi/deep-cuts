@@ -110,7 +110,7 @@ impl super::AnalysisPass for BpmRefinementPass {
             } else {
                 "uptempo"
             };
-            super::upsert_track_tag(conn, job.track_id, "bpm", label, "bpm_refinement")?;
+            super::upsert_track_tag(conn, job.track_id, "bpm", label, "bpm_refinement", None)?;
         }
 
         Ok(())

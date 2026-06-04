@@ -118,7 +118,6 @@ impl super::AnalysisPass for QwenPass {
             return Ok(QwenOutput {
                 parsed: ParsedQwenResponse { ai_feel: None, ai_instruments: None, description: None },
                 tags: Vec::new(),
-                confirmed_clap_tags: Vec::new(),
                 raw_response: String::new(),
             });
         }
@@ -273,8 +272,6 @@ impl super::AnalysisPass for QwenPass {
                 ("feel",         None,                                                                                                                                                                                                                                                                          Some("feel")),
                 ("instruments",  Some("What are the main instruments playing in this track, comma-separated? Only list instruments you can clearly hear — do not infer from genre. Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),                                                  Some("inst")),
                 ("description",  Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                             None),
-                ("tags_vocals",  Some("Identify the singer voice type (e.g. male, female, instrumental, ensemble, choir) and the lyrics language (e.g. english, spanish, instrumental). Respond strictly in this format:\nVOCAL_TAGS: voice type, language"),                                                  Some("vocal")),
-                ("tags_context", Some("Suggest 2 to 3 tags for suitable listening contexts specific to this song. Pick contexts that genuinely fit this specific song. Respond strictly in this format:\nCONTEXT_TAGS: context1, context2"), Some("context")),
             ];
 
             let mut all_steps_ok = true;
@@ -371,7 +368,6 @@ impl super::AnalysisPass for QwenPass {
                             description: description.clone(),
                         },
                         tags: pending_tags.clone(),
-                        confirmed_clap_tags: Vec::new(),
                         raw_response: serde_json::to_string(&messages).unwrap_or_default(),
                     };
                     log::warn!(
@@ -383,80 +379,6 @@ impl super::AnalysisPass for QwenPass {
                     best_output = Some(partial);
                 }
                 continue;
-            }
-
-            // ── CLAP tag validation ──────────────────────────────────────────────
-            // Load tags written by the clap pass and ask qwen to confirm.
-            // This is a cheap text-only follow-up — audio is already parsed above.
-            let mut confirmed_clap_tags: Vec<String> = Vec::new();
-            let clap_tags_for_track: Vec<String> = if let Some(conn_mutex) =
-                app.try_state::<std::sync::Mutex<rusqlite::Connection>>()
-            {
-                if let Ok(conn) = conn_mutex.lock() {
-                    conn.prepare(
-                        "SELECT tg.name FROM track_tags tt
-                         JOIN tags tg ON tg.id = tt.tag_id
-                         WHERE tt.track_id = ?1 AND tt.source = 'clap'
-                         ORDER BY tg.name",
-                    )
-                    .and_then(|mut stmt| {
-                        stmt.query_map(rusqlite::params![job.track_id], |row| row.get(0))
-                            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                    })
-                    .unwrap_or_default()
-                } else {
-                    Vec::new()
-                }
-            } else {
-                Vec::new()
-            };
-
-            if !clap_tags_for_track.is_empty() {
-                let tag_list = clap_tags_for_track.join(", ");
-                let clap_prompt = format!(
-                    "An audio similarity model also suggested these tags for this track: {tag_list}. \
-                     Based on what you just heard, which of these are correct? \
-                     Only confirm tags that clearly fit. \
-                     Respond strictly in this format:\n\
-                     CONFIRMED: tag1, tag2"
-                );
-                messages.push(serde_json::json!({ "role": "user", "content": clap_prompt }));
-
-                match query_completions(&api_url, &serde_json::json!(messages)) {
-                    Ok(content) => {
-                        messages.push(serde_json::json!({ "role": "assistant", "content": content }));
-                        // Parse "CONFIRMED: tag1, tag2, ..."
-                        let lower = content.to_lowercase();
-                        if let Some(rest) = lower.strip_prefix("confirmed:") {
-                            for token in rest.split(',') {
-                                let label = token.trim().to_string();
-                                if !label.is_empty() && clap_tags_for_track
-                                    .iter()
-                                    .any(|t| t.to_lowercase() == label)
-                                {
-                                    confirmed_clap_tags.push(label);
-                                }
-                            }
-                        } else {
-                            // Model didn't follow format — try to match any mentioned tag
-                            for tag in &clap_tags_for_track {
-                                if lower.contains(&tag.to_lowercase()) {
-                                    confirmed_clap_tags.push(tag.to_lowercase());
-                                }
-                            }
-                        }
-                        log::info!(
-                            "[qwen] Track {} CLAP validation: {}/{} tags confirmed",
-                            job.track_id,
-                            confirmed_clap_tags.len(),
-                            clap_tags_for_track.len()
-                        );
-                    }
-                    Err(e) => {
-                        log::warn!("[qwen] Track {} CLAP validation step failed: {}", job.track_id, e);
-                        // Non-fatal: leave confirmed_clap_tags empty, tags will be wiped
-                    }
-                }
             }
 
             let parsed = ParsedQwenResponse {
@@ -479,7 +401,6 @@ impl super::AnalysisPass for QwenPass {
             let output_candidate = QwenOutput {
                 parsed: parsed.clone(),
                 tags: pending_tags.clone(),
-                confirmed_clap_tags: confirmed_clap_tags.clone(),
                 raw_response: raw_response.clone(),
             };
 
@@ -584,19 +505,7 @@ impl super::AnalysisPass for QwenPass {
         ).map_err(|e| e.to_string())?;
 
         for (namespace, label) in &output.tags {
-            super::upsert_track_tag(conn, job.track_id, namespace, label, "qwen")?;
-        }
-
-        // Wipe previous clap tags and rewrite only the ones qwen confirmed
-        conn.execute(
-            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'clap'",
-            rusqlite::params![job.track_id],
-        ).map_err(|e| e.to_string())?;
-
-        for tag in &output.confirmed_clap_tags {
-            if let Some((ns, label)) = tag.split_once(':') {
-                super::upsert_track_tag(conn, job.track_id, ns, label, "clap")?;
-            }
+            super::upsert_track_tag(conn, job.track_id, namespace, label, "qwen", None)?;
         }
 
         // Re-queue the description_embed pass for this track so it runs after description is available
@@ -656,8 +565,6 @@ pub struct QwenOutput {
     pub parsed: ParsedQwenResponse,
     /// Tags accumulated from steps that declare a namespace: (namespace, label).
     pub tags: Vec<(String, String)>,
-    /// clap tags confirmed by qwen as correct (stored as "ns:label").
-    pub confirmed_clap_tags: Vec<String>,
     pub raw_response: String,
 }
 

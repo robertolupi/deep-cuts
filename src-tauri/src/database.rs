@@ -347,6 +347,8 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/18_playlists.sql")),
         M::up(include_str!("../migrations/19_chat_history.sql")),
         M::up(include_str!("../migrations/20_tags.sql")),
+        M::up(include_str!("../migrations/21_track_tags_score.sql")),
+        M::up(include_str!("../migrations/22_track_tags_discard.sql")),
     ])
 }
 

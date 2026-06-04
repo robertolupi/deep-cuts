@@ -332,6 +332,7 @@ pub fn upsert_track_tag(
     namespace: &str,
     label: &str,
     source: &str,
+    score: Option<f64>,
 ) -> Result<(), String> {
     let name = format!("{}:{}", namespace, label);
     let normalized = name
@@ -346,14 +347,14 @@ pub fn upsert_track_tag(
     ).map_err(|e| e.to_string())?;
 
     let tag_id: i64 = conn.query_row(
-        "SELECT id FROM tags WHERE normalized_name = ?1",
-        rusqlite::params![normalized],
+        "SELECT id FROM tags WHERE name = ?1 OR normalized_name = ?2 LIMIT 1",
+        rusqlite::params![name, normalized],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
 
     conn.execute(
-        "INSERT OR IGNORE INTO track_tags (track_id, tag_id, source) VALUES (?1, ?2, ?3)",
-        rusqlite::params![track_id, tag_id, source],
+        "INSERT OR IGNORE INTO track_tags (track_id, tag_id, source, score) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![track_id, tag_id, source, score],
     ).map_err(|e| e.to_string())?;
 
     Ok(())

@@ -115,6 +115,68 @@ pub fn get_track(
 }
 
 
+/// Returns a map of track_id → list of tag metadata (name, source, score) for the detail pane.
+#[tauri::command]
+pub fn get_tags_with_meta_for_tracks(
+    track_ids: Vec<i64>,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<HashMap<i64, Vec<serde_json::Value>>, AppError> {
+    if track_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let placeholders = track_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let sql = format!(
+        "SELECT tt.track_id, t.name, tt.source, tt.score, tt.discard
+         FROM track_tags tt
+         JOIN tags t ON t.id = tt.tag_id
+         WHERE tt.track_id IN ({})
+         ORDER BY tt.track_id, tt.discard ASC, t.name",
+        placeholders
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let params: Vec<rusqlite::types::Value> = track_ids
+        .iter()
+        .map(|id| rusqlite::types::Value::Integer(*id))
+        .collect();
+    let params_ref: Vec<&dyn rusqlite::ToSql> = params
+        .iter()
+        .map(|v| v as &dyn rusqlite::ToSql)
+        .collect();
+
+    let mut map: HashMap<i64, Vec<serde_json::Value>> = HashMap::new();
+    let rows = stmt.query_map(params_ref.as_slice(), |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, Option<f64>>(3)?,
+            row.get::<_, i64>(4)?,
+        ))
+    })?;
+
+    for row in rows.flatten() {
+        let (track_id, name, source, score, discard) = row;
+        map.entry(track_id).or_default().push(serde_json::json!({
+            "name": name,
+            "source": source,
+            "discard": discard == 1,
+            "score": score,
+        }));
+    }
+    Ok(map)
+}
+
 /// Returns a map of track_id → list of tag names for the requested track IDs.
 #[tauri::command]
 pub fn get_tags_for_tracks(
@@ -139,7 +201,7 @@ pub fn get_tags_for_tracks(
         "SELECT tt.track_id, t.name
          FROM track_tags tt
          JOIN tags t ON t.id = tt.tag_id
-         WHERE tt.track_id IN ({})
+         WHERE tt.track_id IN ({}) AND tt.discard = 0
          ORDER BY tt.track_id, t.name",
         placeholders
     );
@@ -178,6 +240,7 @@ pub fn get_all_track_tags(
         "SELECT tt.track_id, t.name
          FROM track_tags tt
          JOIN tags t ON t.id = tt.tag_id
+         WHERE tt.discard = 0
          ORDER BY tt.track_id, t.name",
     )?;
 
@@ -204,6 +267,7 @@ pub fn get_all_tags(
         "SELECT DISTINCT t.name
          FROM tags t
          JOIN track_tags tt ON tt.tag_id = t.id
+         WHERE tt.discard = 0
          ORDER BY t.name",
     )?;
 

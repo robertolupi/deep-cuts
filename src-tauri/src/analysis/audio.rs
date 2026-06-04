@@ -117,24 +117,24 @@ pub fn run_audio_analysis_phase(
 
                         // Key scale
                         match analysis.scale.as_deref() {
-                            Some("minor") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "minor", "audio_analysis"); }
-                            Some("major") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "major", "audio_analysis"); }
+                            Some("minor") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "minor", "audio_analysis", None); }
+                            Some("major") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "major", "audio_analysis", None); }
                             _ => {}
                         }
 
                         // Mastering dynamics
                         if analysis.loudness_lufs > -7.0 && analysis.loudness_range < 4.0 {
-                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "brickwalled", "audio_analysis");
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "brickwalled", "audio_analysis", None);
                         } else if analysis.loudness_range > 8.0 {
-                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "dynamic", "audio_analysis");
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "dynamic", "audio_analysis", None);
                         }
 
                         // Length profile
                         let dur = analysis.duration_seconds as i64;
                         if dur < 120 {
-                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "short", "audio_analysis");
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "short", "audio_analysis", None);
                         } else if dur > 420 {
-                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "extended", "audio_analysis");
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "extended", "audio_analysis", None);
                         }
                         let raw_result = serde_json::json!({
                             "bpm_raw": analysis.bpm,

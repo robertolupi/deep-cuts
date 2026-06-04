@@ -150,7 +150,7 @@ impl super::AnalysisPass for EssentiaPass {
                     _              => None,
                 };
                 if let Some(label) = label {
-                    super::upsert_track_tag(conn, job.track_id, "vocals", label, "essentia")?;
+                    super::upsert_track_tag(conn, job.track_id, "vocals", label, "essentia", None)?;
                 }
             }
         }
@@ -166,7 +166,7 @@ impl super::AnalysisPass for EssentiaPass {
         ];
         for (score, label) in mood_checks {
             if score.unwrap_or(0.0) >= 0.75 {
-                super::upsert_track_tag(conn, job.track_id, "mood", label, "essentia")?;
+                super::upsert_track_tag(conn, job.track_id, "mood", label, "essentia", None)?;
             }
         }
 
