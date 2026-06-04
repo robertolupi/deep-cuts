@@ -118,6 +118,7 @@ impl super::AnalysisPass for QwenPass {
             return Ok(QwenOutput {
                 parsed: ParsedQwenResponse { ai_feel: None, ai_instruments: None, description: None },
                 tags: Vec::new(),
+                confirmed_clap_tags: Vec::new(),
                 raw_response: String::new(),
             });
         }
@@ -360,7 +361,102 @@ impl super::AnalysisPass for QwenPass {
             }
 
             if !all_steps_ok {
+                // Save the best partial result so this track never stays permanently stuck.
+                // We skip CLAP validation (no confirmed tags) but keep whatever was parsed.
+                if best_output.is_none() {
+                    let partial = QwenOutput {
+                        parsed: ParsedQwenResponse {
+                            ai_feel: ai_feel.clone(),
+                            ai_instruments: ai_instruments.clone(),
+                            description: description.clone(),
+                        },
+                        tags: pending_tags.clone(),
+                        confirmed_clap_tags: Vec::new(),
+                        raw_response: serde_json::to_string(&messages).unwrap_or_default(),
+                    };
+                    log::warn!(
+                        "[qwen] Track {} partial result saved after step failure (feel={}, desc={})",
+                        job.track_id,
+                        ai_feel.is_some(),
+                        description.is_some(),
+                    );
+                    best_output = Some(partial);
+                }
                 continue;
+            }
+
+            // ── CLAP tag validation ──────────────────────────────────────────────
+            // Load tags written by the clap_concepts pass and ask qwen to confirm.
+            // This is a cheap text-only follow-up — audio is already parsed above.
+            let mut confirmed_clap_tags: Vec<String> = Vec::new();
+            let clap_tags_for_track: Vec<String> = if let Some(conn_mutex) =
+                app.try_state::<std::sync::Mutex<rusqlite::Connection>>()
+            {
+                if let Ok(conn) = conn_mutex.lock() {
+                    conn.prepare(
+                        "SELECT tg.name FROM track_tags tt
+                         JOIN tags tg ON tg.id = tt.tag_id
+                         WHERE tt.track_id = ?1 AND tt.source = 'clap_concepts'
+                         ORDER BY tg.name",
+                    )
+                    .and_then(|mut stmt| {
+                        stmt.query_map(rusqlite::params![job.track_id], |row| row.get(0))
+                            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                    })
+                    .unwrap_or_default()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            if !clap_tags_for_track.is_empty() {
+                let tag_list = clap_tags_for_track.join(", ");
+                let clap_prompt = format!(
+                    "An audio similarity model also suggested these tags for this track: {tag_list}. \
+                     Based on what you just heard, which of these are correct? \
+                     Only confirm tags that clearly fit. \
+                     Respond strictly in this format:\n\
+                     CONFIRMED: tag1, tag2"
+                );
+                messages.push(serde_json::json!({ "role": "user", "content": clap_prompt }));
+
+                match query_completions(&api_url, &serde_json::json!(messages)) {
+                    Ok(content) => {
+                        messages.push(serde_json::json!({ "role": "assistant", "content": content }));
+                        // Parse "CONFIRMED: tag1, tag2, ..."
+                        let lower = content.to_lowercase();
+                        if let Some(rest) = lower.strip_prefix("confirmed:") {
+                            for token in rest.split(',') {
+                                let label = token.trim().to_string();
+                                if !label.is_empty() && clap_tags_for_track
+                                    .iter()
+                                    .any(|t| t.to_lowercase() == label)
+                                {
+                                    confirmed_clap_tags.push(label);
+                                }
+                            }
+                        } else {
+                            // Model didn't follow format — try to match any mentioned tag
+                            for tag in &clap_tags_for_track {
+                                if lower.contains(&tag.to_lowercase()) {
+                                    confirmed_clap_tags.push(tag.to_lowercase());
+                                }
+                            }
+                        }
+                        log::info!(
+                            "[qwen] Track {} CLAP validation: {}/{} tags confirmed",
+                            job.track_id,
+                            confirmed_clap_tags.len(),
+                            clap_tags_for_track.len()
+                        );
+                    }
+                    Err(e) => {
+                        log::warn!("[qwen] Track {} CLAP validation step failed: {}", job.track_id, e);
+                        // Non-fatal: leave confirmed_clap_tags empty, tags will be wiped
+                    }
+                }
             }
 
             let parsed = ParsedQwenResponse {
@@ -383,6 +479,7 @@ impl super::AnalysisPass for QwenPass {
             let output_candidate = QwenOutput {
                 parsed: parsed.clone(),
                 tags: pending_tags.clone(),
+                confirmed_clap_tags: confirmed_clap_tags.clone(),
                 raw_response: raw_response.clone(),
             };
 
@@ -490,6 +587,18 @@ impl super::AnalysisPass for QwenPass {
             super::upsert_track_tag(conn, job.track_id, namespace, label, "qwen")?;
         }
 
+        // Wipe previous clap_concepts tags and rewrite only the ones qwen confirmed
+        conn.execute(
+            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'clap_concepts'",
+            rusqlite::params![job.track_id],
+        ).map_err(|e| e.to_string())?;
+
+        for tag in &output.confirmed_clap_tags {
+            if let Some((ns, label)) = tag.split_once(':') {
+                super::upsert_track_tag(conn, job.track_id, ns, label, "clap_concepts")?;
+            }
+        }
+
         // Re-queue the description_embed pass for this track so it runs after description is available
         if description_val.is_some() {
             conn.execute(
@@ -547,6 +656,8 @@ pub struct QwenOutput {
     pub parsed: ParsedQwenResponse,
     /// Tags accumulated from steps that declare a namespace: (namespace, label).
     pub tags: Vec<(String, String)>,
+    /// clap_concepts tags confirmed by qwen as correct (stored as "ns:label").
+    pub confirmed_clap_tags: Vec<String>,
     pub raw_response: String,
 }
 

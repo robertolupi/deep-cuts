@@ -6,6 +6,7 @@
   import RangeSlider from "./RangeSlider.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
 
   let collapsed = $state(false);
   let moodOpen  = $state(false);
@@ -13,10 +14,21 @@
   // Tag autocomplete
   let tagInput = $state("");
   let tagInputFocused = $state(false);
+  let allTagsLive = $state<string[]>(library.allTags);
+
+  async function onTagFocus() {
+    tagInputFocused = true;
+    try {
+      allTagsLive = await invoke<string[]>("get_all_tags");
+    } catch (e) {
+      // fall back to store
+    }
+  }
+
   const tagSuggestions = $derived.by(() => {
     const q = tagInput.trim().toLowerCase();
     if (!q || !tagInputFocused) return [];
-    return library.allTags
+    return allTagsLive
       .filter(t => t.toLowerCase().includes(q) && !filters.selectedTags.includes(t))
       .slice(0, 12);
   });
@@ -370,7 +382,7 @@
           type="text"
           placeholder="Add tag filter…"
           bind:value={tagInput}
-          onfocus={() => tagInputFocused = true}
+          onfocus={onTagFocus}
           onblur={() => setTimeout(() => { tagInputFocused = false; }, 150)}
           onkeydown={onTagKeydown}
           class="search-input tag-search-input"
