@@ -20,9 +20,10 @@
     interactive?:   boolean;
     thresholds?:    Partial<MoodValues>;
     onAxisClick?:   (key: keyof MoodValues, value: number | null) => void;
+    onClear?:       () => void;
   }
 
-  let { moodA, moodB, colorA, colorB, interactive = false, thresholds = {}, onAxisClick }: Props = $props();
+  let { moodA, moodB, colorA, colorB, interactive = false, thresholds = {}, onAxisClick, onClear }: Props = $props();
 
   const AXES: { key: keyof MoodValues; label: string }[] = [
     { key: 'happy',      label: 'Happy'      },
@@ -251,6 +252,7 @@
   onmousemove={interactive ? handleMouseMove : undefined}
   onmouseleave={interactive ? handleMouseLeave : undefined}
   onclick={interactive ? handleClick : undefined}
+  ondblclick={interactive ? () => onClear?.() : undefined}
   onkeydown={interactive ? (e) => { if (e.key === 'Escape') { AXES.forEach(ax => onAxisClick?.(ax.key, null)); } } : undefined}
 ></svg>
 

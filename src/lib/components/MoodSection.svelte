@@ -25,6 +25,16 @@
     (filters as any)[minKey] = value ?? 0;
     (filters as any)[maxKey] = 1;
   }
+
+  function handleClear() {
+    const keys: (keyof MoodValues)[] = ['happy', 'sad', 'aggressive', 'relaxed', 'party', 'acoustic', 'electronic'];
+    for (const key of keys) {
+      const minKey = `mood${key.charAt(0).toUpperCase()}${key.slice(1)}Min` as keyof typeof filters;
+      const maxKey = `mood${key.charAt(0).toUpperCase()}${key.slice(1)}Max` as keyof typeof filters;
+      (filters as any)[minKey] = 0;
+      (filters as any)[maxKey] = 1;
+    }
+  }
 </script>
 
 <div class="sidebar-section">
@@ -35,6 +45,7 @@
       interactive={true}
       {thresholds}
       onAxisClick={handleAxisClick}
+      onClear={handleClear}
     />
   </div>
 </div>
