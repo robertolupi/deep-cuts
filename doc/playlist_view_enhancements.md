@@ -1,0 +1,43 @@
+# Playlist & Saved Search View Enhancements
+
+This document details user interface and layout improvements for playlist and saved search views in Deep Cuts, focusing on transition analysis, reordering, and smart suggestions.
+
+---
+
+## 1. Drag-to-Reorder Interface
+- Implement an interactive drag-and-drop ordering interface in the Svelte 5 frontend.
+- Uses Svelte's native `animate:flip` and HTML5 Drag and Drop APIs to let users rearrange tracks manually.
+
+---
+
+## 2. Dynamic Energy Wave Sparkline
+- Splicing the 128-point envelopes of the playlist's tracks end-to-end creates a continuous "Energy Timeline" sparkline.
+- Displayed below the playlist track list, this graph shows the visual narrative arc (builds, tension, release) of the set.
+
+---
+
+## 3. Visual Connection Badges (Vibe Guide)
+To help DJs audit transition compatibility step-by-step:
+- **Harmonic Badges**: Check key compatibility between consecutive tracks (e.g. $9A \rightarrow 10A$). Render a glowing green bridge badge for compatible transitions, or a red warning badge for incompatible key changes.
+- **Tempo Ramps**: Draw slope indicators showing tempo changes from track to track (flat for same tempo, steep step for tempo jumps).
+
+---
+
+## 4. Transition Pathfinder Sequence Optimizer
+- For any set of selected tracks in a playlist, the user can click "Optimize Transitions".
+- The system extracts the $K \times K$ structural similarity sub-matrix from the library's global $M M^T$ matrix.
+- Solving the Traveling Salesperson Problem (TSP) / Hamiltonian path over the structural distances reorders the tracks automatically to ensure the smoothest arrangement transitions from start to finish.
+
+---
+
+## 5. Saved Search Smart Auto-Naming
+When creating or saving a search, the app should assist the user by suggesting a descriptive name automatically:
+- **How it works**: Inspects the active filters in `filters.svelte.ts` (e.g., genre: Electronic, BPM range: 120-130, mood: happy).
+- **Format**: Generates structured suggestions, e.g. `"Upbeat Electronic (120-130 BPM)"` or `"Classical Minor (60-80 BPM)"`. This reduces naming overhead when saving filter states as smart playlists.
+
+---
+
+## 6. Vibe-Based Playlist Recommendations
+Suggest tracks to expand playlists or saved searches based on the common traits of the existing tracks:
+- **How it works**: Evaluates the centroid (average coordinates/vectors) of the tracks inside the playlist/saved search in the CLAP embedding space, Qwen mood vector space, and average BPM/keys.
+- **Implementation**: Renders a "Suggested Additions" panel in the sidebar, recommending tracks from the library that share these common features.

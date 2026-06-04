@@ -172,6 +172,34 @@ Runs as a lightweight pre-pass during track analysis (before CLAP), using only t
 
 ---
 
+## 7. Topological Map Labeling & Exemplars (DBSCAN + TF-IDF)
+
+**Problem:** Currently, the map relies purely on color codes and a side legend to communicate region characteristics. This requires constant cognitive context-switching for the user to understand what "acoustic zone" they are looking at.
+
+**Proposed Solution:** Automatically compute and display regional text labels and representative "exemplar" tracks directly on the 2D music map canvas.
+
+### A. Coordinate-Based Spatial Region Discovery
+To identify physical regions directly as they are currently projected on the screen:
+- Run a 2D spatial density clustering algorithm (such as **DBSCAN** or **HDBSCAN**) on the output coordinates $(x,y)$.
+- This groups adjacent tracks into spatial clusters and isolates outliers. Because it clusters the *coordinates*, the regions automatically adapt when switching layouts (e.g. grouping by harmonics in Tonal mode vs. mood states in Mood mode).
+
+### B. Regional Tag Summarization (TF-IDF)
+For each spatial cluster $C$, we mathematically determine its characteristic descriptors:
+- Run a **TF-IDF (Term Frequency-Inverse Document Frequency)** extraction over all metadata categories (genres, instruments, Qwen descriptors) belonging to the tracks in Cluster $C$.
+- Term Frequency values are normalized against the entire library's Inverse Document Frequency. The top 2–3 highest scoring tags define the region (e.g. `"Synthesizer / Gritty / Bass"` or `"Acoustic / Melancholy / Guitar"`).
+
+### C. Exemplar (Medoid) Selection
+- **The Calculation**: Compute the geometric centroid of each spatial cluster $C$. The track in that cluster whose coordinate $(x,y)$ is closest to the centroid is selected as the **Exemplar** for the region.
+- **The UI**: Display the Exemplar track's title/artist inline below the region label (e.g. *Exemplar: Massive Attack - Teardrop*). Hovering over a regional label highlights the exemplar track dot.
+
+### D. Dynamic Placement and Level of Detail (LoD)
+- **Collision Avoidance**: Run a lightweight force-directed simulation (`d3.forceCollide`) on the labels in Svelte to prevent overlapping text boxes from cluttering the canvas.
+- **Zoom-Dependent LoD**:
+  - *Zoomed Out*: Show a few coarse, high-level cluster labels (e.g., `"Electronic Vibe"`, `"Rock / Metal"`).
+  - *Zoomed In*: High-level clusters split, fading in sub-cluster labels (e.g., `"Synthwave"`, `"Industrial"`, `"Hard Rock"`).
+
+---
+
 ## Status
 
 * **Implemented**:
