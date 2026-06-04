@@ -3,9 +3,6 @@ description: 100% offline studio audio analysis application and reference librar
 baseurl: "/deep-cuts"
 url: "https://robertolupi.github.io"
 
-# Disable default theme to use our own custom layout templates in _layouts/
-theme: ""
-
 # File exclusions
 exclude:
   - Gemfile
