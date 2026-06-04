@@ -135,6 +135,41 @@ impl super::AnalysisPass for EssentiaPass {
                 job.track_id,
             ],
         ).map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'essentia'",
+            rusqlite::params![job.track_id],
+        ).map_err(|e| e.to_string())?;
+
+        // Vocal presence
+        if let (Some(vocal), Some(conf)) = (output.vocal.as_deref(), output.vocal_confidence) {
+            if conf >= 0.80 {
+                let label = match vocal {
+                    "voice"        => Some("present"),
+                    "instrumental" => Some("instrumental"),
+                    _              => None,
+                };
+                if let Some(label) = label {
+                    super::upsert_track_tag(conn, job.track_id, "vocals", label, "essentia")?;
+                }
+            }
+        }
+
+        // Emotive profile (threshold 0.75)
+        let mood_checks: &[(Option<f64>, &str)] = &[
+            (output.mood_sad,        "sad"),
+            (output.mood_aggressive, "aggressive"),
+            (output.mood_relaxed,    "relaxed"),
+            (output.mood_party,      "party"),
+            (output.mood_acoustic,   "acoustic"),
+            (output.mood_electronic, "electronic"),
+        ];
+        for (score, label) in mood_checks {
+            if score.unwrap_or(0.0) >= 0.75 {
+                super::upsert_track_tag(conn, job.track_id, "mood", label, "essentia")?;
+            }
+        }
+
         Ok(())
     }
 
@@ -388,6 +423,7 @@ impl EssentiaPass {
             "is_music",
         ],
         owned_tables: &[],
+        owned_tag_sources: &["essentia"],
         custom_reset: None,
     };
 }

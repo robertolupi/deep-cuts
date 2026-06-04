@@ -118,6 +118,7 @@ impl super::AnalysisPass for QwenPass {
             log::info!("[qwen] Track {} is non-music. Skipping.", job.track_id);
             return Ok(QwenOutput {
                 parsed: ParsedQwenResponse { ai_genre: None, ai_mood: None, ai_instruments: None, description: None },
+                tags: Vec::new(),
                 raw_response: String::new(),
             });
         }
@@ -268,18 +269,19 @@ impl super::AnalysisPass for QwenPass {
             let mut ai_instruments = None;
             let mut description = None;
 
-            // (step_name, follow-up prompt — None means use the already-queued initial message)
-            let steps: Vec<(&str, Option<&str>)> = vec![
-                ("genre", None),
-                ("mood", Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel")),
-                ("instruments", Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments")),
-                ("description", Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description")),
+            // (step_name, follow-up prompt — None reuses the initial message, tag_namespace — Some emits tags)
+            let steps: Vec<(&str, Option<&str>, Option<&str>)> = vec![
+                ("genre",       None,       Some("genre")),
+                ("mood",        Some("What is the mood and emotional feel of this track in a few words? Respond strictly in English in this format:\nMOOD: mood and emotional feel"),        Some("mood")),
+                ("instruments", Some("What are the main instruments playing in this track, comma-separated? Respond strictly in English in this format:\nINSTRUMENTS: main instruments"), Some("inst")),
+                ("description", Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),         None),
             ];
 
             let mut all_steps_ok = true;
             let mut need_server_restart = false;
+            let mut pending_tags: Vec<(String, String)> = Vec::new();
 
-            for (step_name, step_prompt) in steps {
+            for (step_name, step_prompt, tag_namespace) in steps {
                 if let Some(prompt_text) = step_prompt {
                     messages.push(serde_json::json!({
                         "role": "user",
@@ -308,6 +310,15 @@ impl super::AnalysisPass for QwenPass {
                                 );
                                 all_steps_ok = false;
                                 break;
+                            }
+                        }
+
+                        if let Some(ns) = tag_namespace {
+                            for token in value.split(',') {
+                                let label = token.trim().to_string();
+                                if !label.is_empty() {
+                                    pending_tags.push((ns.to_string(), label));
+                                }
                             }
                         }
 
@@ -374,6 +385,7 @@ impl super::AnalysisPass for QwenPass {
 
             let output_candidate = QwenOutput {
                 parsed: parsed.clone(),
+                tags: pending_tags.clone(),
                 raw_response: raw_response.clone(),
             };
 
@@ -474,6 +486,16 @@ impl super::AnalysisPass for QwenPass {
         )
         .map_err(|e| e.to_string())?;
 
+        // Wipe previous qwen tags then insert the ones accumulated by this run's steps
+        conn.execute(
+            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'qwen'",
+            rusqlite::params![job.track_id],
+        ).map_err(|e| e.to_string())?;
+
+        for (namespace, label) in &output.tags {
+            super::upsert_track_tag(conn, job.track_id, namespace, label, "qwen")?;
+        }
+
         // Re-queue the description_embed pass for this track so it runs after description is available
         if description_val.is_some() {
             conn.execute(
@@ -523,6 +545,7 @@ impl QwenPass {
             "description",
         ],
         owned_tables: &["description_embeddings"],
+        owned_tag_sources: &["qwen"],
         custom_reset: None,
     };
 }
@@ -530,6 +553,8 @@ impl QwenPass {
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct QwenOutput {
     pub parsed: ParsedQwenResponse,
+    /// Tags accumulated from steps that declare a namespace: (namespace, label).
+    pub tags: Vec<(String, String)>,
     pub raw_response: String,
 }
 

@@ -288,6 +288,8 @@ pub struct PassSpec {
     pub dependencies: &'static [&'static str],
     pub owned_columns: &'static [&'static str],
     pub owned_tables: &'static [&'static str],
+    /// `track_tags` source values this pass writes — cleared on reset.
+    pub owned_tag_sources: &'static [&'static str],
     pub custom_reset: Option<fn(&rusqlite::Connection) -> Result<(), String>>,
 }
 
@@ -309,8 +311,52 @@ impl PassSpec {
                 .map_err(|e| e.to_string())?;
             }
         }
+        for source in self.owned_tag_sources {
+            for id in track_ids {
+                conn.execute(
+                    "DELETE FROM track_tags WHERE track_id = ?1 AND source = ?2",
+                    rusqlite::params![id, source],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
         Ok(())
     }
+}
+
+/// Insert or ignore a namespaced tag for a track.
+/// `name` is formatted as `namespace:label`; `normalized_name` is its slugified form.
+pub fn upsert_track_tag(
+    conn: &Connection,
+    track_id: i64,
+    namespace: &str,
+    label: &str,
+    source: &str,
+) -> Result<(), String> {
+    let name = format!("{}:{}", namespace, label);
+    let normalized = name
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric() && c != ':' && c != '_', "_")
+        .trim_matches('_')
+        .to_string();
+
+    conn.execute(
+        "INSERT OR IGNORE INTO tags (name, normalized_name) VALUES (?1, ?2)",
+        rusqlite::params![name, normalized],
+    ).map_err(|e| e.to_string())?;
+
+    let tag_id: i64 = conn.query_row(
+        "SELECT id FROM tags WHERE normalized_name = ?1",
+        rusqlite::params![normalized],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO track_tags (track_id, tag_id, source) VALUES (?1, ?2, ?3)",
+        rusqlite::params![track_id, tag_id, source],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 pub static PASS_REGISTRY: &[PassSpec] = &[
@@ -398,6 +444,14 @@ pub fn reset_pass(conn: &rusqlite::Connection, pass_name: &str) -> Result<(), St
     for table in spec.owned_tables {
         let query = format!("DELETE FROM {}", table);
         conn.execute(&query, []).map_err(|e| e.to_string())?;
+    }
+
+    // 3b. Delete owned tag_tags rows by source
+    for source in spec.owned_tag_sources {
+        conn.execute(
+            "DELETE FROM track_tags WHERE source = ?1",
+            rusqlite::params![source],
+        ).map_err(|e| e.to_string())?;
     }
 
     // 4. Run custom pass reset logic if specified

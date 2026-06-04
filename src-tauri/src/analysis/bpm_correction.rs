@@ -106,6 +106,7 @@ impl BpmCorrectionPass {
         dependencies: &["audio_analysis"],
         owned_columns: &["bpm"],
         owned_tables: &[],
+        owned_tag_sources: &[],
         custom_reset: Some(|conn| {
             crate::bpm::reset_bpm_data(conn)
         }),

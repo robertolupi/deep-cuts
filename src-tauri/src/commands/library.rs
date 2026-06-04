@@ -2,6 +2,7 @@ use crate::database::{Track, WatchedDirectory};
 use crate::error::AppError;
 use crate::scanner;
 use rusqlite::Connection;
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// Spawns a native directory picker dialog using rfd and returns selected path.
@@ -113,6 +114,56 @@ pub fn get_track(
     Ok(track)
 }
 
+
+/// Returns a map of track_id → list of tag names for the requested track IDs.
+#[tauri::command]
+pub fn get_tags_for_tracks(
+    track_ids: Vec<i64>,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<HashMap<i64, Vec<String>>, AppError> {
+    if track_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let placeholders = track_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let sql = format!(
+        "SELECT tt.track_id, t.name
+         FROM track_tags tt
+         JOIN tags t ON t.id = tt.tag_id
+         WHERE tt.track_id IN ({})
+         ORDER BY tt.track_id, t.name",
+        placeholders
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let params: Vec<rusqlite::types::Value> = track_ids
+        .iter()
+        .map(|id| rusqlite::types::Value::Integer(*id))
+        .collect();
+    let params_ref: Vec<&dyn rusqlite::ToSql> = params
+        .iter()
+        .map(|v| v as &dyn rusqlite::ToSql)
+        .collect();
+
+    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
+    let rows = stmt.query_map(params_ref.as_slice(), |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    for row in rows.flatten() {
+        map.entry(row.0).or_default().push(row.1);
+    }
+    Ok(map)
+}
 
 /// Writes a .dc.json sidecar file next to the given track's audio file.
 #[tauri::command]

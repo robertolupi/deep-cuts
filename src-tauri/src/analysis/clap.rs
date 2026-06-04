@@ -382,6 +382,7 @@ impl ClapPass {
         dependencies: &["audio_analysis"],
         owned_columns: &[],
         owned_tables: &["audio_embeddings", "track_coords"],
+        owned_tag_sources: &[],
         custom_reset: None,
     };
 }

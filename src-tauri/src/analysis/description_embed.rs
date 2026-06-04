@@ -161,6 +161,7 @@ impl DescriptionEmbedPass {
         dependencies: &["qwen", "essentia"],
         owned_columns: &[],
         owned_tables: &["description_embeddings"],
+        owned_tag_sources: &[],
         custom_reset: None,
     };
 }

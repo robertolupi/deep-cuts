@@ -21,6 +21,7 @@ impl AudioPass {
             "silence_regions", "has_long_silence"
         ],
         owned_tables: &[],
+        owned_tag_sources: &["audio_analysis"],
         custom_reset: None,
     };
 }
@@ -108,6 +109,33 @@ pub fn run_audio_analysis_phase(
                                 job.track_id,
                             ],
                         );
+
+                        let _ = conn.execute(
+                            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'audio_analysis'",
+                            rusqlite::params![job.track_id],
+                        );
+
+                        // Key scale
+                        match analysis.scale.as_deref() {
+                            Some("minor") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "minor", "audio_analysis"); }
+                            Some("major") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "major", "audio_analysis"); }
+                            _ => {}
+                        }
+
+                        // Mastering dynamics
+                        if analysis.loudness_lufs > -7.0 && analysis.loudness_range < 4.0 {
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "brickwalled", "audio_analysis");
+                        } else if analysis.loudness_range > 8.0 {
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "dynamic", "audio_analysis");
+                        }
+
+                        // Length profile
+                        let dur = analysis.duration_seconds as i64;
+                        if dur < 120 {
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "short", "audio_analysis");
+                        } else if dur > 420 {
+                            let _ = super::upsert_track_tag(&conn, job.track_id, "len", "extended", "audio_analysis");
+                        }
                         let raw_result = serde_json::json!({
                             "bpm_raw": analysis.bpm,
                             "key": analysis.key,

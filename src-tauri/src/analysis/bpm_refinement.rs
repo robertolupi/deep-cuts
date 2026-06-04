@@ -90,7 +90,30 @@ impl super::AnalysisPass for BpmRefinementPass {
         _duration_ms: i64,
     ) -> Result<(), String> {
         let (result, _) = output;
-        crate::bpm::save_bpm_result(conn, job.track_id, &result)
+        crate::bpm::save_bpm_result(conn, job.track_id, &result)?;
+
+        conn.execute(
+            "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'bpm_refinement'",
+            rusqlite::params![job.track_id],
+        ).map_err(|e| e.to_string())?;
+
+        let effective_bpm = match &result {
+            crate::bpm::CorrectResult::Corrected(v) => Some(*v),
+            crate::bpm::CorrectResult::Unchanged    => job.bpm_raw,
+            crate::bpm::CorrectResult::Null         => None,
+        };
+        if let Some(bpm) = effective_bpm {
+            let label = if bpm < 90.0 {
+                "downtempo"
+            } else if bpm <= 125.0 {
+                "midtempo"
+            } else {
+                "uptempo"
+            };
+            super::upsert_track_tag(conn, job.track_id, "bpm", label, "bpm_refinement")?;
+        }
+
+        Ok(())
     }
 
     fn raw_result_json(&self, output: &Self::Output) -> Option<String> {
@@ -106,8 +129,7 @@ impl BpmRefinementPass {
         dependencies: &["essentia"],
         owned_columns: &["bpm"],
         owned_tables: &[],
-        custom_reset: Some(|conn| {
-            crate::bpm::reset_bpm_data(conn)
-        }),
+        owned_tag_sources: &["bpm_refinement"],
+        custom_reset: Some(|conn| crate::bpm::reset_bpm_data(conn)),
     };
 }

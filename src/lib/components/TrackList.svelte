@@ -57,6 +57,7 @@
   const pageStart  = $derived(currentPage * PAGE_SIZE);
   let displayedTracks = $derived(filters.filteredTracks.slice(pageStart, pageStart + PAGE_SIZE));
   const allTracks = $derived(library.tracks);
+
   const isSelectedOutsideFilter = $derived(
     !!selectedTrack && !filters.filteredTracks.some(t => t.id === selectedTrack!.id)
   );

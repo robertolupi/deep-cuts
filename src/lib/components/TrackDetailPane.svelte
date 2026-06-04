@@ -14,6 +14,7 @@
   let trackPlaylists = $state<import('$lib/types').Playlist[]>([]);
   let playlistSelectQuery = $state("");
   let selectedPlaylistToAdd = $state<import('$lib/types').Playlist | null>(null);
+  let trackTags = $state<string[]>([]);
 
   async function loadTrackPlaylists() {
     if (track) {
@@ -29,6 +30,15 @@
     if (id) {
       loadTrackPlaylists();
     }
+  });
+
+  $effect(() => {
+    const id = track?.id;
+    trackTags = [];
+    if (!id) return;
+    invoke<Record<number, string[]>>('get_tags_for_tracks', { trackIds: [id] })
+      .then(raw => { trackTags = raw[id] ?? []; })
+      .catch(() => {});
   });
 
   $effect(() => {
@@ -254,6 +264,22 @@
                 </span>
               </div>
             {/if}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Tags -->
+      {#if trackTags.length > 0}
+        <div class="section">
+          <span class="section-label">TAGS</span>
+          <div class="tags-wrap">
+            {#each trackTags as tag}
+              <button
+                class="detail-tag-chip"
+                title="Filter by {tag}"
+                onclick={() => { filters.searchQuery = tag; ui.activeView = 'table'; }}
+              >{tag}</button>
+            {/each}
           </div>
         </div>
       {/if}
@@ -645,6 +671,32 @@
     border: 1px solid rgba(0,240,255,0.3);
     color: var(--sg-primary, #00f0ff);
     background: rgba(0,240,255,0.07);
+  }
+
+  /* ── Tags section ── */
+  .tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .detail-tag-chip {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(254, 0, 254, 0.3);
+    color: var(--sg-secondary, #fe00fe);
+    background: rgba(254, 0, 254, 0.07);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    letter-spacing: 0.02em;
+  }
+
+  .detail-tag-chip:hover {
+    background: rgba(254, 0, 254, 0.15);
+    border-color: rgba(254, 0, 254, 0.6);
   }
 
   /* ── Mood radar ── */
