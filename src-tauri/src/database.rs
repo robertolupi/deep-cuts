@@ -350,6 +350,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/21_track_tags_score.sql")),
         M::up(include_str!("../migrations/22_track_tags_discard.sql")),
         M::up(include_str!("../migrations/23_user_tags_and_suppressions.sql")),
+        M::up(include_str!("../migrations/24_waveform_sax.sql")),
     ])
 }
 

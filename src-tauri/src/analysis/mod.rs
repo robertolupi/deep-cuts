@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter};
 
 pub mod audio;
 pub mod bpm_correction;
+pub mod sax;
 pub mod clap;
 pub mod qwen;
 pub mod description_embed;
@@ -379,6 +380,7 @@ pub fn upsert_track_tag(
 pub static PASS_REGISTRY: &[PassSpec] = &[
     audio::AudioPass::SPEC,
     bpm_correction::BpmCorrectionPass::SPEC,
+    sax::SaxPass::SPEC,
     clap::ClapPass::SPEC,
     qwen::QwenPass::SPEC,
     description_embed::DescriptionEmbedPass::SPEC,
@@ -704,6 +706,12 @@ impl PipelineManager {
             log::info!("[pipeline] starting bpm_correction phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, bpm_correction::BpmCorrectionPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "bpm_correction", e);
+            }
+
+            // ── Phase 1c: SAX structural encoding ────────────────────────────
+            log::info!("[pipeline] starting sax phase");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, sax::SaxPass, &run_id_spawn) {
+                emit_pipeline_error(&app, "sax", e);
             }
 
             // ── Phase 2: CLAP ─────────────────────────────────────────────────

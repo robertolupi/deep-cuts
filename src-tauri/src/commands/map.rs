@@ -72,13 +72,29 @@ fn l2_distance_sq(a: &[f32], b: &[f32]) -> Option<f64> {
 fn blended_embedding_distance(
     seed_clap: &[f32],
     seed_description: Option<&[f32]>,
+    seed_sax: Option<&str>,
     candidate_clap: &[f32],
     candidate_description: Option<&[f32]>,
+    candidate_sax: Option<&str>,
     clap_weight: f64,
 ) -> Option<f64> {
     let norm_seed_clap = l2_normalize(seed_clap);
     let norm_candidate_clap = l2_normalize(candidate_clap);
     let clap_distance_sq = l2_distance_sq(&norm_seed_clap, &norm_candidate_clap)?;
+
+    // SAX structural distance — blended in with a fixed 15% weight when both strings are present.
+    // This is additive on top of the acoustic distance so it doesn't dominate.
+    let sax_distance_sq = match (seed_sax, candidate_sax) {
+        (Some(a), Some(b)) => {
+            crate::analysis::sax::sax_mindist(a, b).map(|d| d * d).unwrap_or(0.0)
+        }
+        _ => 0.0,
+    };
+    const SAX_WEIGHT: f64 = 0.15;
+    let acoustic_weight = 1.0 - SAX_WEIGHT;
+
+    let base_distance_sq = acoustic_weight * acoustic_weight * clap_distance_sq
+        + SAX_WEIGHT * SAX_WEIGHT * sax_distance_sq;
 
     if let (Some(seed_description), Some(candidate_description)) =
         (seed_description, candidate_description)
@@ -89,15 +105,17 @@ fn blended_embedding_distance(
             l2_distance_sq(&norm_seed_description, &norm_candidate_description)
         {
             let description_weight = 1.0 - clap_weight;
+            let acoustic_clap_weight = clap_weight * acoustic_weight;
             return Some(
-                ((clap_weight * clap_weight * clap_distance_sq)
+                ((acoustic_clap_weight * acoustic_clap_weight * clap_distance_sq)
+                    + (SAX_WEIGHT * SAX_WEIGHT * sax_distance_sq)
                     + (description_weight * description_weight * description_distance_sq))
                     .sqrt(),
             );
         }
     }
 
-    Some(clap_distance_sq.sqrt())
+    Some(base_distance_sq.sqrt())
 }
 
 fn blended_projection_vector(
@@ -294,14 +312,15 @@ pub fn search_similar_tracks_audio(
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
     let blend_weight = clap_weight.unwrap_or(0.5);
 
-    let (seed_clap_blob, seed_description_blob): (Vec<u8>, Option<Vec<u8>>) = conn
+    let (seed_clap_blob, seed_description_blob, seed_sax): (Vec<u8>, Option<Vec<u8>>, Option<String>) = conn
         .query_row(
-            "SELECT ae.embedding, de.embedding
+            "SELECT ae.embedding, de.embedding, t.waveform_sax
              FROM audio_embeddings ae
+             JOIN tracks t ON t.id = ae.track_id
              LEFT JOIN description_embeddings de ON de.track_id = ae.track_id
              WHERE ae.track_id = ?1",
             [track_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|_| "Track has no CLAP embedding yet — run analysis first.".to_string())?;
     let seed_clap = bytes_to_floats(&seed_clap_blob);
@@ -312,7 +331,7 @@ pub fn search_similar_tracks_audio(
     let mut rows: Vec<AudioSimilarityResult> = if let Some(dir_id) = directory_id {
         let mut stmt = conn
             .prepare(
-                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale
+                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale, t.waveform_sax
                  FROM tracks t
                  JOIN audio_embeddings ae ON ae.track_id = t.id
                  LEFT JOIN description_embeddings de ON de.track_id = t.id
@@ -323,6 +342,7 @@ pub fn search_similar_tracks_audio(
             .query_map(rusqlite::params![dir_id, track_id], |row| {
                 let candidate_clap_blob: Vec<u8> = row.get(1)?;
                 let candidate_description_blob: Option<Vec<u8>> = row.get(2)?;
+                let candidate_sax: Option<String> = row.get(8)?;
                 let candidate_clap = bytes_to_floats(&candidate_clap_blob);
                 let candidate_description = candidate_description_blob
                     .as_ref()
@@ -330,8 +350,10 @@ pub fn search_similar_tracks_audio(
                 let distance = blended_embedding_distance(
                     &seed_clap,
                     seed_description.as_deref(),
+                    seed_sax.as_deref(),
                     &candidate_clap,
                     candidate_description.as_deref(),
+                    candidate_sax.as_deref(),
                     blend_weight,
                 )
                 .unwrap_or(f64::INFINITY);
@@ -353,7 +375,7 @@ pub fn search_similar_tracks_audio(
     } else {
         let mut stmt = conn
             .prepare(
-                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale
+                "SELECT t.id, ae.embedding, de.embedding, t.title, t.artist, t.bpm, t.key, t.scale, t.waveform_sax
                  FROM tracks t
                  JOIN audio_embeddings ae ON ae.track_id = t.id
                  LEFT JOIN description_embeddings de ON de.track_id = t.id
@@ -364,6 +386,7 @@ pub fn search_similar_tracks_audio(
             .query_map([track_id], |row| {
                 let candidate_clap_blob: Vec<u8> = row.get(1)?;
                 let candidate_description_blob: Option<Vec<u8>> = row.get(2)?;
+                let candidate_sax: Option<String> = row.get(8)?;
                 let candidate_clap = bytes_to_floats(&candidate_clap_blob);
                 let candidate_description = candidate_description_blob
                     .as_ref()
@@ -371,8 +394,10 @@ pub fn search_similar_tracks_audio(
                 let distance = blended_embedding_distance(
                     &seed_clap,
                     seed_description.as_deref(),
+                    seed_sax.as_deref(),
                     &candidate_clap,
                     candidate_description.as_deref(),
+                    candidate_sax.as_deref(),
                     blend_weight,
                 )
                 .unwrap_or(f64::INFINITY);
@@ -1136,16 +1161,22 @@ mod math_tests {
         let seed_description = vec![1.0, 0.0];
         let candidate_description = vec![0.0, 1.0];
 
+        // No SAX strings — SAX contributes 0, so result driven by CLAP+description blend.
         let distance = blended_embedding_distance(
             &seed_clap,
             Some(&seed_description),
+            None,
             &candidate_clap,
             Some(&candidate_description),
+            None,
             0.5,
         )
         .unwrap();
 
-        assert!((distance - 0.70710678118).abs() < 1e-6);
+        // clap identical → clap_distance_sq=0; description orthogonal → desc_distance_sq=2
+        // acoustic_clap_weight = 0.5 * 0.85 = 0.425; description_weight = 0.5; SAX_WEIGHT = 0.15
+        // sqrt(0 + 0 + 0.5^2 * 2) = sqrt(0.5) ≈ 0.70710678
+        assert!((distance - 0.70710678118).abs() < 1e-4);
     }
 
     #[test]
@@ -1154,16 +1185,21 @@ mod math_tests {
         let candidate_clap = vec![0.0, 1.0];
         let seed_description = vec![1.0, 0.0];
 
+        // No SAX, no candidate description — falls back to base_distance_sq only.
+        // clap orthogonal → clap_distance_sq = 2; acoustic_weight = 0.85
+        // base_distance_sq = 0.85^2 * 2 = 1.445; sqrt ≈ 1.2021
         let distance = blended_embedding_distance(
             &seed_clap,
             Some(&seed_description),
+            None,
             &candidate_clap,
+            None,
             None,
             0.5,
         )
         .unwrap();
 
-        assert!((distance - 2.0_f64.sqrt()).abs() < 1e-6);
+        assert!((distance - (0.85_f64 * 0.85 * 2.0_f64).sqrt()).abs() < 1e-6);
     }
 
     #[test]

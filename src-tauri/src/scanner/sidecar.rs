@@ -13,6 +13,7 @@ pub mod pass_version {
     pub const BPM_REFINEMENT: u32 = 1;
     pub const QWEN: u32 = 6;
     pub const DESCRIPTION_EMBED: u32 = 1;
+    pub const SAX: u32 = 1;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
