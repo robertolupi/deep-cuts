@@ -7,6 +7,7 @@
   import Autocomplete from "./Autocomplete.svelte";
   import TagsAutocomplete from "./TagsAutocomplete.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
+  import CollapsiblePane from '$lib/components/CollapsiblePane.svelte';
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
@@ -158,9 +159,18 @@
 
 <svelte:window onclick={() => { resetMenuOpen = false; }} />
 
-<aside class="detail-pane">
+<CollapsiblePane side="right" width="var(--sg-detail-pane-width, 320px)" hasIndicator={!!track}>
+  {#snippet children({ collapse })}
+  <div class="pane-scroll">
   {#if !track}
     <!-- Empty state -->
+    <div class="pane-topbar">
+      <button class="collapse-btn" onclick={collapse} title="Collapse detail pane">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    </div>
     <div class="empty-state">
       <div class="empty-vinyl">
         <img src="/deep_cuts_transparent.png" alt="No track" />
@@ -170,6 +180,15 @@
     </div>
   {:else}
     <div class="pane-inner">
+
+      <!-- Collapse button -->
+      <div class="pane-topbar">
+        <button class="collapse-btn" onclick={collapse} title="Collapse detail pane">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
 
       <!-- Vinyl + title -->
       <div class="track-header">
@@ -575,19 +594,41 @@
 
     </div>
   {/if}
-</aside>
+  </div>
+  {/snippet}
+</CollapsiblePane>
 
 <style>
-  .detail-pane {
-    width: var(--sg-detail-pane-width, 320px);
+  .pane-scroll {
     height: 100%;
-    flex-shrink: 0;
-    background: var(--sg-surface-slate, #161b22);
-    border-left: 1px solid rgba(255,255,255,0.08);
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+
+  .pane-topbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 6px 0;
+  }
+
+  .collapse-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--sg-outline, #849495);
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .collapse-btn:hover {
+    color: var(--sg-on-surface, #e3e1e9);
+    background: rgba(255,255,255,0.05);
   }
 
   /* ── Empty state ── */

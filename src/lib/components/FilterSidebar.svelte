@@ -12,8 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import GenreAutocomplete from "./GenreAutocomplete.svelte";
 import TagsAutocomplete from "./TagsAutocomplete.svelte";
 import Autocomplete from "./Autocomplete.svelte";
-
-  let collapsed = $state(false);
+import CollapsiblePane from "./CollapsiblePane.svelte";
 
   // Tag autocomplete
   let tagInput = $state("");
@@ -160,8 +159,8 @@ import Autocomplete from "./Autocomplete.svelte";
   }
 </script>
 
-<aside class="filter-sidebar" class:collapsed>
-  {#if !collapsed}
+<CollapsiblePane side="left" width="var(--sg-sidebar-width, 260px)" hasIndicator={hasActiveFilters}>
+  {#snippet children({ collapse })}
   <div class="sidebar-inner">
     <!-- Header -->
     <div class="sidebar-header">
@@ -171,7 +170,7 @@ import Autocomplete from "./Autocomplete.svelte";
           {library.trackCount.toLocaleString()} tracks indexed{#if library.staleCount > 0}&thinsp;·&thinsp;<span class="stale-badge">{library.staleCount} updated</span>{/if}
         </span>
       </div>
-      <button class="collapse-btn" onclick={() => collapsed = true} title="Collapse sidebar">
+      <button class="collapse-btn" onclick={collapse} title="Collapse sidebar">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6"/>
         </svg>
@@ -549,34 +548,10 @@ import Autocomplete from "./Autocomplete.svelte";
     <SavedSearchList onopen={handleOpenSavedSearch} />
   {/if}
   </div>
-  {:else}
-  <!-- Collapsed tab -->
-  <button class="expand-btn" onclick={() => collapsed = false} title="Expand sidebar">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-    {#if hasActiveFilters}<span class="active-dot"></span>{/if}
-  </button>
-  {/if}
-</aside>
+  {/snippet}
+</CollapsiblePane>
 
 <style>
-  .filter-sidebar {
-    display: flex;
-    flex-direction: column;
-    width: var(--sg-sidebar-width, 260px);
-    height: 100%;
-    background: var(--sg-surface-slate, #161b22);
-    border-right: 1px solid rgba(255,255,255,0.08);
-    overflow: hidden;
-    flex-shrink: 0;
-    transition: width 0.2s ease;
-  }
-
-  .filter-sidebar.collapsed {
-    width: 32px;
-  }
-
   .sidebar-inner {
     display: flex;
     flex-direction: column;
@@ -620,7 +595,7 @@ import Autocomplete from "./Autocomplete.svelte";
     font-weight: 700;
   }
 
-  .collapse-btn, .expand-btn {
+  .collapse-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -633,25 +608,9 @@ import Autocomplete from "./Autocomplete.svelte";
     flex-shrink: 0;
   }
 
-  .collapse-btn:hover, .expand-btn:hover {
+  .collapse-btn:hover {
     color: var(--sg-on-surface, #e3e1e9);
     background: rgba(255,255,255,0.05);
-  }
-
-  .expand-btn {
-    width: 32px;
-    height: 100%;
-    position: relative;
-  }
-
-  .active-dot {
-    position: absolute;
-    top: 12px;
-    right: 6px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--sg-primary, #00f0ff);
   }
 
   /* ── Sections ── */
