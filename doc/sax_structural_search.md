@@ -276,11 +276,31 @@ TOLERANCE = 1 substitution, 0 deletions
 ANCHOR    = first block → first 15%, last block → last 15%
 ```
 
-**Prototype experiment to run (before building UI):**
-- Quantize all 1890 tracks to label sequences using the 7-centroid table
-- Run `[I, V, C, V, C, O]` and `[I, C, C, O]` as test queries
-- Inspect top-20 matches: do they have recognizable verse-chorus structure?
-- Check false positive rate on EDM / classical tracks (expected to be high — need confidence cutoff)
+**Prototype experiment results (June 2025, 1890 tracks):**
+
+Ran two cost regimes against all tracks. Key findings:
+
+*Label distribution after quantization:*
+C (Chorus) 40%, P (Pre-Chorus) 29%, V (Verse) 14%, E (End) 7%, O (Outro) 5%, I (Intro) 5%, B (Bridge) 1%.
+Pre-Chorus is over-represented — its centroid (0.447, 0.845) is very close to Chorus (0.647, 0.875),
+causing many segments to bleed into P.
+
+*Query results with strict costs (ins=1.5, del=2.0):*
+
+| Query | Notable matches | Quality |
+|---|---|---|
+| [I, V, C, V, C, O] | Rammstein, Lou Reed, Céline Dion, Guns N' Roses | ✅ genre-diverse, structurally appropriate |
+| [I, V, C] (build) | Vangelis, Nine Inch Nails, Elisa | ✅ genuinely building tracks |
+| [C, V, C] (drop) | Bach Goldberg, Tchaikovsky, classical | ⚠️ false positives — loud→quiet→loud pattern in classical |
+| [C, C, E] (ends quietly) | Madonna, Chuck D, Paul McCartney | ✅ reasonable |
+
+*Remaining problems:*
+1. **Costs quantize to discrete values** — many tracks tie at 2.50 or 6.50. Confidence is
+   not effectively breaking ties. Need continuous cost or a soft scoring function.
+2. **Pre-Chorus centroid too close to Chorus** — consider merging P into V/C or recalibrating
+   on a broader, genre-diverse labeled set.
+3. **Classical false positives on [C, V, C]** — loud orchestral movements look like choruses.
+   A genre-confidence signal or minimum track length filter may help.
 
 **Precision risk:** The 7 centroids were derived from 153 Downspiral tracks, which may be
 more structurally regular than the broader library. EDM builds, classical movements, and
