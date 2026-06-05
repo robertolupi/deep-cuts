@@ -8,7 +8,7 @@ permalink: /tech/
 
 # Under the Hood: Deep Cuts Architecture
 
-Deep Cuts is built with a highly optimized, fully local native desktop stack. By eliminating external cloud processes and standard Python web-runners, it executes digital signal processing (DSP) algorithms and neural network models entirely in-process on consumer CPUs and Apple Silicon hardware.
+Deep Cuts is built with a highly optimized, fully local native desktop stack. By eliminating external cloud processes and background services, it executes digital signal processing (DSP) algorithms and neural network models entirely in-process on consumer CPUs and Apple Silicon hardware.
 
 ## Core Tech Stack
 
