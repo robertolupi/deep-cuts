@@ -53,11 +53,13 @@
   interface CoverageRow { label: string; pctA: number; pctB: number | undefined; }
   interface VocalRow { label: string; cntA: number; cntB: number | undefined; }
   interface WatchedDirectory { id: number; name: string; path: string; }
+  interface Playlist { id: number; name: string; }
 
   type SetSource =
     | { kind: 'library' }
     | { kind: 'filter' }
-    | { kind: 'folder'; dir: WatchedDirectory };
+    | { kind: 'folder'; dir: WatchedDirectory }
+    | { kind: 'playlist'; playlist: Playlist };
 
   // ── State ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,7 @@
   let error = $state('');
 
   let watchedDirs = $state<WatchedDirectory[]>([]);
+  let playlists = $state<Playlist[]>([]);
   let sourceA = $state<SetSource>({ kind: 'library' });
   let sourceB = $state<SetSource>({ kind: 'filter' });
   let menuOpen = $state<'A' | 'B' | null>(null);
@@ -83,12 +86,17 @@
   function sourceLabel(s: SetSource): string {
     if (s.kind === 'library') return 'Full Library';
     if (s.kind === 'filter')  return 'Current Filter';
+    if (s.kind === 'playlist') return `Playlist: ${s.playlist.name}`;
     return s.dir.name || s.dir.path.split('/').pop() || s.dir.path;
   }
 
   async function idsForSource(s: SetSource): Promise<number[] | null> {
     if (s.kind === 'library') return null;
     if (s.kind === 'filter')  return filters.filteredTracks.map(t => t.id);
+    if (s.kind === 'playlist') {
+      const pTracks = await invoke<{ track_id: number | null }[]>('get_playlist_tracks', { playlistId: s.playlist.id });
+      return pTracks.map(pt => pt.track_id).filter((id): id is number => id !== null);
+    }
     const all = await invoke<{ id: number; watched_directory_id: number }[]>('get_tracks');
     return all.filter(t => t.watched_directory_id === s.dir.id).map(t => t.id);
   }
@@ -389,7 +397,12 @@
   });
 
   onMount(async () => {
-    watchedDirs = await invoke<WatchedDirectory[]>('get_watched_directories');
+    const [dirs, lists] = await Promise.all([
+      invoke<WatchedDirectory[]>('get_watched_directories'),
+      invoke<Playlist[]>('get_playlists'),
+    ]);
+    watchedDirs = dirs;
+    playlists = lists;
   });
 </script>
 
@@ -418,7 +431,15 @@
                 <div class="set-menu-sep"></div>
                 {#each watchedDirs as dir}
                   <button class="set-menu-item" onclick={(e) => { e.stopPropagation(); if(which==='A') sourceA={kind:'folder',dir}; else sourceB={kind:'folder',dir}; menuOpen=null; }}>
-                    {dir.name || dir.path.split('/').pop()}
+                    📁 {dir.name || dir.path.split('/').pop()}
+                  </button>
+                {/each}
+              {/if}
+              {#if playlists.length}
+                <div class="set-menu-sep"></div>
+                {#each playlists as pl}
+                  <button class="set-menu-item" onclick={(e) => { e.stopPropagation(); if(which==='A') sourceA={kind:'playlist',playlist:pl}; else sourceB={kind:'playlist',playlist:pl}; menuOpen=null; }}>
+                    🎵 {pl.name}
                   </button>
                 {/each}
               {/if}
