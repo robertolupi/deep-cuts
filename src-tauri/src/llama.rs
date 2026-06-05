@@ -77,57 +77,30 @@ fn get_sidecar_path(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-/// Spawns the llama-server executable. Tries the bundled sidecar first, then fallbacks.
+/// Spawns the llama-server executable. Only depends on the bundled sidecar.
 fn spawn_llama_server(app: &AppHandle, model_path: &str, mmproj_path: &str, port: u16) -> Result<Child, String> {
-    let mut executables = vec![];
+    let sidecar_path = get_sidecar_path(app)
+        .ok_or_else(|| "Could not find bundled llama-server sidecar! Ensure it is placed in src-tauri/binaries/.".to_string())?;
 
-    // 1. Prioritize the bundled sidecar binary
-    if let Some(sidecar_path) = get_sidecar_path(app) {
-        if let Some(path_str) = sidecar_path.to_str() {
-            executables.push(path_str.to_string());
-        }
-    }
+    let child = std::process::Command::new(&sidecar_path)
+        .arg("-m")
+        .arg(model_path)
+        .arg("--mmproj")
+        .arg(mmproj_path)
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--host")
+        .arg("127.0.0.1")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn executable '{:?}': {}", sidecar_path, e))?;
 
-    // 2. System fallbacks (dev convenience)
-    executables.extend(vec![
-        "/opt/homebrew/bin/llama-server".to_string(),
-        "/usr/local/bin/llama-server".to_string(),
-        "llama-server".to_string(),
-    ]);
-
-    let mut last_err = String::new();
-    for exec in executables {
-        let child = std::process::Command::new(&exec)
-            .arg("-m")
-            .arg(model_path)
-            .arg("--mmproj")
-            .arg(mmproj_path)
-            .arg("--port")
-            .arg(port.to_string())
-            .arg("--host")
-            .arg("127.0.0.1")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn();
-
-        match child {
-            Ok(c) => {
-                log::info!(
-                    "[llama-server] Successfully spawned background llama-server via: {}",
-                    exec
-                );
-                return Ok(c);
-            }
-            Err(e) => {
-                last_err = format!("Failed to spawn executable '{}': {}", exec, e);
-            }
-        }
-    }
-
-    Err(format!(
-        "Could not find or run `llama-server`! Ensure you have installed llama.cpp or placed the sidecar in src-tauri/binaries/. Details: {}",
-        last_err
-    ))
+    log::info!(
+        "[llama-server] Successfully spawned background llama-server via: {:?}",
+        sidecar_path
+    );
+    Ok(child)
 }
 
 pub fn get_llama_port(app: &AppHandle) -> Option<u16> {
