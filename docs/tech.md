@@ -32,7 +32,7 @@ Deep Cuts processes watched folders recursively using a concurrent, spool-based 
 4. **Loudness (EBU R128)**: Analyzes integrated loudness (LUFS) and loudness range (LRA) using the native `ebur128` library.
 5. **Essentia Genre & Mood Classifiers**: Discogs-Effnet ONNX models evaluate 400 genre classes, vocal vs. instrumental probabilities, and seven mood axes (happy, sad, aggressive, relaxed, party, acoustic, electronic).
 6. **LAION CLAP Embeddings**: Extracts 512-dimensional audio embeddings from high-energy (loudest) 10-second audio windows to ensure silent intros do not pollute vector indices.
-7. **Description Embeddings**: Encodes local description tags using the `all-MiniLM-L6-v2` ONNX model for natural language semantic search.
+7. **Description Embeddings**: Encodes local description tags using the `all-MiniLM-L6-v2` ONNX model into 384-dimensional vectors for natural language semantic search.
 
 ---
 
