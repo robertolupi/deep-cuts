@@ -92,7 +92,7 @@
     autocorrect="off"
     autocapitalize="none"
     spellcheck="false"
-    style="flex-grow: 1; background: {borderless ? 'transparent' : 'rgba(0,0,0,0.2)'}; border: {borderless ? 'none' : '1px solid rgba(255,255,255,0.08)'}; border-radius: 4px; padding: {borderless ? '0' : '4px 8px'}; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-on-surface, #e3e1e9); outline: none;"
+    style="flex-grow: 1; background: {borderless ? 'transparent' : 'var(--sg-surface-container)'}; border: {borderless ? 'none' : '1px solid var(--sg-surface-high)'}; border-radius: 4px; padding: {borderless ? '0' : '4px 8px'}; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-on-surface, #e3e1e9); outline: none;"
   />
   {#if buttonSnippet}
     {@render buttonSnippet()}
@@ -102,13 +102,13 @@
     <div 
       bind:this={dropdownEl} 
       class="autocomplete-dropdown" 
-      style="position: absolute; bottom: 100%; left: 0; right: 0; background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; max-height: 120px; overflow-y: auto; z-index: 150; margin-bottom: 4px; box-shadow: 0 -4px 12px rgba(0,0,0,0.5);"
+      style="position: absolute; bottom: 100%; left: 0; right: 0; background: var(--sg-surface-slate); border: 1px solid var(--sg-surface-highest); border-radius: 4px; max-height: 120px; overflow-y: auto; z-index: 150; margin-bottom: 4px; box-shadow: 0 -4px 12px var(--sg-surface-dim);"
     >
       {#each options as option, i}
         <button
           type="button"
           class="autocomplete-item"
-          style="width: 100%; text-align: left; background: {i === activeIndex ? 'rgba(255,255,255,0.08)' : 'none'}; border: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {i === activeIndex ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'}; padding: 6px 8px; cursor: pointer; display: block;"
+          style="width: 100%; text-align: left; background: {i === activeIndex ? 'var(--sg-surface-high)' : 'none'}; border: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {i === activeIndex ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'}; padding: 6px 8px; cursor: pointer; display: block;"
           onclick={() => selectOption(option)}
           onmouseenter={() => activeIndex = i}
         >
