@@ -97,8 +97,12 @@ class PlayerStore {
     // Build WaveSurfer
     this.#wavesurfer = WaveSurfer.create({
       container:   this.#waveformContainer,
-      waveColor:   resolvedTheme === "light" ? "rgba(28, 25, 23, 0.35)" : "rgba(255, 255, 255, 0.08)",
-      cursorColor: resolvedTheme === "light" ? "var(--sg-primary)"      : "var(--sg-primary)",
+      waveColor:   resolvedTheme === "light"      ? "#78716c"
+                 : resolvedTheme === "accessible" ? "rgba(255, 255, 255, 0.80)"
+                 : "rgba(255, 255, 255, 0.08)",
+      cursorColor: resolvedTheme === "light"      ? "#0d7377"
+                 : resolvedTheme === "accessible" ? "#00cccc"
+                 : "#00f0ff",
       cursorWidth: 2,
       barWidth:    3,
       barGap:      2.2,
@@ -113,7 +117,7 @@ class PlayerStore {
     if (ctx) {
       const gradient = ctx.createLinearGradient(0, 0, 800, 0);
       if (resolvedTheme === "accessible") {
-        this.#wavesurfer.setOptions({ progressColor: "var(--sg-primary)" });
+        this.#wavesurfer.setOptions({ progressColor: "#00cccc" });
       } else if (resolvedTheme === "light") {
         gradient.addColorStop(0,   "#0d7377");
         gradient.addColorStop(0.5, "#7c2d6b");
@@ -172,8 +176,8 @@ class PlayerStore {
       el.style.fontSize = "8px";
       el.style.fontFamily = "JetBrains Mono, monospace";
       el.style.padding = "1px 4px";
-      el.style.background = "rgba(0, 0, 0, 0.75)";
-      el.style.color = "#fff";
+      el.style.background = theme.resolvedTheme === "light" ? "rgba(28, 25, 23, 0.80)" : "rgba(0, 0, 0, 0.85)";
+      el.style.color = "#ffffff";
       el.style.borderRadius = "3px";
       el.style.position = "absolute";
       el.style.top = "2px";
