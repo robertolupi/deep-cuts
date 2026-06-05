@@ -1,6 +1,6 @@
 [package]
 name = "deep-cuts"
-version = "0.1.4"
+version = "0.1.5"
 description = "Desktop Audio Intelligence Platform"
 authors = ["Roberto Lupi"]
 license = "AGPL-3.0"
