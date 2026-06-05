@@ -423,14 +423,14 @@
             {#if track.detected_genre}
               <div class="classifier-row">
                 <span class="classifier-key">GENRE</span>
-                <span class="classifier-val">{track.detected_genre}</span>
+                <button class="classifier-val filter-link classifier-link" onclick={() => { filters.genreFilter = track!.detected_genre!; }}>{track.detected_genre}</button>
               </div>
             {/if}
             {#if track.detected_vocal}
               <div class="classifier-row">
                 <span class="classifier-key">VOCAL</span>
                 <span class="classifier-val">
-                  {track.detected_vocal}
+                  <button class="filter-link classifier-link" onclick={() => { filters.vocalFilter = track!.detected_vocal as "voice" | "instrumental"; }}>{track.detected_vocal}</button>
                   {#if track.detected_vocal_confidence != null}
                     <span class="classifier-conf">({(track.detected_vocal_confidence * 100).toFixed(0)}%)</span>
                   {/if}
@@ -959,6 +959,15 @@
     font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin-left: 3px;
+  }
+
+  .classifier-link {
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
+    color: var(--sg-on-surface, #e3e1e9);
+    text-align: left;
+    display: inline;
+    width: auto;
   }
 
   /* ── Sounds similar ── */
