@@ -1,12 +1,13 @@
 <script lang="ts">
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-  import { onDestroy, tick } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import WaveSurfer from 'wavesurfer.js';
   import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
   import { player } from '$lib/stores/player.svelte';
   import { library } from '$lib/stores/library.svelte';
   import { theme } from '$lib/stores/theme.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
 
   type Message = { role: 'user' | 'assistant'; content: string };
   interface ChatSession { id: number; track_id: number; title: string; window_start_secs: number | null; window_duration_secs: number | null; created_at: number; updated_at: number; }
@@ -301,9 +302,33 @@
     }
   }
 
-  onDestroy(() => {
+  let pipelineWasRunning = false;
+
+  onMount(async () => {
+    if (library.analysisRunning) {
+      pipelineWasRunning = true;
+      try {
+        await invoke('set_analysis_auto_paused', { paused: true });
+        ui.showToast("Analysis pipeline paused for chat session", "success");
+      } catch (e) {
+        console.error("Failed to pause analysis:", e);
+      }
+    }
+  });
+
+  onDestroy(async () => {
     unlistenToken?.();
     destroyChatWs();
+    if (pipelineWasRunning) {
+      try {
+        await invoke('set_analysis_auto_paused', { paused: false });
+        if (!library.analysisManuallyPaused) {
+          ui.showToast("Analysis pipeline resumed", "success");
+        }
+      } catch (e) {
+        console.error("Failed to resume analysis:", e);
+      }
+    }
   });
 
   function scrollToBottom() {
@@ -382,7 +407,7 @@
               {/if}
             {:else}
               <!-- Session list for this track -->
-              <button class="session-item session-item-new" onclick={startNewSession} disabled={analysisRunning}>
+              <button class="session-item session-item-new" onclick={startNewSession}>
                 + New Chat
               </button>
               {#if trackSessions.length > 0}
@@ -461,8 +486,8 @@
       <div class="error-banner">{modelError}</div>
     {/if}
 
-    {#if analysisRunning}
-      <div class="analysis-running-banner">Analysis pipeline is running — chat is disabled to prevent llama-server conflicts. Wait for analysis to finish.</div>
+    {#if pipelineWasRunning}
+      <div class="analysis-running-banner">Analysis pipeline is temporarily paused to allow chatting. It will resume when you leave this panel.</div>
     {/if}
 
     <!-- Input -->
@@ -472,13 +497,13 @@
         placeholder="Ask something about this track…"
         bind:value={inputText}
         onkeydown={handleKeydown}
-        disabled={streaming || analysisRunning}
+        disabled={streaming}
         rows="2"
       ></textarea>
       <button
         class="send-btn"
         onclick={sendMessage}
-        disabled={streaming || !inputText.trim() || analysisRunning}
+        disabled={streaming || !inputText.trim()}
         aria-label="Send"
       >
         {#if streaming}

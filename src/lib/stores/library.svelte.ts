@@ -20,6 +20,9 @@ class LibraryStore {
   
   tauriConnected = $state(false);
   analysisRunning = $state(false);
+  analysisManuallyPaused = $state(false);
+  analysisAutoPaused = $state(false);
+  analysisPaused = $derived(this.analysisManuallyPaused || this.analysisAutoPaused);
 
   // Initialize and load initial database states
   async init() {
@@ -31,6 +34,17 @@ class LibraryStore {
 
       // Sync analysisRunning with the backend on startup
       invoke<boolean>("is_analysis_running").then(v => { this.analysisRunning = v; }).catch(() => {});
+      invoke<{ manually_paused: boolean; auto_paused: boolean }>("get_analysis_paused_status")
+        .then(v => {
+          this.analysisManuallyPaused = v.manually_paused;
+          this.analysisAutoPaused = v.auto_paused;
+        }).catch(() => {});
+
+      // Sync paused changes from backend
+      await listen<{ manually_paused: boolean; auto_paused: boolean }>("analysis-paused-changed", (event) => {
+        this.analysisManuallyPaused = event.payload.manually_paused;
+        this.analysisAutoPaused = event.payload.auto_paused;
+      });
 
       // Reload tracks after each analysis phase completes so extracted data is visible
       await listen<any>("analysis-phase-complete", () => {
@@ -50,11 +64,15 @@ class LibraryStore {
 
       await listen<any>("analysis-complete", () => {
         this.analysisRunning = false;
+        this.analysisManuallyPaused = false;
+        this.analysisAutoPaused = false;
         this.fetchTracks();
       });
 
       await listen<any>("analysis-error", () => {
         this.analysisRunning = false;
+        this.analysisManuallyPaused = false;
+        this.analysisAutoPaused = false;
       });
 
       // Listen for AcoustID dynamic enrichment events to refresh the library and details view

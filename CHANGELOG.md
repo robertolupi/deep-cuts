@@ -2,6 +2,16 @@
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.6] — 2026-06-05
+
+### Features
+
+- **Pipeline Pause/Resume Controls**: Added manual pause/resume functionality to the analysis pipeline from the Analysis Panel, along with a "Paused" badge indicator.
+- **Automatic Chat Session Pausing**: Automatically pauses the analysis pipeline when entering a chat session to avoid resource conflicts, and automatically resumes it upon navigating away. Includes descriptive toast notifications and inline banner updates.
+- **Instruct Qwen Prompt**: Updated the track description analysis prompt to instruct Qwen not to repeat the BPM or key when answering.
+
+---
+
 ## [0.1.5] — 2026-06-05
 
 ### Features

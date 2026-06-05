@@ -5,6 +5,7 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { ui } from "$lib/stores/ui.svelte";
+  import { library } from "$lib/stores/library.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
   import MetricsInspector from "./MetricsInspector.svelte";
 
@@ -270,6 +271,20 @@
     catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
   }
 
+  async function toggleManualPause() {
+    const nextState = !library.analysisManuallyPaused;
+    try {
+      await invoke("set_analysis_manually_paused", { paused: nextState });
+      if (nextState) {
+        ui.showToast("Analysis pipeline paused by user", "success");
+      } else {
+        ui.showToast("Analysis pipeline resumed", "success");
+      }
+    } catch (e: any) {
+      errorMessage = e?.toString() ?? "Failed to toggle pause state";
+    }
+  }
+
   let checkInterval: ReturnType<typeof setInterval>;
 
   onMount(() => {
@@ -312,12 +327,30 @@
         Inspect Metrics
       </button>
       {#if isRunning}
-        {#if estimatedTimeRemaining > 0}
-          <span class="eta-label">~{formatEta(estimatedTimeRemaining)} remaining</span>
+        {#if library.analysisPaused}
+          <span class="running-badge paused-badge" style="color: var(--sg-amber, #f0a030); border-color: rgba(240,160,48,0.3); background: rgba(240,160,48,0.07)">
+            <span class="pulse-dot" style="background: var(--sg-amber, #f0a030); animation: none;"></span> Paused
+          </span>
+          <button class="action-btn action-btn-primary" onclick={toggleManualPause}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Resume
+          </button>
+        {:else}
+          {#if estimatedTimeRemaining > 0}
+            <span class="eta-label">~{formatEta(estimatedTimeRemaining)} remaining</span>
+          {/if}
+          <span class="running-badge">
+            <span class="pulse-dot"></span> Running
+          </span>
+          <button class="action-btn" onclick={toggleManualPause}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+            </svg>
+            Pause
+          </button>
         {/if}
-        <span class="running-badge">
-          <span class="pulse-dot"></span> Running
-        </span>
       {:else}
         <button class="action-btn action-btn-primary" onclick={startAnalysis}>
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

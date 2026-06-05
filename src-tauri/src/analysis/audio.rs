@@ -45,6 +45,11 @@ pub fn run_audio_analysis_phase(
 
         handles.push(std::thread::spawn(move || {
             loop {
+                while super::ANALYSIS_MANUALLY_PAUSED.load(std::sync::atomic::Ordering::SeqCst)
+                    || super::ANALYSIS_AUTO_PAUSED.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
                 let job = {
                     match queue_clone.lock() {
                         Ok(mut q) => q.pop_front(),

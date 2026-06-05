@@ -15,12 +15,25 @@ pub mod essentia;
 pub mod bpm_refinement;
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
+pub static ANALYSIS_MANUALLY_PAUSED: AtomicBool = AtomicBool::new(false);
+pub static ANALYSIS_AUTO_PAUSED: AtomicBool = AtomicBool::new(false);
+
+pub fn emit_paused_status(app: &tauri::AppHandle) {
+    let manually = ANALYSIS_MANUALLY_PAUSED.load(Ordering::SeqCst);
+    let auto = ANALYSIS_AUTO_PAUSED.load(Ordering::SeqCst);
+    let _ = app.emit("analysis-paused-changed", serde_json::json!({
+        "manually_paused": manually,
+        "auto_paused": auto,
+    }));
+}
 
 // RAII guard that clears ANALYSIS_ACTIVE when the pipeline scope exits
 struct ActiveGuard;
 impl Drop for ActiveGuard {
     fn drop(&mut self) {
         ANALYSIS_ACTIVE.store(false, Ordering::SeqCst);
+        ANALYSIS_MANUALLY_PAUSED.store(false, Ordering::SeqCst);
+        ANALYSIS_AUTO_PAUSED.store(false, Ordering::SeqCst);
     }
 }
 
@@ -151,6 +164,9 @@ pub trait AnalysisPass<R: tauri::Runtime = tauri::Wry> {
         self.setup(app)?;
 
         for job in jobs {
+            while ANALYSIS_MANUALLY_PAUSED.load(Ordering::SeqCst) || ANALYSIS_AUTO_PAUSED.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
             let start = std::time::Instant::now();
             let start_time_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

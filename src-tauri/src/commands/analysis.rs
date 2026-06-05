@@ -281,3 +281,23 @@ pub fn check_models_exist(app: tauri::AppHandle) -> Result<serde_json::Value, St
 
     Ok(result)
 }
+
+#[tauri::command]
+pub fn set_analysis_manually_paused(app: tauri::AppHandle, paused: bool) {
+    analysis::ANALYSIS_MANUALLY_PAUSED.store(paused, std::sync::atomic::Ordering::SeqCst);
+    analysis::emit_paused_status(&app);
+}
+
+#[tauri::command]
+pub fn set_analysis_auto_paused(app: tauri::AppHandle, paused: bool) {
+    analysis::ANALYSIS_AUTO_PAUSED.store(paused, std::sync::atomic::Ordering::SeqCst);
+    analysis::emit_paused_status(&app);
+}
+
+#[tauri::command]
+pub fn get_analysis_paused_status() -> serde_json::Value {
+    serde_json::json!({
+        "manually_paused": analysis::ANALYSIS_MANUALLY_PAUSED.load(std::sync::atomic::Ordering::SeqCst),
+        "auto_paused": analysis::ANALYSIS_AUTO_PAUSED.load(std::sync::atomic::Ordering::SeqCst),
+    })
+}
