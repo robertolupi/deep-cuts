@@ -132,20 +132,138 @@ heavily. Needs validation on held-out non-Downspiral tracks.
 
 ---
 
-## Decision tree
+## Option D — Weak-supervision MLP + pseudo-label loop (recommended next step)
+
+Based on GMM result (Option A confirmed feature space is insufficient for hard boundaries)
+and Meta AI review. The core insight: **output probabilities, not labels**. Soft scores fix
+the discrete cost problem automatically.
+
+### D1 — Logistic regression baseline (try first, 30 min)
+
+Input: `[energy, rep_score, position]` — 3 features, already available per segment.
+Output: softmax over 7 classes (I, V, P, C, B, O, E).
+
+Why try this before MLP: if logistic regression on 3 features already separates P/C/V better
+than the hand-tuned centroids, the feature set is sufficient and nonlinearity isn't needed.
+The GMM failure may have been a geometry problem (wrong covariance structure) rather than a
+feature problem.
+
+```python
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
+X = np.array([[energy, rep, position], ...])   # labeled segments from Downspiral
+y = [label, ...]
+
+clf = LogisticRegression(C=1.0, max_iter=500, class_weight='balanced')
+clf.fit(X_train, y_train)
+probs = clf.predict_proba(X_test)  # shape (n_segments, 7) — continuous, no ties
+```
+
+Label smoothing for noisy alignment: use `LabelEncoder` + mix 10% uniform prior into
+the one-hot targets before fitting, or use sklearn's `class_weight='balanced'`.
+
+### D2 — MLP with pseudo-label loop (if LR insufficient)
+
+**Architecture:**
+```
+Input:  [energy, rep_score, position, sax_onehot_5] → 8D
+Layer1: Linear(8→32) → ReLU → Dropout(0.3)
+Layer2: Linear(32→16) → ReLU
+Output: Linear(16→7) → Softmax
+Params: ~2,000
+```
+
+**Training loop (semi-supervised):**
+1. Train on 153 Downspiral tracks (label smoothing ε=0.1 for noisy alignment).
+2. Run inference on 1,737 unlabeled tracks; keep predictions with confidence > 0.7 as pseudo-labels.
+3. Retrain on original labels + pseudo-labels. One loop is enough at this scale.
+
+The model learns to merge P and C where the library doesn't support the distinction, or keep
+them separate where it does. No manual calibration.
+
+### D3 — Replace edit distance with -log probability + Viterbi
+
+Once a soft classifier exists (LR or MLP), replace the Levenshtein DP entirely:
+
+**Score a query pattern against a track:**
+```
+For query [I, V, C, V, C, O] and track with per-segment probability matrix P (16×7):
+  score(track) = min-cost alignment via Viterbi over -log P[:, label_idx]
+  + transition penalty for staying in same section (encourages segment runs)
+```
+
+This is forced alignment — exactly how speech recognition aligns a phoneme sequence to
+a probability matrix. Benefits:
+- **Continuous scores** — costs are -log probabilities, no two tracks tie.
+- **Tiebreaker is free** — confidence is baked into the cost.
+- **Time boundaries** — Viterbi backtrace gives the actual segment positions where each
+  block was matched, enabling the "show why a track matched" waveform overlay in the UI.
+- **Transition penalties** — can encode "chorus lasts at least 2 segments" without rules.
+
+**Implementation sketch:**
+```python
+def viterbi_align(log_probs, query_label_indices, transition_penalty=0.5):
+    """
+    log_probs: (n_seg, n_classes) — log P(label | segment)
+    query_label_indices: list of class indices for the query
+    Returns: (total_cost, [matched_segment_indices])
+    """
+    n, m = log_probs.shape[0], len(query_label_indices)
+    dp = np.full((n, m), np.inf)
+    bp = np.zeros((n, m), dtype=int)
+    dp[0, 0] = -log_probs[0, query_label_indices[0]]
+    for i in range(1, n):
+        for j in range(m):
+            # stay on same query position (skip track segment)
+            stay = dp[i-1, j] + 0.5  # insertion cost
+            # advance query (match this segment to query[j])
+            cost = -log_probs[i, query_label_indices[j]]
+            advance = dp[i-1, j-1] + cost if j > 0 else np.inf
+            if stay < advance:
+                dp[i, j] = stay; bp[i, j] = j
+            else:
+                dp[i, j] = advance; bp[i, j] = j - 1
+    # backtrack ...
+    return dp[-1, -1], backtrack(bp)
+```
+
+---
+
+## GMM result (Option A — June 2025)
+
+**Outcome: feature space insufficient for hard boundaries.**
+
+- 3 Chorus components, 0 useful Intro/Pre-Chorus/Bridge/Outro/End components
+- Verse: 55% accuracy, Chorus: 79%, all others: 0%
+- Root cause: Pre-Chorus centroid (0.447 energy, 0.845 rep) and Chorus (0.647, 0.875)
+  are too close; brickwalled masters collapse the gap further
+- Classical false positives: quiet Goldberg variations look like Verse in 2D
+
+**Conclusion:** The 3D feature space can support soft boundaries but not hard ones. Move to
+Option D1 (logistic regression) to test whether a learned soft boundary is sufficient, before
+investing in contrastive pretraining (Option B/C+).
+
+---
+
+## Decision tree (updated)
 
 ```
-Start → Run GMM (Option A, 30 min)
+GMM (Option A) ✅ DONE — feature space insufficient for hard clusters
          │
-         ├── GMM clusters align cleanly with section types?
-         │       Yes → Use GMM soft assignments as drop-in for centroids.
-         │             Add sequence context later with Option C on top.
-         │
-         └── GMM clusters are messy / Pre-Chorus still bleeds into Chorus?
-                 │
-                 └── 2D feature space is insufficient.
-                     Run Option B (contrastive, 2–3h).
-                     If B embeddings cluster cleanly → proceed to C+.
+         └── Option D1: logistic regression on [energy, rep, position]
+                  │
+                  ├── LR accuracy >> GMM (>50% on Intro/Outro/Bridge)?
+                  │       Yes → Feature set is sufficient. Use LR probabilities
+                  │             + Viterbi alignment (D3). Done.
+                  │
+                  └── LR still collapses P/C/V?
+                           │
+                           ├── Option D2: MLP + pseudo-label loop
+                           │     (adds nonlinearity + unlabeled data)
+                           │
+                           └── Option B/C+: contrastive pretraining
+                                 (richer features, if 3D is truly insufficient)
 ```
 
 ---
