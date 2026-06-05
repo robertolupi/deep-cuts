@@ -2,7 +2,13 @@
 
 ## Goal
 
-A visual block composer UI that lets users search the library by song architecture ("find tracks with a quiet intro, then a chorus, then a drop") without writing regex. Blocks map to named musical sections; the composer compiles them to an RLE regex over the `waveform_sax` column.
+A visual block composer UI that lets users search the library by song architecture ("find tracks with a quiet intro, then a chorus, then a drop") without writing regex. The user composes a named-block sequence; the backend finds tracks whose structural arc best matches it.
+
+> **Architecture revision (post-experiment):** The backend is not a regex filter — it is a
+> nearest-neighbour sequence matcher. Each track is quantized to a time-ordered label sequence
+> (e.g. `[I][I][V][V][C][V][C][O]`). A user query is matched against these sequences using
+> edit distance with centroid-weighted substitution costs. Tracks are returned sorted by match
+> cost, not filtered by threshold. See Implementation Plan for details.
 
 ## Block → RLE mapping (proposed)
 
@@ -219,27 +225,87 @@ to trigger a re-run of all three columns together.
 **What to store:** `waveform_repetition` as a JSON TEXT array (16 floats). Small enough
 that BLOB offers no meaningful performance advantage, and TEXT is inspectable in the DB.
 
-### Phase 1 — Block composer backend
+### Phase 1 — Segment quantization + sequence matching (prototype first)
 
-1. IPC command: `search_by_structure(blocks: Block[]) → Track[]`
-2. Each `Block` carries `{ name, energy_min, energy_max, rep_min, rep_max, anchor? }`
-3. Backend pulls `waveform_sax` + `waveform_repetition` for all tracks (two short TEXT columns)
-4. Match: for each block in sequence, find the first segment satisfying the 2D threshold that
-   appears after the previous match position (order-preserving subsequence match)
-5. Anchor blocks: Intro must match within first 20% of segments; Outro within last 20%
+The core of the backend, before any UI is built:
+
+**Step 1 — Per-track label sequence**
+For each track, use the 16 SSM segments and their (energy, repetition) coordinates to assign
+the nearest centroid label to each segment. Result: a time-ordered label sequence, e.g.
+`[I, I, V, V, C, V, C, O]` with per-segment confidence (distance to assigned centroid).
+
+Centroid table (from 153-track experiment):
+
+| Label | Energy μ | Rep μ |
+|---|---|---|
+| Intro | 0.016 | 0.466 |
+| End | 0.237 | 0.275 |
+| Verse | 0.338 | 0.706 |
+| Pre-Chorus | 0.447 | 0.845 |
+| Bridge | 0.556 | 0.797 |
+| Outro | 0.617 | 0.588 |
+| Chorus | 0.647 | 0.875 |
+
+Store as `waveform_labels TEXT` (JSON array of 16 label strings) alongside
+`waveform_repetition` in migration 25.
+
+**Step 2 — Fuzzy sequence matching (edit distance)**
+
+Match a user query sequence against all track label sequences using Levenshtein with
+substitution costs weighted by 2D centroid distance:
+
+```
+cost(substitute A → B) = euclidean_distance(centroid_A, centroid_B) / max_dist
+cost(insert)   = 0.5   # gaps in the track sequence are cheap (sections may repeat)
+cost(delete)   = 1.0   # dropping a user-specified block is expensive
+```
+
+A segment at (0.5 energy, 0.8 rep) is near Bridge — substituting it for Bridge costs
+less than substituting it for Intro. Tracks are returned sorted by total match cost.
+
+**Step 3 — Position anchoring**
+
+Before matching: force any `Intro` block in the query to only match segments within
+the first 15% of the track (segments 0–2 of 16); `Outro` / `End` only within the last 15%
+(segments 13–15). Score the middle freely. This is more reliable than energy for these labels.
+
+**Minimal pattern language (for prototyping without UI):**
+```
+PATTERN   = [I, V, C, V, C, O]
+TOLERANCE = 1 substitution, 0 deletions
+ANCHOR    = first block → first 15%, last block → last 15%
+```
+
+**Prototype experiment to run (before building UI):**
+- Quantize all 1890 tracks to label sequences using the 7-centroid table
+- Run `[I, V, C, V, C, O]` and `[I, C, C, O]` as test queries
+- Inspect top-20 matches: do they have recognizable verse-chorus structure?
+- Check false positive rate on EDM / classical tracks (expected to be high — need confidence cutoff)
+
+**Precision risk:** The 7 centroids were derived from 153 Downspiral tracks, which may be
+more structurally regular than the broader library. EDM builds, classical movements, and
+ambient tracks will produce noisy label sequences. A per-segment confidence score (distance
+to assigned centroid) doubles as a track-level reliability signal — low mean confidence =
+"this track's structure is ambiguous, deprioritize in results."
+
+**IPC command (Phase 1b — after prototype validates):**
+```typescript
+search_by_structure(blocks: string[], tolerance: number) → { track: Track, cost: number }[]
+```
 
 ### Phase 2 — Block composer UI
 
 1. Svelte component: palette of named blocks + horizontal lane
 2. Blocks are clickable to append, draggable to reorder, click-to-remove
-3. Live result count updates as lane changes
-4. "Show pattern" toggle reveals the threshold logic for power users
+3. Live result count + sorted result list (by match cost, not binary filter)
+4. Waveform overlay: show inferred `[I][V][C]` labels on the waveform with SAX coloring
+   so the user can see *why* a track matched
 5. Integrate into filter sidebar alongside CLAP/semantic search
 
 **Key decisions (still open):**
-- Are blocks repeatable? (`Chorus` + `Chorus` = must have two H peaks)
-- Strict mode (no gaps between blocks) for exact arc matching?
-- Filter (narrows track list) or ranked search (scored by match quality)?
+- Tolerance exposed to user (slider: exact → fuzzy) or fixed internally?
+- Show match cost as a percentage score in the result list?
+- Should repeated blocks (`[C, C]`) require two distinct high-rep peaks or allow overlap?
 
 ## Files
 
