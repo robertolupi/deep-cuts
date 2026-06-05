@@ -1,6 +1,9 @@
 <script lang="ts">
   import { theme } from "$lib/stores/theme.svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { library } from "$lib/stores/library.svelte";
+
+  const analysisActive = $derived(library.analysisRunning && !library.analysisPaused);
 
   const views: { id: typeof ui.activeView; label: string }[] = [
     { id: 'table',      label: 'Library'    },
@@ -23,6 +26,7 @@
       <button
         class="vt-btn"
         class:vt-active={ui.activeView === v.id}
+        class:vt-analysis-active={v.id === 'analysis' && analysisActive}
         onclick={() => ui.activeView = v.id}
       >
         {#if v.id === 'table'}
@@ -152,6 +156,21 @@
 
   .vt-active:hover {
     background: rgba(0,240,255,0.14);
+  }
+
+  .vt-analysis-active {
+    color: var(--sg-primary, #00f0ff);
+    text-shadow: 0 0 8px rgba(0,240,255,0.6);
+    animation: analysis-glow-pulse 2.4s ease-in-out infinite;
+  }
+
+  .vt-analysis-active svg {
+    filter: drop-shadow(0 0 4px rgba(0,240,255,0.7));
+  }
+
+  @keyframes analysis-glow-pulse {
+    0%, 100% { text-shadow: 0 0 6px rgba(0,240,255,0.4); }
+    50%       { text-shadow: 0 0 14px rgba(0,240,255,0.85); }
   }
 
   /* ── Theme picker ── */
