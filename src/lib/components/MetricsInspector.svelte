@@ -127,6 +127,7 @@
   const PASS_ORDER = [
     "audio_analysis",
     "bpm_correction",
+    "sax",
     "clap",
     "essentia",
     "bpm_refinement",
@@ -137,6 +138,7 @@
   const PASS_COLORS: Record<string, string> = {
     audio_analysis:    "#00f0ff",
     bpm_correction:    "#9b5de5",
+    sax:               "#5ba3c9",
     clap:              "#ff007f",
     essentia:          "#00f5d4",
     bpm_refinement:    "#fee440",
@@ -565,6 +567,7 @@
   }
 
   .pass-badge.audio_analysis { color: #00f0ff; border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.06); }
+  .pass-badge.sax { color: #5ba3c9; border-color: rgba(91,163,201,0.3); background: rgba(91,163,201,0.06); }
   .pass-badge.clap { color: #ff007f; border-color: rgba(255,0,127,0.3); background: rgba(255,0,127,0.06); }
   .pass-badge.essentia { color: #00f5d4; border-color: rgba(0,245,212,0.3); background: rgba(0,245,212,0.06); }
   .pass-badge.qwen { color: #ff9f1c; border-color: rgba(255,159,28,0.3); background: rgba(255,159,28,0.06); }
@@ -798,6 +801,7 @@
   }
 
   .pass-name-val.audio_analysis { color: #00f0ff; }
+  .pass-name-val.sax { color: #5ba3c9; }
   .pass-name-val.clap { color: #ff007f; }
   .pass-name-val.essentia { color: #00f5d4; }
   .pass-name-val.qwen { color: #ff9f1c; }
