@@ -3,9 +3,11 @@
   import { onMount } from 'svelte';
   import PlayerBar from '$lib/components/PlayerBar.svelte';
   import TrackDetailPane from '$lib/components/TrackDetailPane.svelte';
+  import FilterSidebar from '$lib/components/FilterSidebar.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { library } from '$lib/stores/library.svelte';
   import { theme } from '$lib/stores/theme.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
 
   let { children } = $props();
 
@@ -21,6 +23,9 @@
 </script>
 
 <div class="app-shell" data-theme={theme.currentTheme}>
+  {#if ui.activeView === 'table' || ui.activeView === 'map'}
+    <FilterSidebar />
+  {/if}
   <div class="app-left-col">
     <div class="app-shell-content">
       {@render children()}

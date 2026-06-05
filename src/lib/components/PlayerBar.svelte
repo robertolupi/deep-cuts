@@ -37,10 +37,10 @@
   function getRevealLabel(): string {
     if (typeof navigator !== "undefined") {
       const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes("mac")) return "Reveal in Finder";
-      if (ua.includes("win")) return "Show in Explorer";
+      if (ua.includes("mac")) return "Reveal";
+      if (ua.includes("win")) return "Reveal";
     }
-    return "Show in Files";
+    return "Reveal";
   }
   const revealLabel = getRevealLabel();
 </script>
@@ -102,7 +102,7 @@
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
-          <span style="vertical-align: middle;">Locate on Map</span>
+          <span style="vertical-align: middle;">Locate</span>
         </button>
 
         <button

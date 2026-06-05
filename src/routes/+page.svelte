@@ -1,6 +1,5 @@
 <script lang="ts">
   import Navbar from "$lib/components/Navbar.svelte";
-  import FilterSidebar from "$lib/components/FilterSidebar.svelte";
   import TrackList from "$lib/components/TrackList.svelte";
   import MusicMap from "$lib/components/MusicMap.svelte";
   import LibrarySettings from "$lib/components/LibrarySettings.svelte";
@@ -92,7 +91,6 @@
   <main class="workspace">
     {#if ui.activeView === 'table' || ui.activeView === 'map'}
       <div class="table-view-layout">
-        <FilterSidebar />
         {#if ui.activeView === 'table'}
           <TrackList
             {selectedTrack}
