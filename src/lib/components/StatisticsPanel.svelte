@@ -4,6 +4,7 @@
   import * as d3 from 'd3';
   import { filters } from '$lib/stores/filters.svelte';
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
+  import type { MappedTrackPoint } from '$lib/utils/mapMath';
 
   // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -71,9 +72,59 @@
 
   let watchedDirs = $state<WatchedDirectory[]>([]);
   let playlists = $state<Playlist[]>([]);
-  let sourceA = $state<SetSource>({ kind: 'library' });
-  let sourceB = $state<SetSource>({ kind: 'filter' });
   let menuOpen = $state<'A' | 'B' | null>(null);
+
+  // ── Persisted set sources ──────────────────────────────────────────────────
+
+  type PersistedSource =
+    | { kind: 'library' }
+    | { kind: 'filter' }
+    | { kind: 'folder'; dirId: number }
+    | { kind: 'playlist'; playlistId: number };
+
+  function serializeSource(s: SetSource): PersistedSource {
+    if (s.kind === 'folder')   return { kind: 'folder',   dirId: s.dir.id };
+    if (s.kind === 'playlist') return { kind: 'playlist', playlistId: s.playlist.id };
+    return { kind: s.kind };
+  }
+
+  function deserializeSource(p: PersistedSource, dirs: WatchedDirectory[], lists: Playlist[]): SetSource {
+    if (p.kind === 'folder') {
+      const dir = dirs.find(d => d.id === p.dirId);
+      return dir ? { kind: 'folder', dir } : { kind: 'library' };
+    }
+    if (p.kind === 'playlist') {
+      const playlist = lists.find(pl => pl.id === p.playlistId);
+      return playlist ? { kind: 'playlist', playlist } : { kind: 'library' };
+    }
+    return { kind: p.kind };
+  }
+
+  function loadPersistedSource(key: string, fallback: SetSource): SetSource {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw) as SetSource;
+    } catch { /* ignore */ }
+    return fallback;
+  }
+
+  const STORAGE_KEY_A = 'stats-panel-source-a';
+  const STORAGE_KEY_B = 'stats-panel-source-b';
+
+  // Start with stored kind; folder/playlist refs rehydrated after dirs/playlists load
+  const storedA = loadPersistedSource(STORAGE_KEY_A, { kind: 'library' }) as PersistedSource;
+  const storedB = loadPersistedSource(STORAGE_KEY_B, { kind: 'filter' })  as PersistedSource;
+
+  let sourceA = $state<SetSource>(
+    storedA.kind === 'library' || storedA.kind === 'filter' ? { kind: storedA.kind } : { kind: 'library' }
+  );
+  let sourceB = $state<SetSource>(
+    storedB.kind === 'library' || storedB.kind === 'filter' ? { kind: storedB.kind } : { kind: 'filter' }
+  );
+
+  // Persist on every change
+  $effect(() => { try { localStorage.setItem(STORAGE_KEY_A, JSON.stringify(serializeSource(sourceA))); } catch { /* ignore */ } });
+  $effect(() => { try { localStorage.setItem(STORAGE_KEY_B, JSON.stringify(serializeSource(sourceB))); } catch { /* ignore */ } });
 
   // ── Set colours ────────────────────────────────────────────────────────────
 
@@ -360,6 +411,19 @@
   let svgKey: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgGenre: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
   let svgInstruments: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+  let svgScatter: SVGSVGElement = $state(undefined as unknown as SVGSVGElement);
+
+  // ── Scatter map data ───────────────────────────────────────────────────────
+
+  let allCoords = $state<MappedTrackPoint[]>([]);
+
+  async function loadCoords() {
+    try {
+      allCoords = await invoke<MappedTrackPoint[]>('get_projection_coordinates', { musicOnly: false });
+    } catch { /* no coords yet */ }
+  }
+
+  onMount(() => { void loadCoords(); });
 
   function scheduleRender(fn: () => void) {
     requestAnimationFrame(() => requestAnimationFrame(fn));
@@ -396,6 +460,78 @@
     if (svgInstruments && distA) scheduleRender(() => renderHorizBars(svgInstruments, distA, tA, distB, tB));
   });
 
+  // Track IDs resolved per set for the scatter plot
+  let coordsA = $state<MappedTrackPoint[]>([]);
+  let coordsB = $state<MappedTrackPoint[]>([]);
+
+  $effect(() => {
+    const pA = coordsA, pB = coordsB, coords = allCoords;
+    if (svgScatter && coords.length) scheduleRender(() => renderScatter(svgScatter, coords, pA, pB));
+  });
+
+  function renderScatter(
+    svgEl: SVGSVGElement,
+    coords: MappedTrackPoint[],
+    pA: MappedTrackPoint[],
+    pB: MappedTrackPoint[],
+  ) {
+    d3.select(svgEl).selectAll('*').remove();
+    if (!coords.length) return;
+
+    const W = svgEl.clientWidth || 600;
+    const H = svgEl.clientHeight || 400;
+    const m = { top: 12, right: 12, bottom: 30, left: 36 };
+    const w = W - m.left - m.right;
+    const h = H - m.top - m.bottom;
+
+    const x = d3.scaleLinear().domain([0, 100]).range([0, w]);
+    const y = d3.scaleLinear().domain([0, 100]).range([h, 0]);
+
+    const g = d3.select(svgEl).append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+    g.append('g').attr('transform', `translate(0,${h})`)
+      .call(d3.axisBottom(x).ticks(6).tickSize(3))
+      .call(ax => { ax.selectAll('text').style('fill','#849495').style('font-size','var(--sg-text-2xs)'); ax.select('.domain').style('stroke','rgba(255,255,255,0.1)'); ax.selectAll('.tick line').style('stroke','rgba(255,255,255,0.1)'); });
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(6).tickSize(3))
+      .call(ax => { ax.selectAll('text').style('fill','#849495').style('font-size','var(--sg-text-2xs)'); ax.select('.domain').style('stroke','rgba(255,255,255,0.1)'); ax.selectAll('.tick line').style('stroke','rgba(255,255,255,0.1)'); });
+
+    const inA = new Set(pA.map(p => p.id));
+    const inB = new Set(pB.map(p => p.id));
+    const neither = coords.filter(p => !inA.has(p.id) && !inB.has(p.id));
+    const onlyA  = coords.filter(p => inA.has(p.id) && !inB.has(p.id));
+    const onlyB  = coords.filter(p => inB.has(p.id) && !inA.has(p.id));
+    const overlap = coords.filter(p => inA.has(p.id) && inB.has(p.id));
+
+    const dot = (pts: MappedTrackPoint[], fill: string, r: number, opacity: number) => {
+      g.selectAll(null).data(pts).join('circle')
+        .attr('cx', d => x(d.x)).attr('cy', d => y(d.y))
+        .attr('r', r).attr('fill', fill).attr('opacity', opacity);
+    };
+
+    dot(neither, 'rgba(255,255,255,0.12)', 2, 1);
+    dot(onlyA,   COLOR_A, 3, 0.8);
+    dot(onlyB,   COLOR_B, 3, 0.8);
+    dot(overlap, '#ffffff', 3.5, 0.9);
+  }
+
+  async function resolveScatterIds(which: 'A' | 'B') {
+    const source = which === 'A' ? sourceA : sourceB;
+    const ids = await idsForSource(source);
+    const idSet = ids ? new Set(ids) : null;
+    const filtered = idSet ? allCoords.filter(p => idSet.has(p.id)) : allCoords;
+    if (which === 'A') coordsA = filtered;
+    else coordsB = filtered;
+  }
+
+  $effect(() => { void sourceA; void allCoords; resolveScatterIds('A'); });
+  $effect(() => {
+    const src = sourceB;
+    if (src.kind === 'filter') void filters.filteredTracks;
+    void allCoords;
+    resolveScatterIds('B');
+  });
+
   onMount(async () => {
     const [dirs, lists] = await Promise.all([
       invoke<WatchedDirectory[]>('get_watched_directories'),
@@ -403,6 +539,14 @@
     ]);
     watchedDirs = dirs;
     playlists = lists;
+
+    // Rehydrate folder/playlist sources now that we have the full objects
+    if (storedA.kind === 'folder' || storedA.kind === 'playlist') {
+      sourceA = deserializeSource(storedA, dirs, lists);
+    }
+    if (storedB.kind === 'folder' || storedB.kind === 'playlist') {
+      sourceB = deserializeSource(storedB, dirs, lists);
+    }
   });
 </script>
 
@@ -638,6 +782,21 @@
       </table>
     </section>
 
+    <!-- ── 9. Scatter Map ──────────────────────────────────────────────────── -->
+    {#if allCoords.length}
+    <section class="section">
+      <h2 class="section-title">
+        Acoustic Space Map
+        <span class="scatter-legend">
+          <span class="scatter-legend-dot" style="background:{COLOR_A}"></span> Set A
+          <span class="scatter-legend-dot" style="background:{COLOR_B}"></span> Set B
+          <span class="scatter-legend-dot" style="background:#ffffff;opacity:0.9"></span> Both
+        </span>
+      </h2>
+      <svg bind:this={svgScatter} class="chart-svg chart-scatter"></svg>
+    </section>
+    {/if}
+
   </div>
   {/if}
 </div>
@@ -840,6 +999,20 @@
   .cov-bar { height: 100%; border-radius: 3px; }
 
   .cov-pct { font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495); min-width: 28px; }
+
+  /* ── Scatter map ── */
+  .chart-scatter { height: 420px; }
+
+  .scatter-legend {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495);
+    font-weight: 400; letter-spacing: 0.04em; text-transform: none;
+    margin-left: 12px;
+  }
+
+  .scatter-legend-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  }
 
   /* ── Responsive ── */
   @media (max-width: 700px) {
