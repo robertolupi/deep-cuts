@@ -7,18 +7,24 @@ description: Guidelines to prevent development false starts, environment mismatc
 
 ## 1. Starting the app
 
-Launch from the project root:
+The dev build requires `ACOUSTID_CLIENT_KEY` to be set in the shell — it is baked in at compile time via `option_env!()`. The value lives in `src-tauri/.cargo/config.toml`, so you don't need to remember it:
+
+```bash
+export ACOUSTID_CLIENT_KEY=$(grep ACOUSTID_CLIENT_KEY src-tauri/.cargo/config.toml | grep -o '"[^"]*"' | tr -d '"')
+npm run tauri dev
+```
+
+Or expand inline:
+
+```bash
+ACOUSTID_CLIENT_KEY=$(grep ACOUSTID_CLIENT_KEY src-tauri/.cargo/config.toml | grep -o '"[^"]*"' | tr -d '"') npm run tauri dev
+```
+
+Release builds (`npm run tauri build`) pick up secrets from `.cargo/config.toml` automatically and do not need the manual export.
 
 ```bash
 npm run tauri dev          # normal start (Vite HMR + Rust compilation)
-npm run tauri dev -- -- --clear-db   # if a --clear-db flag is wired up
-```
-
-Or use the scripts defined in `package.json` directly:
-
-```bash
-npm run dev    # Vite only (frontend preview, no Tauri)
-npm run tauri  # full Tauri dev mode
+npm run dev                # Vite only (frontend preview, no Tauri/Rust)
 ```
 
 **Do not** invoke `vite` or `cargo tauri` directly — always go through `npm run`.

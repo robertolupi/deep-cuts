@@ -32,15 +32,33 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/add-analysis-pass/SKILL.md](skills/add-analysis-pass/SKILL.md)
    - **Use when**: Adding a new pass to the analysis pipeline (e.g. essentia, qwen, bpm_correction).
 
+7. **Release Build**
+   - **Path**: [skills/release-build/SKILL.md](skills/release-build/SKILL.md)
+   - **Use when**: Producing a signed macOS release build, verifying the bundle, or publishing.
+
+8. **Bump Dev Version**
+   - **Path**: [skills/bump-dev-version/SKILL.md](skills/bump-dev-version/SKILL.md)
+   - **Use when**: Advancing `Cargo.toml` to the next version after a release has shipped.
+
+9. **Bundling an External Binary (Tauri Sidecar)**
+   - **Path**: [skills/add-tauri-sidecar/SKILL.md](skills/add-tauri-sidecar/SKILL.md)
+   - **Use when**: Bundling a new external executable (e.g. fpcalc, llama-server) with the Tauri app.
+
+10. **Svelte Components & Stores**
+   - **Path**: [skills/svelte-component/SKILL.md](skills/svelte-component/SKILL.md)
+   - **Use when**: Writing or editing Svelte 5 components, stores, or frontend reactive logic.
+
 ## Repository Layout
 
 ```
 src/             — Svelte 5 frontend (SvelteKit, TypeScript)
 src-tauri/       — Rust Tauri backend
   src/
-    lib.rs       — IPC command handlers, managed state, app entry
+    lib.rs       — managed state, app entry, generate_handler registration
     database.rs  — schema migrations, DB init, structs
+    commands/    — IPC command handlers (one file per domain)
     scanner/     — recursive audio file scanner (mod.rs, fs.rs, metadata.rs, db.rs)
+    analysis/    — analysis pipeline passes and orchestrator
     main.rs      — binary entry point
 static/          — static assets
 skills/          — project-specific agent playbooks
