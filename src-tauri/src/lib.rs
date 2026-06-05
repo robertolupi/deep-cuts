@@ -29,6 +29,8 @@ pub fn run() {
         )));
     }
 
+    let current_zoom = std::sync::Mutex::new(1.0f64);
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_drag::init())
@@ -43,7 +45,108 @@ pub fn run() {
                 ])
                 .build(),
         )
+        .on_menu_event(move |app_handle, event| {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let mut zoom = current_zoom.lock().unwrap();
+                match event.id().0.as_str() {
+                    "zoom_in" => {
+                        *zoom = (*zoom + 0.1).min(2.0);
+                        let _ = window.set_zoom(*zoom);
+                    }
+                    "zoom_out" => {
+                        *zoom = (*zoom - 0.1).max(0.5);
+                        let _ = window.set_zoom(*zoom);
+                    }
+                    "zoom_reset" => {
+                        *zoom = 1.0;
+                        let _ = window.set_zoom(*zoom);
+                    }
+                    _ => {}
+                }
+            }
+        })
         .setup(|app| {
+            let handle = app.handle();
+
+            let app_menu = tauri::menu::Submenu::with_items(
+                handle,
+                "Deep Cuts",
+                true,
+                &[
+                    &tauri::menu::PredefinedMenuItem::about(handle, None, None)?,
+                    &tauri::menu::PredefinedMenuItem::separator(handle)?,
+                    &tauri::menu::PredefinedMenuItem::hide(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::hide_others(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::show_all(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::separator(handle)?,
+                    &tauri::menu::PredefinedMenuItem::quit(handle, None)?,
+                ],
+            )?;
+
+            let file_menu = tauri::menu::Submenu::with_items(
+                handle,
+                "File",
+                true,
+                &[
+                    &tauri::menu::PredefinedMenuItem::close_window(handle, None)?,
+                ],
+            )?;
+
+            let edit_menu = tauri::menu::Submenu::with_items(
+                handle,
+                "Edit",
+                true,
+                &[
+                    &tauri::menu::PredefinedMenuItem::undo(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::redo(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::separator(handle)?,
+                    &tauri::menu::PredefinedMenuItem::cut(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::copy(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::paste(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::select_all(handle, None)?,
+                ],
+            )?;
+
+            let zoom_in = tauri::menu::MenuItem::with_id(handle, "zoom_in", "Zoom In", true, Some("CmdOrCtrl+="))?;
+            let zoom_out = tauri::menu::MenuItem::with_id(handle, "zoom_out", "Zoom Out", true, Some("CmdOrCtrl+-"))?;
+            let zoom_reset = tauri::menu::MenuItem::with_id(handle, "zoom_reset", "Actual Size", true, Some("CmdOrCtrl+0"))?;
+
+            let view_menu = tauri::menu::Submenu::with_items(
+                handle,
+                "View",
+                true,
+                &[
+                    &tauri::menu::PredefinedMenuItem::fullscreen(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::separator(handle)?,
+                    &zoom_in,
+                    &zoom_out,
+                    &zoom_reset,
+                ],
+            )?;
+
+            let window_menu = tauri::menu::Submenu::with_items(
+                handle,
+                "Window",
+                true,
+                &[
+                    &tauri::menu::PredefinedMenuItem::minimize(handle, None)?,
+                    &tauri::menu::PredefinedMenuItem::maximize(handle, None)?,
+                ],
+            )?;
+
+            let menu = tauri::menu::Menu::with_items(
+                handle,
+                &[
+                    &app_menu,
+                    &file_menu,
+                    &edit_menu,
+                    &view_menu,
+                    &window_menu,
+                ],
+            )?;
+
+            app.set_menu(menu)?;
+
             // Initialize database manager and bootstrap SQLite
             let db_manager = DbManager::new(app.handle());
             match db_manager.connect_and_migrate() {
