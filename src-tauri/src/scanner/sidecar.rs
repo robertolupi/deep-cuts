@@ -25,6 +25,12 @@ pub struct SidecarData {
     /// Map of pass_name -> last_run_at timestamp string ("YYYY-MM-DD HH:MM:SS")
     #[serde(default)]
     pub pass_run_times: HashMap<String, String>,
+    /// User custom tags
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_tags: Option<Vec<String>>,
+    /// Suppressed automatic tags
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suppressed_tags: Option<Vec<String>>,
     /// Flattened dynamic ML fields driven dynamically by PASS_REGISTRY
     #[serde(flatten)]
     pub ml_metadata: HashMap<String, serde_json::Value>,
@@ -134,11 +140,32 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
         }
     }
 
+    let mut user_tags_stmt = conn.prepare(
+        "SELECT t.name 
+         FROM track_tags tt 
+         JOIN tags t ON t.id = tt.tag_id 
+         WHERE tt.track_id = ?1 AND tt.source = 'user'",
+    )?;
+    let user_tags: Vec<String> = user_tags_stmt
+        .query_map([track_id], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut suppressed_stmt = conn.prepare(
+        "SELECT tag_name FROM user_suppressed_tags WHERE track_path = ?1",
+    )?;
+    let suppressed_tags: Vec<String> = suppressed_stmt
+        .query_map([&path], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
     let sidecar = SidecarData {
         version: 1,
         pass_versions,
         pass_run_times,
         ml_metadata,
+        user_tags: if user_tags.is_empty() { None } else { Some(user_tags) },
+        suppressed_tags: if suppressed_tags.is_empty() { None } else { Some(suppressed_tags) },
     };
     let json = serde_json::to_string_pretty(&sidecar)?;
     std::fs::write(path_for(&path), json)?;
@@ -271,6 +298,45 @@ pub fn restore(
                  WHERE track_id = ?3 AND pass_name = ?4",
                 rusqlite::params![spec.version, db_last_run, track_id, spec.name],
             )?;
+        }
+    }
+
+    // D. Restore user tags from sidecar
+    if let Some(ref user_tags) = sidecar.user_tags {
+        for tag_name in user_tags {
+            let normalized = tag_name
+                .to_lowercase()
+                .replace(|c: char| !c.is_alphanumeric() && c != ':' && c != '_', "_")
+                .trim_matches('_')
+                .to_string();
+
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO tags (name, normalized_name) VALUES (?1, ?2)",
+                rusqlite::params![tag_name, normalized],
+            );
+
+            let tag_id_opt: Option<i64> = conn.query_row(
+                "SELECT id FROM tags WHERE name = ?1 OR normalized_name = ?2 LIMIT 1",
+                rusqlite::params![tag_name, normalized],
+                |row| row.get(0),
+            ).ok();
+
+            if let Some(tag_id) = tag_id_opt {
+                let _ = conn.execute(
+                    "INSERT OR IGNORE INTO track_tags (track_id, tag_id, source, score, discard) VALUES (?1, ?2, 'user', 1.0, 0)",
+                    rusqlite::params![track_id, tag_id],
+                );
+            }
+        }
+    }
+
+    // E. Restore suppressed tags from sidecar
+    if let Some(ref suppressed_tags) = sidecar.suppressed_tags {
+        for tag_name in suppressed_tags {
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO user_suppressed_tags (track_path, tag_name) VALUES (?1, ?2)",
+                rusqlite::params![track_path, tag_name],
+            );
         }
     }
 

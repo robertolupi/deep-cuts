@@ -3,7 +3,9 @@
   import { player, formatDuration, formatSize } from "$lib/stores/player.svelte";
   import { filters } from "$lib/stores/filters.svelte";
   import { curation } from "$lib/stores/curation.svelte";
+  import { library } from "$lib/stores/library.svelte";
   import PlaylistSelector from "./PlaylistSelector.svelte";
+  import TagsAutocomplete from "./TagsAutocomplete.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
 
   const track     = $derived(player.selectedTrack);
@@ -83,6 +85,59 @@
 
   const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'clap', 'essentia', 'bpm_refinement', 'qwen', 'description_embed'];
   let resetMenuOpen = $state(false);
+
+  let newTagInput = $state("");
+  let showRestoreMenu = $state(false);
+  const suppressedTags = $derived(trackTags.filter(t => t.discard));
+
+  async function handleAddUserTag() {
+    if (!track || !newTagInput.trim()) return;
+    try {
+      await invoke('add_user_tag', { trackPath: track.path, tagName: newTagInput.trim() });
+      newTagInput = "";
+      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      trackTags = raw[track.id] ?? [];
+      await library.fetchTags();
+    } catch (e) {
+      console.error("Failed to add user tag:", e);
+    }
+  }
+
+  async function handleRemoveUserTag(tagName: string) {
+    if (!track) return;
+    try {
+      await invoke('remove_user_tag', { trackPath: track.path, tagName });
+      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      trackTags = raw[track.id] ?? [];
+      await library.fetchTags();
+    } catch (e) {
+      console.error("Failed to remove user tag:", e);
+    }
+  }
+
+  async function handleSuppressTag(tagName: string) {
+    if (!track) return;
+    try {
+      await invoke('suppress_tag', { trackPath: track.path, tagName });
+      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      trackTags = raw[track.id] ?? [];
+      await library.fetchTags();
+    } catch (e) {
+      console.error("Failed to suppress tag:", e);
+    }
+  }
+
+  async function handleUnsuppressTag(tagName: string) {
+    if (!track) return;
+    try {
+      await invoke('unsuppress_tag', { trackPath: track.path, tagName });
+      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      trackTags = raw[track.id] ?? [];
+      await library.fetchTags();
+    } catch (e) {
+      console.error("Failed to unsuppress tag:", e);
+    }
+  }
 </script>
 
 <svelte:window onclick={() => { resetMenuOpen = false; }} />
@@ -208,34 +263,106 @@
         </div>
       {/if}
 
-      {#if trackTags.length > 0}
-        <div class="section">
-          <div class="section-header ai-header">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a9 9 0 0 1 9 9c0 3.18-1.65 5.97-4.13 7.6L17 21H7l.13-2.4A9 9 0 0 1 3 11a9 9 0 0 1 9-9z"/>
-              <line x1="9" y1="9" x2="15.01" y2="9"/>
-              <line x1="15" y1="9" x2="15.01" y2="9"/>
-              <path d="M9 13a3 3 0 0 0 6 0"/>
-            </svg>
-            <span class="section-label ai-label">TAGS</span>
-          </div>
-          <div class="ai-tags">
-            {#each trackTags as tag}
-              {@const theme = tagTheme(tag.name)}
-              {@const active = filters.selectedTags.includes(tag.name)}
-              {@const scoreStr = tag.score != null ? ` · score ${tag.score.toFixed(3)}` : ''}
-              <button
-                class="detail-tag-chip"
-                class:tag-active={active}
-                class:tag-discarded={tag.discard}
-                style="color:{theme.color};background:{active ? theme.border : theme.bg};border-color:{theme.border}"
-                title="{tag.discard ? '✗ discarded · ' : ''}{tag.source}{scoreStr}"
-                onclick={() => { if (!tag.discard) { filters.toggleTag(tag.name); } }}
-              >{tag.name.split(':').slice(1).join(':')}<span class="tag-ns">{tag.name.split(':')[0]}</span></button>
+      <div class="section">
+        <div class="section-header ai-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a9 9 0 0 1 9 9c0 3.18-1.65 5.97-4.13 7.6L17 21H7l.13-2.4A9 9 0 0 1 3 11a9 9 0 0 1 9-9z"/>
+            <line x1="9" y1="9" x2="15.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
+            <path d="M9 13a3 3 0 0 0 6 0"/>
+          </svg>
+          <span class="section-label ai-label">TAGS</span>
+        </div>
+        
+        <div 
+          class="ai-tags" 
+          onclick={(e) => {
+            if (e.target === e.currentTarget && suppressedTags.length > 0) {
+              showRestoreMenu = !showRestoreMenu;
+            }
+          }}
+          style="min-height: 20px; cursor: {suppressedTags.length > 0 ? 'pointer' : 'default'};"
+          title={suppressedTags.length > 0 ? "Click background to restore suppressed tags" : ""}
+        >
+          {#if trackTags.length === 0}
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495);">No tags.</span>
+          {/if}
+          {#each trackTags as tag}
+            {@const theme = tagTheme(tag.name)}
+            {@const active = filters.selectedTags.includes(tag.name)}
+            {@const scoreStr = tag.score != null ? ` · score ${tag.score.toFixed(3)}` : ''}
+            <button
+              class="detail-tag-chip"
+              class:tag-active={active}
+              class:tag-discarded={tag.discard}
+              class:tag-user={tag.source === 'user'}
+              style="color:{tag.source === 'user' ? '#000' : theme.color};background:{active ? theme.border : (tag.source === 'user' ? theme.color : theme.bg)};border-color:{theme.border}; font-weight:{tag.source === 'user' ? 'bold' : '600'}; --user-glow:{theme.border}"
+              title={tag.discard ? 'Click to restore suppressed tag' : `Source: ${tag.source}${scoreStr} · Right-click to ${tag.source === 'user' ? 'delete' : 'suppress'}`}
+              onclick={() => {
+                if (tag.discard) {
+                  handleUnsuppressTag(tag.name);
+                } else {
+                  filters.toggleTag(tag.name);
+                }
+              }}
+              oncontextmenu={(e) => {
+                e.preventDefault();
+                if (tag.discard) return;
+                if (tag.source === 'user') {
+                  handleRemoveUserTag(tag.name);
+                } else {
+                  handleSuppressTag(tag.name);
+                }
+              }}
+            >{tag.name.split(':').slice(1).join(':')}<span class="tag-ns" style="{tag.source === 'user' ? 'color: #000; opacity: 0.6; font-weight: bold;' : ''}">{tag.name.split(':')[0]}</span></button>
+          {/each}
+        </div>
+
+        {#if showRestoreMenu && suppressedTags.length > 0}
+          <div class="restore-menu" style="background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 4px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--sg-outline, #849495); padding: 2px 4px; font-weight: bold;">RESTORE SUPPRESSED TAG:</span>
+            {#each suppressedTags as tag}
+              <button 
+                style="background: none; border: none; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-on-surface, #e3e1e9); padding: 4px; cursor: pointer; border-radius: 2px;"
+                onclick={() => {
+                  handleUnsuppressTag(tag.name);
+                  showRestoreMenu = false;
+                }}
+                onmouseenter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                onmouseleave={(e) => { e.currentTarget.style.background = 'none'; }}
+              >
+                ↺ {tag.name}
+              </button>
             {/each}
           </div>
+        {/if}
+
+
+
+        {#snippet addTagButton()}
+          <button
+            onclick={handleAddUserTag}
+            style="background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 4px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); cursor: pointer;"
+          >+</button>
+        {/snippet}
+
+        <div class="add-tag-box" style="margin-top: 8px;">
+          <TagsAutocomplete
+            bind:value={newTagInput}
+            excludeTags={trackTags.map(t => t.name)}
+            placeholder="Add tag (e.g. genre:synthwave)..."
+            onselect={(tag) => {
+              newTagInput = tag;
+              handleAddUserTag();
+            }}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') handleAddUserTag();
+              if (e.key === 'Escape') newTagInput = '';
+            }}
+            buttonSnippet={addTagButton}
+          />
         </div>
-      {/if}
+      </div>
 
       <!-- Mood radar (Essentia) -->
       {#if hasMoods && trackMood}
@@ -663,6 +790,10 @@
     opacity: 0.35;
     cursor: default;
     text-decoration: line-through;
+  }
+
+  .tag-user {
+    box-shadow: 0 0 6px var(--user-glow);
   }
 
   /* Dimmed namespace prefix shown after the label */

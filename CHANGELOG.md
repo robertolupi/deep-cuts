@@ -2,6 +2,22 @@
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.5] — 2026-06-05
+
+### Features
+
+- **Custom User Tags & Suppression**: Introduced the ability for users to append manual custom tags (defaulting to the `"user"` source namespace) and suppress automatic tags from the analysis pipeline. User tags and suppressions are persisted across scans via the database and backed up in `.dc.json` sidecar files.
+- **Visual Distinction for User Tags**: Styled custom user tags in the track detail pane with fully filled backgrounds using the prefix theme color, bold dark-contrast text, and a glowing outer border for clear visual distinction from automated hollow tags.
+- **Suppress & Restore Tag Workflows**: Added quick suppression for automated tags via right-click (represented as strikethrough/dimmed chips) and a restoration dropdown menu in the track details pane to easily unsuppress them.
+- **Reusable Autocomplete Component**: Refactored the local autocompletion implementations in both the filter sidebar and the track detail pane into a unified, reusable `TagsAutocomplete.svelte` component.
+- **Align Tag Search Styles**: Standardized input fields by introducing a `borderless` mode to `Autocomplete.svelte`, ensuring the sidebar tag filter input fits cleanly within its parent wrapper without double borders.
+
+### Fixes
+
+- **User Tag Promotion Conflict**: Handled SQLite conflicts gracefully when a user adds/promotes an existing tag, ensuring the database record updates without key violations.
+
+---
+
 ## [0.1.4] — 2026-06-04
 
 ### Features

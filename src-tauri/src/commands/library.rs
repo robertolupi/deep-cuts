@@ -136,11 +136,14 @@ pub fn get_tags_with_meta_for_tracks(
         .join(", ");
 
     let sql = format!(
-        "SELECT tt.track_id, t.name, tt.source, tt.score, tt.discard
+        "SELECT tt.track_id, t.name, tt.source, tt.score,
+                (CASE WHEN ust.tag_name IS NOT NULL THEN 1 ELSE tt.discard END) AS discard
          FROM track_tags tt
          JOIN tags t ON t.id = tt.tag_id
+         JOIN tracks tr ON tr.id = tt.track_id
+         LEFT JOIN user_suppressed_tags ust ON ust.track_path = tr.path AND ust.tag_name = t.name
          WHERE tt.track_id IN ({})
-         ORDER BY tt.track_id, tt.discard ASC, t.name",
+         ORDER BY tt.track_id, discard ASC, t.name",
         placeholders
     );
 
@@ -201,7 +204,9 @@ pub fn get_tags_for_tracks(
         "SELECT tt.track_id, t.name
          FROM track_tags tt
          JOIN tags t ON t.id = tt.tag_id
-         WHERE tt.track_id IN ({}) AND tt.discard = 0
+         JOIN tracks tr ON tr.id = tt.track_id
+         LEFT JOIN user_suppressed_tags ust ON ust.track_path = tr.path AND ust.tag_name = t.name
+         WHERE tt.track_id IN ({}) AND tt.discard = 0 AND ust.tag_name IS NULL
          ORDER BY tt.track_id, t.name",
         placeholders
     );
@@ -240,7 +245,9 @@ pub fn get_all_track_tags(
         "SELECT tt.track_id, t.name
          FROM track_tags tt
          JOIN tags t ON t.id = tt.tag_id
-         WHERE tt.discard = 0
+         JOIN tracks tr ON tr.id = tt.track_id
+         LEFT JOIN user_suppressed_tags ust ON ust.track_path = tr.path AND ust.tag_name = t.name
+         WHERE tt.discard = 0 AND ust.tag_name IS NULL
          ORDER BY tt.track_id, t.name",
     )?;
 
@@ -267,7 +274,9 @@ pub fn get_all_tags(
         "SELECT DISTINCT t.name
          FROM tags t
          JOIN track_tags tt ON tt.tag_id = t.id
-         WHERE tt.discard = 0
+         JOIN tracks tr ON tr.id = tt.track_id
+         LEFT JOIN user_suppressed_tags ust ON ust.track_path = tr.path AND ust.tag_name = t.name
+         WHERE tt.discard = 0 AND ust.tag_name IS NULL
          ORDER BY t.name",
     )?;
 
@@ -667,6 +676,196 @@ pub fn get_cover_art(
     }
 
     Ok(None)
+}
+
+#[tauri::command]
+pub fn add_user_tag(
+    track_path: String,
+    tag_name: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    // 1. Get track ID from path
+    let track_id: i64 = conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        [&track_path],
+        |row| row.get(0),
+    )?;
+
+    // 2. Format names
+    let trimmed = tag_name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Generic("Tag name cannot be empty".to_string()));
+    }
+    
+    // We expect the tag format to be namespace:label. If no namespace is provided, default to user:
+    let formatted_tag = if trimmed.contains(':') {
+        trimmed.to_string()
+    } else {
+        format!("user:{}", trimmed)
+    };
+
+    let normalized = formatted_tag
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric() && c != ':' && c != '_', "_")
+        .trim_matches('_')
+        .to_string();
+
+    // 3. Ensure tag exists in tags table
+    conn.execute(
+        "INSERT OR IGNORE INTO tags (name, normalized_name) VALUES (?1, ?2)",
+        [&formatted_tag, &normalized],
+    )?;
+
+    let tag_id: i64 = conn.query_row(
+        "SELECT id FROM tags WHERE name = ?1 OR normalized_name = ?2 LIMIT 1",
+        [&formatted_tag, &normalized],
+        |row| row.get(0),
+    )?;
+
+    // 4. Link in track_tags (upsert to promote or unsuppress existing)
+    conn.execute(
+        "INSERT INTO track_tags (track_id, tag_id, source, score, discard)
+         VALUES (?1, ?2, 'user', 1.0, 0)
+         ON CONFLICT(track_id, tag_id) DO UPDATE SET
+             source = 'user',
+             score = 1.0,
+             discard = 0",
+        rusqlite::params![track_id, tag_id],
+    )?;
+
+    // 5. If sidecars are enabled, save the sidecar
+    if crate::commands::config::is_sidecar_enabled(&conn) {
+        if let Err(e) = crate::scanner::sidecar::save(&conn, track_id) {
+            log::error!("[add_user_tag] sidecar save failed: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_user_tag(
+    track_path: String,
+    tag_name: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    let track_id: i64 = conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        [&track_path],
+        |row| row.get(0),
+    )?;
+
+    conn.execute(
+        "DELETE FROM track_tags WHERE track_id = ?1 AND source = 'user' AND tag_id = (SELECT id FROM tags WHERE name = ?2)",
+        rusqlite::params![track_id, tag_name],
+    )?;
+
+    if crate::commands::config::is_sidecar_enabled(&conn) {
+        if let Err(e) = crate::scanner::sidecar::save(&conn, track_id) {
+            log::error!("[remove_user_tag] sidecar save failed: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn suppress_tag(
+    track_path: String,
+    tag_name: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO user_suppressed_tags (track_path, tag_name) VALUES (?1, ?2)",
+        [&track_path, &tag_name],
+    )?;
+
+    let track_id_opt: Option<i64> = conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        [&track_path],
+        |row| row.get(0),
+    ).ok();
+
+    if let Some(track_id) = track_id_opt {
+        if crate::commands::config::is_sidecar_enabled(&conn) {
+            if let Err(e) = crate::scanner::sidecar::save(&conn, track_id) {
+                log::error!("[suppress_tag] sidecar save failed: {}", e);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn unsuppress_tag(
+    track_path: String,
+    tag_name: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<(), AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    conn.execute(
+        "DELETE FROM user_suppressed_tags WHERE track_path = ?1 AND tag_name = ?2",
+        [&track_path, &tag_name],
+    )?;
+
+    let track_id_opt: Option<i64> = conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        [&track_path],
+        |row| row.get(0),
+    ).ok();
+
+    if let Some(track_id) = track_id_opt {
+        if crate::commands::config::is_sidecar_enabled(&conn) {
+            if let Err(e) = crate::scanner::sidecar::save(&conn, track_id) {
+                log::error!("[unsuppress_tag] sidecar save failed: {}", e);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_suppressed_tags(
+    track_path: String,
+    conn_state: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<String>, AppError> {
+    let conn = conn_state
+        .lock()
+        .map_err(|_| AppError::Config("Database lock poisoned".to_string()))?;
+
+    // Only get suppressed tags if they actually exist as automatic/suggested tags in the database for the given track (filtering out orphans)
+    let mut stmt = conn.prepare(
+        "SELECT ust.tag_name
+         FROM user_suppressed_tags ust
+         JOIN tracks t ON t.path = ust.track_path
+         JOIN track_tags tt ON tt.track_id = t.id
+         JOIN tags tg ON tg.id = tt.tag_id AND tg.name = ust.tag_name
+         WHERE ust.track_path = ?1",
+    )?;
+
+    let list = stmt
+        .query_map([&track_path], |row| row.get::<_, String>(0))?
+        .flatten()
+        .collect();
+
+    Ok(list)
 }
 
 #[cfg(test)]

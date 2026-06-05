@@ -10,40 +10,24 @@
   import SavedSearchList from "./SavedSearchList.svelte";
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import GenreAutocomplete from "./GenreAutocomplete.svelte";
+  import TagsAutocomplete from "./TagsAutocomplete.svelte";
 
   let collapsed = $state(false);
 
   // Tag autocomplete
   let tagInput = $state("");
-  let tagInputFocused = $state(false);
-  let allTagsLive = $state<string[]>(library.allTags);
 
-  async function onTagFocus() {
-    tagInputFocused = true;
-    try {
-      allTagsLive = await invoke<string[]>("get_all_tags");
-    } catch (e) {
-      // fall back to store
-    }
-  }
-
-  const tagSuggestions = $derived.by(() => {
-    const q = tagInput.trim().toLowerCase();
-    if (!q || !tagInputFocused) return [];
-    return allTagsLive
-      .filter(t => t.toLowerCase().includes(q) && !filters.selectedTags.includes(t))
-      .slice(0, 12);
-  });
   function addTag(tag: string) {
     filters.toggleTag(tag);
     tagInput = "";
   }
   function onTagKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && tagSuggestions.length > 0) {
-      addTag(tagSuggestions[0]);
+    if (e.key === "Enter" && tagInput.trim()) {
+      addTag(tagInput.trim());
       e.preventDefault();
     }
-    if (e.key === "Escape") { tagInput = ""; tagInputFocused = false; }
+    if (e.key === "Escape") { tagInput = ""; }
   }
   let newPlaylistName = $state("");
   let isCreatingPlaylist = $state(false);
@@ -87,35 +71,7 @@
 
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
 
-  // All distinct genres for autocomplete
-  const allGenres = $derived.by(() => {
-    const set = new Set<string>();
-    for (const t of library.tracks) {
-      if (t.genre) {
-        for (const g of t.genre.split(/[,;]/)) {
-          const s = g.trim();
-          if (s) set.add(s);
-        }
-      }
-      if (t.detected_genre) set.add(t.detected_genre);
-    }
-    return Array.from(set).sort();
-  });
 
-  let isGenreFocused = $state(false);
-  let genreInputEl = $state<HTMLInputElement | null>(null);
-
-  const genreSuggestions = $derived.by(() => {
-    const q = filters.genreFilter.trim().toLowerCase();
-    if (!q) return [];
-    return allGenres.filter(g => g.toLowerCase().includes(q)).slice(0, 12);
-  });
-
-  function selectGenre(genre: string) {
-    filters.genreFilter = genre;
-    isGenreFocused = false;
-    genreInputEl?.blur();
-  }
 
   function makeHistogram(values: (number | null | undefined)[], bins: number, lo: number, hi: number): number[] {
     const counts = new Array<number>(bins).fill(0);
@@ -312,35 +268,20 @@
         </div>
       {/if}
 
-      <div class="tag-input-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon">
+      <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon" style="flex-shrink: 0; margin-left: 8px;">
           <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
           <line x1="7" y1="7" x2="7.01" y2="7"/>
         </svg>
-        <input
-          type="text"
-          placeholder="Add tag filter…"
+        <TagsAutocomplete
           bind:value={tagInput}
-          onfocus={onTagFocus}
-          onblur={() => setTimeout(() => { tagInputFocused = false; }, 150)}
+          placeholder="Add tag filter…"
+          excludeTags={filters.selectedTags}
+          onselect={addTag}
           onkeydown={onTagKeydown}
-          class="search-input tag-search-input"
+          borderless={true}
         />
-        {#if tagInput}
-          <button class="clear-x" onclick={() => tagInput = ""}>×</button>
-        {/if}
       </div>
-
-      {#if tagSuggestions.length > 0}
-        <div class="tag-suggestions">
-          {#each tagSuggestions as suggestion}
-            <button class="tag-suggestion-item" onmousedown={() => addTag(suggestion)}>
-              <span class="tsi-label">{suggestion.split(':').slice(1).join(':')}</span>
-              <span class="tsi-ns">{suggestion.split(':')[0]}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
     </div>
 
     <!-- Active filter chips & Saved Search actions -->
@@ -382,33 +323,10 @@
     <div class="sidebar-section">
       <span class="section-label">GENRE</span>
       <div class="genre-wrap">
-        <div class="search-wrap">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Filter by genre…"
-            bind:value={filters.genreFilter}
-            bind:this={genreInputEl}
-            class="search-input"
-            onfocus={() => isGenreFocused = true}
-            onblur={() => setTimeout(() => { isGenreFocused = false; }, 150)}
-          />
-          {#if filters.genreFilter}
-            <button class="clear-x" onclick={() => filters.genreFilter = ""}>×</button>
-          {/if}
-        </div>
-        {#if isGenreFocused && genreSuggestions.length > 0}
-          <div class="genre-suggestions">
-            {#each genreSuggestions as suggestion}
-              <button class="genre-suggestion-item" onmousedown={() => selectGenre(suggestion)}>
-                {suggestion}
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <GenreAutocomplete
+          bind:value={filters.genreFilter}
+          placeholder="Filter by genre…"
+        />
       </div>
     </div>
 
@@ -1198,40 +1116,4 @@
   }
 
   .tag-search-input::placeholder { color: var(--sg-outline, #849495); }
-
-  .tag-suggestions {
-    margin-top: 4px;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 5px;
-    overflow: hidden;
-  }
-
-  .tag-suggestion-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 5px 10px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.1s;
-  }
-
-  .tag-suggestion-item:hover { background: rgba(0,240,255,0.06); }
-
-  .tsi-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    color: var(--sg-on-surface, #e3e1e9);
-    font-weight: 600;
-  }
-
-  .tsi-ns {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
-    color: var(--sg-outline, #849495);
-  }
 </style>
