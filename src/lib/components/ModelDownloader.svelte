@@ -86,8 +86,26 @@
     }
   }
 
+  async function checkActiveDownload() {
+    try {
+      const active = await invoke<any>("get_download_status");
+      if (active) {
+        isDownloading = true;
+        currentModelGroup = active.model;
+        currentFile = active.file;
+        bytesDone = active.bytes_done;
+        bytesTotal = active.bytes_total;
+        lastBytes = bytesDone;
+        lastTime = Date.now();
+      }
+    } catch (e) {
+      console.error("Failed to check active download status:", e);
+    }
+  }
+
   onMount(async () => {
     await checkResumable();
+    await checkActiveDownload();
 
     const progressUnlisten = await listen<any>("model-download-progress", (event) => {
       const payload = event.payload;
@@ -95,6 +113,7 @@
       currentFile = payload.file;
       bytesDone = payload.bytes_done;
       bytesTotal = payload.bytes_total;
+      isDownloading = true;
 
       const now = Date.now();
       const timeDiff = (now - lastTime) / 1000;

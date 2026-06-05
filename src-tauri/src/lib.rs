@@ -137,6 +137,7 @@ pub fn run() {
             commands::download::check_pending_resume,
             commands::download::cancel_model_download,
             commands::download::download_models,
+            commands::download::get_download_status,
             commands::chat::ask_qwen,
             commands::chat::create_chat_session,
             commands::chat::list_chat_sessions,

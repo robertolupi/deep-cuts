@@ -12,6 +12,7 @@ use tauri::Emitter;
 pub struct DownloadState {
     pub is_running: Arc<AtomicBool>,
     pub cancel_flag: Arc<AtomicBool>,
+    pub last_progress: Arc<std::sync::Mutex<Option<DownloadProgressEvent>>>,
 }
 
 impl Default for DownloadState {
@@ -19,6 +20,7 @@ impl Default for DownloadState {
         Self {
             is_running: Arc::new(AtomicBool::new(false)),
             cancel_flag: Arc::new(AtomicBool::new(false)),
+            last_progress: Arc::new(std::sync::Mutex::new(None)),
         }
     }
 }
@@ -148,6 +150,16 @@ pub fn cancel_model_download(state: tauri::State<'_, DownloadState>) -> Result<(
 }
 
 #[tauri::command]
+pub fn get_download_status(state: tauri::State<'_, DownloadState>) -> Result<Option<DownloadProgressEvent>, AppError> {
+    if state.is_running.load(Ordering::SeqCst) {
+        if let Ok(guard) = state.last_progress.lock() {
+            return Ok(guard.clone());
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
 pub fn download_models<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, DownloadState>,
@@ -160,13 +172,27 @@ pub fn download_models<R: tauri::Runtime>(
     }
 
     state.cancel_flag.store(false, Ordering::SeqCst);
+    if let Ok(mut guard) = state.last_progress.lock() {
+        *guard = None;
+    }
 
     let cancel_flag = state.cancel_flag.clone();
     let is_running = state.is_running.clone();
+    let last_progress = state.last_progress.clone();
 
     tauri::async_runtime::spawn(async move {
-        let result = download_models_worker(app.clone(), models, custom_url_base, custom_manifest, cancel_flag).await;
+        let result = download_models_worker(
+            app.clone(),
+            models,
+            custom_url_base,
+            custom_manifest,
+            cancel_flag,
+            last_progress.clone(),
+        ).await;
         is_running.store(false, Ordering::SeqCst);
+        if let Ok(mut guard) = last_progress.lock() {
+            *guard = None;
+        }
 
         match result {
             Ok(_) => {
@@ -187,6 +213,7 @@ async fn download_models_worker<R: tauri::Runtime>(
     custom_url_base: Option<String>,
     custom_manifest: Option<String>,
     cancel_flag: Arc<AtomicBool>,
+    last_progress: Arc<std::sync::Mutex<Option<DownloadProgressEvent>>>,
 ) -> Result<(), AppError> {
     let manifest = match custom_manifest {
         Some(json) => ModelManifest::parse(&json)
@@ -210,6 +237,19 @@ async fn download_models_worker<R: tauri::Runtime>(
     log::info!("[download] Target models folder: {:?}", dest_dir);
     fs::create_dir_all(&dest_dir).map_err(|e| AppError::Config(format!("Failed to create models folder: {}", e)))?;
 
+    let update_progress = |model: &str, file: &str, bytes_done: u64, bytes_total: u64| {
+        let event = DownloadProgressEvent {
+            model: model.to_string(),
+            file: file.to_string(),
+            bytes_done,
+            bytes_total,
+        };
+        if let Ok(mut guard) = last_progress.lock() {
+            *guard = Some(event.clone());
+        }
+        let _ = app.emit("model-download-progress", event);
+    };
+
     for group_key in &models {
         if let Some(group) = manifest.models.get(group_key) {
             for file in &group.files {
@@ -224,12 +264,7 @@ async fn download_models_worker<R: tauri::Runtime>(
                 if final_path.exists() {
                     if verify_sha256(&final_path, &file.sha256).await {
                         log::info!("[download] File already exists and verified: {}", file.filename);
-                        let _ = app.emit("model-download-progress", DownloadProgressEvent {
-                            model: group_key.clone(),
-                            file: file.filename.clone(),
-                            bytes_done: file.size_bytes,
-                            bytes_total: file.size_bytes,
-                        });
+                        update_progress(group_key, &file.filename, file.size_bytes, file.size_bytes);
                         continue;
                     }
                 }
@@ -310,24 +345,14 @@ async fn download_models_worker<R: tauri::Runtime>(
 
                     let now = std::time::Instant::now();
                     if now.duration_since(last_emit).as_millis() >= 100 || bytes_done - last_emit_bytes >= 1024 * 1024 {
-                        let _ = app.emit("model-download-progress", DownloadProgressEvent {
-                            model: group_key.clone(),
-                            file: file.filename.clone(),
-                            bytes_done,
-                            bytes_total: file.size_bytes,
-                        });
+                        update_progress(group_key, &file.filename, bytes_done, file.size_bytes);
                         last_emit = now;
                         last_emit_bytes = bytes_done;
                     }
                 }
 
                 // Final progress emit
-                let _ = app.emit("model-download-progress", DownloadProgressEvent {
-                    model: group_key.clone(),
-                    file: file.filename.clone(),
-                    bytes_done,
-                    bytes_total: file.size_bytes,
-                });
+                update_progress(group_key, &file.filename, bytes_done, file.size_bytes);
 
                 // 4. Verify SHA256 Integrity
                 log::info!("[download] Verifying checksum for {}", file.filename);
