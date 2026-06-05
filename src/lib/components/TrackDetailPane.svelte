@@ -4,7 +4,7 @@
   import { filters } from "$lib/stores/filters.svelte";
   import { curation } from "$lib/stores/curation.svelte";
   import { library } from "$lib/stores/library.svelte";
-  import PlaylistSelector from "./PlaylistSelector.svelte";
+  import Autocomplete from "./Autocomplete.svelte";
   import TagsAutocomplete from "./TagsAutocomplete.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
 
@@ -15,6 +15,22 @@
   let trackPlaylists = $state<import('$lib/types').Playlist[]>([]);
   let playlistSelectQuery = $state("");
   let selectedPlaylistToAdd = $state<import('$lib/types').Playlist | null>(null);
+
+  const playlistSuggestions = $derived.by(() => {
+    const q = playlistSelectQuery.trim().toLowerCase();
+    if (!q) {
+      return curation.playlists;
+    }
+    return curation.playlists.filter(pl => pl.name.toLowerCase().includes(q)).slice(0, 12);
+  });
+
+  $effect(() => {
+    if (!selectedPlaylistToAdd) {
+      playlistSelectQuery = "";
+    } else if (selectedPlaylistToAdd.name !== playlistSelectQuery) {
+      playlistSelectQuery = selectedPlaylistToAdd.name;
+    }
+  });
   type TagMeta = { name: string; source: string; score: number | null; discard: boolean };
   let trackTags = $state<TagMeta[]>([]);
 
@@ -469,20 +485,42 @@
         <!-- Add to playlist selector -->
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; color: var(--sg-outline, #849495); letter-spacing: 0.05em;">ADD TO PLAYLIST</span>
-          <PlaylistSelector
-            placeholder="Search playlist to add..."
-            showAllOnFocus={true}
-            bind:activePlaylist={selectedPlaylistToAdd}
-            bind:value={playlistSelectQuery}
-            onselect={async (pl) => {
-              if (track) {
-                await curation.addTracksToPlaylist(pl.id, [track.id]);
-                selectedPlaylistToAdd = null;
+          
+          {#snippet playlistItemSnippet(pl: import('$lib/types').Playlist)}
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{pl.name}</span>
+          {/snippet}
+
+          {#snippet playlistClearButtonSnippet()}
+            {#if selectedPlaylistToAdd || playlistSelectQuery}
+              <button type="button" class="clear-x" onclick={() => {
                 playlistSelectQuery = "";
-                await loadTrackPlaylists();
-              }
-            }}
-          />
+                selectedPlaylistToAdd = null;
+              }}>×</button>
+            {/if}
+          {/snippet}
+
+          <div class="playlist-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="playlist-search-icon">
+              <path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+            <Autocomplete
+              bind:value={playlistSelectQuery}
+              options={playlistSuggestions}
+              placeholder="Search playlist to add..."
+              onselect={async (pl) => {
+                if (track) {
+                  await curation.addTracksToPlaylist(pl.id, [track.id]);
+                  selectedPlaylistToAdd = null;
+                  playlistSelectQuery = "";
+                  await loadTrackPlaylists();
+                }
+              }}
+              itemSnippet={playlistItemSnippet}
+              buttonSnippet={playlistClearButtonSnippet}
+              borderless={true}
+            />
+          </div>
         </div>
       </div>
 
@@ -996,6 +1034,45 @@
     color: var(--sg-on-surface-variant, #b9cacb);
     white-space: pre-line;
     margin: 0.5rem 0 0;
+  }
+
+  .playlist-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    width: 100%;
+    background: var(--sg-surface-container, #1e1f25);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 0.4rem 0.5rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+
+  .playlist-wrap:focus-within {
+    border-color: var(--sg-primary, #00f0ff);
+  }
+
+  .playlist-wrap .playlist-search-icon {
+    flex-shrink: 0;
+    margin-left: 8px;
+    color: var(--sg-outline, #849495);
+    pointer-events: none;
+  }
+
+  .playlist-wrap .clear-x {
+    position: absolute;
+    right: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--sg-outline, #849495);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
   }
 
 </style>

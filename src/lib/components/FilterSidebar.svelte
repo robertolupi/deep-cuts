@@ -1,22 +1,40 @@
 <script lang="ts">
   import { filters } from "$lib/stores/filters.svelte";
-  import { library } from "$lib/stores/library.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { curation } from "$lib/stores/curation.svelte";
-  import RangeSlider from "./RangeSlider.svelte";
-  import PlaylistSelector from "./PlaylistSelector.svelte";
-  import ActiveFilterChips from "./ActiveFilterChips.svelte";
-  import MoodSection from "./MoodSection.svelte";
-  import SavedSearchList from "./SavedSearchList.svelte";
-  import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import GenreAutocomplete from "./GenreAutocomplete.svelte";
-  import TagsAutocomplete from "./TagsAutocomplete.svelte";
+import { library } from "$lib/stores/library.svelte";
+import { ui } from "$lib/stores/ui.svelte";
+import { curation } from "$lib/stores/curation.svelte";
+import RangeSlider from "./RangeSlider.svelte";
+import ActiveFilterChips from "./ActiveFilterChips.svelte";
+import MoodSection from "./MoodSection.svelte";
+import SavedSearchList from "./SavedSearchList.svelte";
+import { onMount } from "svelte";
+import { invoke } from "@tauri-apps/api/core";
+import GenreAutocomplete from "./GenreAutocomplete.svelte";
+import TagsAutocomplete from "./TagsAutocomplete.svelte";
+import Autocomplete from "./Autocomplete.svelte";
 
   let collapsed = $state(false);
 
   // Tag autocomplete
   let tagInput = $state("");
+  let folderSearchInput = $state("");
+  let playlistSearchInput = $state("");
+
+  $effect(() => {
+    if (!curation.activePlaylist) {
+      playlistSearchInput = "";
+    } else if (curation.activePlaylist.name !== playlistSearchInput) {
+      playlistSearchInput = curation.activePlaylist.name;
+    }
+  });
+
+  const playlistSuggestions = $derived.by(() => {
+    const q = playlistSearchInput.trim().toLowerCase();
+    if (!q) {
+      return curation.playlists;
+    }
+    return curation.playlists.filter(pl => pl.name.toLowerCase().includes(q)).slice(0, 12);
+  });
 
   function addTag(tag: string) {
     filters.toggleTag(tag);
@@ -179,7 +197,6 @@
     </div>
 
     {#if ui.sidebarTab === 'filters'}
-      <!-- Search -->
     <div class="sidebar-section">
       <span class="section-label">SEARCH</span>
       <div class="search-inputs-container">
@@ -249,100 +266,134 @@
             <button class="clear-x" onclick={() => filters.clapQuery = ""}>×</button>
           {/if}
         </div>
-      </div>
-    </div>
 
-    <!-- Tag filter -->
-    <div class="sidebar-section">
-      <span class="section-label">TAGS</span>
-
-      {#if filters.selectedTags.length > 0}
-        <div class="tag-chips-wrap">
-          {#each filters.selectedTags as tag}
-            <button class="tag-filter-chip tag-filter-chip-active" onclick={() => filters.toggleTag(tag)}>
-              <span class="tfc-label">{tag.split(':').slice(1).join(':')}</span>
-              <span class="tfc-ns">{tag.split(':')[0]}</span>
-              <span class="tfc-remove">×</span>
-            </button>
-          {/each}
+        <!-- Genre filter -->
+        <div class="genre-wrap">
+          <GenreAutocomplete
+            bind:value={filters.genreFilter}
+            placeholder="Filter by genre…"
+          />
         </div>
-      {/if}
 
-      <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon" style="flex-shrink: 0; margin-left: 8px;">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-        <TagsAutocomplete
-          bind:value={tagInput}
-          placeholder="Add tag filter…"
-          excludeTags={filters.selectedTags}
-          onselect={addTag}
-          onkeydown={onTagKeydown}
-          borderless={true}
-        />
+        <!-- Tag filter -->
+        <div class="tag-filter-container">
+          {#if filters.selectedTags.length > 0}
+            <div class="tag-chips-wrap" style="margin-bottom: 6px;">
+              {#each filters.selectedTags as tag}
+                <button class="tag-filter-chip tag-filter-chip-active" onclick={() => filters.toggleTag(tag)}>
+                  <span class="tfc-label">{tag.split(':').slice(1).join(':')}</span>
+                  <span class="tfc-ns">{tag.split(':')[0]}</span>
+                  <span class="tfc-remove">×</span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+
+          <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon" style="flex-shrink: 0; margin-left: 8px;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            <TagsAutocomplete
+              bind:value={tagInput}
+              placeholder="Filter by tag..."
+              excludeTags={filters.selectedTags}
+              onselect={addTag}
+              onkeydown={onTagKeydown}
+              borderless={true}
+            />
+          </div>
+        </div>
+
+        <!-- Watched directory filter -->
+        {#if library.directories.length > 1}
+          <div class="directory-filter-container">
+            {#if filters.selectedDirectoryIds.length > 0}
+              <div class="section-label-row" style="justify-content: flex-end; margin-bottom: 4px;">
+                <button class="label-clear" onclick={() => filters.clearDirectories()}>Clear</button>
+              </div>
+            {/if}
+
+            {#if filters.selectedDirectoryIds.length > 0}
+              <div class="tag-chips-wrap" style="margin-bottom: 6px;">
+                {#each library.directories.filter(d => filters.selectedDirectoryIds.includes(d.id)) as dir}
+                  <button 
+                    class="tag-filter-chip tag-filter-chip-active" 
+                    onclick={() => filters.toggleDirectoryId(dir.id)}
+                    title={dir.path}
+                  >
+                    <span class="tfc-label">{dir.name}</span>
+                    <span class="tfc-remove">×</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+
+            {#snippet dirItemSnippet(dir: { id: number; name: string; path: string })}
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{dir.name}</span>
+            {/snippet}
+
+            <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon" style="flex-shrink: 0; margin-left: 8px; color: var(--sg-outline);">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <Autocomplete
+                bind:value={folderSearchInput}
+                placeholder="Filter by folder…"
+                options={library.directories.filter(d => !filters.selectedDirectoryIds.includes(d.id) && d.name.toLowerCase().includes(folderSearchInput.toLowerCase()))}
+                onselect={(dir) => {
+                  filters.toggleDirectoryId(dir.id);
+                  folderSearchInput = "";
+                }}
+                itemSnippet={dirItemSnippet}
+                borderless={true}
+              />
+            </div>
+          </div>
+        {/if}
+
+        <!-- Playlist Filter -->
+        <div class="playlist-filter-container">
+          {#snippet playlistItemSnippet(pl: import('$lib/types').Playlist)}
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{pl.name}</span>
+          {/snippet}
+
+          {#snippet playlistClearButtonSnippet()}
+            {#if curation.activePlaylist || playlistSearchInput}
+              <button type="button" class="clear-x" onclick={() => {
+                playlistSearchInput = "";
+                curation.activePlaylist = null;
+                curation.activePlaylistTracks = [];
+              }}>×</button>
+            {/if}
+          {/snippet}
+
+          <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tag-input-icon" style="flex-shrink: 0; margin-left: 8px;">
+              <path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+            <Autocomplete
+              bind:value={playlistSearchInput}
+              options={playlistSuggestions}
+              placeholder="Filter by playlist…"
+              onselect={async (pl) => {
+                playlistSearchInput = pl.name;
+                curation.activePlaylist = pl;
+                await curation.loadPlaylistTracks(pl.id);
+              }}
+              itemSnippet={playlistItemSnippet}
+              buttonSnippet={playlistClearButtonSnippet}
+              borderless={true}
+            />
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Active filter chips & Saved Search actions -->
     <ActiveFilterChips {hasActiveFilters} {clearAll} />
 
-    <!-- Watched directory filter -->
-    {#if library.directories.length > 1}
-    <div class="sidebar-section">
-      <div class="section-label-row">
-        <span class="section-label">FOLDERS</span>
-        {#if filters.selectedDirectoryIds.length > 0}
-          <button class="label-clear" onclick={() => filters.clearDirectories()}>Clear</button>
-        {/if}
-      </div>
-      <div class="dir-list">
-        {#each library.directories as dir}
-          <button
-            class="dir-btn"
-            class:dir-active={filters.selectedDirectoryIds.includes(dir.id)}
-            onclick={() => filters.toggleDirectoryId(dir.id)}
-            title={dir.path}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="dir-icon">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-            <span class="dir-name">{dir.name}</span>
-            {#if filters.selectedDirectoryIds.includes(dir.id)}
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="dir-check">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            {/if}
-          </button>
-        {/each}
-      </div>
-    </div>
-    {/if}
-
-    <!-- Genre filter -->
-    <div class="sidebar-section">
-      <span class="section-label">GENRE</span>
-      <div class="genre-wrap">
-        <GenreAutocomplete
-          bind:value={filters.genreFilter}
-          placeholder="Filter by genre…"
-        />
-      </div>
-    </div>
-
-    <!-- Playlist Filter (First-class filter) -->
-    <div class="sidebar-section">
-      <span class="section-label">PLAYLIST</span>
-      <PlaylistSelector
-        bind:activePlaylist={curation.activePlaylist}
-        onselect={async (pl) => {
-          await curation.loadPlaylistTracks(pl.id);
-        }}
-        onclear={() => {
-          curation.activePlaylistTracks = [];
-        }}
-      />
-    </div>
 
     <!-- Key filter -->
     <div class="sidebar-section">
