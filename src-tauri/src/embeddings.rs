@@ -322,9 +322,14 @@ pub fn select_best_energy_window_pct(waveform_data: Option<&str>) -> f64 {
 
 /// Selects three CLAP window centers from the audio-analysis waveform profile.
 ///
-/// `waveform_data` is a fixed-size RMS profile over the track duration. We use
-/// its loudest bins as cheap, deterministic targets, then let CLAP decode real
-/// 10 s audio around those percentages.
+/// Strategy (applied in order):
+/// 1. Trim leading/trailing low-energy bins (intros, outros, silence) so they
+///    are never candidates.
+/// 2. Compute the coefficient of variation (CV = σ/μ) of the trimmed envelope.
+///    - CV < 0.25 → flat-loudness (brickwall mastering): use temporal spread
+///      at 15 / 50 / 85 % of the track body.
+///    - CV ≥ 0.25 → dynamic track: pick the loudest bin from each of the three
+///      energy terciles (low / mid / high), each separated by at least 10 s.
 pub fn select_clap_window_pcts(waveform_data: Option<&str>, duration_seconds: i64) -> [f64; 3] {
     let Some(waveform_data) = waveform_data else {
         return DEFAULT_CLAP_WINDOW_PCTS;
@@ -332,7 +337,15 @@ pub fn select_clap_window_pcts(waveform_data: Option<&str>, duration_seconds: i6
     let Ok(waveform) = serde_json::from_str::<Vec<f32>>(waveform_data) else {
         return DEFAULT_CLAP_WINDOW_PCTS;
     };
-    if waveform.is_empty() || waveform.iter().all(|v| !v.is_finite() || *v <= 0.0) {
+
+    let finite: Vec<(usize, f32)> = waveform
+        .iter()
+        .copied()
+        .enumerate()
+        .filter(|(_, v)| v.is_finite() && *v > 0.0)
+        .collect();
+
+    if finite.len() < 3 {
         return DEFAULT_CLAP_WINDOW_PCTS;
     }
 
@@ -345,38 +358,78 @@ pub fn select_clap_window_pcts(waveform_data: Option<&str>, duration_seconds: i6
         (bin_count / 12).max(1)
     };
 
-    let mut ranked: Vec<(usize, f32)> = waveform
+    // ── Step 1: trim low-energy tails ────────────────────────────────────────
+    // Threshold = 20th percentile of finite values.
+    let mut sorted_vals: Vec<f32> = finite.iter().map(|(_, v)| *v).collect();
+    sorted_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let low_threshold = sorted_vals[sorted_vals.len() / 5];
+
+    // Walk inward from each end to find where the energy rises above threshold.
+    let first_active = (0..bin_count)
+        .find(|&i| waveform.get(i).copied().unwrap_or(0.0) > low_threshold)
+        .unwrap_or(0);
+    let last_active = (0..bin_count)
+        .rev()
+        .find(|&i| waveform.get(i).copied().unwrap_or(0.0) > low_threshold)
+        .unwrap_or(bin_count - 1);
+
+    let candidates: Vec<(usize, f32)> = finite
         .iter()
         .copied()
-        .enumerate()
-        .filter(|(_, v)| v.is_finite())
+        .filter(|(i, _)| *i >= first_active && *i <= last_active)
         .collect();
-    ranked.sort_by(|(idx_a, energy_a), (idx_b, energy_b)| {
-        energy_b
-            .partial_cmp(energy_a)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| idx_a.cmp(idx_b))
-    });
 
-    let mut selected: Vec<usize> = Vec::with_capacity(3);
-    for (idx, _) in &ranked {
-        let far_enough = selected
-            .iter()
-            .all(|picked| idx.abs_diff(*picked) >= min_sep_bins);
-        if far_enough {
-            selected.push(*idx);
-        }
-        if selected.len() == 3 {
-            break;
-        }
+    if candidates.len() < 3 {
+        return DEFAULT_CLAP_WINDOW_PCTS;
     }
 
-    for (idx, _) in ranked {
-        if !selected.contains(&idx) {
-            selected.push(idx);
-        }
-        if selected.len() == 3 {
-            break;
+    // ── Step 2: compute CV on the trimmed body ────────────────────────────────
+    let vals: Vec<f32> = candidates.iter().map(|(_, v)| *v).collect();
+    let mean = vals.iter().sum::<f32>() / vals.len() as f32;
+    let variance = vals.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / vals.len() as f32;
+    let cv = variance.sqrt() / mean;
+
+    // ── Step 3: select windows ────────────────────────────────────────────────
+    let pct = |idx: usize| (idx as f64 + 0.5) / bin_count as f64;
+
+    if cv < 0.25 {
+        // Flat-loudness: temporal spread anchored to the trimmed body.
+        let body_start = pct(first_active);
+        let body_end = pct(last_active);
+        let span = body_end - body_start;
+        return [
+            body_start + span * 0.15,
+            body_start + span * 0.50,
+            body_start + span * 0.85,
+        ];
+    }
+
+    // Dynamic: energy tercile selection with minimum spacing.
+    let mut sorted_candidates = candidates.clone();
+    sorted_candidates.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap());
+    let n = sorted_candidates.len();
+    let t1 = sorted_candidates[n / 3].1;
+    let t2 = sorted_candidates[2 * n / 3].1;
+
+    let mut low_tercile: Vec<(usize, f32)> =
+        candidates.iter().copied().filter(|(_, v)| *v <= t1).collect();
+    let mut mid_tercile: Vec<(usize, f32)> =
+        candidates.iter().copied().filter(|(_, v)| *v > t1 && *v <= t2).collect();
+    let mut high_tercile: Vec<(usize, f32)> =
+        candidates.iter().copied().filter(|(_, v)| *v > t2).collect();
+
+    // Within each tercile, prefer the loudest bin that satisfies spacing.
+    for tercile in [&mut low_tercile, &mut mid_tercile, &mut high_tercile] {
+        tercile.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
+    }
+
+    let mut selected: Vec<usize> = Vec::with_capacity(3);
+    for tercile in [&low_tercile, &mid_tercile, &high_tercile] {
+        for (idx, _) in tercile {
+            if selected.iter().all(|p| idx.abs_diff(*p) >= min_sep_bins) {
+                selected.push(*idx);
+                break;
+            }
         }
     }
 
@@ -385,11 +438,7 @@ pub fn select_clap_window_pcts(waveform_data: Option<&str>, duration_seconds: i6
     }
 
     selected.sort_unstable();
-    [
-        (selected[0] as f64 + 0.5) / bin_count as f64,
-        (selected[1] as f64 + 0.5) / bin_count as f64,
-        (selected[2] as f64 + 0.5) / bin_count as f64,
-    ]
+    [pct(selected[0]), pct(selected[1]), pct(selected[2])]
 }
 
 /// Decodes the full file, resamples to 48 kHz, then extracts a 10 s window centred at `pct`.
@@ -759,14 +808,45 @@ mod tests {
     }
 
     #[test]
-    fn test_select_clap_window_pcts_uses_loudest_spaced_bins() {
-        let waveform = serde_json::to_string(&vec![
-            0.1, 0.2, 9.0, 0.2, 0.1, 0.3, 8.0, 0.2, 0.1, 0.4, 7.0, 0.2,
-        ])
-        .unwrap();
-
+    fn test_select_clap_window_pcts_tercile_dynamic() {
+        // High CV waveform: three clear energy peaks separated by quiet sections.
+        // low tercile peak at bin 2, mid at bin 6, high at bin 10 — all spaced.
+        let wf: Vec<f32> = vec![
+            0.1, 0.1, 0.4, 0.1, 0.1, 0.1, 0.7, 0.1, 0.1, 0.1, 1.0, 0.1,
+        ];
+        let waveform = serde_json::to_string(&wf).unwrap();
         let pcts = select_clap_window_pcts(Some(&waveform), 120);
-        assert_eq!(pcts, [2.5 / 12.0, 6.5 / 12.0, 10.5 / 12.0]);
+        // Should pick one from each tercile, sorted by position.
+        assert_eq!(pcts.len(), 3);
+        assert!(pcts[0] < pcts[1] && pcts[1] < pcts[2]);
+        // High-tercile bin (10) must be one of the picks.
+        assert!(pcts.iter().any(|&p| (p - 10.5 / 12.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn test_select_clap_window_pcts_flat_temporal_spread() {
+        // Flat waveform (CV < 0.25): all bins nearly equal → temporal spread.
+        let wf: Vec<f32> = vec![0.5; 20];
+        let waveform = serde_json::to_string(&wf).unwrap();
+        let pcts = select_clap_window_pcts(Some(&waveform), 200);
+        // With a fully flat body the three picks should be evenly spread.
+        assert!(pcts[0] < pcts[1] && pcts[1] < pcts[2]);
+        // Middle pick should be near 50 %.
+        assert!((pcts[1] - 0.5).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_select_clap_window_pcts_trims_quiet_tails() {
+        // Quiet intro (bins 0-1) and outro (bins 10-11), loud body in between.
+        let mut wf = vec![0.01f32; 12];
+        wf[2] = 0.4; wf[3] = 0.5; wf[4] = 0.8;
+        wf[5] = 0.6; wf[6] = 0.7; wf[7] = 0.9;
+        wf[8] = 0.5; wf[9] = 0.4;
+        let waveform = serde_json::to_string(&wf).unwrap();
+        let pcts = select_clap_window_pcts(Some(&waveform), 120);
+        // No pick should land in the silent intro (bins 0-1 → pct < 2/12)
+        // or silent outro (bins 10-11 → pct > 10/12).
+        assert!(pcts.iter().all(|&p| p > 2.0 / 12.0 && p < 11.0 / 12.0));
     }
 
     #[test]
