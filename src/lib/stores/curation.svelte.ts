@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '$lib/ipc';
 import { ui } from '$lib/stores/ui.svelte';
 import type { Playlist, SavedSearch, PlaylistTrack } from '$lib/types';
 

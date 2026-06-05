@@ -4,7 +4,8 @@
  * DOM containers are registered by PlayerBar.svelte via register() using
  * a $effect, so WaveSurfer can find them once the DOM nodes exist.
  */
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "$lib/ipc";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { tick } from "svelte";
 import WaveSurfer from "wavesurfer.js";
 import Spectrogram from "wavesurfer.js/dist/plugins/spectrogram.esm.js";

@@ -48,6 +48,10 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/svelte-component/SKILL.md](skills/svelte-component/SKILL.md)
    - **Use when**: Writing or editing Svelte 5 components, stores, or frontend reactive logic.
 
+11. **UI Debugging & Style Inspection**
+   - **Path**: [skills/ui-debug/SKILL.md](skills/ui-debug/SKILL.md)
+   - **Use when**: Inspecting DOM structure, reading computed CSS styles, taking screenshots, or comparing UI before/after a Svelte/CSS change via the Chrome MCP.
+
 ## Repository Layout
 
 ```
