@@ -187,11 +187,59 @@ A horizontal block lane with a palette of named blocks:
 
 ## Implementation plan (post-validation)
 
-1. Add `waveform_rle` derived column (or compute on the fly from `waveform_sax`)
-2. Implement block composer Svelte component (palette + lane + live count)
-3. IPC command: `search_by_structure(blocks: string[]) → Track[]`
-4. Backend: compile block list to regex, run against `waveform_sax` via sqlite REGEXP or in-memory Rust scan
+### Phase 0 — Pipeline consolidation (prerequisite, do first)
+
+Merge SAX and repetition vector computation into the `audio_analysis` pass so all three
+structural features are computed while the waveform is hot in memory and written atomically.
+
+**Why:** `SaxPass` currently runs as Phase 1c — it reads `waveform_data` back from disk
+immediately after `audio_analysis` wrote it. At library scale this is a needless I/O round-trip.
+The fix eliminates an entire disk read per track.
+
+**Schema addition:**
+```sql
+-- migrations/25_waveform_repetition.sql
+ALTER TABLE tracks ADD COLUMN waveform_repetition TEXT; -- JSON array of 16 floats
+```
+
+**Implementation sketch (Rust):**
+```rust
+// Inside audio_analysis, after waveform_data is computed in memory:
+let waveform_sax = sax::waveform_to_sax_from_bins(&waveform_bins);
+let waveform_repetition = ssm::repetition_vector(&waveform_bins); // Vec<f32> len=16
+// Write all three columns in one UPDATE
+```
+
+**On retiring SaxPass:** Rather than deleting `sax.rs`, keep `waveform_to_sax` and
+`sax_mindist` as library functions called from `audio_analysis`. `SaxPass` itself can be
+retired from the pipeline registry. This preserves independent re-runnability if the SAX
+algorithm changes without requiring a full re-decode — just bump `audio_analysis` version
+to trigger a re-run of all three columns together.
+
+**What to store:** `waveform_repetition` as a JSON TEXT array (16 floats). Small enough
+that BLOB offers no meaningful performance advantage, and TEXT is inspectable in the DB.
+
+### Phase 1 — Block composer backend
+
+1. IPC command: `search_by_structure(blocks: Block[]) → Track[]`
+2. Each `Block` carries `{ name, energy_min, energy_max, rep_min, rep_max, anchor? }`
+3. Backend pulls `waveform_sax` + `waveform_repetition` for all tracks (two short TEXT columns)
+4. Match: for each block in sequence, find the first segment satisfying the 2D threshold that
+   appears after the previous match position (order-preserving subsequence match)
+5. Anchor blocks: Intro must match within first 20% of segments; Outro within last 20%
+
+### Phase 2 — Block composer UI
+
+1. Svelte component: palette of named blocks + horizontal lane
+2. Blocks are clickable to append, draggable to reorder, click-to-remove
+3. Live result count updates as lane changes
+4. "Show pattern" toggle reveals the threshold logic for power users
 5. Integrate into filter sidebar alongside CLAP/semantic search
+
+**Key decisions (still open):**
+- Are blocks repeatable? (`Chorus` + `Chorus` = must have two H peaks)
+- Strict mode (no gaps between blocks) for exact arc matching?
+- Filter (narrows track list) or ranked search (scored by match quality)?
 
 ## Files
 
