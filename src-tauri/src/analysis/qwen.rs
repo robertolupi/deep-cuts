@@ -271,7 +271,7 @@ impl super::AnalysisPass for QwenPass {
             let steps: Vec<(&str, Option<&str>, Option<&str>)> = vec![
                 ("feel",         None,                                                                                                                                                                                                                                                                          Some("feel")),
                 ("instruments",  Some("What are the main instruments playing in this track, comma-separated? Only list instruments you can clearly hear — do not infer from genre. Respond strictly in English in this format:\nINSTRUMENTS: main instruments"),                                                  Some("inst")),
-                ("description",  Some("Provide two to three sentences of plain prose describing the track. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                             None),
+                ("description",  Some("Provide two to three sentences of plain prose describing the track. Do not repeat the BPM or key in your description. Respond strictly in English in this format:\nDESCRIPTION: description"),                                                                                                                             None),
             ];
 
             let mut all_steps_ok = true;
