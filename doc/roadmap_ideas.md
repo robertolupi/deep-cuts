@@ -91,7 +91,24 @@ Record user humming or mumbling via `getUserMedia` and match it against the libr
 
 ---
 
-## 10. Qwen Additional Questions
+## 10. SAX-Based Structural Similarity Search
+
+### Concept
+Store a SAX string encoding of each track's RMS waveform envelope (e.g. `"aabdddccddbddcabb…"`) in a new `waveform_sax` column. Expose two search modes in the UI:
+
+- **Structural similarity**: find tracks whose SAX string has low MINDIST/Hamming distance to a selected track — "find songs built like this one" independently of how they sound.
+- **Pattern search**: regex filter on the RLE-collapsed form (`L+H+L+H+`, `^L+.*H.*L+$`) to surface tracks by song architecture (verse-chorus, drop structure, ramp, etc.).
+
+Complementary to CLAP acoustic similarity — a track can "sound like" another without sharing the same structural shape, and vice versa. See `doc/sax_structure.md` for full research notes.
+
+### Why now
+- Zero inference cost: derived from `waveform_data` already in the DB.
+- Storage: 32 chars per track.
+- Distance: O(n × 32) Hamming scan over 2k tracks — no vector index needed.
+
+---
+
+## 11. Qwen Additional Questions
 
 ### Concept
 Expanded Qwen VLM prompts to extract additional fields to store in the database:
