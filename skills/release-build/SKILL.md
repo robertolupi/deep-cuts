@@ -86,15 +86,20 @@ grep -A20 '"frameworks"' src-tauri/tauri.conf.json
 
 ## 4. Build
 
-All compile-time secrets (`ACOUSTID_CLIENT_KEY`, Apple credentials) are already set in `src-tauri/.cargo/config.toml` and are picked up automatically by Cargo — no manual `export` needed.
+Steps 3–5 (pre-build checks, build, post-build verification) are automated by `tools/release-build.sh`. Run it from the repo root:
 
 ```bash
-npm run tauri build
+tools/release-build.sh
 ```
 
-This runs: `sync-version.js` → `npm run build` (Vite) → `cargo build --release` → Tauri bundler (`.dmg` + `.app`).
+The script extracts `ACOUSTID_CLIENT_KEY` automatically from `src-tauri/.cargo/config.toml`, runs all pre-build checks, runs `cargo test` and `npm test`, calls `npm run tauri build`, then runs all post-build verification checks. Output lands in `src-tauri/target/release/bundle/`.
 
-Output lands in `src-tauri/target/release/bundle/`.
+To run the build manually instead:
+
+```bash
+ACOUSTID_CLIENT_KEY=$(grep ACOUSTID_CLIENT_KEY src-tauri/.cargo/config.toml | sed 's/.*= *"\(.*\)"/\1/') \
+  npm run tauri build
+```
 
 ---
 
@@ -171,17 +176,6 @@ Then attach `Deep Cuts_0.1.6_aarch64.dmg` from `src-tauri/target/release/bundle/
 ## 7. Checklist
 
 - [ ] `min_app_version` in `models/manifest.json` set to current version
-- [ ] `CHANGELOG.md` updated
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml` passes
-- [ ] `npm test` passes
-- [ ] Sidecar binaries present; dylibs re-bundled if `brew upgrade` ran since last release
-- [ ] No `/opt/homebrew/` paths in `otool -L` on source binaries
-- [ ] `@loader_path/../Frameworks` in source binary rpath
-- [ ] `Developer ID Application` cert valid (`security find-identity`)
-- [ ] `tauri.conf.json` `frameworks` list matches `.dylib` files in `src-tauri/binaries/`
-- [ ] `Contents/MacOS/` has `deep-cuts`, `fpcalc`, `llama-server`
-- [ ] `Contents/Frameworks/` has all 10 dylibs
-- [ ] `otool -L` on `Contents/MacOS/llama-server` shows no `/opt/homebrew/` paths
-- [ ] `codesign --verify --deep --strict` passes
-- [ ] `spctl` shows `Unnotarized Developer ID` (expected) or `accepted` (notarized)
+- [ ] `CHANGELOG.md` (root) and `docs/changelog.md` updated
+- [ ] `tools/release-build.sh` passes all checks (covers steps 3–5)
 - [ ] Git tag pushed, DMG attached to GitHub release

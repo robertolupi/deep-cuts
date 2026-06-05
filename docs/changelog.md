@@ -10,6 +10,43 @@ permalink: /changelog/
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.6] — 2026-06-05
+
+### Features
+
+- **Mood Filter Band with Tolerance Slider**: Added a configurable tolerance slider to the mood filter, letting users widen or narrow the acceptance band around a target mood value.
+- **Clickable Classifier Values**: Genre and vocal classifier values in the track detail pane are now clickable and apply as active filters.
+- **Pipeline Pause/Resume Controls**: Added manual pause/resume functionality to the analysis pipeline from the Analysis Panel, along with a "Paused" badge indicator.
+- **Automatic Chat Session Pausing**: Automatically pauses the analysis pipeline when entering a chat session to avoid resource conflicts, and resumes it on navigate-away, with toast notifications and inline banner updates.
+- **Playlist Source in Statistics Panel**: Added a playlist source selector to the statistics panel for scoped per-playlist stats.
+- **Analyze Button Glow Pulse**: The Analyze button in the navbar now pulses with a glow effect while analysis is active.
+- **Native Zoom Controls**: Added zoom in/out/reset entries to the View menu using native macOS zoom.
+- **Collapsible Panes & Hover Preview**: Extracted a reusable `CollapsiblePane` component; both sidebars now show a hover preview while collapsed.
+
+### Fixes
+
+- **Mood Filter Tolerance Accuracy**: Corrected tolerance boundary calculations so the filter band matches the intended range.
+- **Theme-Aware CSS Variables**: Replaced hardcoded dark `rgba` values in `Autocomplete` and `FilterSidebar` with theme-aware CSS variables.
+- **Full-Height Filter Sidebar**: Fixed the filter sidebar to fill the available height correctly.
+
+---
+
+## [0.1.5] — 2026-06-05
+
+### Features
+
+- **Custom User Tags & Suppression**: Introduced the ability for users to append manual custom tags (defaulting to the `"user"` source namespace) and suppress automatic tags from the analysis pipeline. User tags and suppressions are persisted across scans via the database and backed up in `.dc.json` sidecar files.
+- **Visual Distinction for User Tags**: Styled custom user tags in the track detail pane with fully filled backgrounds using the prefix theme color, bold dark-contrast text, and a glowing outer border for clear visual distinction from automated hollow tags.
+- **Suppress & Restore Tag Workflows**: Added quick suppression for automated tags via right-click (represented as strikethrough/dimmed chips) and a restoration dropdown menu in the track details pane to easily unsuppress them.
+- **Reusable Autocomplete Component**: Refactored the local autocompletion implementations in both the filter sidebar and the track detail pane into a unified, reusable `TagsAutocomplete.svelte` component.
+- **Align Tag Search Styles**: Standardized input fields by introducing a `borderless` mode to `Autocomplete.svelte`, ensuring the sidebar tag filter input fits cleanly within its parent wrapper without double borders.
+
+### Fixes
+
+- **User Tag Promotion Conflict**: Handled SQLite conflicts gracefully when a user adds/promotes an existing tag, ensuring the database record updates without key violations.
+
+---
+
 ## [0.1.4] — 2026-06-04
 
 ### Features

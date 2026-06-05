@@ -6,9 +6,27 @@ All notable changes to Deep Cuts will be documented here.
 
 ### Features
 
+- **Mood Filter Band with Tolerance Slider**: Added a configurable tolerance slider to the mood filter, letting users widen or narrow the acceptance band around a target mood value.
+- **Clickable Classifier Values**: Genre and vocal classifier values in the track detail pane are now clickable and apply as active filters.
 - **Pipeline Pause/Resume Controls**: Added manual pause/resume functionality to the analysis pipeline from the Analysis Panel, along with a "Paused" badge indicator.
-- **Automatic Chat Session Pausing**: Automatically pauses the analysis pipeline when entering a chat session to avoid resource conflicts, and automatically resumes it upon navigating away. Includes descriptive toast notifications and inline banner updates.
-- **Instruct Qwen Prompt**: Updated the track description analysis prompt to instruct Qwen not to repeat the BPM or key when answering.
+- **Automatic Chat Session Pausing**: Automatically pauses the analysis pipeline when entering a chat session to avoid resource conflicts, and resumes it on navigate-away, with toast notifications and inline banner updates.
+- **Playlist Source in Statistics Panel**: Added a playlist source selector to the statistics panel for scoped per-playlist stats.
+- **Analyze Button Glow Pulse**: The Analyze button in the navbar now pulses with a glow effect while analysis is active.
+- **Native Zoom Controls**: Added zoom in/out/reset entries to the View menu using native macOS zoom.
+- **Collapsible Panes & Hover Preview**: Extracted a reusable `CollapsiblePane` component; both sidebars now show a hover preview while collapsed.
+
+### Fixes
+
+- **Mood Filter Tolerance Accuracy**: Corrected tolerance boundary calculations so the filter band matches the intended range.
+- **Theme-Aware CSS Variables**: Replaced hardcoded dark `rgba` values in `Autocomplete` and `FilterSidebar` with theme-aware CSS variables.
+- **Full-Height Filter Sidebar**: Fixed the filter sidebar to fill the available height correctly.
+
+### Refactors & Cleanup
+
+- **CSS Design Tokens**: Tokenized font-family and font-size values across all components.
+- **Removed key:minor/major and bpm:tempo Tags**: Cleaned up redundant auto-generated tags from the analysis pipeline.
+- **Inline Autocomplete**: Replaced the `PlaylistSelector` component with an inline `Autocomplete`, unifying sidebar filter layout and placeholders.
+- **Analysis Pipeline ETA**: Switched to metrics-based fallbacks and concurrency-aware ETA, and relocated *Inspect Metrics* to the Analysis Panel.
 
 ---
 
