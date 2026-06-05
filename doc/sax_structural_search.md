@@ -6,15 +6,18 @@ A visual block composer UI that lets users search the library by song architectu
 
 ## Block → RLE mapping (proposed)
 
+> **Updated after experiments** — see Experiment Results below. Energy alone is insufficient;
+> sections are best characterised by two axes: **energy** and **repetition score**.
+
 | User block | Energy level | RLE token | Notes |
 |---|---|---|---|
 | Intro | low | `L` (anchor `^`) | Must be at track start |
-| Outro | low | `L` (anchor `$`) | Must be at track end |
-| Verse | low–mid | `[LM]` | Verses are typically quieter than chorus |
-| Pre-Chorus | mid | `M` | Build-up section |
-| Chorus | high | `H` | Peak energy |
+| Outro | any | `.*` (anchor `$`) | Often ends loud — don't assume quiet |
+| Verse | low–mid | `[LM]` | Quiet but *repeated* |
+| Pre-Chorus | mid | `M` | Mid-energy, highly repeated |
+| Chorus | high | `H` | Loud and *repeated* |
 | Drop | high→low→high | `HLH` | Loud / breakdown / loud |
-| Bridge | low–mid | `[LM]` | Contrast section, similar energy to verse |
+| Bridge | mid–high | `[MH]` | Energetic, somewhat repeated, contextually unique |
 | Break | low | `L` | Instrumental breakdown, quiet |
 | Build | ascending | `L.*M.*H` | Monotonic ramp |
 | Any | wildcard | `.*` | Skip / don't care |
@@ -50,6 +53,69 @@ Aggregate label frequency across all 174 tracks:
 | Verse | 15 |
 
 These tracks are also in the Deep Cuts library (scanned from a watched folder), so we have both `waveform_sax` and lyrics labels for the same files — a rare alignment.
+
+## Experiment Results (June 2025)
+
+### Method
+
+For each of 153 Downspiral tracks with `lyrics.txt` ground-truth labels:
+
+1. Build a **self-similarity matrix (SSM)** from the 128-bin waveform using 8-bin sliding windows and cosine similarity.
+2. Compute a **repetition score** per segment: mean cosine similarity to its k=3 nearest non-adjacent neighbours, normalised to [0,1] within each track.
+3. Map each lyrics section label to its waveform position (line number / total lines) and read off the **SAX energy** and **repetition score** at that position.
+
+### Two-feature centroids
+
+| Section | Energy μ | Rep score μ | Energy σ | Rep σ | n |
+|---|---|---|---|---|---|
+| Intro | 0.016 | 0.466 | 0.072 | 0.345 | 93 |
+| End | 0.237 | 0.275 | 0.344 | 0.324 | 38 |
+| Verse | 0.338 | 0.706 | 0.332 | 0.317 | 308 |
+| Pre-Chorus | 0.447 | 0.845 | 0.309 | 0.191 | 131 |
+| Bridge | 0.556 | 0.797 | 0.343 | 0.248 | 130 |
+| Outro | 0.617 | 0.588 | 0.398 | 0.401 | 103 |
+| Chorus | 0.647 | 0.875 | 0.313 | 0.190 | 358 |
+
+Energy scale: a=0, b=0.25, c=0.5, d=0.75, e=1.0 → averaged per section position.
+
+### Key findings
+
+1. **Intro is almost perfectly distinctive**: energy=0.016 (near silence), repetition=0.466 (not particularly repeated). The `^L` RLE pattern has near-100% recall.
+
+2. **Energy alone is insufficient**: Chorus (0.647) and Outro (0.617) have nearly identical energy centroids. Pre-Chorus (0.447) and Bridge (0.556) overlap. You cannot distinguish them from SAX letters alone.
+
+3. **Repetition score cleanly separates the rest**:
+   - High-rep (>0.8): Pre-Chorus, Chorus, Bridge — these are the *hook* sections that recur
+   - Mid-rep (0.5–0.8): Verse, Outro
+   - Low-rep (<0.5): Intro, End — structurally unique moments
+
+4. **Outro ends loud in Downspiral tracks**: energy=0.617, not quiet. The `L$` RLE pattern would miss most outros. Outro is better characterised by position (terminal) + mid repetition than by energy.
+
+5. **Bridge vs Chorus are close** but bridge has slightly lower energy and slightly lower repetition. In practice, distinguishing them in a search UI may not be worth the complexity — users rarely search for "tracks with a bridge."
+
+6. **Standard deviations are high** (especially Outro σ=0.40), meaning section character varies significantly between tracks. Any block search must be fuzzy, not exact.
+
+### Implications for block composer
+
+The block composer cannot rely on RLE regex alone. The backend needs to:
+
+- Compute a **per-track repetition score vector** at query time (or cache it)
+- Match blocks using **2D thresholds** (energy × repetition), not 1D letter matching
+- Anchor Intro to `^` and terminal blocks to `$` by position, not energy
+
+Alternatively: store the repetition-scored segment labels as a new column (e.g. `waveform_structure TEXT`) and match against that. This is a richer signal than `waveform_sax` alone.
+
+### Energy-only recall (baseline for comparison)
+
+| Pattern | Description | Ground truth | Recall | Precision |
+|---|---|---|---|---|
+| `^L` | Starts quietly | 91 | 100% | 5% |
+| `H` | Has loud section | 147 | 100% | 8% |
+| `L$` | Ends quietly | 98 | 83% | 6% |
+| `^L.*H` | Intro + Chorus | 87 | 100% | 5% |
+| `^L.*H.*L$` | Intro + Chorus + Outro | 80 | 80% | 5% |
+
+Recall is high but precision is ~5% — almost every track matches. Combining with repetition score should improve precision dramatically.
 
 ## Experiments to run
 
