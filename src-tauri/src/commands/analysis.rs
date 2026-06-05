@@ -20,6 +20,7 @@ pub struct PassStats {
     pub failed: i64,
     pub total: i64,
     pub avg_duration_ms: Option<f64>,
+    pub concurrency: f64,
     pub errors: Vec<PassError>,
 }
 
@@ -39,6 +40,7 @@ pub fn is_analysis_running() -> bool {
 #[tauri::command]
 pub fn get_pass_stats(
     conn_state: tauri::State<'_, Mutex<Connection>>,
+    metrics_state: tauri::State<'_, crate::metrics_database::MetricsState>,
 ) -> Result<Vec<PassStats>, String> {
     let conn = conn_state.lock().map_err(|e| e.to_string())?;
 
@@ -98,6 +100,37 @@ pub fn get_pass_stats(
             .filter_map(|r| r.ok())
             .collect();
 
+    // Query historical averages from metrics database
+    let historical_averages = {
+        if let Ok(metrics_conn) = metrics_state.0.lock() {
+            let stmt = metrics_conn
+                .prepare(
+                    "SELECT pass_name, AVG(duration_ms)
+                     FROM pipeline_metrics
+                     WHERE status = 'success'
+                     GROUP BY pass_name"
+                )
+                .ok();
+            if let Some(mut stmt) = stmt {
+                stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+                })
+                .ok()
+                .map(|rows| {
+                    rows.filter_map(|r| r.ok())
+                        .collect::<std::collections::HashMap<String, f64>>()
+                })
+                .unwrap_or_default()
+            } else {
+                std::collections::HashMap::new()
+            }
+        } else {
+            std::collections::HashMap::new()
+        }
+    };
+
+    let decode_threads = crate::hardware::PipelineConfig::auto_tune().decode_threads as f64;
+
     let stats = count_rows
         .into_iter()
         .map(
@@ -112,6 +145,28 @@ pub fn get_pass_stats(
                         last_run_at: last_run_at.clone(),
                     })
                     .collect();
+
+                let final_avg = avg_duration_ms
+                    .or_else(|| historical_averages.get(&pass_name).copied())
+                    .or_else(|| {
+                        // Hardcoded fallback default durations (in ms) if no database history exists
+                        match pass_name.as_str() {
+                            "audio_analysis" => Some(400.0),
+                            "bpm_correction" => Some(5.0),
+                            "clap" => Some(600.0),
+                            "essentia" => Some(500.0),
+                            "bpm_refinement" => Some(150.0),
+                            "qwen" => Some(3000.0),
+                            "description_embed" => Some(20.0),
+                            _ => None,
+                        }
+                    });
+
+                let concurrency = match pass_name.as_str() {
+                    "audio_analysis" => decode_threads,
+                    _ => 1.0,
+                };
+
                 PassStats {
                     pass_name,
                     pending,
@@ -119,7 +174,8 @@ pub fn get_pass_stats(
                     done,
                     failed,
                     total,
-                    avg_duration_ms,
+                    avg_duration_ms: final_avg,
+                    concurrency,
                     errors,
                 }
             },

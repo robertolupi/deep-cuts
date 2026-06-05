@@ -2,7 +2,6 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { library } from "$lib/stores/library.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
-  import MetricsInspector from "./MetricsInspector.svelte";
   import { onMount } from "svelte";
   import licenseText from "../../../LICENSE.md?raw";
   import AddFolderCard from "./AddFolderCard.svelte";
@@ -18,7 +17,6 @@
   let appVersion = $state("");
   let showModelDownloaderDrawer = $state(false);
   let showLicenseDrawer = $state(false);
-  let showMetricsDrawer = $state(false);
 
   let modelPathCard: ModelPathCard;
   let networkCard: NetworkSettingsCard;
@@ -64,7 +62,6 @@
 
     <AnalysisSettingsCard
       bind:this={analysisCard}
-      onOpenMetrics={() => { showMetricsDrawer = true; }}
     />
 
   </div>
@@ -76,7 +73,6 @@
     <AboutCard
       {appVersion}
       onOpenLicense={() => { showLicenseDrawer = true; }}
-      onOpenMetrics={() => { showMetricsDrawer = true; }}
     />
   </div>
 </div>
@@ -110,23 +106,6 @@
       </div>
       <div class="drawer-body" style="overflow-y: auto; max-height: calc(100vh - 120px);">
         <pre class="license-text">{licenseText}</pre>
-      </div>
-    </div>
-  </div>
-{/if}
-
-{#if showMetricsDrawer}
-  <div class="drawer-overlay" onclick={() => { showMetricsDrawer = false; }}>
-    <div class="drawer-content" onclick={(e) => e.stopPropagation()} style="width: 850px; max-width: 95vw;">
-      <div class="drawer-header">
-        <div class="drawer-header-left">
-          <h3 class="drawer-title">Pipeline Metrics</h3>
-          <p class="drawer-subtitle">Inspect performance traces, latency statistics, and diagnostic logs</p>
-        </div>
-        <button class="drawer-close-btn" onclick={() => { showMetricsDrawer = false; }}>×</button>
-      </div>
-      <div class="drawer-body" style="overflow-y: auto;">
-        <MetricsInspector />
       </div>
     </div>
   </div>

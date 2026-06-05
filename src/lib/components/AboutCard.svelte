@@ -4,7 +4,6 @@
   interface Props {
     appVersion: string;
     onOpenLicense: () => void;
-    onOpenMetrics: () => void;
   }
   let { appVersion, onOpenLicense }: Props = $props();
 </script>

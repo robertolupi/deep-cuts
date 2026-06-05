@@ -6,6 +6,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { ui } from "$lib/stores/ui.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
+  import MetricsInspector from "./MetricsInspector.svelte";
 
   interface PassError {
     path: string;
@@ -22,6 +23,7 @@
     failed: number;
     total: number;
     avg_duration_ms: number | null;
+    concurrency: number;
     errors: PassError[];
   }
 
@@ -95,6 +97,7 @@
     })
   );
   let isRunning       = $state(false);
+  let showMetricsDrawer = $state(false);
   let errorMessage    = $state("");
   let unlisteners: Array<() => void> = [];
 
@@ -195,7 +198,10 @@
       const completed = pass.done - baseline.done;
       if (completed > 0 && elapsedMs > 0) return remaining / (completed / elapsedMs);
     }
-    if (pass.avg_duration_ms) return remaining * pass.avg_duration_ms;
+    if (pass.avg_duration_ms) {
+      const concurrency = pass.concurrency || 1;
+      return (remaining * pass.avg_duration_ms) / concurrency;
+    }
     return 0;
   }
 
@@ -299,6 +305,12 @@
       <p class="panel-subtitle">BPM · Key · Loudness · Waveforms · Genre · Mood · CLAP · AI Description</p>
     </div>
     <div class="header-actions">
+      <button class="action-btn" onclick={() => { showMetricsDrawer = true; }}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Inspect Metrics
+      </button>
       {#if isRunning}
         {#if estimatedTimeRemaining > 0}
           <span class="eta-label">~{formatEta(estimatedTimeRemaining)} remaining</span>
@@ -486,6 +498,23 @@
     </div>
   {/if}
 </div>
+
+{#if showMetricsDrawer}
+  <div class="drawer-overlay" onclick={() => { showMetricsDrawer = false; }}>
+    <div class="drawer-content" onclick={(e) => e.stopPropagation()}>
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <h3 class="drawer-title">Pipeline Metrics</h3>
+          <p class="drawer-subtitle">Inspect performance traces, latency statistics, and diagnostic logs</p>
+        </div>
+        <button class="drawer-close-btn" onclick={() => { showMetricsDrawer = false; }}>×</button>
+      </div>
+      <div class="drawer-body" style="overflow-y: auto;">
+        <MetricsInspector />
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .analysis-panel {
@@ -1015,5 +1044,89 @@
 
   .update-close:hover {
     color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  /* ── Drawer ── */
+  .drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .drawer-content {
+    width: 850px;
+    max-width: 95vw;
+    height: 100%;
+    background: var(--sg-surface, #0d1117);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+  }
+
+  .drawer-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .drawer-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sg-on-surface, #e3e1e9);
+    margin: 0;
+  }
+
+  .drawer-subtitle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--sg-outline, #849495);
+    margin: 0;
+  }
+
+  .drawer-close-btn {
+    background: none;
+    border: none;
+    color: var(--sg-outline, #849495);
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 6px;
+    transition: color 0.12s;
+  }
+
+  .drawer-close-btn:hover {
+    color: var(--sg-on-surface, #e3e1e9);
+  }
+
+  .drawer-body {
+    flex: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
   }
 </style>
