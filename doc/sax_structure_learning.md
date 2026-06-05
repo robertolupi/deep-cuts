@@ -268,6 +268,92 @@ GMM (Option A) ✅ DONE — feature space insufficient for hard clusters
 
 ---
 
+## Experiment results summary (June 2025)
+
+### Option A — GMM (failed)
+Three components collapsed to Chorus. Intro/Pre-Chorus/Bridge/Outro/End: 0% accuracy.
+**Verdict:** Hard boundaries don't work in 3D. Feature space is sufficient but needs soft classifier.
+
+### Option D1 — Logistic Regression (partial success)
+- Overall accuracy: **38%**
+- Intro: 96% recall ✅ (position signal dominates)
+- Outro: 68%, Bridge: 54% — better than GMM
+- Verse: 9% recall ❌ — still confused with everything
+- Chorus: 28% recall — worse than GMM (balanced weighting sacrificed majority class)
+- Query results: continuous costs ✅, but "I Left My Heart in San Francisco" topping
+  both classic pop and drop queries — not enough discriminative power
+- **Verdict:** Feature set sufficient, model capacity insufficient. Move to MLP.
+
+### Option D2 — sklearn MLP (32→16→7, sample-weighted) ✅
+- Overall accuracy: **51%** (+13pp over LR)
+- Intro: 92% recall ✅
+- Bridge: 79% (+25pp), Outro: 71%, End: 68%, Pre-Chorus: 54%
+- Verse: 40% (+31pp) ✅ — big win from nonlinearity
+- Chorus: 32% — still weakest; most acoustically diverse class
+- Viterbi costs fully continuous, no ties
+- Query highlights:
+  - **Build [I,V,C]**: Rammstein "Amour", Céline Dion, downspiral — diverse, appropriate ✅
+  - **Ends quietly [C,C,E]**: Vangelis "Love Theme from Blade Runner", NIN "Head Down" ✅
+  - **Classical false positives** persist in Drop/pop queries — Baroque repetition looks
+    like verse-chorus in 2D. Known limitation, not blocking.
+- **Verdict:** Good enough for a first block composer. Remaining issues are data-limited,
+  not architecture-limited.
+
+### Convergence warning
+sklearn MLP hit max_iter=500 without full convergence. Increase to 1000 or switch to
+`solver='adam'` with `early_stopping=True` for the production model.
+
+---
+
+## Next: expand labeled data via Genius API
+
+**Problem:** 153 labeled tracks (all Downspiral) biases the MLP toward one artist's
+structural conventions. Chorus recall (32%) suffers most — needs more diverse examples.
+
+**Plan:** Fetch lyrics with section labels from the Genius API for all library tracks,
+store them alongside audio, and retrain the MLP on the expanded dataset.
+
+### Why Genius
+- Only major service where community lyrics include structural markers (`[Verse 1]`,
+  `[Chorus]`, `[Bridge]`) in the same `[Label]` format as Downspiral's lyrics.txt files
+- Free API, generous rate limit (~1 req/sec), personal/educational use permitted
+- API docs: https://docs.genius.com
+
+### What we expect to gain
+- Pop, rock, electronic tracks: good label coverage — these are the genres where section
+  labels are most reliable and most needed for training
+- Classical, jazz, ambient, instrumental: few or no Genius entries — that's fine, those
+  genres are structurally distinct and may need separate handling anyway
+- Target: 400–600 additional labeled tracks → MLP Chorus recall should recover to 50%+
+
+### Implementation plan
+
+1. **Register a Genius API app** (user action, ~2 min at genius.com/api-clients)
+   — produces a client access token, no OAuth needed for read-only search
+
+2. **Write `tools/fetch_genius_lyrics.py`**
+   - Query Genius search API: `GET /search?q={title} {artist}`
+   - Parse top result: match on artist name similarity to avoid wrong-song hits
+   - Fetch lyrics page, extract section-labeled text
+   - Save to `lyrics.txt` alongside the audio file (same format as Downspiral)
+   - Skip tracks that already have `lyrics.txt`
+   - Skip tracks with no artist/title metadata
+   - Rate-limit to 1 req/sec
+
+3. **Validate a sample** — spot-check 20 fetched lyrics files for label quality
+   before retraining
+
+4. **Retrain MLP** on full labeled set (153 Downspiral + N Genius)
+   — expect Verse and Chorus recall to improve most
+
+5. **Re-run queries** and compare against current D2 results
+
+### Schema note
+No DB changes needed — lyrics live on disk alongside audio files, same as Downspiral.
+The training pipeline already discovers them via `Path(track.path).parent / "lyrics.txt"`.
+
+---
+
 ## Files
 
 - Feature computation: `tools/sax_structure_explorer.py`, inline experiment scripts
