@@ -42,6 +42,9 @@ patch_file() {
     install_name_tool -rpath "@loader_path/../lib" "@loader_path" "$file"
   fi
 
+  # Add @loader_path/../Frameworks to RPATH so it finds dylibs copied into Frameworks in bundled apps
+  install_name_tool -add_rpath "@loader_path/../Frameworks" "$file" 2>/dev/null || true
+
   # 2. Patch hardcoded /opt/homebrew/opt/ggml/lib/* references → @rpath
   while IFS= read -r abs_path; do
     local base

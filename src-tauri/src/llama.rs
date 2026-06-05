@@ -53,7 +53,26 @@ fn get_sidecar_path(app: &AppHandle) -> Option<PathBuf> {
         format!("llama-server-{}", triple)
     };
 
-    // 1. Check tauri resource dir (production package)
+    // 1. Check next to the executable (production package where sidecar suffix is stripped or not)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let prod_filename = if cfg!(target_os = "windows") {
+                "llama-server.exe"
+            } else {
+                "llama-server"
+            };
+            let p_prod = exe_dir.join(prod_filename);
+            if p_prod.exists() {
+                return Some(p_prod);
+            }
+            let p_triple = exe_dir.join(&filename);
+            if p_triple.exists() {
+                return Some(p_triple);
+            }
+        }
+    }
+
+    // 2. Check tauri resource dir (production package)
     if let Ok(res_dir) = app.path().resource_dir() {
         let p = res_dir.join("binaries").join(&filename);
         if p.exists() {
@@ -61,7 +80,7 @@ fn get_sidecar_path(app: &AppHandle) -> Option<PathBuf> {
         }
     }
 
-    // 2. Check local dev directories relative to repository root
+    // 3. Check local dev directories relative to repository root
     let dev_paths = vec![
         Path::new("src-tauri/binaries").join(&filename),
         Path::new("binaries").join(&filename),
