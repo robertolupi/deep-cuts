@@ -4,7 +4,7 @@ Deep Cuts is an offline-first studio audio analysis application and reference li
 
 100% offline, private, and designed to run sandboxed on macOS.
 
-📺 **[Watch the Deep Cuts Showcase Video on YouTube](https://youtu.be/bev7k1K8cmY)**
+📺 **[Watch the Deep Cuts Showcase Video on YouTube](https://youtu.be/GjsAQXwgQuE)**
 
 ---
 
