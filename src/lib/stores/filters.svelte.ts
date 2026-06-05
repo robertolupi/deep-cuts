@@ -35,6 +35,7 @@ function createFiltersStore() {
   let moodPartyMin      = $state(0); let moodPartyMax      = $state(1);
   let moodAcousticMin   = $state(0); let moodAcousticMax   = $state(1);
   let moodElectronicMin = $state(0); let moodElectronicMax = $state(1);
+  let moodTolerance     = $state(0.30);
 
   let selectedTags = $state<string[]>([]);
 
@@ -281,6 +282,7 @@ function createFiltersStore() {
     get moodAcousticMax()    { return moodAcousticMax; },   set moodAcousticMax(v)   { moodAcousticMax = v; },
     get moodElectronicMin()  { return moodElectronicMin; }, set moodElectronicMin(v) { moodElectronicMin = v; },
     get moodElectronicMax()  { return moodElectronicMax; }, set moodElectronicMax(v) { moodElectronicMax = v; },
+    get moodTolerance()      { return moodTolerance; },     set moodTolerance(v)     { moodTolerance = v; },
     get selectedKeys()  { return selectedKeys; },
     set selectedKeys(v) { selectedKeys = v; },
     get selectedScale() { return selectedScale; },

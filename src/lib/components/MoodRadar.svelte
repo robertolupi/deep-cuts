@@ -19,11 +19,12 @@
     colorB?:        string;
     interactive?:   boolean;
     thresholds?:    Partial<MoodValues>;
+    tolerance?:     number;
     onAxisClick?:   (key: keyof MoodValues, value: number | null) => void;
     onClear?:       () => void;
   }
 
-  let { moodA, moodB, colorA, colorB, interactive = false, thresholds = {}, onAxisClick, onClear }: Props = $props();
+  let { moodA, moodB, colorA, colorB, interactive = false, thresholds = {}, tolerance = 0, onAxisClick, onClear }: Props = $props();
 
   const AXES: { key: keyof MoodValues; label: string }[] = [
     { key: 'happy',      label: 'Happy'      },
@@ -158,22 +159,55 @@
         .text(ax.label);
     });
 
-    // threshold polygon + vertices
+    // threshold band + vertices
     if (interactive) {
       const activeAxes = AXES.filter(ax => thresholds[ax.key] != null);
       if (activeAxes.length > 0) {
-        const pts = AXES.map((ax, i) => {
+        const clamp = (v: number) => Math.max(0, Math.min(1, v));
+
+        if (tolerance > 0) {
+          // band as evenodd compound path: outer polygon - inner polygon
+          const outerPts = AXES.map((ax, i) => {
+            const val = clamp((thresholds[ax.key] ?? 0) + tolerance);
+            const angle = axisAngle(i);
+            return [cx + R * val * Math.cos(angle), cy + R * val * Math.sin(angle)] as [number, number];
+          });
+          const innerPts = AXES.map((ax, i) => {
+            const val = clamp((thresholds[ax.key] ?? 0) - tolerance);
+            const angle = axisAngle(i);
+            return [cx + R * val * Math.cos(angle), cy + R * val * Math.sin(angle)] as [number, number];
+          });
+          const toPath = (pts: [number, number][]) =>
+            `M ${pts.map(p => p.join(',')).join(' L ')} Z`;
+          g.append('path')
+            .attr('d', `${toPath(outerPts)} ${toPath(innerPts)}`)
+            .attr('fill-rule', 'evenodd')
+            .attr('fill', threshColor)
+            .attr('fill-opacity', 0.18)
+            .attr('stroke', 'none');
+          // outer stroke (dashed)
+          g.append('polygon')
+            .attr('points', outerPts.map(p => p.join(',')).join(' '))
+            .attr('fill', 'none')
+            .attr('stroke', threshColor)
+            .attr('stroke-width', 1)
+            .attr('stroke-dasharray', '3,2')
+            .attr('stroke-opacity', 0.5);
+        }
+
+        // center polygon stroke
+        const centerPts = AXES.map((ax, i) => {
           const val   = thresholds[ax.key] ?? 0;
           const angle = axisAngle(i);
           return `${cx + R * val * Math.cos(angle)},${cy + R * val * Math.sin(angle)}`;
         });
         g.append('polygon')
-          .attr('points', pts.join(' '))
+          .attr('points', centerPts.join(' '))
           .attr('fill', threshColor)
-          .attr('fill-opacity', 0.12)
+          .attr('fill-opacity', tolerance > 0 ? 0 : 0.12)
           .attr('stroke', threshColor)
           .attr('stroke-width', 1.5)
-          .attr('stroke-dasharray', '3,2');
+          .attr('stroke-dasharray', tolerance > 0 ? 'none' : '3,2');
       }
 
       // active vertices
@@ -238,7 +272,7 @@
   $effect(() => {
     void moodA; void moodB; void colorA; void colorB;
     void theme.resolvedTheme;
-    void thresholds; void ghostAxis; void ghostValue;
+    void thresholds; void tolerance; void ghostAxis; void ghostValue;
     requestAnimationFrame(() => requestAnimationFrame(render));
   });
 </script>
