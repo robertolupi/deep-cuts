@@ -401,34 +401,12 @@
 
       <!-- Mood radar (Essentia) -->
       {#if hasMoods && trackMood}
-        {@const moodFilterActive = filters.moodHappyMin > 0 || filters.moodHappyMax < 1
-          || filters.moodSadMin > 0 || filters.moodSadMax < 1
-          || filters.moodAggressiveMin > 0 || filters.moodAggressiveMax < 1
-          || filters.moodRelaxedMin > 0 || filters.moodRelaxedMax < 1
-          || filters.moodPartyMin > 0 || filters.moodPartyMax < 1
-          || filters.moodAcousticMin > 0 || filters.moodAcousticMax < 1
-          || filters.moodElectronicMin > 0 || filters.moodElectronicMax < 1}
         <div class="section">
-          <div class="section-header">
-            <span class="section-label" style="margin-bottom:0">EMOTIVE PROFILE</span>
-            {#if moodFilterActive}
-              <button class="mood-filter-badge" onclick={() => {
-                filters.moodHappyMin = 0;      filters.moodHappyMax = 1;
-                filters.moodSadMin = 0;        filters.moodSadMax = 1;
-                filters.moodAggressiveMin = 0; filters.moodAggressiveMax = 1;
-                filters.moodRelaxedMin = 0;    filters.moodRelaxedMax = 1;
-                filters.moodPartyMin = 0;      filters.moodPartyMax = 1;
-                filters.moodAcousticMin = 0;   filters.moodAcousticMax = 1;
-                filters.moodElectronicMin = 0; filters.moodElectronicMax = 1;
-              }}>× clear mood filter</button>
-            {/if}
-          </div>
+          <span class="section-label">EMOTIVE PROFILE</span>
           <div
             class="mood-radar-wrap"
-            class:mood-radar-active={moodFilterActive}
-            title={moodFilterActive ? "Click to clear mood filter" : "Click to filter by this track's mood profile (±10%)"}
+            title="Click to filter by this track's mood profile"
             onclick={() => {
-              if (moodFilterActive) return;
               const PAD = filters.moodTolerance;
               const clamp = (v: number) => Math.max(0, Math.min(1, v));
               const set = (val: number | null, setMin: (v: number) => void, setMax: (v: number) => void) => {
@@ -449,6 +427,7 @@
           </div>
         </div>
       {/if}
+
 
       <!-- Essentia classifier -->
       {#if track.detected_genre || track.detected_vocal || track.is_music != null}
@@ -932,30 +911,8 @@
     transition: box-shadow 0.15s;
   }
 
-  .mood-radar-wrap:hover:not(.mood-radar-active) {
+  .mood-radar-wrap:hover {
     box-shadow: 0 0 0 1px rgba(254,228,64,0.35);
-  }
-
-  .mood-radar-wrap.mood-radar-active {
-    box-shadow: 0 0 0 1px rgba(254,228,64,0.7);
-    cursor: default;
-  }
-
-  .mood-filter-badge {
-    background: none;
-    border: none;
-    font-family: var(--sg-font-mono);
-    font-size: var(--sg-text-3xs);
-    font-weight: 700;
-    color: rgba(254,228,64,0.8);
-    cursor: pointer;
-    padding: 0;
-    letter-spacing: 0.05em;
-    margin-left: auto;
-  }
-
-  .mood-filter-badge:hover {
-    color: #fee440;
   }
 
   /* ── File path ── */
