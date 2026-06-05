@@ -198,6 +198,29 @@ The `run_id_spawn` variable is already declared near the top of the background t
 
 ---
 
+## Pause / Resume support
+
+The pipeline supports both manual and automatic pause, controlled by two global atomics in `analysis/mod.rs`:
+
+```rust
+pub static ANALYSIS_MANUALLY_PAUSED: AtomicBool;
+pub static ANALYSIS_AUTO_PAUSED:     AtomicBool;
+```
+
+**Passes using `run_pass_pipeline` get pause/resume for free.** The default `run_pass` implementation polls both flags between jobs:
+
+```rust
+while ANALYSIS_MANUALLY_PAUSED.load(Ordering::SeqCst)
+    || ANALYSIS_AUTO_PAUSED.load(Ordering::SeqCst)
+{
+    std::thread::sleep(std::time::Duration::from_millis(200));
+}
+```
+
+**Custom passes that override `run_pass`** (e.g. `ClapPass`, `EssentiaPass`, `AudioPass`) must add the same poll loop themselves at each job-dispatch site. See `src-tauri/src/analysis/audio.rs` for the pattern.
+
+---
+
 ## Metrics instrumentation
 
 Every pass automatically gets per-track metrics logged to the metrics database via `crate::metrics_database::log_pipeline_metric(...)`. This is called inside the default `run_pass` implementation in `analysis/mod.rs` for passes that use `run_pass_pipeline`.

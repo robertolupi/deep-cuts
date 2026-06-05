@@ -11,22 +11,24 @@ IPC is the only channel between the Svelte frontend and the Rust backend. There 
 
 ## Pattern A — Request/response (`invoke`)
 
-### 1. Write the command handler in `src-tauri/src/lib.rs`
+### 1. Write the command handler
+
+Commands live in `src-tauri/src/commands/` (one file per domain — `library.rs`, `playlists.rs`, `analysis.rs`, etc.). Add your handler to the appropriate file or create a new one and expose it via `commands/mod.rs`.
 
 ```rust
 #[tauri::command]
-fn my_command(
-    db_manager: tauri::State<'_, Arc<DbManager>>,
+pub fn my_command(
+    conn_state: tauri::State<'_, Mutex<Connection>>,
     some_arg: String,
 ) -> Result<MyReturnType, String> {
-    let conn = db_manager.get_connection().map_err(|e| e.to_string())?;
+    let conn = conn_state.lock().map_err(|e| e.to_string())?;
     // ... do work ...
     Ok(result)
 }
 ```
 
 - Return `Result<T, String>` — the `Err` string surfaces as a rejected Promise in the frontend.
-- Access the DB via `db_manager: tauri::State<'_, Arc<DbManager>>`.
+- Access the DB via `conn_state: tauri::State<'_, Mutex<Connection>>` (registered at startup as `app.manage(Mutex::new(conn))`).
 - Access the app handle (for emitting events) via `app: tauri::AppHandle`.
 - Keep handlers thin; push heavy logic into helper functions so they're testable.
 
