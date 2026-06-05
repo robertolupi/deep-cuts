@@ -133,13 +133,16 @@
                   {#if track.waveform_data}
                     {@const bars = waveformBarsFromJson(track.waveform_data)}
                     {@const peak = Math.max(...bars, 1e-6)}
+                    {@const sax = track.waveform_sax ?? ''}
                     {#if bars.length > 0}
                       <div class="mini-waveform">
-                        {#each bars as energy}
+                        {#each bars as energy, i}
                           {@const norm = energy / peak}
+                          {@const saxIdx = Math.min(Math.floor((i * 3) / 4), sax.length - 1)}
+                          {@const letter = sax[saxIdx] ?? ''}
                           <div
                              class="waveform-bar"
-                             style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35};"
+                             style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35}; {letter ? `background: var(--sax-${letter});` : ''}"
                           ></div>
                         {/each}
                       </div>
@@ -258,14 +261,19 @@
     width: 120px;
   }
 
+  /* SAX letter colours: a=very quiet … e=very loud */
+  :global(:root) {
+    --sax-a: #4a7fa5;
+    --sax-b: #5ba3c9;
+    --sax-c: #00f0ff;
+    --sax-d: #f0a030;
+    --sax-e: #ff5533;
+  }
+
   .waveform-bar {
     flex: 1;
     border-radius: 1px;
-    background: linear-gradient(
-      180deg,
-      var(--sg-primary, #00f0ff) 0%,
-      var(--sg-primary) 100%
-    );
+    background: var(--sg-primary, #00f0ff);
     transition: opacity 0.15s ease;
   }
 

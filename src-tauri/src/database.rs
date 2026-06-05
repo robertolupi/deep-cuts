@@ -73,6 +73,7 @@ pub struct Track {
     pub description: Option<String>,
 
     pub is_stale: i64,
+    pub waveform_sax: Option<String>,
 }
 
 impl WatchedDirectory {
@@ -130,7 +131,7 @@ impl Track {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale
+                    is_stale, waveform_sax
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -184,6 +185,7 @@ impl Track {
                 ai_instruments: row.get(46)?,
                 description: row.get(47)?,
                 is_stale: row.get(48)?,
+                waveform_sax: row.get(49)?,
             })
         })?;
         let mut list = Vec::new();
@@ -209,7 +211,7 @@ impl Track {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale
+                    is_stale, waveform_sax
              FROM tracks WHERE id = ?1",
         )?;
         let mut rows = stmt.query_map([id], |row| {
@@ -263,6 +265,7 @@ impl Track {
                 ai_instruments: row.get(46)?,
                 description: row.get(47)?,
                 is_stale: row.get(48)?,
+                waveform_sax: row.get(49)?,
             })
         })?;
         if let Some(row) = rows.next() {
@@ -452,7 +455,7 @@ mod tests {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale
+                    is_stale, waveform_sax
              FROM tracks WHERE title = 'My Song'",
                 [],
                 |row| {
@@ -506,6 +509,7 @@ mod tests {
                         ai_instruments: row.get(46)?,
                         description: row.get(47)?,
                         is_stale: row.get(48)?,
+                waveform_sax: row.get(49)?,
                     })
                 },
             )

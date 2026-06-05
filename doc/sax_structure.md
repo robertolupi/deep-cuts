@@ -30,6 +30,12 @@ Implementation: `scripts/compare_clap_windows.py`
   - `c` → M (mid)
   - `d–e` → H (high)
 
+### A note on compression
+
+The waveform envelope is already a lossy fixed-length representation: 128 bins regardless of track duration. A 3-minute track and a 10-minute track both produce a 128-bin waveform. The SAX string compresses this further to 32 segments, so each character represents ~1/32 of the track's duration — not a fixed time window.
+
+This means the *length* of a run in the SAX string carries no absolute temporal information, only relative proportion. Consecutive-duplicate dropping (e.g. `aabbccdd` → `abcd`) is therefore lossless in the meaningful sense: the sequence of structural events is preserved, but the already-meaningless run lengths are discarded. This makes the compressed form well-suited for structural matching — two tracks with the same arc but different tempos or lengths will produce the same or similar collapsed strings.
+
 ### Structural patterns detected via regex on RLE
 
 | Pattern | Regex | Meaning |
