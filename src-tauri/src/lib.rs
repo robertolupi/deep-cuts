@@ -220,6 +220,7 @@ pub fn run() {
             commands::library::get_suppressed_tags,
             commands::library::reveal_in_finder,
             commands::library::open_log_dir,
+            commands::library::open_data_dir,
             commands::library::get_cover_art,
             commands::library::save_sidecar,
             commands::library::export_sidecars,

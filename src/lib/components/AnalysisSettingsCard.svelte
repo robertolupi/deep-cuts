@@ -35,6 +35,15 @@
       ui.showToast(err.toString(), "error");
     }
   }
+
+  async function openDataDir() {
+    try {
+      await invoke("open_data_dir");
+      ui.showToast("Application data directory opened.", "success");
+    } catch (err: any) {
+      ui.showToast(err.toString(), "error");
+    }
+  }
 </script>
 
 <SettingsCard
@@ -71,6 +80,14 @@
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
       </svg>
       Open Application Logs
+    </button>
+    <button class="sg-btn action-btn" onclick={openDataDir}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+      </svg>
+      Open Application Data
     </button>
   </div>
 </SettingsCard>

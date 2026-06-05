@@ -372,6 +372,41 @@ pub fn open_log_dir(app: tauri::AppHandle) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Opens the system file manager to the application data directory (contains the database).
+#[tauri::command]
+pub fn open_data_dir(app: tauri::AppHandle) -> Result<(), AppError> {
+    use tauri::Manager;
+    let data_dir = app.path().app_data_dir()
+        .map_err(|e| AppError::Generic(format!("Failed to get data directory: {}", e)))?;
+
+    if !data_dir.exists() {
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| AppError::Generic(format!("Failed to create data directory: {}", e)))?;
+    }
+
+    let path = data_dir.to_string_lossy().into_owned();
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()?;
+    }
+    Ok(())
+}
+
 
 #[derive(serde::Serialize)]
 pub struct SemanticSearchResult {
