@@ -42,6 +42,7 @@
   const PASS_ORDER = [
     'audio_analysis',
     'bpm_correction',
+    'sax',
     'clap',
     'essentia',
     'bpm_refinement',
@@ -61,6 +62,7 @@
   const PASS_ROLE: Record<string, keyof typeof PASS_COLORS> = {
     audio_analysis:    'audio',
     bpm_correction:    'audio',
+    sax:               'audio',
     bpm_refinement:    'audio',
     clap:              'neural_pink',
     qwen:              'neural_pink',
@@ -69,13 +71,14 @@
   };
 
   const PASS_META: Record<string, { label: string; description: string }> = {
-    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate'          },
-    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range'         },
-    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search'    },
-    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments'          },
-    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions'       },
-    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier' },
-    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates'    },
+    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate'              },
+    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range'             },
+    sax:              { label: 'SAX Structure',         description: 'Symbolic encoding of energy envelope for structure search' },
+    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search'        },
+    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier'     },
+    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates'        },
+    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments'              },
+    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions'           },
   };
 
   const isLight = $derived(theme.resolvedTheme === 'light');
