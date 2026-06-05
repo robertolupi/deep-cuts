@@ -283,6 +283,7 @@ Instead of modifying `TrackDetailPane.svelte` to contain complex inline input fi
   - Clicking on a tag in the detail pane:
     - If it's a normal active tag: Toggles the search filter for that tag.
     - We can add a right-click context menu (or a small context action button on hover) to **"Suppress tag"** or **"Remove custom tag"**, which calls the corresponding IPC command directly.
+    - To **restore a suppressed tag**, clicking on the empty tag container area (outside any individual active tag chip) will show a dropdown menu listing the currently suppressed tags for this track, allowing the user to select one and restore it (unsuppress it).
 
 ### B. Designing `EditTrackModal.svelte` (New Component)
 Create a clean modal component `src/lib/components/EditTrackModal.svelte`:
