@@ -97,22 +97,6 @@ impl super::AnalysisPass for BpmRefinementPass {
             rusqlite::params![job.track_id],
         ).map_err(|e| e.to_string())?;
 
-        let effective_bpm = match &result {
-            crate::bpm::CorrectResult::Corrected(v) => Some(*v),
-            crate::bpm::CorrectResult::Unchanged    => job.bpm_raw,
-            crate::bpm::CorrectResult::Null         => None,
-        };
-        if let Some(bpm) = effective_bpm {
-            let label = if bpm < 90.0 {
-                "downtempo"
-            } else if bpm <= 125.0 {
-                "midtempo"
-            } else {
-                "uptempo"
-            };
-            super::upsert_track_tag(conn, job.track_id, "bpm", label, "bpm_refinement", None)?;
-        }
-
         Ok(())
     }
 

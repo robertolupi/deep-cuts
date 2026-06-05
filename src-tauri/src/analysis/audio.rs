@@ -120,13 +120,6 @@ pub fn run_audio_analysis_phase(
                             rusqlite::params![job.track_id],
                         );
 
-                        // Key scale
-                        match analysis.scale.as_deref() {
-                            Some("minor") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "minor", "audio_analysis", None); }
-                            Some("major") => { let _ = super::upsert_track_tag(&conn, job.track_id, "key", "major", "audio_analysis", None); }
-                            _ => {}
-                        }
-
                         // Mastering dynamics
                         if analysis.loudness_lufs > -7.0 && analysis.loudness_range < 4.0 {
                             let _ = super::upsert_track_tag(&conn, job.track_id, "mastering", "brickwalled", "audio_analysis", None);
