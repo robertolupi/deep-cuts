@@ -62,7 +62,7 @@
     if (!dropdownEl) return;
     const items = dropdownEl.querySelectorAll('.autocomplete-item');
     const activeItem = items[activeIndex] as HTMLElement;
-    if (activeItem) {
+    if (activeItem && typeof activeItem.scrollIntoView === 'function') {
       activeItem.scrollIntoView({ block: 'nearest' });
     }
   }

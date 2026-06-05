@@ -64,7 +64,14 @@ Svelte 5 enforces strict `{@const}` placement — these must be immediate childr
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-There are currently no frontend Vitest tests. Add them under `src/` if needed.
+Frontend tests use Vitest + `@testing-library/svelte` + jsdom. Run them with:
+
+```bash
+npm test           # single run
+npm run test:watch # watch mode
+```
+
+Test files live alongside source files as `*.test.ts` (e.g. `src/lib/components/Foo.test.ts`). The full stack — `vitest`, `@testing-library/svelte`, `@testing-library/jest-dom`, `jsdom` — is already installed.
 
 ## 4. Database path
 
