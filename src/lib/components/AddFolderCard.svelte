@@ -94,8 +94,8 @@
   }
 
   .field-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--sg-outline, #849495);
@@ -107,8 +107,8 @@
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
     padding: 7px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-on-surface, #e3e1e9);
     outline: none;
     box-sizing: border-box;
@@ -131,8 +131,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 6px 12px;
     border: 1px solid rgba(255,255,255,0.12);

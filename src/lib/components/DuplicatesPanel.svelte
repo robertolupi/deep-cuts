@@ -234,8 +234,8 @@
   }
 
   .dup-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--sg-primary, #00f0ff);
@@ -248,8 +248,8 @@
   }
 
   .dup-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -264,8 +264,8 @@
   .dup-slider:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .dup-threshold-val {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-on-surface, #e3e1e9);
     min-width: 2.8ch;
   }
@@ -274,8 +274,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 600;
     padding: 5px 14px;
     border: 1px solid rgba(0,240,255,0.35);
@@ -294,14 +294,14 @@
   .dup-scan-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .dup-result-count {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
   }
 
   .dup-hint {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     opacity: 0.5;
     margin-left: auto;
@@ -335,14 +335,14 @@
     height: 100%;
     gap: 0.5rem;
     color: var(--sg-outline, #849495);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     text-align: center;
     padding: 2rem;
   }
 
   .dup-hint-text {
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     opacity: 0.6;
     line-height: 1.6;
   }
@@ -351,8 +351,8 @@
   .dup-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
   }
 
   .dup-table thead tr {
@@ -366,7 +366,7 @@
   .dup-table th {
     padding: 8px 12px;
     text-align: left;
-    font-size: 8px;
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -386,7 +386,7 @@
 
   .sim-badge {
     display: inline-block;
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 999px;
@@ -419,7 +419,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 9px;
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     opacity: 0.6;
     margin-top: 2px;

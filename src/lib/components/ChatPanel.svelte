@@ -547,7 +547,7 @@
   }
 
   .empty-title {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 13px;
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
@@ -555,8 +555,8 @@
   }
 
   .empty-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     max-width: 320px;
     line-height: 1.6;
@@ -583,8 +583,8 @@
   }
 
   .track-name {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
     white-space: nowrap;
@@ -593,8 +593,8 @@
   }
 
   .track-artist {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     white-space: nowrap;
     overflow: hidden;
@@ -609,8 +609,8 @@
   }
 
   .model-status-text {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -632,8 +632,8 @@
   }
 
   .region-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -641,8 +641,8 @@
   }
 
   .region-range {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
     letter-spacing: 0.04em;
@@ -669,8 +669,8 @@
   }
 
   .region-hint {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     opacity: 0.6;
   }
@@ -695,8 +695,8 @@
   }
 
   .conversation-hint p {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     margin: 0;
     line-height: 1.5;
   }
@@ -708,8 +708,8 @@
   }
 
   .suggestion {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     text-align: left;
     padding: 6px 10px;
     border: 1px solid rgba(255,255,255,0.08);
@@ -734,8 +734,8 @@
   }
 
   .role-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -750,8 +750,8 @@
   }
 
   .message-body {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     line-height: 1.65;
     color: var(--sg-on-surface, #e3e1e9);
     white-space: pre-wrap;
@@ -801,8 +801,8 @@
     flex-shrink: 0;
     margin: 0 16px 8px;
     padding: 8px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: #ff6b6b;
     background: rgba(255, 80, 80, 0.08);
     border: 1px solid rgba(255, 80, 80, 0.25);
@@ -814,8 +814,8 @@
     flex-shrink: 0;
     margin: 0 16px 8px;
     padding: 8px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: #f0a030;
     background: rgba(240, 160, 48, 0.08);
     border: 1px solid rgba(240, 160, 48, 0.25);
@@ -836,8 +836,8 @@
 
   .chat-input {
     flex: 1;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 4px;
@@ -925,8 +925,8 @@
 
   .session-input {
     width: 100%;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.1);
@@ -962,8 +962,8 @@
   }
 
   .session-empty {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     padding: 10px 12px;
   }
@@ -972,8 +972,8 @@
     display: block;
     width: 100%;
     text-align: left;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 7px 12px;
     background: none;
     border: none;
@@ -1019,8 +1019,8 @@
   .session-result:hover { background: rgba(255,255,255,0.05); }
 
   .session-result-track {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
     white-space: nowrap;
@@ -1029,8 +1029,8 @@
   }
 
   .session-result-excerpt {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     white-space: nowrap;
     overflow: hidden;

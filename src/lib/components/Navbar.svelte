@@ -105,8 +105,8 @@
 
   /* ── Wordmark ── */
   .brand {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     letter-spacing: 0.18em;
     color: var(--sg-primary, #00f0ff);
@@ -130,8 +130,8 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     padding: 5px 12px;
@@ -187,8 +187,8 @@
   }
 
   .theme-select {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 4px;

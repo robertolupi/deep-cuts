@@ -111,7 +111,7 @@
 
   .about-desc {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--sg-text-sm);
     line-height: 1.65;
     color: var(--sg-on-surface, #e3e1e9);
     opacity: 0.75;
@@ -121,8 +121,8 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -188,15 +188,15 @@
   }
 
   .credit-name {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .credit-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     padding: 1px 5px;
     border-radius: 3px;
@@ -223,7 +223,7 @@
 
   .credit-desc {
     margin: 0;
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     line-height: 1.4;
     color: var(--sg-on-surface, #e3e1e9);
     opacity: 0.7;
@@ -233,8 +233,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -260,8 +260,8 @@
   }
 
   .credit-warning {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: rgba(255, 170, 0, 0.8);
     margin-top: 2px;
     line-height: 1.3;
@@ -269,7 +269,7 @@
 
   .about-license-sep {
     opacity: 0.4;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
   }
 </style>

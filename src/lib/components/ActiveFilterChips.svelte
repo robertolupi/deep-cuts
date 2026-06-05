@@ -157,7 +157,7 @@
               placeholder={filters.autoName}
               bind:value={newSavedSearchName}
               class="search-input"
-              style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
+              style="padding-left: 8px; font-size: var(--sg-text-sm); box-sizing: border-box;"
             />
             <div style="display: flex; gap: 4px; width: 100%;">
               <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
@@ -182,7 +182,7 @@
               placeholder={filters.autoName}
               bind:value={newSavedSearchName}
               class="search-input"
-              style="padding-left: 8px; font-size: 11px; box-sizing: border-box;"
+              style="padding-left: 8px; font-size: var(--sg-text-sm); box-sizing: border-box;"
             />
             <div style="display: flex; gap: 4px; width: 100%;">
               <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={handleCreateSavedSearch}>Save</button>
@@ -214,7 +214,7 @@
                     placeholder="New playlist name..."
                     bind:value={saveToNewPlaylistName}
                     class="search-input"
-                    style="padding-left: 8px; font-size: 11px;"
+                    style="padding-left: 8px; font-size: var(--sg-text-sm);"
                   />
                   <div style="display: flex; gap: 4px;">
                     <button class="action-btn action-btn-primary" style="flex: 1; justify-content: center;" onclick={async () => {
@@ -259,8 +259,8 @@
   }
 
   .chip {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 3px 8px;
     border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.12);
@@ -326,7 +326,7 @@
   }
 
   .blend-label {
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     color: var(--text-muted, rgba(255,255,255,0.4));
     white-space: nowrap;
     flex-shrink: 0;
@@ -344,8 +344,8 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 5px 12px;
     border: 1px solid rgba(255,255,255,0.12);
@@ -380,8 +380,8 @@
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
     padding: 0.4rem 0.5rem 0.4rem 2rem;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-on-surface, #e3e1e9);
     outline: none;
     transition: border-color 0.15s;
@@ -417,8 +417,8 @@
     border: none;
     text-align: left;
     padding: 7px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;

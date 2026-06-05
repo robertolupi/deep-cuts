@@ -92,7 +92,7 @@
     autocorrect="off"
     autocapitalize="none"
     spellcheck="false"
-    style="flex-grow: 1; background: {borderless ? 'transparent' : 'var(--sg-surface-container)'}; border: {borderless ? 'none' : '1px solid var(--sg-surface-high)'}; border-radius: 4px; padding: {borderless ? '0' : '4px 8px'}; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-on-surface, #e3e1e9); outline: none;"
+    style="flex-grow: 1; background: {borderless ? 'transparent' : 'var(--sg-surface-container)'}; border: {borderless ? 'none' : '1px solid var(--sg-surface-high)'}; border-radius: 4px; padding: {borderless ? '0' : '4px 8px'}; font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-on-surface, #e3e1e9); outline: none;"
   />
   {#if buttonSnippet}
     {@render buttonSnippet()}
@@ -108,7 +108,7 @@
         <button
           type="button"
           class="autocomplete-item"
-          style="width: 100%; text-align: left; background: {i === activeIndex ? 'var(--sg-surface-high)' : 'none'}; border: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {i === activeIndex ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'}; padding: 6px 8px; cursor: pointer; display: block;"
+          style="width: 100%; text-align: left; background: {i === activeIndex ? 'var(--sg-surface-high)' : 'none'}; border: none; font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: {i === activeIndex ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'}; padding: 6px 8px; cursor: pointer; display: block;"
           onclick={() => selectOption(option)}
           onmouseenter={() => activeIndex = i}
         >

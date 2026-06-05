@@ -210,7 +210,7 @@
     font-size: 0.7rem;
     font-weight: 700;
     color: var(--sg-primary);
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--sg-font-display);
     background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--sg-primary) 22%, transparent);
     padding: 0.1rem 0.42rem;

@@ -189,7 +189,7 @@
       .call(d3.axisBottom(xScale).ticks(6).tickFormat((d) => formatDuration(d as number)))
       .call((g) => g.select(".domain").attr("stroke", "rgba(255,255,255,0.1)"))
       .call((g) => g.selectAll(".tick line").attr("stroke", "rgba(255,255,255,0.1)"))
-      .call((g) => g.selectAll(".tick text").attr("fill", "var(--sg-outline, #849495)").style("font-family", "JetBrains Mono").style("font-size", "9px"));
+      .call((g) => g.selectAll(".tick text").attr("fill", "var(--sg-outline, #849495)").style("font-family", "JetBrains Mono").style("font-size", "var(--sg-text-2xs)"));
 
     // Y axis (pass names)
     svg
@@ -200,7 +200,7 @@
       .call((g) => g.selectAll(".tick text")
         .attr("fill", (d: any) => PASS_COLORS[d] ?? "#e3e1e9")
         .style("font-family", "JetBrains Mono")
-        .style("font-size", "10px")
+        .style("font-size", "var(--sg-text-xs)")
         .style("font-weight", "700"));
 
     // Horizontal grid lines
@@ -252,7 +252,7 @@
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .style("font-family", "JetBrains Mono")
-      .style("font-size", "8px")
+      .style("font-size", "var(--sg-text-3xs)")
       .style("font-weight", "700")
       .style("fill", "rgba(0,0,0,0.7)")
       .style("pointer-events", "none")
@@ -463,8 +463,8 @@
   .tab-btn {
     flex: 1;
     padding: 12px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -513,8 +513,8 @@
   }
 
   .title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -523,8 +523,8 @@
   }
 
   .subtitle {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin: 4px 0 0 0;
   }
@@ -553,8 +553,8 @@
   }
 
   .pass-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 3px;
@@ -571,8 +571,8 @@
   .pass-badge.description_embed { color: #00bbf9; border-color: rgba(0,187,249,0.3); background: rgba(0,187,249,0.06); }
 
   .count-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -588,15 +588,15 @@
   }
 
   .stat-main .val {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 20px;
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
   }
 
   .stat-main .lbl {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
     letter-spacing: 0.05em;
   }
@@ -609,15 +609,15 @@
   }
 
   .stat-row .val-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .stat-row .lbl-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
     display: block;
   }
@@ -647,8 +647,8 @@
   }
 
   .section-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -657,8 +657,8 @@
   }
 
   .empty-runs {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     text-align: center;
     padding: 20px 0;
@@ -691,15 +691,15 @@
   }
 
   .run-date {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .run-meta {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
     margin-top: 3px;
     display: flex;
@@ -731,15 +731,15 @@
   }
 
   .visualizer-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .visualizer-subtitle {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin: 2px 0 0 0;
   }
@@ -761,8 +761,8 @@
   }
 
   .span-details-empty {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     display: flex;
     align-items: center;
@@ -784,16 +784,16 @@
   }
 
   .span-field .label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     color: var(--sg-outline, #849495);
     letter-spacing: 0.05em;
   }
 
   .span-field .value {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-on-surface, #e3e1e9);
   }
 
@@ -818,8 +818,8 @@
     border: 1px solid rgba(255, 75, 75, 0.15);
     border-radius: 3px;
     color: var(--sg-error, #ff4b4b);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     padding: 6px;
     margin: 4px 0 0 0;
     white-space: pre-wrap;
@@ -852,8 +852,8 @@
   }
 
   .track-tag, .time-tag {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -863,8 +863,8 @@
     border-radius: 3px;
     padding: 8px;
     color: var(--sg-on-surface, #e3e1e9);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     margin: 0;
     white-space: pre-wrap;
     overflow-x: auto;
@@ -874,8 +874,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     padding: 5px 10px;
     border: 1px solid rgba(255,255,255,0.12);
@@ -892,8 +892,8 @@
   }
 
   .empty-state {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     text-align: center;
     padding: 40px 0;
@@ -905,8 +905,8 @@
     color: var(--sg-error, #ff4b4b);
     border-radius: 4px;
     padding: 8px 12px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     margin-bottom: 12px;
   }
 </style>

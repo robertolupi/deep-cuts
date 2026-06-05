@@ -837,8 +837,8 @@
   }
 
   .toolbar-badge code {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -849,8 +849,8 @@
   }
 
   .toolbar-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -864,8 +864,8 @@
   }
 
   .ttog-btn {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 4px 10px;
     border: none;
     background: rgba(255,255,255,0.02);
@@ -888,8 +888,8 @@
   }
 
   .toolbar-hint {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     opacity: 0.5;
     margin-left: auto;
@@ -904,8 +904,8 @@
     justify-content: center;
     gap: 1rem;
     color: var(--sg-outline, #849495);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
   }
 
   /* ── Spinner ── */
@@ -938,8 +938,8 @@
   }
 
   .ht-title {
-    font-family: Inter, sans-serif;
-    font-size: 12px;
+    font-family: var(--sg-font-ui);
+    font-size: var(--sg-text-base);
     font-weight: 600;
     color: var(--sg-on-surface, #e3e1e9);
     white-space: nowrap;
@@ -948,8 +948,8 @@
   }
 
   .ht-artist {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     white-space: nowrap;
     overflow: hidden;
@@ -964,8 +964,8 @@
   }
 
   .ht-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     padding: 2px 6px;
     border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -1009,8 +1009,8 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 4px;
     color: var(--sg-on-surface, #e3e1e9);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 4px 20px 4px 8px;
     width: 175px;
     outline: none;
@@ -1030,7 +1030,7 @@
     border: none;
     color: var(--sg-outline, #849495);
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--sg-text-base);
     line-height: 1;
     padding: 0;
     transition: color 0.12s;
@@ -1069,8 +1069,8 @@
   }
 
   .slider-side-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
     opacity: 0.85;
   }
@@ -1103,8 +1103,8 @@
   }
 
   .blend-percent-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
     background: rgba(0, 240, 255, 0.08);
@@ -1152,14 +1152,14 @@
   .legend-toggle:hover { background: rgba(255,255,255,0.04); }
 
   .legend-toggle-icon {
-    font-size: 9px;
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     line-height: 1;
   }
 
   .legend-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -1187,8 +1187,8 @@
   }
 
   .legend-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-on-surface, #e3e1e9);
     white-space: nowrap;
   }
@@ -1206,7 +1206,7 @@
   }
 
   .legend-col-header {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 7px;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -1231,8 +1231,8 @@
   .legend-bpm-labels {
     display: flex;
     justify-content: space-between;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
   }
 </style>

@@ -269,8 +269,8 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 6px 14px;
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -339,16 +339,16 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     color: #ff6b6b;
   }
 
   .error-text {
     margin: 0;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     line-height: 1.4;
   }
@@ -368,15 +368,15 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
   }
 
   .success-text {
     margin: 0;
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     line-height: 1.4;
   }
@@ -415,8 +415,8 @@
   }
 
   .dl-status-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
   }
@@ -429,8 +429,8 @@
   }
 
   .dl-filename {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -439,8 +439,8 @@
   }
 
   .dl-speed {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
   }
@@ -466,8 +466,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -483,8 +483,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     color: #c87800;
     padding: 3px 8px;

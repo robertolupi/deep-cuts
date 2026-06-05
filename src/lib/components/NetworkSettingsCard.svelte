@@ -84,8 +84,8 @@
     gap: 8px;
     cursor: pointer;
     user-select: none;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-on-surface, #e3e1e9);
   }
 
@@ -124,7 +124,7 @@
 
   .checkbox-text {
     line-height: 1;
-    font-size: 11px;
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     transition: color 0.12s;
   }

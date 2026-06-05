@@ -329,7 +329,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
             {/if}
 
             {#snippet dirItemSnippet(dir: { id: number; name: string; path: string })}
-              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{dir.name}</span>
+              <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs);">{dir.name}</span>
             {/snippet}
 
             <div class="tag-input-wrap" style="display: flex; align-items: center; gap: 4px; position: relative; width: 100%;">
@@ -354,7 +354,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
         <!-- Playlist Filter -->
         <div class="playlist-filter-container">
           {#snippet playlistItemSnippet(pl: import('$lib/types').Playlist)}
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{pl.name}</span>
+            <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs);">{pl.name}</span>
           {/snippet}
 
           {#snippet playlistClearButtonSnippet()}
@@ -501,7 +501,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
             placeholder="New playlist name..." 
             bind:value={newPlaylistName} 
             class="search-input"
-            style="padding-left: 8px; font-size: 11px;"
+            style="padding-left: 8px; font-size: var(--sg-text-sm);"
           />
           <button class="action-btn action-btn-primary" style="width: 100%; justify-content: center;" onclick={async () => {
             if (newPlaylistName.trim()) {
@@ -526,20 +526,20 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
                 ui.sidebarTab = "filters";
               }}
             >
-              <span class="curation-item-name" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {curation.activePlaylist?.id === pl.id ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'};">🟣 {pl.name}</span>
+              <span class="curation-item-name" style="font-family: var(--sg-font-mono); font-size: var(--sg-text-sm); color: {curation.activePlaylist?.id === pl.id ? 'var(--sg-primary, #00f0ff)' : 'var(--sg-on-surface, #e3e1e9)'};">🟣 {pl.name}</span>
             </button>
             {#if deletePlaylistId === pl.id}
               <div style="display: flex; gap: 4px; align-items: center;">
-                <button class="mini-confirm-btn" style="color: #ff5555; background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => { curation.deletePlaylist(pl.id); deletePlaylistId = null; }}>Confirm</button>
-                <button class="mini-confirm-btn" style="color: var(--sg-outline); background: none; border: none; font-size: 10px; cursor: pointer;" onclick={() => deletePlaylistId = null}>Cancel</button>
+                <button class="mini-confirm-btn" style="color: #ff5555; background: none; border: none; font-size: var(--sg-text-xs); cursor: pointer;" onclick={() => { curation.deletePlaylist(pl.id); deletePlaylistId = null; }}>Confirm</button>
+                <button class="mini-confirm-btn" style="color: var(--sg-outline); background: none; border: none; font-size: var(--sg-text-xs); cursor: pointer;" onclick={() => deletePlaylistId = null}>Cancel</button>
               </div>
             {:else}
-              <button class="mini-delete-btn" style="background: none; border: none; color: var(--sg-outline); cursor: pointer; font-size: 11px; padding: 2px;" onclick={() => deletePlaylistId = pl.id} title="Delete Playlist">🗑️</button>
+              <button class="mini-delete-btn" style="background: none; border: none; color: var(--sg-outline); cursor: pointer; font-size: var(--sg-text-sm); padding: 2px;" onclick={() => deletePlaylistId = pl.id} title="Delete Playlist">🗑️</button>
             {/if}
           </div>
         {/each}
         {#if curation.playlists.length === 0}
-          <p class="empty-list-text" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); text-align: center; margin: 0.5rem 0;">No playlists created yet.</p>
+          <p class="empty-list-text" style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-outline, #849495); text-align: center; margin: 0.5rem 0;">No playlists created yet.</p>
         {/if}
       </div>
     </div>
@@ -574,8 +574,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .sidebar-title {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -584,8 +584,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .sidebar-count {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     margin-top: 2px;
   }
@@ -621,8 +621,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .section-label {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -642,14 +642,14 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .section-value {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-primary, #00f0ff);
   }
 
   .label-clear {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     background: none;
     border: none;
@@ -680,8 +680,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
     padding: 0.4rem 0.5rem 0.4rem 2rem;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-on-surface, #e3e1e9);
     outline: none;
     transition: border-color 0.15s;
@@ -697,7 +697,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     border: none;
     cursor: pointer;
     color: var(--sg-outline, #849495);
-    font-size: 14px;
+    font-size: var(--sg-text-md);
     line-height: 1;
     padding: 0 2px;
   }
@@ -728,8 +728,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     border: none;
     text-align: left;
     padding: 6px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -759,8 +759,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     background: rgba(255,255,255,0.02);
     color: var(--sg-outline, #849495);
     cursor: pointer;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     transition: all 0.12s;
   }
 
@@ -848,8 +848,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .key-btn {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 5px 2px;
     text-align: center;
     border: 1px solid rgba(255,255,255,0.08);
@@ -880,8 +880,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .scale-btn {
     flex: 1;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 5px 4px;
     text-align: center;
     border: 1px solid rgba(255,255,255,0.08);
@@ -912,8 +912,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .preset-btn {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     padding: 3px 7px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.03);
@@ -973,8 +973,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .toggle-hint {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin: 4px 0 0;
     opacity: 0.7;
@@ -996,8 +996,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     flex: 1;
     background: none;
     border: none;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-outline, #849495);
     padding: 6px 12px;
@@ -1044,8 +1044,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     border: none;
     text-align: left;
     padding: 6px 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -1068,8 +1068,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 999px;
@@ -1083,13 +1083,13 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .tag-filter-chip:hover { filter: brightness(1.3); }
 
   .tfc-ns {
-    font-size: 8px;
+    font-size: var(--sg-text-3xs);
     opacity: 0.5;
     font-weight: 400;
   }
 
   .tfc-remove {
-    font-size: 10px;
+    font-size: var(--sg-text-xs);
     opacity: 0.6;
     margin-left: 1px;
   }
@@ -1118,8 +1118,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     background: transparent;
     border: none;
     outline: none;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-on-surface, #e3e1e9);
     padding: 0;
     height: 100%;

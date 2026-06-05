@@ -85,8 +85,8 @@
     border-radius: 4px;
     background: rgba(0,0,0,0.22);
     color: var(--sg-on-surface, #e3e1e9);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -101,8 +101,8 @@
   }
 
   .model-path-message {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -110,8 +110,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 6px 12px;
     border: 1px solid rgba(255,255,255,0.12);

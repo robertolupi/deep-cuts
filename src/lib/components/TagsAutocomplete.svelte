@@ -43,7 +43,7 @@
 {#snippet tagItem(suggestion: string)}
   <span style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
     <span>{suggestion.split(':').slice(1).join(':')}</span>
-    <span style="font-size: 8px; opacity: 0.5; margin-left: 4px; font-family: sans-serif;">{suggestion.split(':')[0]}</span>
+    <span style="font-size: var(--sg-text-3xs); opacity: 0.5; margin-left: 4px; font-family: sans-serif;">{suggestion.split(':')[0]}</span>
   </span>
 {/snippet}
 

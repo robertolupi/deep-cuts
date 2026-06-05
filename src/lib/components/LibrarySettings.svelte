@@ -149,8 +149,8 @@
   }
 
   .card-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -173,7 +173,7 @@
   }
 
   .stat-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 28px;
     font-weight: 700;
     color: var(--sg-on-surface, #e3e1e9);
@@ -183,8 +183,8 @@
   .stat-cyan { color: var(--sg-primary, #00f0ff); text-shadow: 0 0 12px rgba(0,240,255,0.3); }
 
   .stat-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     letter-spacing: 0.06em;
   }
@@ -241,8 +241,8 @@
   }
 
   .drawer-title {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -251,8 +251,8 @@
   }
 
   .drawer-subtitle {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin: 0;
   }
@@ -279,8 +279,8 @@
   }
 
   .license-text {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     line-height: 1.6;
     color: var(--sg-on-surface, #e3e1e9);
     white-space: pre-wrap;

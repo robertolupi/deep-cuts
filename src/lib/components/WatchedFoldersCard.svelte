@@ -136,8 +136,8 @@
 
   .card-title {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -146,8 +146,8 @@
 
   .card-subtitle {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     letter-spacing: 0.04em;
     margin-top: 3px;
@@ -176,15 +176,15 @@
   }
 
   .scan-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     color: var(--sg-primary, #00f0ff);
   }
 
   .scan-counts {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -204,8 +204,8 @@
   }
 
   .scan-file {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     max-width: 180px;
     overflow: hidden;
@@ -217,8 +217,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 6px 12px;
     border: 1px solid rgba(255,255,255,0.12);
@@ -269,8 +269,8 @@
   .dir-row:hover { border-color: rgba(255,255,255,0.1); }
 
   .dir-name-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 3px 8px;
     border: 1px solid rgba(0,240,255,0.3);
@@ -282,8 +282,8 @@
   }
 
   .dir-path {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     flex: 1;
     min-width: 0;
@@ -325,10 +325,10 @@
   }
 
   .empty-dirs p {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     margin: 0;
   }
 
-  .empty-sub { font-size: 10px !important; opacity: 0.7; }
+  .empty-sub { font-size: var(--sg-text-xs) !important; opacity: 0.7; }
 </style>

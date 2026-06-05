@@ -320,7 +320,7 @@
           title={suppressedTags.length > 0 ? "Click background to restore suppressed tags" : ""}
         >
           {#if trackTags.length === 0}
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495);">No tags.</span>
+            <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-outline, #849495);">No tags.</span>
           {/if}
           {#each trackTags as tag}
             {@const theme = tagTheme(tag.name)}
@@ -355,10 +355,10 @@
 
         {#if showRestoreMenu && suppressedTags.length > 0}
           <div class="restore-menu" style="background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 4px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--sg-outline, #849495); padding: 2px 4px; font-weight: bold;">RESTORE SUPPRESSED TAG:</span>
+            <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-3xs); color: var(--sg-outline, #849495); padding: 2px 4px; font-weight: bold;">RESTORE SUPPRESSED TAG:</span>
             {#each suppressedTags as tag}
               <button 
-                style="background: none; border: none; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-on-surface, #e3e1e9); padding: 4px; cursor: pointer; border-radius: 2px;"
+                style="background: none; border: none; text-align: left; font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-on-surface, #e3e1e9); padding: 4px; cursor: pointer; border-radius: 2px;"
                 onclick={() => {
                   handleUnsuppressTag(tag.name);
                   showRestoreMenu = false;
@@ -377,7 +377,7 @@
         {#snippet addTagButton()}
           <button
             onclick={handleAddUserTag}
-            style="background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 4px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); cursor: pointer;"
+            style="background: var(--sg-surface-slate, #161b22); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 4px 8px; font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-outline, #849495); cursor: pointer;"
           >+</button>
         {/snippet}
 
@@ -482,10 +482,10 @@
           <div class="track-playlists-list" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
             {#each trackPlaylists as pl}
               <div class="track-playlist-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px;">
-                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--sg-on-surface, #e3e1e9);">🟣 {pl.name}</span>
+                <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-sm); color: var(--sg-on-surface, #e3e1e9);">🟣 {pl.name}</span>
                 <button 
                   type="button" 
-                  style="background: none; border: none; color: var(--sg-outline, #849495); cursor: pointer; font-size: 11px; padding: 2px;"
+                  style="background: none; border: none; color: var(--sg-outline, #849495); cursor: pointer; font-size: var(--sg-text-sm); padding: 2px;"
                   onclick={async () => {
                     await curation.removeTrackFromPlaylistById(pl.id, track.id);
                     await loadTrackPlaylists();
@@ -498,15 +498,15 @@
             {/each}
           </div>
         {:else}
-          <p style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sg-outline, #849495); margin-bottom: 8px;">Not in any playlists.</p>
+          <p style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs); color: var(--sg-outline, #849495); margin-bottom: 8px;">Not in any playlists.</p>
         {/if}
 
         <!-- Add to playlist selector -->
         <div style="display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 700; color: var(--sg-outline, #849495); letter-spacing: 0.05em;">ADD TO PLAYLIST</span>
+          <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-3xs); font-weight: 700; color: var(--sg-outline, #849495); letter-spacing: 0.05em;">ADD TO PLAYLIST</span>
           
           {#snippet playlistItemSnippet(pl: import('$lib/types').Playlist)}
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{pl.name}</span>
+            <span style="font-family: var(--sg-font-mono); font-size: var(--sg-text-xs);">{pl.name}</span>
           {/snippet}
 
           {#snippet playlistClearButtonSnippet()}
@@ -650,15 +650,15 @@
   }
 
   .empty-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-base);
     font-weight: 600;
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .empty-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
   }
 
@@ -715,8 +715,8 @@
 
   .format-badge {
     display: inline-block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     padding: 2px 6px;
     border: 1px solid var(--sg-primary, #00f0ff);
@@ -727,8 +727,8 @@
   }
 
   .track-title {
-    font-family: Inter, sans-serif;
-    font-size: 14px;
+    font-family: var(--sg-font-ui);
+    font-size: var(--sg-text-md);
     font-weight: 600;
     color: var(--sg-on-surface, #e3e1e9);
     margin: 0;
@@ -736,15 +736,15 @@
   }
 
   .track-artist {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-outline, #849495);
     margin: 3px 0 0;
   }
 
   .track-album {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     opacity: 0.7;
     margin: 2px 0 0;
@@ -774,8 +774,8 @@
 
   .section-label {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -802,8 +802,8 @@
   }
 
   .spec-label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -811,8 +811,8 @@
   }
 
   .spec-value {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-on-surface, #e3e1e9);
   }
 
@@ -834,7 +834,7 @@
   }
 
   .ai-prose {
-    font-size: 12px;
+    font-size: var(--sg-text-base);
     line-height: 1.6;
     color: var(--sg-on-surface-variant, #b9cacb);
     margin: 0 0 0.5rem;
@@ -847,8 +847,8 @@
   }
 
   .detail-tag-chip {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 999px;
@@ -877,7 +877,7 @@
 
   /* Dimmed namespace prefix shown after the label */
   .tag-ns {
-    font-size: 8px;
+    font-size: var(--sg-text-3xs);
     opacity: 0.5;
     font-weight: 400;
   }
@@ -901,8 +901,8 @@
   }
 
   .filepath code {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     word-break: break-all;
     line-height: 1.5;
@@ -914,8 +914,8 @@
   }
 
   .track-genre {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     color: var(--sg-outline, #849495);
     opacity: 0.6;
     margin: 2px 0 0;
@@ -940,8 +940,8 @@
   }
 
   .classifier-key {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     color: var(--sg-outline, #849495);
@@ -950,13 +950,13 @@
   }
 
   .classifier-val {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     color: var(--sg-on-surface, #e3e1e9);
   }
 
   .classifier-conf {
-    font-size: 9px;
+    font-size: var(--sg-text-2xs);
     color: var(--sg-outline, #849495);
     margin-left: 3px;
   }
@@ -973,8 +973,8 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     letter-spacing: 0.05em;
     padding: 7px 12px;
@@ -1018,8 +1018,8 @@
 
   .reset-btn {
     width: 100%;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     font-weight: 700;
     letter-spacing: 0.05em;
     padding: 7px 12px;
@@ -1053,8 +1053,8 @@
     display: block;
     width: 100%;
     text-align: left;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
     padding: 7px 12px;
     background: none;
     border: none;
@@ -1070,7 +1070,7 @@
 
   /* ── Lyrics ── */
   .lyrics-text {
-    font-size: 11px;
+    font-size: var(--sg-text-sm);
     line-height: 1.6;
     color: var(--sg-on-surface-variant, #b9cacb);
     white-space: pre-line;
@@ -1087,8 +1087,8 @@
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
     padding: 0.4rem 0.5rem;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     transition: border-color 0.15s;
     box-sizing: border-box;
   }
@@ -1111,7 +1111,7 @@
     border: none;
     cursor: pointer;
     color: var(--sg-outline, #849495);
-    font-size: 14px;
+    font-size: var(--sg-text-md);
     line-height: 1;
     padding: 0 2px;
   }

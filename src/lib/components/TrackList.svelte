@@ -241,7 +241,7 @@
   }
 
   .key-badge {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     color: var(--sg-on-surface);
   }
 
@@ -313,7 +313,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--sg-on-surface-variant, #a0a0b0);
     padding: 0.3rem 0.75rem;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 0.78rem;
     font-weight: 600;
     border-radius: 4px;
@@ -333,7 +333,7 @@
   }
 
   .page-info {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--sg-font-mono);
     font-size: 0.78rem;
     color: var(--sg-on-surface, #e3e1e9);
     min-width: 120px;
@@ -379,8 +379,8 @@
   }
 
   .semantic-score-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 999px;
@@ -393,8 +393,8 @@
   }
 
   .clap-score-badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-2xs);
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 999px;

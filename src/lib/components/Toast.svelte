@@ -40,8 +40,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-sm);
     padding: 8px 14px;
     border-radius: 5px;
     backdrop-filter: blur(12px);

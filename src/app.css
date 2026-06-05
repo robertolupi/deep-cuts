@@ -164,9 +164,18 @@ html[data-theme="accessible"] {
   --sg-radius-lg:            8px;    /* panels */
   --sg-radius-pill:          9999px; /* chips / badges */
 
-  /* Typography */
+  /* Typography — font families */
   --sg-font-ui:              'Inter', system-ui, sans-serif;
   --sg-font-mono:            'JetBrains Mono', 'Fira Code', monospace;
+  --sg-font-display:         'Outfit', sans-serif;
+
+  /* Typography — size scale (px; rem migration is a separate step) */
+  --sg-text-3xs:             8px;   /* chart axis labels, tiny stat rows */
+  --sg-text-2xs:             9px;   /* dense secondary labels */
+  --sg-text-xs:              10px;  /* sidebar labels, chips */
+  --sg-text-sm:              11px;  /* secondary metadata */
+  --sg-text-base:            12px;  /* base UI text */
+  --sg-text-md:              14px;  /* primary content text */
 
   /* Motion */
   --sg-transition:           all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -254,7 +263,7 @@ html[data-theme="accessible"] body {
 
 /* Custom Typography Headers */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--sg-font-display);
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-primary);
@@ -270,7 +279,7 @@ h1, h2, h3, h4, h5, h6 {
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--sg-font-ui);
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
@@ -312,7 +321,7 @@ html[data-theme="accessible"] .btn-primary:hover {
   border: 2px solid var(--border-color);
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--sg-font-ui);
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -380,7 +389,7 @@ html[data-theme="accessible"] .badge {
   border: 2px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.5rem 1rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--sg-font-ui);
   font-weight: 500;
   cursor: pointer;
   outline: none;
@@ -597,7 +606,7 @@ html[data-theme="accessible"] .heartbeat-dot {
 
   .stat-value {
     font-size: 3.5rem;
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--sg-font-display);
     font-weight: 800;
     color: var(--color-accent-cyan);
     line-height: 1;
@@ -702,7 +711,7 @@ html[data-theme="accessible"] .heartbeat-dot {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--sg-font-display);
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-secondary);
@@ -755,7 +764,7 @@ html[data-theme="accessible"] .heartbeat-dot {
   }
 
   .form-group label {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--sg-font-ui);
     font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -771,7 +780,7 @@ html[data-theme="accessible"] .heartbeat-dot {
     padding: 0.75rem 1rem;
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--sg-font-ui);
     font-size: 0.9rem;
     outline: none;
     transition: var(--transition-fast);
@@ -1538,7 +1547,7 @@ html[data-theme="accessible"] .heartbeat-dot {
     padding: 0.5rem 1rem 0.5rem 2.8rem !important; /* Added left padding to prevent overlapping with magnifying icon */
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--sg-font-ui);
     font-size: 0.85rem;
     outline: none;
     transition: var(--transition-fast);
@@ -1565,7 +1574,7 @@ html[data-theme="accessible"] .heartbeat-dot {
     border: 2px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 0.5rem 2.2rem 0.5rem 1rem;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--sg-font-ui);
     font-size: 0.85rem;
     cursor: pointer;
     outline: none;
