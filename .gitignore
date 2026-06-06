@@ -34,3 +34,5 @@ tools/tag_quality_report.md
 tools/nohup.out
 src-tauri/deep-cuts.db
 /models/
+__pycache__/
+*.pyc
