@@ -2,37 +2,9 @@
 
 Date: 2026-06-06
 
-## 1. Update `AGENTS.md` or generate a skill index
+This is the active skills/process backlog from the Codex feedback pass. Completed items are archived in [completed-improvements.md](completed-improvements.md) so future readers can focus on open work.
 
-**Current status:** Implemented. `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` now point agents to the generated `skills/INDEX.md`, and `tools/generate_skill_index.py` extracts skill frontmatter.
-
-`AGENTS.md` lists a subset of skills, but the repo now contains additional workflows that affect correctness:
-
-- `add-analysis-pass`
-- `add-tauri-sidecar`
-- `bot-collab`
-- `bump-dev-version`
-- `release-build`
-- `svelte-component`
-- `ui-debug`
-- `using-python`
-- `query-metrics-db`
-
-Either update `AGENTS.md` to list all mandatory triggers or add a generated skill index checked by CI/doc-lint. Future agents should not have to discover key workflows by chance.
-
-## 2. Make `doc/collab/PROTOCOL.md` the collaboration source of truth
-
-**Current status:** Implemented. `skills/bot-collab/SKILL.md` is now a lightweight launcher/checklist and delegates protocol details to `doc/collab/PROTOCOL.md`.
-
-`doc/collab/PROTOCOL.md` now requires structured handoffs with `Task`, `Context`, and `Deliverable`. `skills/bot-collab/SKILL.md` still contains older one-line handoff examples.
-
-Recommended change:
-
-- Keep protocol details only in `doc/collab/PROTOCOL.md`.
-- Slim `skills/bot-collab/SKILL.md` to: when to use it, which file to read, the minimum startup checklist, and verification rules.
-- Add a note that session files are working logs and durable decisions must be promoted into normal `doc/` files or skills.
-
-## 3. Strengthen `add-analysis-pass`
+## 1. Strengthen `add-analysis-pass`
 
 The skill is already valuable and reflects the trait-based pipeline. Add explicit guardrails from this review:
 
@@ -43,7 +15,7 @@ The skill is already valuable and reflects the trait-based pipeline. Add explici
 - No-`track_id` tables require custom reset behavior and tests.
 - Any pass that adds a frontend-visible field must update TypeScript DTOs and mock data.
 
-## 4. Strengthen `add-ipc-command`
+## 2. Strengthen `add-ipc-command`
 
 The skill tells agents how to add Rust commands and invoke them from the frontend, but it should also require the app's wrapper boundary:
 
@@ -53,19 +25,7 @@ The skill tells agents how to add Rust commands and invoke them from the fronten
 - Add a test for command args/result shape when feasible.
 - For push events, document event name, payload type, lifecycle, and unlisten ownership.
 
-## 5. Resolve Python guidance drift
-
-**Current status:** Implemented. `skills/dev-guidelines/SKILL.md` now describes Python as tools-only and points agents to `skills/using-python/SKILL.md` and `tools/.venv/bin/python`.
-
-`skills/dev-guidelines/SKILL.md` says "No Python tooling", while `skills/using-python/SKILL.md`, `tools/`, and model export workflows clearly use Python.
-
-Replace the statement with:
-
-> The app has no Python runtime dependency. Python is used only for tools, experiments, model export, and validation scripts. Use `tools/.venv/bin/python`, never system Python.
-
-Then make README examples match the same rule and run from the repository root.
-
-## 6. Make UI skills portable across agent environments
+## 3. Make UI skills portable across agent environments
 
 `skills/ui-debug/SKILL.md` assumes Chrome MCP and the Claude in Chrome extension. This is useful for that environment but brittle for Codex, Gemini, or a browser plugin.
 
@@ -77,7 +37,7 @@ Add fallback sections:
 
 Keep the skill outcome-oriented: what to verify, not only which tool to click.
 
-## 7. Tighten `svelte-component` and `ui-design`
+## 4. Tighten `svelte-component` and `ui-design`
 
 Add checklists that match current risks:
 
@@ -87,7 +47,7 @@ Add checklists that match current risks:
 - Component styles must use `--sg-*` tokens and avoid inline color styles.
 - New UI work should include light and accessible theme checks.
 
-## 8. Add lightweight doc/skill linting
+## 5. Add lightweight doc/skill linting
 
 A small local script could catch recurring process issues:
 

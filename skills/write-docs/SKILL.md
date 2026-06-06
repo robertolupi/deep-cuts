@@ -27,9 +27,11 @@ Use the current folders consistently:
 | `doc/collab/` | Multi-agent collaboration protocol and session logs. |
 | `doc/private/` | Private/blog/outreach notes; do not reorganize without explicit direction. |
 
-When a doc mixes categories, prefer preserving it and adding status/context over splitting it immediately.
+When a proposal, research note, or architecture doc mixes categories, prefer preserving it and adding status/context over splitting it immediately.
 
 For partially implemented docs, classify at the smallest useful feature slice. A single proposal can contain implemented storage, partially implemented backend commands, and unimplemented UI. Prefer a compact status table near the top over creating parallel `*_implemented.md` files.
+
+Backlog and review docs are different: keep the active file focused on open work. When a backlog item is completed, move it out of the active backlog into a completion log in the same directory, with date, commit hash, outcome, and links to changed files. Do not make future agents re-read completed recommendations unless they are looking for history.
 
 ## Lifecycle Status
 
@@ -109,6 +111,16 @@ Many docs are intentionally exploratory. Preserve useful history, but make curre
 - Use `superseded` only when code or git history shows replacement/removal; use `need-human-review` for unfinished or strategically ambiguous ideas.
 - Leave broad roadmap matrices as `need-human-review` unless Roberto explicitly promotes them.
 - If you have product-fit or feasibility concerns, add them as clearly labeled notes, not as hidden rewrites.
+
+## Backlog Handling
+
+Review, feedback, and cleanup docs are work queues, not design records. Optimize them for the next action:
+
+- Keep only open items in the main backlog file.
+- Move completed items to a nearby completion log such as `completed-improvements.md`.
+- Preserve enough history in the completion log to reconstruct what happened: original title, completion date, commit hash, short outcome, and links to durable docs/skills/code.
+- Renumber the active backlog after moving completed sections.
+- If an item is rejected or no longer desired, move it to the completion log as `Rejected` or `Deferred` with the reason rather than leaving it in the open backlog.
 
 ## Link and Path Rules
 
