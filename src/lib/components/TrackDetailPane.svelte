@@ -152,6 +152,54 @@
       .replace(/(L|M|H)([23*])/g, (_, tok, cnt) => `${tok}×${cnt === '*' ? '∞' : cnt}`);
   }
 
+  /** Converts a structural fingerprint (e.g. "LMH2L" or "LMHL") into a compressed SQL LIKE wildcard pattern (e.g. "L%MH%L%") */
+  function fingerprintToLikePattern(fp: string | null | undefined): string {
+    if (!fp) return '';
+    const rawTokens = fp.match(/(MHM|MH|HM|L|M|H)([23*])?/g) || [];
+    if (rawTokens.length === 0) return '';
+
+    // Strip counts/stars to get base tokens
+    const tokens = rawTokens.map(t => t.replace(/[23*]/g, ''));
+
+    const startsWithL = tokens[0] === 'L';
+    const endsWithL = tokens[tokens.length - 1] === 'L';
+
+    // Extract high-energy milestones (builds, choruses, drops)
+    const milestones = tokens.filter(t => t === 'MHM' || t === 'MH' || t === 'HM' || t === 'H');
+
+    // De-duplicate consecutive identical milestones
+    const deduped: string[] = [];
+    for (const m of milestones) {
+      if (deduped[deduped.length - 1] !== m) {
+        deduped.push(m);
+      }
+    }
+
+    // Penalize large sequences: if it doesn't end with L, we can drop the last milestone (like a trailing H)
+    // since the outro doesn't need to match it.
+    if (!endsWithL && deduped.length > 1) {
+      deduped.pop();
+    }
+
+    // Construct the LIKE pattern
+    let pattern = '';
+    if (startsWithL) {
+      pattern += 'L%';
+    } else {
+      pattern += '%';
+    }
+
+    if (deduped.length > 0) {
+      pattern += deduped.join('%') + '%';
+    }
+
+    if (endsWithL) {
+      pattern += 'L';
+    }
+
+    return pattern;
+  }
+
   /** Raw fingerprint (stored or computed) — shown as large background text */
   const rawFingerprint = $derived(
     track?.waveform_fingerprint
@@ -282,7 +330,7 @@
         <div class="section waveform-section">
           <span class="section-label">SONG STRUCTURE{#if rawFingerprint}: <button
               class="fingerprint-btn"
-              onclick={() => { filters.structureFilter = rawFingerprint; }}
+              onclick={() => { filters.structureFilter = fingerprintToLikePattern(rawFingerprint); }}
               title="Filter by this structure"
             >{rawFingerprint}</button>{/if}</span>
           <div class="waveform-wrap" role="img" aria-label="Waveform">

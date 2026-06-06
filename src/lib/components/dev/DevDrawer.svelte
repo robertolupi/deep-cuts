@@ -27,6 +27,24 @@
   let rawLoading = $state(false);
   let rawError = $state('');
   let lastTrackId = $state<number | null>(null);
+  
+  // Dynamic filter fields derived from the filters store
+  const filterFields = $derived.by(() => {
+    const skip = [
+      'filteredTracks', 'autoName', 'toggleDirectoryId', 'clearDirectories',
+      'setSimilarTo', 'setSimilarBlend', 'clearSimilar', 'toggleKey',
+      'clearKeys', 'toggleTag', 'clearTags', 'clearAll', 'isSimilarLoading',
+      'isSemanticLoading', 'isClapLoading', 'semanticTrackScores', 'clapTrackScores'
+    ];
+    return Object.entries(filters)
+      .filter(([k, v]) => typeof v !== 'function' && !skip.includes(k))
+      .map(([k, v]) => {
+        if (k === 'minBpm') return ['bpm', `${filters.minBpm} – ${filters.maxBpm}`];
+        if (k === 'maxBpm') return null;
+        return [k, v];
+      })
+      .filter((entry): entry is [string, unknown] => entry !== null);
+  });
 
   // Keep shared store in sync so HUD can read pending count without mounting drawer
   $effect(() => {
@@ -162,24 +180,9 @@
     </div>
 
     <div class="drawer-body">
-
       <!-- Pane 1: Filters -->
       <DevPane title="Filters">
-        {@const fs = [
-          ['searchQuery',    filters.searchQuery],
-          ['semanticQuery',  filters.semanticQuery],
-          ['clapQuery',      filters.clapQuery],
-          ['genreFilter',    filters.genreFilter],
-          ['bpm',            `${filters.minBpm} – ${filters.maxBpm}`],
-          ['selectedKeys',   filters.selectedKeys],
-          ['selectedScale',  filters.selectedScale],
-          ['vocalFilter',    filters.vocalFilter],
-          ['musicOnly',      filters.musicOnly],
-          ['selectedTags',   filters.selectedTags],
-          ['similarToTrack', filters.similarToTrack],
-          ['similarBlend',   filters.similarBlend],
-        ] as [string, unknown][]}
-        {#each fs as [k, v]}
+        {#each filterFields as [k, v]}
           <DevKV label={k} value={v} dim={isDefault(k, v)} />
         {/each}
         <div class="divider"></div>
@@ -187,7 +190,7 @@
         <DevKV label="semanticIds" value={filters.semanticTrackScores.size} dim={filters.semanticTrackScores.size === 0} />
         <DevKV label="clapIds" value={filters.clapTrackScores.size} dim={filters.clapTrackScores.size === 0} />
       </DevPane>
-
+ 
       <!-- Pane 2: Current Track -->
       <DevPane title="Current Track">
         {#if player.selectedTrack}
@@ -201,6 +204,7 @@
             <DevKV label="duration" value={t.duration ? `${Math.round(t.duration)}s` : '—'} />
             <DevKV label="acoustid" value={t.acoustid_status} />
             <DevKV label="waveform_sax" value={t.waveform_sax} />
+            <DevKV label="waveform_fingerprint" value={t.waveform_fingerprint} />
           </div>
           <div class="divider"></div>
           <DevKV label="isPlaying"   value={player.isPlaying} />
@@ -208,7 +212,7 @@
           <div class="divider"></div>
           <!-- All remaining fields -->
           {#each Object.entries(t) as [k, v]}
-            {#if !['id','title','artist','bpm','key','scale','duration','acoustid_status','waveform_sax'].includes(k)}
+            {#if !['id','title','artist','bpm','key','scale','duration','acoustid_status','waveform_sax','waveform_fingerprint'].includes(k)}
               <DevKV label={k} value={v} dim={v === null || v === undefined || v === ''} truncate={80} />
             {/if}
           {/each}
