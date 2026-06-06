@@ -76,6 +76,7 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 | [codex-feedback/codebase-improvements.md](operations/codex-feedback/codebase-improvements.md) | need-human-review | High | Recommendation backlog, not implementation commitment. |
 | [codex-feedback/completed-improvements.md](operations/codex-feedback/completed-improvements.md) | implemented | High | Completion log for feedback items moved out of active backlog docs. |
 | [codex-feedback/docs-approach-improvements.md](operations/codex-feedback/docs-approach-improvements.md) | partially-implemented | High | This index implements part of the recommendation; file reorganization remains phase 2. |
+| [codex-feedback/project-opinion-swot.md](operations/codex-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and product-spine recommendation from the Codex review. |
 | [codex-feedback/skills-improvements.md](operations/codex-feedback/skills-improvements.md) | partially-implemented | High | Active skills/process backlog after completed items were moved to `completed-improvements.md`. |
 | [collab/PROTOCOL.md](collab/PROTOCOL.md) | protected | High | Publicly linked protocol. Do not move casually. |
 

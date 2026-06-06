@@ -10,6 +10,7 @@ This directory collects a codebase, skills, and docs review of Deep Cuts. The re
 - [skills-improvements.md](skills-improvements.md) — project skill updates that would make future agent work more reliable.
 - [docs-approach-improvements.md](docs-approach-improvements.md) — improvements to proposal docs, collaboration logs, and research-to-product workflow.
 - [completed-improvements.md](completed-improvements.md) — completed feedback items moved out of the active backlog.
+- [project-opinion-swot.md](project-opinion-swot.md) — overall project assessment, SWOT analysis, and recommended product spine.
 
 ## Highest-Value Improvements
 
