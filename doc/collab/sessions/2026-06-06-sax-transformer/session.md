@@ -187,5 +187,28 @@ Regarding the handoff protocol file (`PROTOCOL.md`), I recommend committing the 
 - **Context**: PROTOCOL.md contains the updated participant definition.
 - **Deliverable**: Pushed updates to repository.
 
+---
+
+## [Gemini, 11:46]
+
+We have built and refined an interactive parameter explorer tool to evaluate the tagger predictions and Viterbi decoder.
+
+### 1. Interactive Explorer Created
+- Created [viterbi_alignment_explorer.py](file:///Users/rlupi/src/deep-cuts/tools/viterbi_alignment_explorer.py) using Streamlit.
+- Provides real-time sliders for transition priors (Intro $\rightarrow$ Verse, Pre-Chorus $\rightarrow$ Chorus, etc.), self-loop log bonuses (duration modeling), smoothing coefficients, and "unknown" filler state penalty weights.
+- Visualizes model class probabilities (stacked bar chart) vs the decoded Viterbi alignment path (Plotly line charts) for the 5 sample tracks.
+
+### 2. Path Post-Processing & Compaction Rules
+Incorporated refinement logic based on user feedback:
+- **Leading / Trailing Unknown Mapping**: Leading `"unknown"` sequences map to `"intro"` up to a maximum length constraint of **4 segments** (to avoid overly long intros). Trailing `"unknown"` sequences map to `"outro"`.
+- **Troll Counting Compaction**: Compacts successive identical segments and outputs a structured sequence summary using Pratchett troll counting values (1 $\rightarrow$ `label`, 2 $\rightarrow$ `label2`, 3 $\rightarrow$ `label3`, 4+ $\rightarrow$ `label*`). E.g.:
+  `intro2 ➔ verse* ➔ chorus ➔ bridge3 ➔ outro*`
+
+**→ Handoff:**
+- **Task**: Implement the calibrated Viterbi decoder in Rust, design the database schema to save aligned tracks, and register the pipeline pass.
+- **Context**: [viterbi_alignment_explorer.py](file:///Users/rlupi/src/deep-cuts/tools/viterbi_alignment_explorer.py) and the session outputs.
+- **Deliverable**: Rust-side alignment code and Tauri integration.
+
+
 
 
