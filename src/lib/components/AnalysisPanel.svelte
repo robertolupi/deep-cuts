@@ -39,12 +39,16 @@
   }
 
   // Ordered by pipeline execution priority (sequential — no two passes run concurrently)
+  // Order matches the explicit call sequence in analysis/mod.rs — NOT pass priorities.
+  // Priorities only control backfill ordering and reset tooling.
   const PASS_ORDER = [
     'audio_analysis',
     'bpm_correction',
     'sax',
+    'sax_alignment',
     'clap',
     'essentia',
+    'structure_cluster',
     'bpm_refinement',
     'qwen',
     'description_embed',
@@ -63,22 +67,26 @@
     audio_analysis:    'audio',
     bpm_correction:    'audio',
     sax:               'audio',
+    sax_alignment:     'audio',
     bpm_refinement:    'audio',
     clap:              'neural_pink',
     qwen:              'neural_pink',
     description_embed: 'amber',
     essentia:          'green',
+    structure_cluster: 'green',
   };
 
   const PASS_META: Record<string, { label: string; description: string }> = {
-    audio_analysis:   { label: 'Audio Analysis',       description: 'BPM, key, loudness, waveform, sample rate'              },
-    bpm_correction:   { label: 'BPM Correction',       description: 'Halve/double BPM outliers to musical range'             },
-    sax:              { label: 'SAX Structure',         description: 'Symbolic encoding of energy envelope for structure search' },
-    clap:             { label: 'CLAP Embeddings',       description: 'Audio fingerprint vectors for similarity search'        },
-    essentia:         { label: 'Essentia Classifier',   description: 'Genre, mood, vocal detection via neural classifier'     },
-    bpm_refinement:   { label: 'BPM Refinement',        description: 'Precision beat-tracking on corrected estimates'        },
-    qwen:             { label: 'Qwen Audio LLM',        description: 'AI description, genre, mood, instruments'              },
-    description_embed:{ label: 'Description Embedder',  description: 'Text embedding vectors from AI descriptions'           },
+    audio_analysis:    { label: 'Audio Analysis',        description: 'BPM, key, loudness, waveform, sample rate'                         },
+    bpm_correction:    { label: 'BPM Correction',        description: 'Halve/double BPM outliers to musical range'                        },
+    sax:               { label: 'SAX Structure',          description: 'Symbolic encoding of energy envelope for structure search'          },
+    sax_alignment:     { label: 'SAX Alignment',          description: 'Viterbi structural labeling — intro / verse / chorus / outro arc'  },
+    clap:              { label: 'CLAP Embeddings',        description: 'Audio fingerprint vectors for similarity search'                   },
+    essentia:          { label: 'Essentia Classifier',    description: 'Genre, mood, vocal detection via neural classifier'                },
+    structure_cluster: { label: 'Structure Clustering',   description: 'DBSCAN clustering of structural archetypes across library (batch)' },
+    bpm_refinement:    { label: 'BPM Refinement',         description: 'Precision beat-tracking on corrected estimates'                   },
+    qwen:              { label: 'Qwen Audio LLM',         description: 'AI description, genre, mood, instruments'                         },
+    description_embed: { label: 'Description Embedder',   description: 'Text embedding vectors from AI descriptions'                      },
   };
 
   const isLight = $derived(theme.resolvedTheme === 'light');

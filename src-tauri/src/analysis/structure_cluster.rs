@@ -1,0 +1,618 @@
+use crate::scanner::sidecar::pass_version;
+use rayon::prelude::*;
+use rusqlite::Connection;
+use std::collections::HashMap;
+
+// ── Hyperparameters ────────────────────────────────────────────────────────
+// A unique skeleton pattern must appear in at least this many tracks to get
+// its own named cluster.  Rarer patterns are labelled as noise (cluster -1).
+const MIN_CLUSTER_SIZE: usize = 10;
+
+
+// ── Layer A: String utilities ──────────────────────────────────────────────
+
+/// Collapse adjacent identical characters.
+/// "IIVVPCCCCO" → "IVPCO"
+pub fn skeleton(s: &str) -> String {
+    if s.is_empty() {
+        return String::new();
+    }
+    let mut out = Vec::new();
+    for c in s.chars() {
+        if out.last() != Some(&c) {
+            out.push(c);
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// Classic O(mn) dynamic-programming Levenshtein edit distance.
+pub fn levenshtein(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let m = a.len();
+    let n = b.len();
+    if m == 0 { return n; }
+    if n == 0 { return m; }
+
+    let mut prev: Vec<usize> = (0..=n).collect();
+    let mut curr = vec![0usize; n + 1];
+
+    for i in 1..=m {
+        curr[0] = i;
+        for j in 1..=n {
+            curr[j] = if a[i - 1] == b[j - 1] {
+                prev[j - 1]
+            } else {
+                1 + prev[j - 1].min(prev[j]).min(curr[j - 1])
+            };
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[n]
+}
+
+// ── Layer B: DBSCAN clustering ─────────────────────────────────────────────
+
+/// DBSCAN on a precomputed symmetric distance matrix.
+///
+/// Returns a label per point: -1 = noise, 0..k = cluster id.
+pub fn dbscan(dist: &[Vec<usize>], eps: usize, min_pts: usize) -> Vec<i32> {
+    let n = dist.len();
+    let mut labels = vec![-1i32; n];
+    let mut cluster_id = 0i32;
+
+    for i in 0..n {
+        if labels[i] != -1 {
+            continue;
+        }
+        let neighbors = region_query(dist, i, eps);
+        if neighbors.len() < min_pts {
+            // noise for now — may be claimed later as a border point
+            continue;
+        }
+        // Start a new cluster.
+        // `seeded[r]` prevents the same point from being pushed onto seeds
+        // multiple times — without this, dense clusters cause O(n³) work.
+        labels[i] = cluster_id;
+        let mut seeded = vec![false; n];
+        seeded[i] = true;
+        for &nb in &neighbors {
+            seeded[nb] = true;
+        }
+        let mut seeds: Vec<usize> = neighbors;
+
+        let mut si = 0;
+        while si < seeds.len() {
+            let q = seeds[si];
+            si += 1;
+            if labels[q] == -1 {
+                labels[q] = cluster_id; // border point claimed by this cluster
+            }
+            if labels[q] != -1 && labels[q] != cluster_id {
+                continue; // already in another cluster
+            }
+            labels[q] = cluster_id;
+            let q_neighbors = region_query(dist, q, eps);
+            if q_neighbors.len() >= min_pts {
+                for &r in &q_neighbors {
+                    if !seeded[r] {
+                        seeded[r] = true;
+                        seeds.push(r);
+                    }
+                }
+            }
+        }
+        cluster_id += 1;
+    }
+    labels
+}
+
+fn region_query(dist: &[Vec<usize>], point: usize, eps: usize) -> Vec<usize> {
+    // Include self (dist[i][i] = 0 ≤ eps always), matching the standard DBSCAN
+    // definition where min_pts counts the point itself.
+    dist[point]
+        .iter()
+        .enumerate()
+        .filter(|&(_, &d)| d <= eps)
+        .map(|(j, _)| j)
+        .collect()
+}
+
+// ── Layer C: Cluster naming ────────────────────────────────────────────────
+
+/// Return the most frequently occurring skeleton among a set of alignment strings.
+pub fn dominant_skeleton(alignments: &[&str]) -> String {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for &a in alignments {
+        *counts.entry(skeleton(a)).or_insert(0) += 1;
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, c)| *c)
+        .map(|(sk, _)| sk)
+        .unwrap_or_default()
+}
+
+/// Derive a human-readable label and a structure-filter-compatible regex
+/// from a skeleton string.
+///
+/// Algorithm:
+///   1. Peel a single-char prefix (typically 'I' or 'E') if it doesn't repeat
+///   2. Peel a single-char suffix (typically 'O' or 'V') if it doesn't repeat
+///      and differs from the prefix
+///   3. Find the shortest repeating unit in the middle
+///   4. Format: label "I·VPC×3·O", regex "^I+(V+P+C+){3,}O+$"
+pub fn name_skeleton(sk: &str) -> (String, String) {
+    if sk.is_empty() {
+        return ("?".to_string(), "^.*$".to_string());
+    }
+
+    let chars: Vec<char> = sk.chars().collect();
+    let n = chars.len();
+
+    // 1. Peel prefix: only structural intro/end markers ('I' or 'E') that appear
+    //    once at the start (i.e. not repeated and different from next char).
+    let mut start = 0;
+    let prefix = if n >= 2 && (chars[0] == 'I' || chars[0] == 'E') && chars[0] != chars[1] {
+        start = 1;
+        Some(chars[0])
+    } else {
+        None
+    };
+
+    // 2 & 3. Find the best suffix + repeating unit combination.
+    //
+    // Strategy: try with and without peeling the last char as a suffix.
+    // Prefer whichever gives a higher repetition count (cleaner block structure).
+    // Tie-break: prefer the version with a peeled suffix (shorter, cleaner middle).
+    //
+    // 'O' (outro) is always a candidate suffix. Any other terminal char is also
+    // tried. We only peel if the last char differs from the second-to-last
+    // (i.e. it isn't part of a run).
+    let full_middle: String = chars[start..].iter().collect();
+    let (full_unit, full_reps) = find_repeating_unit(&full_middle);
+
+    let (unit, reps, suffix) = if chars.len() > start + 1
+        && chars[n - 1] != chars[n - 2]
+    {
+        let candidate_suffix = chars[n - 1];
+        let trimmed_middle: String = chars[start..n - 1].iter().collect();
+        let (trim_unit, trim_reps) = find_repeating_unit(&trimmed_middle);
+        // Prefer peeled version if it gives equal or more repetitions
+        if trim_reps >= full_reps && !trimmed_middle.is_empty() {
+            (trim_unit, trim_reps, Some(candidate_suffix))
+        } else {
+            (full_unit, full_reps, None)
+        }
+    } else {
+        (full_unit, full_reps, None)
+    };
+
+    // 4. Format label and regex
+    let label = format_label(prefix, &unit, reps, suffix);
+    let regex  = format_regex(prefix, &unit, reps, suffix);
+
+    (label, regex)
+}
+
+/// Find the shortest string that tiles `s` exactly.
+/// Returns (unit, count). If no clean repetition exists, returns (s, 1).
+fn find_repeating_unit(s: &str) -> (String, usize) {
+    let n = s.len();
+    if n == 0 {
+        return (String::new(), 0);
+    }
+    for unit_len in 1..=(n / 2) {
+        if n % unit_len != 0 {
+            continue;
+        }
+        let unit = &s[..unit_len];
+        let reps = n / unit_len;
+        if unit.repeat(reps) == s {
+            return (unit.to_string(), reps);
+        }
+    }
+    (s.to_string(), 1)
+}
+
+fn format_label(prefix: Option<char>, unit: &str, reps: usize, suffix: Option<char>) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(p) = prefix {
+        parts.push(p.to_string());
+    }
+    if !unit.is_empty() {
+        if reps > 1 {
+            parts.push(format!("{}×{}", unit, reps));
+        } else {
+            parts.push(unit.to_string());
+        }
+    }
+    if let Some(s) = suffix {
+        parts.push(s.to_string());
+    }
+    parts.join("·")
+}
+
+fn format_regex(prefix: Option<char>, unit: &str, reps: usize, suffix: Option<char>) -> String {
+    let mut rx = String::from("^");
+    if let Some(p) = prefix {
+        rx.push(p);
+        rx.push('+');
+    }
+    if !unit.is_empty() {
+        if reps > 1 {
+            // Each letter in the unit becomes Letter+, wrapped in a counted group
+            let inner: String = unit.chars().map(|c| format!("{}+", c)).collect();
+            rx.push_str(&format!("({}){{{},}}", inner, reps));
+        } else {
+            // Single pass: just Letter+ for each char
+            for c in unit.chars() {
+                rx.push(c);
+                rx.push('+');
+            }
+        }
+    }
+    if let Some(s) = suffix {
+        rx.push(s);
+        rx.push('+');
+    }
+    rx.push('$');
+    rx
+}
+
+// ── Layer D: The pass ──────────────────────────────────────────────────────
+
+pub struct StructureClusterPass;
+
+impl super::BatchAnalysisPass for StructureClusterPass {
+    fn name(&self) -> &'static str { "structure_cluster" }
+    fn priority(&self) -> i32 { 55 }
+    fn version(&self) -> u32 { pass_version::STRUCTURE_CLUSTER }
+    fn dependencies(&self) -> &'static [&'static str] { &["sax_alignment", "essentia"] }
+    fn owned_tables(&self) -> &'static [&'static str] { &["structure_clusters"] }
+
+    fn needs_run(&self, conn: &Connection) -> Result<bool, String> {
+        // Run if the clusters table is empty OR any music track is unclassified
+        let cluster_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM structure_clusters",
+            [],
+            |row| row.get(0),
+        ).map_err(|e| e.to_string())?;
+
+        if cluster_count == 0 {
+            return Ok(true);
+        }
+
+        let unclassified: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM tracks
+             WHERE sax_alignment IS NOT NULL
+               AND is_music = 1
+               AND structure_cluster_id IS NULL",
+            [],
+            |row| row.get(0),
+        ).map_err(|e| e.to_string())?;
+
+        Ok(unclassified > 0)
+    }
+
+    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<String, String> {
+        // ── 1. Load all music tracks with sax_alignment ───────────────────────
+        struct TrackRow { id: i64, alignment: String }
+
+        let mut stmt = conn.prepare(
+            "SELECT id, sax_alignment FROM tracks
+             WHERE sax_alignment IS NOT NULL
+               AND is_music = 1",
+        ).map_err(|e| e.to_string())?;
+
+        let tracks: Vec<TrackRow> = stmt.query_map([], |row| {
+            Ok(TrackRow { id: row.get(0)?, alignment: row.get(1)? })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+        drop(stmt);
+
+        let n = tracks.len();
+        if n < MIN_CLUSTER_SIZE {
+            return Ok(format!("only {} music tracks with alignment — skipping clustering", n));
+        }
+
+        // ── 2. Compute skeletons in parallel ──────────────────────────────────
+        log::info!("[structure_cluster] computing {} skeletons (parallel)", n);
+        let skeleton_strs: Vec<String> = tracks.par_iter()
+            .map(|t| skeleton(&t.alignment))
+            .collect();
+
+        // ── 3. Count tracks per unique skeleton ───────────────────────────────
+        // Each unique skeleton IS a structural archetype — no distance metric or
+        // DBSCAN needed.  Patterns with fewer than MIN_CLUSTER_SIZE tracks are
+        // labelled noise (-1); the rest get sequential cluster IDs sorted by
+        // popularity (most common pattern = cluster 0).
+        let mut sk_counts: HashMap<&str, usize> = HashMap::new();
+        for sk in &skeleton_strs {
+            *sk_counts.entry(sk.as_str()).or_insert(0) += 1;
+        }
+
+        // Sort skeletons descending by track count, filter by minimum size.
+        let mut ranked: Vec<(&str, usize)> = sk_counts
+            .iter()
+            .filter(|(_, &cnt)| cnt >= MIN_CLUSTER_SIZE)
+            .map(|(&sk, &cnt)| (sk, cnt))
+            .collect();
+        ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+
+        // Each unique skeleton is its own cluster — no merging needed.
+        // DBSCAN merging was tried but Levenshtein transitivity collapsed
+        // structurally distinct archetypes (e.g. IVCO→IVPCO→IVBCO all distance 1)
+        // into a single giant cluster even at eps=1.
+        let sk_to_cluster: HashMap<&str, i32> = ranked
+            .iter()
+            .enumerate()
+            .map(|(id, (sk, _))| (*sk, id as i32))
+            .collect();
+
+        let n_clusters = ranked.len();
+        let labels: Vec<i32> = skeleton_strs.iter()
+            .map(|sk| sk_to_cluster.get(sk.as_str()).copied().unwrap_or(-1))
+            .collect();
+        let n_noise = labels.iter().filter(|&&l| l < 0).count();
+        log::info!("[structure_cluster] {} clusters from {} unique skeletons, {} noise tracks",
+                   n_clusters, sk_counts.len(), n_noise);
+
+        // ── 4. Name each cluster from its skeleton ────────────────────────────
+        struct ClusterInfo { label: String, regex: String, track_count: usize }
+        let mut cluster_infos: HashMap<i32, ClusterInfo> = HashMap::new();
+
+        for (id, (sk, count)) in ranked.iter().enumerate() {
+            let (label, regex) = name_skeleton(sk);
+            cluster_infos.insert(id as i32, ClusterInfo { label, regex, track_count: *count });
+        }
+
+        // ── 6. Write back in one transaction ──────────────────────────────────
+        conn.execute("BEGIN", []).map_err(|e| e.to_string())?;
+
+        // Clear old cluster data
+        conn.execute("DELETE FROM structure_clusters", [])
+            .map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+        conn.execute("UPDATE tracks SET structure_cluster_id = NULL WHERE is_music = 1", [])
+            .map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+
+        // Insert cluster metadata
+        for (&cid, info) in &cluster_infos {
+            conn.execute(
+                "INSERT INTO structure_clusters (id, label, regex, track_count) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![cid, info.label, info.regex, info.track_count as i64],
+            ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+        }
+
+        // Update tracks
+        for (i, &label) in labels.iter().enumerate() {
+            let cluster_val: Option<i32> = if label >= 0 { Some(label) } else { None };
+            conn.execute(
+                "UPDATE tracks SET structure_cluster_id = ?1 WHERE id = ?2",
+                rusqlite::params![cluster_val, tracks[i].id],
+            ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+        }
+
+        // Mark all track_passes rows for this pass as done so the AnalysisPanel shows correct progress.
+        // This is a single batch pass — there's no per-track progress to track, so we stamp them all.
+        conn.execute(
+            "UPDATE track_passes
+             SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP
+             WHERE pass_name = 'structure_cluster'",
+            rusqlite::params![crate::database::pass_status::DONE, pass_version::STRUCTURE_CLUSTER],
+        ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+
+        conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+
+        Ok(format!(
+            "{} clusters, {} noise, {} music tracks classified",
+            n_clusters, n_noise, n - n_noise
+        ))
+    }
+}
+
+impl StructureClusterPass {
+    pub const SPEC: super::PassSpec = super::PassSpec {
+        name: "structure_cluster",
+        priority: 55,
+        version: pass_version::STRUCTURE_CLUSTER,
+        dependencies: &["sax_alignment", "essentia"],
+        owned_columns: &["structure_cluster_id"],
+        // structure_clusters has no track_id column — cleared via custom_reset instead
+        owned_tables: &[],
+        owned_tag_sources: &[],
+        custom_reset: Some(|conn| {
+            conn.execute("DELETE FROM structure_clusters", [])
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        }),
+    };
+}
+
+// ── Tests ──────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── skeleton ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_skeleton_empty() {
+        assert_eq!(skeleton(""), "");
+    }
+
+    #[test]
+    fn test_skeleton_single_char() {
+        assert_eq!(skeleton("I"), "I");
+    }
+
+    #[test]
+    fn test_skeleton_all_same() {
+        assert_eq!(skeleton("IIIII"), "I");
+    }
+
+    #[test]
+    fn test_skeleton_alternating() {
+        // skeleton collapses *adjacent identical* chars only; alternating stays the same
+        assert_eq!(skeleton("IVIVIV"), "IVIVIV");
+    }
+
+    #[test]
+    fn test_skeleton_realistic() {
+        assert_eq!(skeleton("IIVVPCCCCO"), "IVPCO");
+    }
+
+    #[test]
+    fn test_skeleton_no_repeats() {
+        assert_eq!(skeleton("IVPCO"), "IVPCO");
+    }
+
+    // ── levenshtein ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_levenshtein_identical() {
+        assert_eq!(levenshtein("IVPCO", "IVPCO"), 0);
+    }
+
+    #[test]
+    fn test_levenshtein_empty_strings() {
+        assert_eq!(levenshtein("", ""), 0);
+        assert_eq!(levenshtein("", "ABC"), 3);
+        assert_eq!(levenshtein("ABC", ""), 3);
+    }
+
+    #[test]
+    fn test_levenshtein_single_insert() {
+        assert_eq!(levenshtein("IVCO", "IVPCO"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_single_delete() {
+        assert_eq!(levenshtein("IVPCO", "IVCO"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_single_replace() {
+        assert_eq!(levenshtein("IVPCO", "IVBCO"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_known_pair() {
+        // IVPCVPCO → IVPCO: delete one VPC block = 3 ops
+        assert_eq!(levenshtein("IVPCVPCO", "IVPCO"), 3);
+    }
+
+    // ── dbscan ────────────────────────────────────────────────────────────
+
+    fn dist_matrix(points: &[usize]) -> Vec<Vec<usize>> {
+        // Treat each point as a 1D coordinate; distance = abs difference
+        let n = points.len();
+        let mut d = vec![vec![0usize; n]; n];
+        for i in 0..n {
+            for j in 0..n {
+                d[i][j] = (points[i] as isize - points[j] as isize).unsigned_abs();
+            }
+        }
+        d
+    }
+
+    #[test]
+    fn test_dbscan_three_clean_clusters() {
+        // Three groups well-separated: 0,1 / 10,11 / 20,21
+        // With min_pts=2 and eps=2 each group forms a cluster
+        let points = vec![0, 1, 10, 11, 20, 21];
+        let d = dist_matrix(&points);
+        let labels = dbscan(&d, 2, 2);
+        // Each pair should get the same label, different pairs different labels
+        assert_eq!(labels[0], labels[1]);
+        assert_eq!(labels[2], labels[3]);
+        assert_eq!(labels[4], labels[5]);
+        assert_ne!(labels[0], labels[2]);
+        assert_ne!(labels[0], labels[4]);
+        assert_ne!(labels[2], labels[4]);
+        assert!(labels.iter().all(|&l| l >= 0), "no noise expected");
+    }
+
+    #[test]
+    fn test_dbscan_noise_points() {
+        // Isolated points should be noise with min_pts=3
+        let points = vec![0, 100, 200];
+        let d = dist_matrix(&points);
+        let labels = dbscan(&d, 2, 3);
+        assert!(labels.iter().all(|&l| l == -1), "all should be noise");
+    }
+
+    #[test]
+    fn test_dbscan_all_one_cluster() {
+        // Tight cluster of 5
+        let points = vec![0, 1, 1, 2, 2];
+        let d = dist_matrix(&points);
+        let labels = dbscan(&d, 2, 3);
+        let first = labels[0];
+        assert!(first >= 0, "should form a cluster");
+        assert!(labels.iter().all(|&l| l == first));
+    }
+
+    // ── name_skeleton ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_name_skeleton_simple() {
+        let (label, regex) = name_skeleton("IVPCO");
+        assert_eq!(label, "I·VPC·O");
+        assert_eq!(regex, "^I+V+P+C+O+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_repeating_x2() {
+        let (label, regex) = name_skeleton("IVPCVPCO");
+        assert_eq!(label, "I·VPC×2·O");
+        assert_eq!(regex, "^I+(V+P+C+){2,}O+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_repeating_x3() {
+        let (label, regex) = name_skeleton("IVPCVPCVPCO");
+        assert_eq!(label, "I·VPC×3·O");
+        assert_eq!(regex, "^I+(V+P+C+){3,}O+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_no_suffix() {
+        let (label, regex) = name_skeleton("IVPCVPC");
+        assert_eq!(label, "I·VPC×2");
+        assert_eq!(regex, "^I+(V+P+C+){2,}$");
+    }
+
+    #[test]
+    fn test_name_skeleton_no_prefix() {
+        // V is not a structural prefix marker (only I/E qualify), so no prefix peeled
+        let (label, regex) = name_skeleton("VPCVPCO");
+        assert_eq!(label, "VPC×2·O");
+        assert_eq!(regex, "^(V+P+C+){2,}O+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_trailing_v() {
+        let (label, regex) = name_skeleton("IVPCV");
+        assert_eq!(label, "I·VPC·V");
+        assert_eq!(regex, "^I+V+P+C+V+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_single_char() {
+        let (label, regex) = name_skeleton("I");
+        assert_eq!(label, "I");
+        assert_eq!(regex, "^I+$");
+    }
+
+    #[test]
+    fn test_name_skeleton_empty() {
+        let (label, _regex) = name_skeleton("");
+        assert_eq!(label, "?");
+    }
+}

@@ -59,6 +59,7 @@ function createFiltersStore() {
   let isClapLoading = $state(false);
 
   let structureFilter = $state("");
+  let structureClusterFilter = $state<number | null>(null); // filter by cluster ID, not regex
 
   const filteredTracks = $derived.by(() => {
     const results = library.tracks.filter((t) => {
@@ -153,6 +154,13 @@ function createFiltersStore() {
       // CLAP Sonic AI search
       if (clapQuery.trim()) {
         if (!clapTrackIds.has(t.id)) return false;
+      }
+
+      // Structure cluster filter — exact cluster ID match (set by the cluster pill).
+      // Separate from the regex filter so that "all tracks in cluster N" always
+      // returns the full cluster membership, regardless of regex shape.
+      if (structureClusterFilter !== null) {
+        if ((t.structure_cluster_id ?? null) !== structureClusterFilter) return false;
       }
 
       // Structure filter — regex against compact alphabet derived from sax_alignment.
@@ -342,7 +350,9 @@ function createFiltersStore() {
     get isClapLoading() { return isClapLoading; },
     get clapTrackScores() { return clapTrackScores; },
     get structureFilter()  { return structureFilter; },
-    set structureFilter(v) { structureFilter = v; },
+    set structureFilter(v) { structureFilter = v; structureClusterFilter = null; },
+    get structureClusterFilter()  { return structureClusterFilter; },
+    set structureClusterFilter(v) { structureClusterFilter = v; structureFilter = ""; },
 
     get structureSimilarToTrack() { return structureSimilarToTrack; },
     get structureSimilarScores()  { return structureSimilarScores; },
@@ -446,6 +456,7 @@ function createFiltersStore() {
       clapTrackScores      = new Map();
       selectedTags            = [];
       structureFilter         = "";
+      structureClusterFilter  = null;
       structureSimilarToTrack = null;
       structureSimilarIds     = new Set();
       structureSimilarScores  = new Map();

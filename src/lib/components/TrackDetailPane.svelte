@@ -8,7 +8,7 @@
   import TagsAutocomplete from "./TagsAutocomplete.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
   import CollapsiblePane from '$lib/components/CollapsiblePane.svelte';
-  import { STRUCTURE_CLUSTER_REGEX, STRUCTURE_CLUSTER_LABELS } from '$lib/utils/mapMath';
+  import { structureClusters } from '$lib/stores/structureClusters.svelte';
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
@@ -68,6 +68,13 @@
     invoke<string | null>('get_cover_art', { path }).then(result => {
       if (track?.path === path) coverArt = result;
     }).catch(() => {});
+  });
+
+  // Load cluster metadata lazily when a track with a cluster is shown
+  $effect(() => {
+    if (track?.structure_cluster_id != null) {
+      structureClusters.load();
+    }
   });
 
   const trackMood = $derived<MoodValues | null>(track ? {
@@ -242,12 +249,15 @@
                 title="Filter by exact song structure: {track.sax_alignment}"
               >exact</button>
             {/if}
-            {#if track?.structure_cluster_id != null && STRUCTURE_CLUSTER_REGEX[track.structure_cluster_id] != null}
-              <button
-                class="structure-filter-pill structure-filter-pill--cluster"
-                onclick={() => { filters.structureFilter = STRUCTURE_CLUSTER_REGEX[track!.structure_cluster_id!]; }}
-                title="Filter by cluster: {STRUCTURE_CLUSTER_LABELS[track.structure_cluster_id]}"
-              >{STRUCTURE_CLUSTER_LABELS[track.structure_cluster_id]}</button>
+            {#if track?.structure_cluster_id != null}
+              {@const cluster = structureClusters.byId[track.structure_cluster_id]}
+              {#if cluster}
+                <button
+                  class="structure-filter-pill structure-filter-pill--cluster"
+                  onclick={() => { filters.structureClusterFilter = track!.structure_cluster_id!; }}
+                  title="Filter by cluster: {cluster.label} — shows all {cluster.track_count} tracks in this structural archetype"
+                >{cluster.label}</button>
+              {/if}
             {/if}
           </div>
           <div class="waveform-wrap" role="img" aria-label="Waveform">

@@ -282,6 +282,7 @@ pub fn run() {
              commands::statistics::get_track_stats,
              commands::metrics::get_metrics_summary,
              commands::metrics::get_pipeline_run_traces,
+             commands::structure::get_structure_clusters,
          ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

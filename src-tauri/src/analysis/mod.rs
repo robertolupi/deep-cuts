@@ -15,6 +15,7 @@ pub mod description_embed;
 pub mod essentia;
 pub mod bpm_refinement;
 pub mod sax_alignment;
+pub mod structure_cluster;
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub static ANALYSIS_MANUALLY_PAUSED: AtomicBool = AtomicBool::new(false);
@@ -296,6 +297,54 @@ pub fn run_pass_pipeline<R: tauri::Runtime, P: AnalysisPass<R>>(
     pass.run_pass(app, conn_arc, run_id)
 }
 
+// ── Batch Analysis Pass ────────────────────────────────────────────────────
+
+/// A pass that operates on all tracks at once rather than one at a time.
+/// Use for: (a) algorithms that require global data (clustering, indexing), or
+/// (b) I/O-bound passes where per-track SQLite round-trips dominate (e.g. sax).
+#[allow(dead_code)] // priority/version/dependencies/owned_tables reserved for future reset/version tooling
+pub trait BatchAnalysisPass: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn priority(&self) -> i32;
+    fn version(&self) -> u32;
+    fn dependencies(&self) -> &'static [&'static str];
+    /// Table rows to truncate on reset (structure_clusters, etc.).
+    fn owned_tables(&self) -> &'static [&'static str];
+
+    /// Return true if there is work to do.
+    fn needs_run(&self, conn: &Connection) -> Result<bool, String>;
+
+    /// Read from DB, compute, write back — all in one call.
+    /// Returns a human-readable summary string for logging.
+    fn execute(&self, app: &tauri::AppHandle, conn: &Connection) -> Result<String, String>;
+}
+
+/// Calls a `BatchAnalysisPass` once, skipping if `needs_run` returns false.
+pub fn run_batch_pass<P: BatchAnalysisPass>(
+    app: &tauri::AppHandle,
+    conn_arc: &Arc<Mutex<Connection>>,
+    pass: P,
+    _run_id: &str,
+) -> Result<(), String> {
+    let conn = lock_analysis_conn(conn_arc, pass.name())?;
+    if !pass.needs_run(&conn)? {
+        log::info!("[{}] nothing to do, skipping", pass.name());
+        return Ok(());
+    }
+    log::info!("[{}] starting batch pass", pass.name());
+    let _ = app.emit(
+        "analysis-phase-start",
+        serde_json::json!({ "pass": pass.name() }),
+    );
+    let summary = pass.execute(app, &conn)?;
+    log::info!("[{}] done — {}", pass.name(), summary);
+    let _ = app.emit(
+        "analysis-phase-complete",
+        serde_json::json!({ "pass": pass.name(), "summary": summary }),
+    );
+    Ok(())
+}
+
 // ── Pass Specification & Registry ──────────────────────────────────────────
 
 #[allow(dead_code)]
@@ -388,6 +437,7 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
     description_embed::DescriptionEmbedPass::SPEC,
     essentia::EssentiaPass::SPEC,
     bpm_refinement::BpmRefinementPass::SPEC,
+    structure_cluster::StructureClusterPass::SPEC,
 ];
 
 // ── Generic Lifecycle Helpers ──────────────────────────────────────────────
@@ -710,9 +760,9 @@ impl PipelineManager {
                 emit_pipeline_error(&app, "bpm_correction", e);
             }
 
-            // ── Phase 1c: SAX structural encoding ────────────────────────────
+            // ── Phase 1c: SAX structural encoding (batch) ─────────────────────
             log::info!("[pipeline] starting sax phase");
-            if let Err(e) = run_pass_pipeline(&app, &conn_arc, sax::SaxPass, &run_id_spawn) {
+            if let Err(e) = run_batch_pass(&app, &conn_arc, sax::SaxPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "sax", e);
             }
 
@@ -732,6 +782,12 @@ impl PipelineManager {
             log::info!("[pipeline] starting essentia phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, essentia::EssentiaPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "essentia", e);
+            }
+
+            // ── Phase 3b: Structure clustering (batch) ────────────────────────
+            log::info!("[pipeline] starting structure_cluster phase");
+            if let Err(e) = run_batch_pass(&app, &conn_arc, structure_cluster::StructureClusterPass, &run_id_spawn) {
+                emit_pipeline_error(&app, "structure_cluster", e);
             }
 
             // ── Phase 4: BPM refinement ───────────────────────────────────────

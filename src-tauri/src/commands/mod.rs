@@ -10,3 +10,4 @@ pub mod manifest;
 pub mod playlists;
 pub mod statistics;
 pub mod metrics;
+pub mod structure;

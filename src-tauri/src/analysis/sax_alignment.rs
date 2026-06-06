@@ -234,7 +234,19 @@ pub fn align_sax(waveform_sax: &str) -> Option<AlignmentResult> {
     }
 
     let transition = build_transition();
-    let path = viterbi(&emissions, &transition);
+    let mut path = viterbi(&emissions, &transition);
+
+    // Structural sanity: OUTRO can only occur in the final 25% of the track.
+    // Mid-song energy dips can resemble outros to the emission model, but
+    // semantically they are bridges or breakdowns — replace with BRIDGE.
+    const OUTRO_IDX:  usize = 6;
+    const BRIDGE_IDX: usize = 5;
+    let outro_start = (n_seg * 3) / 4; // segment index where outro zone begins
+    for p in path[..outro_start].iter_mut() {
+        if *p == OUTRO_IDX {
+            *p = BRIDGE_IDX;
+        }
+    }
 
     let segments = path.iter().map(|&s| LABELS[s]).collect::<Vec<_>>().join(",");
     let compacted = compact(&path);

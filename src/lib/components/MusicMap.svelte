@@ -10,8 +10,9 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { curation } from '$lib/stores/curation.svelte';
 
-  import { camelotMap, resolveTrackColor, STRUCTURE_CLUSTER_COLORS, STRUCTURE_CLUSTER_LABELS, STRUCTURE_CLUSTER_REGEX } from '$lib/utils/mapMath';
+  import { camelotMap, resolveTrackColor, STRUCTURE_CLUSTER_COLORS } from '$lib/utils/mapMath';
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
+  import { structureClusters } from '$lib/stores/structureClusters.svelte';
 
   // Optional prop: when set, the map will pan to and select this track
   let { focusTrackId = $bindable(null) }: { focusTrackId?: number | null } = $props();
@@ -22,6 +23,13 @@
   let algorithm       = $state<'pca' | 'umap'>('pca');
 
   let colorCoding = $state<'genre' | 'camelot' | 'bpm' | 'mood' | 'structure'>('genre');
+
+  // Load structure clusters lazily when structure mode is activated
+  $effect(() => {
+    if (colorCoding === 'structure') {
+      structureClusters.load();
+    }
+  });
 
   // Legend state
   let legendOpen        = $state(true);
@@ -754,19 +762,18 @@
           </div>
 
         {:else if colorCoding === 'structure'}
-          {#each Object.entries(STRUCTURE_CLUSTER_LABELS) as [id, label]}
-            {@const color = STRUCTURE_CLUSTER_COLORS[Number(id) % STRUCTURE_CLUSTER_COLORS.length]}
-            {@const rx = STRUCTURE_CLUSTER_REGEX[Number(id)]}
+          {#each structureClusters.clusters as cluster}
+            {@const color = STRUCTURE_CLUSTER_COLORS[cluster.id % STRUCTURE_CLUSTER_COLORS.length]}
             <div
               class="legend-row legend-row-clickable"
               role="button"
               tabindex="0"
-              title={rx}
-              onclick={() => { filters.structureFilter = rx; }}
-              onkeydown={(e) => e.key === 'Enter' && (filters.structureFilter = rx)}
+              title={cluster.regex}
+              onclick={() => { filters.structureFilter = cluster.regex; }}
+              onkeydown={(e) => e.key === 'Enter' && (filters.structureFilter = cluster.regex)}
             >
               <span class="legend-swatch" style="background:{color};"></span>
-              <span class="legend-label">{label}</span>
+              <span class="legend-label">{cluster.label}</span>
             </div>
           {/each}
           <div class="legend-row">
@@ -815,7 +822,7 @@
           {/if}
         {/if}
         {#if colorCoding === 'structure' && hoveredTrack.structure_cluster_id != null}
-          <span class="ht-badge ht-structure">{STRUCTURE_CLUSTER_LABELS[hoveredTrack.structure_cluster_id] ?? `Cluster ${hoveredTrack.structure_cluster_id}`}</span>
+          <span class="ht-badge ht-structure">{structureClusters.byId[hoveredTrack.structure_cluster_id]?.label ?? `Cluster ${hoveredTrack.structure_cluster_id}`}</span>
         {/if}
         {#if hoveredTrack.genre}<span class="ht-badge ht-genre">{hoveredTrack.genre}</span>{/if}
         {#if hoveredTrack.bpm}<span class="ht-badge">{Math.round(hoveredTrack.bpm)} BPM</span>{/if}
