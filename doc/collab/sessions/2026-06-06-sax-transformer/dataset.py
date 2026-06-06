@@ -25,7 +25,8 @@ class SAXTransformerDataset(Dataset):
         if alphabet is None:
             chars = set()
             for item in self.data:
-                chars.update(item['sax_string'])
+                # Use waveform_sax as the source string
+                chars.update(item['waveform_sax'])
             self.alphabet = sorted(list(chars))
         else:
             self.alphabet = alphabet
@@ -39,23 +40,25 @@ class SAXTransformerDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.data[idx]
-        sax = item['sax_string'][:self.max_len]
+        sax = item['waveform_sax'][:self.max_len]
         # Convert to indices
         sax_ids = torch.tensor([self.char2idx.get(c, 0) for c in sax], dtype=torch.long)
         
         # Optional waveform - downsample to 40ms frames to match SAX
-        waveform = torch.tensor(item.get('waveform', []), dtype=torch.float32)
-        if len(waveform) > 0:
-            # Simple framing: 640 samples = 40ms @16kHz
-            frame_size = 640
-            num_frames = len(waveform) // frame_size
-            waveform = waveform[:num_frames * frame_size].view(num_frames, frame_size).mean(dim=1)
+        # The database waveform_data is already a pre-computed envelope (typically 128 values).
+        # We downsample it to match the SAX string length (typically 32) using PAA (averaging chunks).
+        waveform_raw = torch.tensor(item.get('waveform_data', []), dtype=torch.float32)
+        if len(waveform_raw) >= len(sax_ids) and len(sax_ids) > 0:
+            chunk_size = len(waveform_raw) // len(sax_ids)
+            waveform = torch.zeros(len(sax_ids), dtype=torch.float32)
+            for i in range(len(sax_ids)):
+                waveform[i] = waveform_raw[i * chunk_size : (i + 1) * chunk_size].mean()
         else:
-            waveform = torch.zeros(len(sax_ids))
+            waveform = torch.zeros(len(sax_ids), dtype=torch.float32)
         
         return {
             'sax_ids': sax_ids,
-            'waveform_frames': waveform[:len(sax_ids)],
+            'waveform_frames': waveform,
             'length': len(sax_ids),
             'title': item['title'],
             'artist': item['artist']

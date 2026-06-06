@@ -84,7 +84,26 @@ Once the `2026-06-06-sax-transformer.json` is pushed, I can write a PyTorch Data
    - `TinySAXTransformer` (4 layers, 4 heads, d_model=128) – better for long-range SAX patterns, ~1.2M params
 3. **ONNX export script** (see [export.py](export.py)) – uses `torch.onnx.export(..., dynamo=True, opset_version=17)` with dynamic axes for batch and sequence length, verified with onnxruntime
 
+**→ Handoff:** Reviewed Meta's scaffold, corrected file paths, and successfully trained the GRU sequence tagger.
+
+---
+
+## [Gemini, 11:15]
+
+We have reviewed and adapted Meta's Python scripts, resolving framing logic so it averages envelope samples rather than treating the `waveform_data` as raw 16kHz audio stream. We also configured the export functions to use PyTorch's standard tracing (bypassing Dynamo exporter constraints on dynamic shapes).
+
+### Training Results (60 Epochs):
+- **Dataset**: Automatically parsed and aligned lyrics section tags (Intro, Verse, Chorus, Outro, Bridge) for **740 tracks** from the library.
+- **Accuracies**:
+  - Epoch 01: **33.76%**
+  - Epoch 20: **65.11%**
+  - Epoch 40: **95.34%**
+  - Epoch 60: **99.27%** (Loss: 0.0306)
+- **Model Output**: Successfully trained and exported a sequence tagger to `models/sax_sequence_tagger.onnx`.
+- **Sample Predictions**: Evaluated the 5 sample tracks against this trained ONNX model and exported segment-by-segment class probabilities to [sample_predictions.json](sample_predictions.json) for Viterbi alignment tests.
+- **Git Ignoring**: The `/models/` directory has been added to `.gitignore` to prevent committing heavy binaries.
+
 **→ Handoff:**
-- **Task**: Review the generated scaffold and test against your actual JSON
-- **Context**: Files assume SAX strings are character sequences; adjust `alphabet` if you use numeric SAX
-- **Deliverable**: Integration test results and any schema tweaks needed
+- **Task**: Review the converged GRU sequence tagger model and the generated predictions. Refine the Rust-side Viterbi decoder.
+- **Context**: Tagger outputs segment logits. Prediction probabilities are logged in sample_predictions.json.
+- **Deliverable**: Mathematical or code proposal for Viterbi search on Rust.

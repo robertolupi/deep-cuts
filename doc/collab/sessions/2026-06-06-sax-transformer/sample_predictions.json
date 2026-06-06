@@ -1,0 +1,2597 @@
+[
+  {
+    "title": "O Fortuna",
+    "artist": "downspiral",
+    "waveform_sax": "aacccbabcccccccddaacdbcdddeeeeeb",
+    "predictions": [
+      {
+        "segment_index": 0,
+        "sax_char": "a",
+        "waveform_value": 0.0348973875,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0153,
+          "verse": 0.0006,
+          "pre-chorus": 0.0,
+          "chorus": 0.9841,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 1,
+        "sax_char": "a",
+        "waveform_value": 0.0510255165,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0006,
+          "intro": 0.1391,
+          "verse": 0.0268,
+          "pre-chorus": 0.0,
+          "chorus": 0.8335,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0001
+        }
+      },
+      {
+        "segment_index": 2,
+        "sax_char": "c",
+        "waveform_value": 0.1413098325,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0142,
+          "verse": 0.7529,
+          "pre-chorus": 0.0,
+          "chorus": 0.2328,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 3,
+        "sax_char": "c",
+        "waveform_value": 0.1446952125,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0001,
+          "verse": 0.942,
+          "pre-chorus": 0.0,
+          "chorus": 0.0579,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 4,
+        "sax_char": "c",
+        "waveform_value": 0.151148765,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.8567,
+          "pre-chorus": 0.0,
+          "chorus": 0.1433,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 5,
+        "sax_char": "b",
+        "waveform_value": 0.1165116595,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.8493,
+          "pre-chorus": 0.0,
+          "chorus": 0.1506,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 6,
+        "sax_char": "a",
+        "waveform_value": 0.11409582625,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9674,
+          "pre-chorus": 0.0,
+          "chorus": 0.0325,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 7,
+        "sax_char": "b",
+        "waveform_value": 0.12549764025,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0003,
+          "intro": 0.0,
+          "verse": 0.7943,
+          "pre-chorus": 0.0,
+          "chorus": 0.2054,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 8,
+        "sax_char": "c",
+        "waveform_value": 0.152621155,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.1825,
+          "pre-chorus": 0.0,
+          "chorus": 0.8174,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 9,
+        "sax_char": "c",
+        "waveform_value": 0.140684595,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9485,
+          "pre-chorus": 0.0,
+          "chorus": 0.0515,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 10,
+        "sax_char": "c",
+        "waveform_value": 0.14915913749999998,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9989,
+          "pre-chorus": 0.0,
+          "chorus": 0.0011,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 11,
+        "sax_char": "c",
+        "waveform_value": 0.15689348250000001,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9988,
+          "pre-chorus": 0.0,
+          "chorus": 0.0012,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 12,
+        "sax_char": "c",
+        "waveform_value": 0.158416285,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9997,
+          "pre-chorus": 0.0,
+          "chorus": 0.0003,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 13,
+        "sax_char": "c",
+        "waveform_value": 0.1423745125,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 14,
+        "sax_char": "c",
+        "waveform_value": 0.1418083765,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0004,
+          "intro": 0.0,
+          "verse": 0.9946,
+          "pre-chorus": 0.0,
+          "chorus": 0.005,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 15,
+        "sax_char": "d",
+        "waveform_value": 0.183060695,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0007,
+          "intro": 0.0,
+          "verse": 0.0099,
+          "pre-chorus": 0.0,
+          "chorus": 0.9895,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 16,
+        "sax_char": "d",
+        "waveform_value": 0.1768692825,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 1.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 17,
+        "sax_char": "a",
+        "waveform_value": 0.10222112875,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9999,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 18,
+        "sax_char": "a",
+        "waveform_value": 0.11013426775,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0014,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9931,
+          "bridge": 0.0,
+          "outro": 0.0055,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 19,
+        "sax_char": "c",
+        "waveform_value": 0.14548880625,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0024,
+          "intro": 0.0,
+          "verse": 0.0002,
+          "pre-chorus": 0.0,
+          "chorus": 0.9974,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 20,
+        "sax_char": "d",
+        "waveform_value": 0.16238547,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9999,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 21,
+        "sax_char": "b",
+        "waveform_value": 0.1373060015,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0007,
+          "intro": 0.0,
+          "verse": 0.0003,
+          "pre-chorus": 0.0,
+          "chorus": 0.999,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 22,
+        "sax_char": "c",
+        "waveform_value": 0.155648675,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0256,
+          "intro": 0.0,
+          "verse": 0.9686,
+          "pre-chorus": 0.0,
+          "chorus": 0.0057,
+          "bridge": 0.0,
+          "outro": 0.0001,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 23,
+        "sax_char": "d",
+        "waveform_value": 0.1674273375,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0044,
+          "intro": 0.0,
+          "verse": 0.9891,
+          "pre-chorus": 0.0,
+          "chorus": 0.0065,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 24,
+        "sax_char": "d",
+        "waveform_value": 0.17624084,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0039,
+          "intro": 0.0,
+          "verse": 0.9438,
+          "pre-chorus": 0.0,
+          "chorus": 0.0497,
+          "bridge": 0.0026,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 25,
+        "sax_char": "d",
+        "waveform_value": 0.16343467,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0015,
+          "intro": 0.0,
+          "verse": 0.9952,
+          "pre-chorus": 0.0,
+          "chorus": 0.001,
+          "bridge": 0.0023,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 26,
+        "sax_char": "e",
+        "waveform_value": 0.185796235,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0032,
+          "intro": 0.0,
+          "verse": 0.9895,
+          "pre-chorus": 0.0,
+          "chorus": 0.0003,
+          "bridge": 0.0071,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 27,
+        "sax_char": "e",
+        "waveform_value": 0.199433255,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0003,
+          "intro": 0.0,
+          "verse": 0.999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0005,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 28,
+        "sax_char": "e",
+        "waveform_value": 0.213275035,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.9984,
+          "pre-chorus": 0.0,
+          "chorus": 0.0012,
+          "bridge": 0.0003,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 29,
+        "sax_char": "e",
+        "waveform_value": 0.2193092025,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0005,
+          "intro": 0.0,
+          "verse": 0.9901,
+          "pre-chorus": 0.0,
+          "chorus": 0.0092,
+          "bridge": 0.0001,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 30,
+        "sax_char": "e",
+        "waveform_value": 0.2279394575,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0097,
+          "intro": 0.0002,
+          "verse": 0.9748,
+          "pre-chorus": 0.0,
+          "chorus": 0.011,
+          "bridge": 0.0001,
+          "outro": 0.0043,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 31,
+        "sax_char": "b",
+        "waveform_value": 0.12486065925,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.7672,
+          "intro": 0.005,
+          "verse": 0.1163,
+          "pre-chorus": 0.0005,
+          "chorus": 0.0718,
+          "bridge": 0.012,
+          "outro": 0.0272,
+          "end": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "title": "The Temple of Tone",
+    "artist": "downspiral",
+    "waveform_sax": "aaabbbabcccdddccddbdeeccbdeddeea",
+    "predictions": [
+      {
+        "segment_index": 0,
+        "sax_char": "a",
+        "waveform_value": 0.066331735,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0069,
+          "verse": 0.9925,
+          "pre-chorus": 0.0,
+          "chorus": 0.0002,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0002
+        }
+      },
+      {
+        "segment_index": 1,
+        "sax_char": "a",
+        "waveform_value": 0.1043711975,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 2,
+        "sax_char": "a",
+        "waveform_value": 0.1417576025,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 3,
+        "sax_char": "b",
+        "waveform_value": 0.1676785575,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 4,
+        "sax_char": "b",
+        "waveform_value": 0.1655118625,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 5,
+        "sax_char": "b",
+        "waveform_value": 0.16409121399999999,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9994,
+          "pre-chorus": 0.0,
+          "chorus": 0.0006,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 6,
+        "sax_char": "a",
+        "waveform_value": 0.147952195,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 7,
+        "sax_char": "b",
+        "waveform_value": 0.1642903225,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 8,
+        "sax_char": "c",
+        "waveform_value": 0.1800212675,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0003,
+          "intro": 0.0,
+          "verse": 0.8554,
+          "pre-chorus": 0.0,
+          "chorus": 0.1443,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 9,
+        "sax_char": "c",
+        "waveform_value": 0.181694315,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0009,
+          "intro": 0.0,
+          "verse": 0.2215,
+          "pre-chorus": 0.0007,
+          "chorus": 0.7768,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 10,
+        "sax_char": "c",
+        "waveform_value": 0.1849921875,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0058,
+          "intro": 0.0,
+          "verse": 0.759,
+          "pre-chorus": 0.0077,
+          "chorus": 0.2265,
+          "bridge": 0.0001,
+          "outro": 0.0008,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 11,
+        "sax_char": "d",
+        "waveform_value": 0.20454982,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0132,
+          "intro": 0.0,
+          "verse": 0.6807,
+          "pre-chorus": 0.0028,
+          "chorus": 0.3028,
+          "bridge": 0.0,
+          "outro": 0.0004,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 12,
+        "sax_char": "d",
+        "waveform_value": 0.19710759,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0009,
+          "intro": 0.0,
+          "verse": 0.9972,
+          "pre-chorus": 0.0,
+          "chorus": 0.0017,
+          "bridge": 0.0,
+          "outro": 0.0001,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 13,
+        "sax_char": "d",
+        "waveform_value": 0.207386705,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 14,
+        "sax_char": "c",
+        "waveform_value": 0.177993205,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 15,
+        "sax_char": "c",
+        "waveform_value": 0.18886302,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 16,
+        "sax_char": "d",
+        "waveform_value": 0.19442523,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0016,
+          "intro": 0.0,
+          "verse": 0.9734,
+          "pre-chorus": 0.0,
+          "chorus": 0.025,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 17,
+        "sax_char": "d",
+        "waveform_value": 0.2019448625,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.007,
+          "intro": 0.0,
+          "verse": 0.1629,
+          "pre-chorus": 0.0,
+          "chorus": 0.8283,
+          "bridge": 0.0003,
+          "outro": 0.0016,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 18,
+        "sax_char": "b",
+        "waveform_value": 0.1709828025,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0136,
+          "intro": 0.0,
+          "verse": 0.7691,
+          "pre-chorus": 0.0,
+          "chorus": 0.0065,
+          "bridge": 0.163,
+          "outro": 0.0477,
+          "end": 0.0001
+        }
+      },
+      {
+        "segment_index": 19,
+        "sax_char": "d",
+        "waveform_value": 0.2081742425,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0195,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.9794,
+          "outro": 0.001,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 20,
+        "sax_char": "e",
+        "waveform_value": 0.2203438325,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9996,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0004,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 21,
+        "sax_char": "e",
+        "waveform_value": 0.2215045,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0001,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 22,
+        "sax_char": "c",
+        "waveform_value": 0.1888865225,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0187,
+          "intro": 0.0001,
+          "verse": 0.7337,
+          "pre-chorus": 0.0,
+          "chorus": 0.0519,
+          "bridge": 0.0344,
+          "outro": 0.1612,
+          "end": 0.0001
+        }
+      },
+      {
+        "segment_index": 23,
+        "sax_char": "c",
+        "waveform_value": 0.179507255,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.0012,
+          "intro": 0.0,
+          "verse": 0.0259,
+          "pre-chorus": 0.0,
+          "chorus": 0.0184,
+          "bridge": 0.0289,
+          "outro": 0.9256,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 24,
+        "sax_char": "b",
+        "waveform_value": 0.1547545625,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0174,
+          "intro": 0.0,
+          "verse": 0.0007,
+          "pre-chorus": 0.0,
+          "chorus": 0.5293,
+          "bridge": 0.035,
+          "outro": 0.4175,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 25,
+        "sax_char": "d",
+        "waveform_value": 0.2017219925,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0373,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9344,
+          "bridge": 0.0001,
+          "outro": 0.0281,
+          "end": 0.0001
+        }
+      },
+      {
+        "segment_index": 26,
+        "sax_char": "e",
+        "waveform_value": 0.2235132125,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.003,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9909,
+          "bridge": 0.0,
+          "outro": 0.0062,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 27,
+        "sax_char": "d",
+        "waveform_value": 0.192888885,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9269,
+          "bridge": 0.0,
+          "outro": 0.0729,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 28,
+        "sax_char": "d",
+        "waveform_value": 0.19487325,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.6921,
+          "bridge": 0.0,
+          "outro": 0.3078,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 29,
+        "sax_char": "e",
+        "waveform_value": 0.2271620425,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9772,
+          "bridge": 0.0,
+          "outro": 0.0225,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 30,
+        "sax_char": "e",
+        "waveform_value": 0.24048666,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0097,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.8114,
+          "bridge": 0.0,
+          "outro": 0.1788,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 31,
+        "sax_char": "a",
+        "waveform_value": 0.15054110507500001,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.0078,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.006,
+          "bridge": 0.0,
+          "outro": 0.9861,
+          "end": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "title": "Fatture pagate (Prima della fine dell\u2019universo)",
+    "artist": "downspiral",
+    "waveform_sax": "aaabccccddddacccbbddedeeedceeeea",
+    "predictions": [
+      {
+        "segment_index": 0,
+        "sax_char": "a",
+        "waveform_value": 0.036026603175,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0005,
+          "intro": 0.239,
+          "verse": 0.7604,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 1,
+        "sax_char": "a",
+        "waveform_value": 0.054133341675,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0068,
+          "verse": 0.9932,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 2,
+        "sax_char": "a",
+        "waveform_value": 0.02862052475,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 3,
+        "sax_char": "b",
+        "waveform_value": 0.1302324625,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 4,
+        "sax_char": "c",
+        "waveform_value": 0.14102852,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0007,
+          "intro": 0.0,
+          "verse": 0.9993,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 5,
+        "sax_char": "c",
+        "waveform_value": 0.13957522,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 6,
+        "sax_char": "c",
+        "waveform_value": 0.14085813,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 7,
+        "sax_char": "c",
+        "waveform_value": 0.150116995,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.003,
+          "intro": 0.0,
+          "verse": 0.9968,
+          "pre-chorus": 0.0,
+          "chorus": 0.0002,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 8,
+        "sax_char": "d",
+        "waveform_value": 0.1623103075,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0334,
+          "intro": 0.0,
+          "verse": 0.3865,
+          "pre-chorus": 0.0486,
+          "chorus": 0.5315,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 9,
+        "sax_char": "d",
+        "waveform_value": 0.164659,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0071,
+          "intro": 0.0,
+          "verse": 0.0464,
+          "pre-chorus": 0.2783,
+          "chorus": 0.6681,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 10,
+        "sax_char": "d",
+        "waveform_value": 0.1655342225,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0007,
+          "chorus": 0.9991,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 11,
+        "sax_char": "d",
+        "waveform_value": 0.15726337499999998,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 1.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 12,
+        "sax_char": "a",
+        "waveform_value": 0.07055617675,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0003,
+          "intro": 0.0002,
+          "verse": 0.8087,
+          "pre-chorus": 0.0,
+          "chorus": 0.1894,
+          "bridge": 0.0,
+          "outro": 0.0013,
+          "end": 0.0001
+        }
+      },
+      {
+        "segment_index": 13,
+        "sax_char": "c",
+        "waveform_value": 0.135096885,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 14,
+        "sax_char": "c",
+        "waveform_value": 0.134722795,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 15,
+        "sax_char": "c",
+        "waveform_value": 0.136373315,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9512,
+          "pre-chorus": 0.0,
+          "chorus": 0.048,
+          "bridge": 0.0,
+          "outro": 0.0007,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 16,
+        "sax_char": "b",
+        "waveform_value": 0.12261588500000001,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0017,
+          "intro": 0.0,
+          "verse": 0.8608,
+          "pre-chorus": 0.0008,
+          "chorus": 0.1332,
+          "bridge": 0.0001,
+          "outro": 0.0034,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 17,
+        "sax_char": "b",
+        "waveform_value": 0.1315686725,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0064,
+          "intro": 0.0,
+          "verse": 0.882,
+          "pre-chorus": 0.0,
+          "chorus": 0.1104,
+          "bridge": 0.0006,
+          "outro": 0.0006,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 18,
+        "sax_char": "d",
+        "waveform_value": 0.17717281000000001,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0161,
+          "intro": 0.0,
+          "verse": 0.093,
+          "pre-chorus": 0.0,
+          "chorus": 0.8907,
+          "bridge": 0.0001,
+          "outro": 0.0001,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 19,
+        "sax_char": "d",
+        "waveform_value": 0.175574365,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.2904,
+          "intro": 0.0,
+          "verse": 0.0221,
+          "pre-chorus": 0.0,
+          "chorus": 0.6784,
+          "bridge": 0.0087,
+          "outro": 0.0002,
+          "end": 0.0003
+        }
+      },
+      {
+        "segment_index": 20,
+        "sax_char": "e",
+        "waveform_value": 0.1816366375,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.925,
+          "intro": 0.0,
+          "verse": 0.0034,
+          "pre-chorus": 0.0,
+          "chorus": 0.0647,
+          "bridge": 0.0067,
+          "outro": 0.0,
+          "end": 0.0003
+        }
+      },
+      {
+        "segment_index": 21,
+        "sax_char": "d",
+        "waveform_value": 0.180509845,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.512,
+          "intro": 0.0,
+          "verse": 0.0006,
+          "pre-chorus": 0.0,
+          "chorus": 0.4871,
+          "bridge": 0.0003,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 22,
+        "sax_char": "e",
+        "waveform_value": 0.18486416249999998,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.3962,
+          "intro": 0.0,
+          "verse": 0.0023,
+          "pre-chorus": 0.0,
+          "chorus": 0.5931,
+          "bridge": 0.0083,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 23,
+        "sax_char": "e",
+        "waveform_value": 0.1809590075,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.46,
+          "intro": 0.0,
+          "verse": 0.014,
+          "pre-chorus": 0.0,
+          "chorus": 0.1281,
+          "bridge": 0.3978,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 24,
+        "sax_char": "e",
+        "waveform_value": 0.1873768825,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0222,
+          "intro": 0.0,
+          "verse": 0.001,
+          "pre-chorus": 0.0,
+          "chorus": 0.0003,
+          "bridge": 0.9765,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 25,
+        "sax_char": "d",
+        "waveform_value": 0.1743987975,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0006,
+          "intro": 0.0,
+          "verse": 0.0001,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.9992,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 26,
+        "sax_char": "c",
+        "waveform_value": 0.1343196285,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0867,
+          "intro": 0.0,
+          "verse": 0.0039,
+          "pre-chorus": 0.0,
+          "chorus": 0.5788,
+          "bridge": 0.3306,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 27,
+        "sax_char": "e",
+        "waveform_value": 0.18608016,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0063,
+          "intro": 0.0,
+          "verse": 0.0001,
+          "pre-chorus": 0.0,
+          "chorus": 0.9787,
+          "bridge": 0.0148,
+          "outro": 0.0002,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 28,
+        "sax_char": "e",
+        "waveform_value": 0.18469593,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0069,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9798,
+          "bridge": 0.0115,
+          "outro": 0.0018,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 29,
+        "sax_char": "e",
+        "waveform_value": 0.18335159750000002,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0031,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9954,
+          "bridge": 0.0001,
+          "outro": 0.0014,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 30,
+        "sax_char": "e",
+        "waveform_value": 0.1849355475,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0068,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.9919,
+          "bridge": 0.0,
+          "outro": 0.0012,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 31,
+        "sax_char": "a",
+        "waveform_value": 0.0929906724,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.1693,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.672,
+          "bridge": 0.0,
+          "outro": 0.1587,
+          "end": 0.0001
+        }
+      }
+    ]
+  },
+  {
+    "title": "3 A.M. Ain't Sleep (It's a Mirror)",
+    "artist": "downspiral",
+    "waveform_sax": "aaabacdbadddcdbeeedacbbaeedeeeda",
+    "predictions": [
+      {
+        "segment_index": 0,
+        "sax_char": "a",
+        "waveform_value": 0.03078034075,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.8871,
+          "intro": 0.0781,
+          "verse": 0.0214,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0134
+        }
+      },
+      {
+        "segment_index": 1,
+        "sax_char": "a",
+        "waveform_value": 0.03856818175,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.7633,
+          "intro": 0.0694,
+          "verse": 0.1662,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0011
+        }
+      },
+      {
+        "segment_index": 2,
+        "sax_char": "a",
+        "waveform_value": 0.07585894775,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.1471,
+          "intro": 0.0001,
+          "verse": 0.8528,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 3,
+        "sax_char": "b",
+        "waveform_value": 0.13037519749999998,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0016,
+          "intro": 0.0,
+          "verse": 0.9984,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 4,
+        "sax_char": "a",
+        "waveform_value": 0.094942845,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0006,
+          "intro": 0.0,
+          "verse": 0.9994,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 5,
+        "sax_char": "c",
+        "waveform_value": 0.159316325,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 6,
+        "sax_char": "d",
+        "waveform_value": 0.1854709125,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 7,
+        "sax_char": "b",
+        "waveform_value": 0.10617914249999999,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0009,
+          "intro": 0.0,
+          "verse": 0.9991,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 8,
+        "sax_char": "a",
+        "waveform_value": 0.0991158365,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0019,
+          "intro": 0.0,
+          "verse": 0.9981,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 9,
+        "sax_char": "d",
+        "waveform_value": 0.1787070725,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0548,
+          "intro": 0.0,
+          "verse": 0.7687,
+          "pre-chorus": 0.0003,
+          "chorus": 0.1762,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 10,
+        "sax_char": "d",
+        "waveform_value": 0.1676317,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.1418,
+          "intro": 0.0,
+          "verse": 0.6714,
+          "pre-chorus": 0.0,
+          "chorus": 0.1868,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 11,
+        "sax_char": "d",
+        "waveform_value": 0.17240895,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.3158,
+          "intro": 0.0,
+          "verse": 0.5125,
+          "pre-chorus": 0.0,
+          "chorus": 0.1716,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 12,
+        "sax_char": "c",
+        "waveform_value": 0.1619727125,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.3887,
+          "intro": 0.0,
+          "verse": 0.1764,
+          "pre-chorus": 0.0,
+          "chorus": 0.4349,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 13,
+        "sax_char": "d",
+        "waveform_value": 0.1713381025,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0091,
+          "intro": 0.0,
+          "verse": 0.9908,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 14,
+        "sax_char": "b",
+        "waveform_value": 0.1329208625,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 15,
+        "sax_char": "e",
+        "waveform_value": 0.1967976975,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 16,
+        "sax_char": "e",
+        "waveform_value": 0.2105763275,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.9998,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 17,
+        "sax_char": "e",
+        "waveform_value": 0.2068373075,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0042,
+          "intro": 0.0,
+          "verse": 0.9958,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 18,
+        "sax_char": "d",
+        "waveform_value": 0.1761839825,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 19,
+        "sax_char": "a",
+        "waveform_value": 0.08912199000000001,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 1.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 20,
+        "sax_char": "c",
+        "waveform_value": 0.151814705,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.9998,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 21,
+        "sax_char": "b",
+        "waveform_value": 0.131083485,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0682,
+          "intro": 0.0,
+          "verse": 0.8786,
+          "pre-chorus": 0.0,
+          "chorus": 0.0489,
+          "bridge": 0.0042,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 22,
+        "sax_char": "b",
+        "waveform_value": 0.13025747375,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9371,
+          "intro": 0.0,
+          "verse": 0.0026,
+          "pre-chorus": 0.0,
+          "chorus": 0.0596,
+          "bridge": 0.0007,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 23,
+        "sax_char": "a",
+        "waveform_value": 0.07844786275,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9205,
+          "intro": 0.0,
+          "verse": 0.0005,
+          "pre-chorus": 0.0,
+          "chorus": 0.0767,
+          "bridge": 0.0022,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 24,
+        "sax_char": "e",
+        "waveform_value": 0.20711422000000002,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9934,
+          "intro": 0.0,
+          "verse": 0.0002,
+          "pre-chorus": 0.0,
+          "chorus": 0.0013,
+          "bridge": 0.0051,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 25,
+        "sax_char": "e",
+        "waveform_value": 0.21119317,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9968,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0031,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 26,
+        "sax_char": "d",
+        "waveform_value": 0.185393635,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9994,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0002,
+          "bridge": 0.0004,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 27,
+        "sax_char": "e",
+        "waveform_value": 0.21091688749999998,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9994,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0006,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 28,
+        "sax_char": "e",
+        "waveform_value": 0.20846835,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9996,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0004,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 29,
+        "sax_char": "e",
+        "waveform_value": 0.231461195,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9993,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0002,
+          "bridge": 0.0,
+          "outro": 0.0005,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 30,
+        "sax_char": "d",
+        "waveform_value": 0.1729358275,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.3992,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.6007,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 31,
+        "sax_char": "a",
+        "waveform_value": 0.053603224021,
+        "predicted_label": "unknown",
+        "probabilities": {
+          "unknown": 0.9775,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0225,
+          "end": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "title": "Ticket 1, Ticket 2, Ticket 3",
+    "artist": "downspiral",
+    "waveform_sax": "aaaaaaaccdddccddddeeedddedddddda",
+    "predictions": [
+      {
+        "segment_index": 0,
+        "sax_char": "a",
+        "waveform_value": 0.07994646375,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0005,
+          "intro": 0.1674,
+          "verse": 0.8321,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 1,
+        "sax_char": "a",
+        "waveform_value": 0.092048881,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0799,
+          "verse": 0.9201,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 2,
+        "sax_char": "a",
+        "waveform_value": 0.12266827375,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0094,
+          "verse": 0.9906,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 3,
+        "sax_char": "a",
+        "waveform_value": 0.1600850925,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0004,
+          "verse": 0.9995,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 4,
+        "sax_char": "a",
+        "waveform_value": 0.15440397250000001,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0004,
+          "verse": 0.9996,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 5,
+        "sax_char": "a",
+        "waveform_value": 0.1665285225,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0026,
+          "verse": 0.9971,
+          "pre-chorus": 0.0001,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0002,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 6,
+        "sax_char": "a",
+        "waveform_value": 0.1685109875,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0003,
+          "intro": 0.0008,
+          "verse": 0.9975,
+          "pre-chorus": 0.0009,
+          "chorus": 0.0001,
+          "bridge": 0.0,
+          "outro": 0.0004,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 7,
+        "sax_char": "c",
+        "waveform_value": 0.24495211,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.9999,
+          "pre-chorus": 0.0001,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 8,
+        "sax_char": "c",
+        "waveform_value": 0.2696312325,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.9802,
+          "pre-chorus": 0.0191,
+          "chorus": 0.0006,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 9,
+        "sax_char": "d",
+        "waveform_value": 0.2780615325,
+        "predicted_label": "pre-chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0001,
+          "verse": 0.2328,
+          "pre-chorus": 0.7646,
+          "chorus": 0.0023,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 10,
+        "sax_char": "d",
+        "waveform_value": 0.2881134825,
+        "predicted_label": "pre-chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0004,
+          "verse": 0.0145,
+          "pre-chorus": 0.5285,
+          "chorus": 0.4565,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 11,
+        "sax_char": "d",
+        "waveform_value": 0.28622565,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0005,
+          "chorus": 0.9995,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 12,
+        "sax_char": "c",
+        "waveform_value": 0.2381887775,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0022,
+          "pre-chorus": 0.0,
+          "chorus": 0.9978,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 13,
+        "sax_char": "c",
+        "waveform_value": 0.27135987500000003,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.4032,
+          "pre-chorus": 0.0001,
+          "chorus": 0.5967,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 14,
+        "sax_char": "d",
+        "waveform_value": 0.2956597925,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.3438,
+          "pre-chorus": 0.0001,
+          "chorus": 0.6561,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 15,
+        "sax_char": "d",
+        "waveform_value": 0.29847164,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0195,
+          "pre-chorus": 0.0001,
+          "chorus": 0.9803,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 16,
+        "sax_char": "d",
+        "waveform_value": 0.3064193525,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0029,
+          "pre-chorus": 0.0,
+          "chorus": 0.997,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 17,
+        "sax_char": "d",
+        "waveform_value": 0.3020482325,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.0245,
+          "pre-chorus": 0.0004,
+          "chorus": 0.9749,
+          "bridge": 0.0,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 18,
+        "sax_char": "e",
+        "waveform_value": 0.3339717375,
+        "predicted_label": "chorus",
+        "probabilities": {
+          "unknown": 0.002,
+          "intro": 0.0,
+          "verse": 0.1859,
+          "pre-chorus": 0.0001,
+          "chorus": 0.8116,
+          "bridge": 0.0004,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 19,
+        "sax_char": "e",
+        "waveform_value": 0.327634215,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0052,
+          "intro": 0.0,
+          "verse": 0.558,
+          "pre-chorus": 0.0003,
+          "chorus": 0.4335,
+          "bridge": 0.003,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 20,
+        "sax_char": "e",
+        "waveform_value": 0.32606256,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0093,
+          "intro": 0.0,
+          "verse": 0.8065,
+          "pre-chorus": 0.0012,
+          "chorus": 0.1769,
+          "bridge": 0.0061,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 21,
+        "sax_char": "d",
+        "waveform_value": 0.292163505,
+        "predicted_label": "verse",
+        "probabilities": {
+          "unknown": 0.0416,
+          "intro": 0.0,
+          "verse": 0.5927,
+          "pre-chorus": 0.0077,
+          "chorus": 0.1625,
+          "bridge": 0.1954,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 22,
+        "sax_char": "d",
+        "waveform_value": 0.2973261725,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0144,
+          "intro": 0.0,
+          "verse": 0.2333,
+          "pre-chorus": 0.0075,
+          "chorus": 0.0372,
+          "bridge": 0.7077,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 23,
+        "sax_char": "d",
+        "waveform_value": 0.32001371749999996,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0014,
+          "intro": 0.0,
+          "verse": 0.018,
+          "pre-chorus": 0.0036,
+          "chorus": 0.0028,
+          "bridge": 0.9743,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 24,
+        "sax_char": "e",
+        "waveform_value": 0.3259710025,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.0039,
+          "pre-chorus": 0.0001,
+          "chorus": 0.0001,
+          "bridge": 0.9959,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 25,
+        "sax_char": "d",
+        "waveform_value": 0.2968409925,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0002,
+          "intro": 0.0,
+          "verse": 0.0551,
+          "pre-chorus": 0.0071,
+          "chorus": 0.002,
+          "bridge": 0.9356,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 26,
+        "sax_char": "d",
+        "waveform_value": 0.310158995,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0005,
+          "intro": 0.0,
+          "verse": 0.1465,
+          "pre-chorus": 0.2744,
+          "chorus": 0.0758,
+          "bridge": 0.5028,
+          "outro": 0.0,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 27,
+        "sax_char": "d",
+        "waveform_value": 0.319905355,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0005,
+          "intro": 0.0,
+          "verse": 0.0732,
+          "pre-chorus": 0.1476,
+          "chorus": 0.1805,
+          "bridge": 0.5966,
+          "outro": 0.0016,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 28,
+        "sax_char": "d",
+        "waveform_value": 0.3223889625,
+        "predicted_label": "bridge",
+        "probabilities": {
+          "unknown": 0.0004,
+          "intro": 0.0,
+          "verse": 0.0265,
+          "pre-chorus": 0.0129,
+          "chorus": 0.0937,
+          "bridge": 0.7561,
+          "outro": 0.1104,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 29,
+        "sax_char": "d",
+        "waveform_value": 0.3211705375,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.0001,
+          "intro": 0.0,
+          "verse": 0.0012,
+          "pre-chorus": 0.0001,
+          "chorus": 0.005,
+          "bridge": 0.0805,
+          "outro": 0.9131,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 30,
+        "sax_char": "d",
+        "waveform_value": 0.32135704249999997,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0001,
+          "pre-chorus": 0.0,
+          "chorus": 0.0002,
+          "bridge": 0.0014,
+          "outro": 0.9984,
+          "end": 0.0
+        }
+      },
+      {
+        "segment_index": 31,
+        "sax_char": "a",
+        "waveform_value": 0.0912155285,
+        "predicted_label": "outro",
+        "probabilities": {
+          "unknown": 0.0,
+          "intro": 0.0,
+          "verse": 0.0,
+          "pre-chorus": 0.0,
+          "chorus": 0.0,
+          "bridge": 0.0,
+          "outro": 1.0,
+          "end": 0.0
+        }
+      }
+    ]
+  }
+]
