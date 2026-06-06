@@ -4,6 +4,8 @@ Date: 2026-06-06
 
 ## 1. Update `AGENTS.md` or generate a skill index
 
+**Current status:** Implemented. `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` now point agents to the generated `skills/INDEX.md`, and `tools/generate_skill_index.py` extracts skill frontmatter.
+
 `AGENTS.md` lists a subset of skills, but the repo now contains additional workflows that affect correctness:
 
 - `add-analysis-pass`
@@ -19,6 +21,8 @@ Date: 2026-06-06
 Either update `AGENTS.md` to list all mandatory triggers or add a generated skill index checked by CI/doc-lint. Future agents should not have to discover key workflows by chance.
 
 ## 2. Make `doc/collab/PROTOCOL.md` the collaboration source of truth
+
+**Current status:** Implemented. `skills/bot-collab/SKILL.md` is now a lightweight launcher/checklist and delegates protocol details to `doc/collab/PROTOCOL.md`.
 
 `doc/collab/PROTOCOL.md` now requires structured handoffs with `Task`, `Context`, and `Deliverable`. `skills/bot-collab/SKILL.md` still contains older one-line handoff examples.
 
@@ -50,6 +54,8 @@ The skill tells agents how to add Rust commands and invoke them from the fronten
 - For push events, document event name, payload type, lifecycle, and unlisten ownership.
 
 ## 5. Resolve Python guidance drift
+
+**Current status:** Implemented. `skills/dev-guidelines/SKILL.md` now describes Python as tools-only and points agents to `skills/using-python/SKILL.md` and `tools/.venv/bin/python`.
 
 `skills/dev-guidelines/SKILL.md` says "No Python tooling", while `skills/using-python/SKILL.md`, `tools/`, and model export workflows clearly use Python.
 
