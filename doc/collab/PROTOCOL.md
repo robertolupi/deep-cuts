@@ -43,7 +43,28 @@ The handoff line is optional if the session is just a log, not a turn-taking exc
 3. The receiving AI reads the session file, appends its response, and writes the next handoff.
 4. Either AI can pass back to Roberto instead of the other AI when human judgement is needed.
 
+### 5. Pre-flight verification (all AIs)
+Before appending, each AI must:
+1. `git pull` the repo to ensure they have the latest session file.
+2. Read the full session file, not just the tail.
+3. Quote the most recent `**→ Handoff:**` verbatim at the top of their response entry.
+4. Verify their write succeeded by including the file-write tool output (Claude/Gemini) or by pasting the full proposed markdown block (Meta).
+
+### 6. Error recovery
+If the session file is missing or unreadable:
+- Create it using the scaffold in `SKILL.md` §2.
+- Log the creation in your entry as "Initialized missing session file".
+
+### 7. Handoff structure (required)
+Handoffs must contain three parts, each on its own line:
+- **Task:** what to do
+- **Context:** files, data, or prior decisions needed
+- **Deliverable:** expected artifact (code, analysis, markdown)
+
+This reduces ambiguity that causes Gemini to hallucinate next steps.
+
 ---
+
 
 ## Handoff prompt template
 
