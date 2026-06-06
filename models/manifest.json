@@ -78,6 +78,23 @@
         }
       ]
     },
+    "sax": {
+      "label": "SAX Sequence Tagger",
+      "files": [
+        {
+          "filename": "sax_sequence_tagger.onnx",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/sax_sequence_tagger.onnx",
+          "sha256": "739f7b9b54a859bb84c65656c51996d9f52bf9b1a5f2e04118f26d12cd52a80e",
+          "size_bytes": 10697
+        },
+        {
+          "filename": "sax_sequence_tagger.onnx.data",
+          "url": "https://huggingface.co/rlupi/deep-cuts-models/resolve/main/sax_sequence_tagger.onnx.data",
+          "sha256": "3bdac6fd0146d5d3f423276567b4d4c9d84874d402316efa34ca13f1e40ecaff",
+          "size_bytes": 1923072
+        }
+      ]
+    },
     "essentia": {
       "label": "Essentia Classifier",
       "files": [
