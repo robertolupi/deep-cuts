@@ -32,4 +32,4 @@ The audio attachment is only included on the first turn. Subsequent turns in `hi
 - `src-tauri/src/commands/chat.rs` — `ask_qwen` implementation
 - `src-tauri/src/llama.rs` — server lifecycle
 - `src/lib/components/ChatPanel.svelte` — UI
-- `doc/qwen_limitations.md` — token budget, window sizing
+- `doc/architecture/qwen_limitations.md` — token budget, window sizing

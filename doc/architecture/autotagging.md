@@ -29,7 +29,7 @@ CREATE TABLE track_tags (
 
 ## Pass 1 — CLAP (source: none — embeddings only)
 
-**File**: [`src-tauri/src/analysis/clap.rs`](../src-tauri/src/analysis/clap.rs)
+**File**: [`src-tauri/src/analysis/clap.rs`](../../src-tauri/src/analysis/clap.rs)
 **Priority**: 20 (depends only on `audio_analysis`)
 
 The CLAP pass encodes every track as a 512-dimensional audio embedding using the CLAP (Contrastive Language-Audio Pretraining) model and stores it in the `audio_embeddings` table. **This pass writes no tags.** The embedding is used by downstream passes for audio-text similarity verification.
@@ -40,7 +40,7 @@ Three audio windows are sampled per track (targeting the highest-energy region o
 
 ## Pass 2 — Essentia (source: `essentia`)
 
-**File**: [`src-tauri/src/analysis/essentia.rs`](../src-tauri/src/analysis/essentia.rs)
+**File**: [`src-tauri/src/analysis/essentia.rs`](../../src-tauri/src/analysis/essentia.rs)
 **Priority**: 40 (depends on `audio_analysis`, `bpm_correction`)
 
 Essentia runs pre-trained ONNX classifiers on a mel-spectrogram of each track and writes two tag namespaces:
@@ -58,7 +58,7 @@ Any Essentia mood probability ≥ 0.75 fires a tag:
 
 ## Pass 3 — Qwen (source: `qwen`)
 
-**File**: [`src-tauri/src/analysis/qwen.rs`](../src-tauri/src/analysis/qwen.rs)
+**File**: [`src-tauri/src/analysis/qwen.rs`](../../src-tauri/src/analysis/qwen.rs)
 **Priority**: 50 (depends on `audio_analysis`, `bpm_correction`, `clap`, `essentia`)
 
 Qwen2-Audio listens to 30 seconds of audio (centered on the highest-energy window) and runs a **multi-turn conversation** with the local llama-server. Each step extends the same conversation so later answers build on earlier context.

@@ -358,5 +358,5 @@ The training pipeline already discovers them via `Path(track.path).parent / "lyr
 
 - Feature computation: `tools/sax_structure_explorer.py`, inline experiment scripts
 - Weak labels: `~/Downloads/MP3 Songs/*/lyrics.txt` (153 tracks)
-- Related docs: `doc/sax_structural_search.md`, `doc/sax_structure.md`
-- Experiment results: `doc/sax_structural_search.md` § Prototype experiment results
+- Related docs: `doc/research/sax_structural_search.md`, `doc/research/sax_structure.md`
+- Experiment results: `doc/research/sax_structural_search.md` § Prototype experiment results

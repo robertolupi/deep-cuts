@@ -24,4 +24,4 @@ This directory collects a codebase, skills, and docs review of Deep Cuts. The re
 
 Recent commits show features landing across many surfaces at once. For example, `47f82cb` added structure clustering and touched Rust analysis, command registration, docs, frontend stores/components, and the analysis-pass skill. `39cb908` added SAX alignment with migrations plus filters/detail UI. `4702f77` added HDBSCAN coloring while dropping `waveform_fingerprint`. This pattern makes invariant tests and stronger skills more valuable than broad style cleanup.
 
-The worktree already had an unrelated `src-tauri/Cargo.lock` version change before this review. This feedback only adds files under `doc/codex-feedback/`.
+The worktree already had an unrelated `src-tauri/Cargo.lock` version change before this review. This feedback originally added files under `doc/codex-feedback/`; they now live under `doc/operations/codex-feedback/`.

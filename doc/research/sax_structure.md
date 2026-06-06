@@ -145,7 +145,7 @@ Within the filtered candidate pool, compute DTW distance against the query's SAX
 
 **Primary**: click on the waveform in track details — the clicked position maps to a SAX segment, and the full SAX string of that track becomes the query. The track detail panel could display human-readable section labels (Intro, Verse, Chorus, Outro, Bridge) derived from the RLE structural tags already computed, giving the user spatial context before clicking.
 
-**Future**: block-based query form — user sketches an energy arc by placing L/M/H blocks in sequence (see `doc/sax_structural_search.md`). The sketch is SAX-encoded and fed into the same two-stage pipeline.
+**Future**: block-based query form — user sketches an energy arc by placing L/M/H blocks in sequence (see `doc/research/sax_structural_search.md`). The sketch is SAX-encoded and fed into the same two-stage pipeline.
 
 ### Final ranking signal
 
@@ -225,7 +225,7 @@ Computed by the `sax` pass (version bump to 2) alongside `waveform_sax`.
 
 ### 3. CLAP fusion pathway
 
-Separately from SAX, the CLAP paper's native fusion pathway uses a 4-window scheme (compressed full-track thumbnail + front + middle + back) processed through attention-based fusion in a single forward pass. The "shrink" thumbnail gives the model a global structural view that our 3-window average lacks. Requires re-exporting the ONNX model with `enable_fusion=True`. See `doc/clap_window_selection.md`.
+Separately from SAX, the CLAP paper's native fusion pathway uses a 4-window scheme (compressed full-track thumbnail + front + middle + back) processed through attention-based fusion in a single forward pass. The "shrink" thumbnail gives the model a global structural view that our 3-window average lacks. Requires re-exporting the ONNX model with `enable_fusion=True`. See `doc/research/clap_window_selection.md`.
 
 ### 3. Timbral evolution timeline
 

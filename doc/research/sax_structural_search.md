@@ -363,4 +363,4 @@ search_by_structure(blocks: string[], tolerance: number) → { track: Track, cos
 - SAX computation: `src-tauri/src/analysis/sax.rs`
 - MINDIST blending: `src-tauri/src/commands/map.rs` (`blended_embedding_distance`)
 - Waveform coloring: `src/lib/components/TrackList.svelte`
-- Related: `doc/sax_structure.md`, `doc/clap_window_selection.md`
+- Related: `doc/research/sax_structure.md`, `doc/research/clap_window_selection.md`

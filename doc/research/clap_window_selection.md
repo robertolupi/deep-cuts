@@ -81,7 +81,7 @@ However, we export and use the **non-fusion ONNX pathway**: each window is proce
 
 The tercile and temporal-spread algorithms are indirect proxies for song structure — they use
 energy as a stand-in for "this is a verse" or "this is a chorus." Once the structural
-classifier (MLP from `doc/sax_structure_learning.md`) produces reliable per-segment labels,
+classifier (MLP from `doc/research/sax_structure_learning.md`) produces reliable per-segment labels,
 we can be explicit: sample one CLAP window per detected section, centered within that
 section's run.
 

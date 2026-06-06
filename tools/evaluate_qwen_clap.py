@@ -24,7 +24,7 @@ from tokenizers import Tokenizer
 SONGS_DIR = os.path.expanduser("~/Downloads/MP3 Songs")
 TOKENIZER_PATH = "models/clap-tokenizer.json"
 MODEL_PATH = "models/clap_text_encoder.onnx"
-OUTPUT_REPORT_PATH = "doc/qwen_eval_results.json"
+OUTPUT_REPORT_PATH = "doc/research/qwen_eval_results.json"
 
 
 def load_tokenizer_and_model():

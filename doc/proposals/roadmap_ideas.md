@@ -42,7 +42,7 @@ Tools dedicated to sampling, crate digging, and DAW compatibility:
 Research-level audio intelligence capabilities:
 - **Sonic DNA & DTW**: Timbral evolution mapping over whole durations using sliding-window CLAP extractions plotted on a timeline (showing intros, drops, vocal entries). Use Dynamic Time Warping (DTW) to align timelines of different tracks to spot cross-track similarities.
 - **Acoustic EQ Prefiltering**: Isolate low-pass (<150Hz), high-pass (>2kHz), or band-pass (300Hz-3kHz) regions before generating spectrograms to compare tracks strictly by drum groove, percussive swing, or vocal texture.
-- **Multimodal Chat QA** ✅: Implemented in `ChatPanel.svelte` + `src-tauri/src/commands/chat.rs`. User selects a waveform region, types a question, Qwen2-Audio responds with streaming tokens. Conversation history persisted in SQLite. See `doc/track-feedback.md`.
+- **Multimodal Chat QA** ✅: Implemented in `ChatPanel.svelte` + `src-tauri/src/commands/chat.rs`. User selects a waveform region, types a question, Qwen2-Audio responds with streaming tokens. Conversation history persisted in SQLite. See `doc/architecture/track-feedback.md`.
 
 ---
 
@@ -69,7 +69,7 @@ Research-level audio intelligence capabilities:
 - **Not Implemented**: Boolean logic (AND/OR) across tags, parent-child tag hierarchy, user-defined manual tags, Qwen free-form tag suggestions.
 
 ### Alternatives tried and discarded
-CLAP concept tagging (AudioSet label matching via KNN) had ~91% discard rate when validated by Qwen and incompatible label vocabularies. See `doc/autotagging.md` for full post-mortem.
+CLAP concept tagging (AudioSet label matching via KNN) had ~91% discard rate when validated by Qwen and incompatible label vocabularies. See `doc/architecture/autotagging.md` for full post-mortem.
 
 ---
 
@@ -99,7 +99,7 @@ Store a SAX string encoding of each track's RMS waveform envelope (e.g. `"aabddd
 - **Structural similarity**: find tracks whose SAX string has low MINDIST/Hamming distance to a selected track — "find songs built like this one" independently of how they sound.
 - **Pattern search**: regex filter on the RLE-collapsed form (`L+H+L+H+`, `^L+.*H.*L+$`) to surface tracks by song architecture (verse-chorus, drop structure, ramp, etc.).
 
-Complementary to CLAP acoustic similarity — a track can "sound like" another without sharing the same structural shape, and vice versa. See `doc/sax_structure.md` for full research notes.
+Complementary to CLAP acoustic similarity — a track can "sound like" another without sharing the same structural shape, and vice versa. See `doc/research/sax_structure.md` for full research notes.
 
 ### Why now
 - Zero inference cost: derived from `waveform_data` already in the DB.
