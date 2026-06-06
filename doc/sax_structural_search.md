@@ -322,10 +322,40 @@ search_by_structure(blocks: string[], tolerance: number) → { track: Track, cos
    so the user can see *why* a track matched
 5. Integrate into filter sidebar alongside CLAP/semantic search
 
-**Key decisions (still open):**
-- Tolerance exposed to user (slider: exact → fuzzy) or fixed internally?
-- Show match cost as a percentage score in the result list?
+**Key decisions (resolved):**
+
+- **Block sequence semantics are strict adjacency by default.** `[Intro] → [Chorus]` means no
+  recognised section in between — a track that goes `Intro → Verse → Chorus` incurs a high
+  penalty because a confident `Verse` segment was inserted. This is the opposite of a
+  "contains these sections in order" query.
+
+- **Wildcard block `[···]`** is the explicit escape hatch. Adding it between two blocks
+  means "I don't care what goes here." In Viterbi terms, the wildcard is a self-looping
+  zero-cost state that accepts any label. `[Intro] → [···] → [Chorus]` = starts with Intro,
+  reaches Chorus eventually, anything in between is fine. Optional min/max length constraints
+  on the wildcard are a future extension.
+
+- **Low-confidence segments are hidden from display but used in search.** A segment below
+  the display threshold (P(label) < 0.6, to be calibrated on the retrained MLP) renders as
+  a plain unlabeled waveform region. During Viterbi, the full probability vector is still
+  used — a 35% Chorus / 30% Verse ambiguous segment costs less to align against a Chorus
+  query than a clear Intro segment would. Uncertain segments also act as natural low-penalty
+  gaps between confident blocks, so strict adjacency is never artificially broken by
+  hidden noise. The 0.6 threshold should be recalibrated empirically against the
+  Genius-retrained model's output distribution.
+
+- **Fuzziness control** (if exposed) should operate on within-block energy tolerance, not
+  on insertion penalties between blocks. Block boundaries are user intent; fuzziness within
+  a block is acoustic reality.
+
+- **Result list badges**: two indicators per track — Structural Match % (DTW/Viterbi cost
+  normalised) and Sonic Match % (CLAP cosine similarity). A slider on the search panel
+  controls the blend weight between the two signals. This makes result provenance visible
+  and lets users tune what they care about.
+
+- Show match cost as a percentage score in the result list? Yes — normalised to [0, 1].
 - Should repeated blocks (`[C, C]`) require two distinct high-rep peaks or allow overlap?
+  Open — defer until after prototype validation.
 
 ## Files
 

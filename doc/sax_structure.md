@@ -87,16 +87,75 @@ The SAX pattern directly informs which 10-second windows are most representative
 
 The `quiet-intro` and `quiet-outro` tags are particularly valuable — they let us explicitly exclude fade-ins and fade-outs from window candidates, which the current CV-based approach misses.
 
-## Future directions
+## Pairwise Levenshtein experiment (June 2026)
 
-### 1. Structural similarity search in the app
+Script: `tools/sax_levenshtein_histogram.py`
 
-Store the SAX string (or its RLE form) as a new column `waveform_sax TEXT` on the `tracks` table. Expose two search modes:
+Computed all 1,785,105 pairwise Levenshtein distances over 1,890 SAX strings using `rapidfuzz.process.cdist` (workers=-1). Completed in **0.03 s**.
 
-- **Structural similarity**: find tracks whose SAX string has low MINDIST or Hamming distance to a query track. Cheap — O(n × string_length) over 2k tracks.
-- **Pattern search**: let power users type a structural regex (`L+H+L+H+`, `^L+.*H+.*L+$`) to filter the library by song architecture.
+### Uniqueness
 
-This is complementary to CLAP similarity and would be a unique feature — no mainstream music app exposes structural shape as a search axis.
+| column | non-null | distinct | duplicates | uniqueness |
+|---|---|---|---|---|
+| `waveform_data` | 1891 | 1885 | 6 | 99.7% |
+| `waveform_sax` | 1890 | 1864 | 26 | 98.6% |
+
+### Distance distribution
+
+- `min=0`, `max=32`, `mean=20.7`, `median=21`
+- Distribution is a smooth bell curve centred around 20–21 with a sparse left tail below ~12.
+- **No bimodal structure** — there is no natural gap separating "similar" from "dissimilar" tracks.
+
+### Threshold analysis (d ≤ 8 → 355 pairs)
+
+| distance | signal |
+|---|---|
+| d = 0 | Exact SAX duplicates — same track in two formats (.aif/.mp3), re-rips, or near-identical masters. Clean duplicate signal. |
+| d = 1–2 | Near-duplicates: slightly different masters, alternate versions, metadata variants. Still very reliable. |
+| d = 3–5 | Mostly still duplicates or alternate versions, some noise begins. |
+| d = 6–8 | Noisy — coincidental waveform-shape overlap (e.g. Guru/MC Solaar paired with Judas Priest due to similar loudness envelopes). |
+
+**Conclusion**: plain Levenshtein on SAX strings is an excellent **duplicate detector** (d ≤ 3) but a poor **structural similarity metric** beyond that. All substitutions are treated as equal cost, so `a→e` (quiet→loud) costs the same as `a→b` (quiet→slightly-less-quiet). This collapses musically distinct patterns into the same distance bucket.
+
+### Distance metric experiments summary
+
+All metrics tested — plain Levenshtein (raw), weighted Levenshtein (raw), plain Levenshtein (RLE-compressed), weighted Levenshtein (RLE-compressed), DTW — produce the same unimodal bell curve with no natural gap. No threshold cleanly separates "structurally similar" from "unrelated". This rules out distance-threshold clustering as a standalone approach.
+
+DTW (`dtaidistance`, full matrix in **0.2s**) produces the most semantically coherent low-distance pairs: sustained-energy tracks cluster together, quiet-intro/build tracks cluster together. The signal is real but weak relative to the noise floor given the 5-letter alphabet and 2k library size.
+
+**Conclusion**: waveform SAX is useful for structural similarity as a *pre-filter + reranking signal*, not as a standalone distance metric.
+
+## Arc shape search + nearest-neighbour reranking
+
+The design that emerges from the experiments above:
+
+### Stage 1 — Arc shape filter (RLE regex)
+
+Use the existing structural pattern tags (verse-chorus, drop, quiet-intro, ramp-up, etc.) as hard candidate filters. O(n), already implemented. A query track's RLE pattern becomes the search key — candidates are tracks sharing the same structural archetype. Strictness is a tunable parameter to experiment with:
+
+- **Strict**: exact RLE pattern match
+- **Loose**: match by tag set (e.g. "has verse-chorus AND quiet-intro")
+- **Looser**: match on one dominant tag only
+
+### Stage 2 — DTW reranking
+
+Within the filtered candidate pool, compute DTW distance against the query's SAX ordinal sequence and sort ascending. At ~200–400 candidates for a common archetype, this is sub-millisecond.
+
+### Query types
+
+**Primary**: click on the waveform in track details — the clicked position maps to a SAX segment, and the full SAX string of that track becomes the query. The track detail panel could display human-readable section labels (Intro, Verse, Chorus, Outro, Bridge) derived from the RLE structural tags already computed, giving the user spatial context before clicking.
+
+**Future**: block-based query form — user sketches an energy arc by placing L/M/H blocks in sequence (see `doc/sax_structural_search.md`). The sketch is SAX-encoded and fed into the same two-stage pipeline.
+
+### Final ranking signal
+
+DTW captures envelope shape similarity but is agnostic to timbre — two tracks with identical arcs can sound completely different. Options to experiment with:
+
+- **DTW only** — pure structural match, genre-agnostic
+- **CLAP only** — pure timbral/acoustic match (already exists as "sounds similar")
+- **DTW + CLAP blended** — user-controllable weight slider: "same structure" ↔ "sounds similar". Lets the user decide what they're looking for.
+
+The blend mode is the most interesting: it would surface tracks that are both structurally and sonically kindred — something no mainstream music app exposes.
 
 ### 2. CLAP fusion pathway
 

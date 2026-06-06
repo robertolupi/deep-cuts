@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; color: #e0e0e0; font-family: 'SF Pro Display', -apple-system, sans-serif; padding: 32px; }
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 8px; }
+  .subtitle { font-size: 11px; color: #555; margin-bottom: 20px; font-style: italic; }
+
+  /* ── PARALLEL COORDINATES ── */
+  .pc-wrap { margin-bottom: 52px; }
+  #pc-svg { width: 100%; height: 220px; display: block; }
+
+  /* ── HEATMAP ── */
+  .hm-wrap { }
+  .hm-header { display: flex; gap: 2px; margin-left: 180px; margin-bottom: 5px; }
+  .hm-header span { font-size: 10px; color: #666; text-align: center; flex: 1; letter-spacing: 0.04em; }
+  .hm-row { display: flex; align-items: center; gap: 2px; margin-bottom: 3px; }
+  .hm-label { width: 175px; font-size: 11px; color: #777; text-align: right; padding-right: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .hm-cell { flex: 1; height: 24px; border-radius: 3px; transition: opacity 0.15s; }
+  .hm-cell:hover { outline: 1px solid #fff3; }
+  .arch-divider { height: 8px; }
+
+  .legend { display: flex; gap: 20px; margin-top: 24px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #999; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+  .note { font-size: 11px; color: #444; margin-top: 10px; }
+
+  .arch-label { font-size: 9px; color: #444; letter-spacing: 0.08em; text-transform: uppercase;
+    width: 175px; text-align: right; padding-right: 10px; padding-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── PARALLEL COORDINATES ── -->
+<div class="pc-wrap">
+  <h2>Approach B1 — Parallel Coordinates (16 raw time steps)</h2>
+  <div class="subtitle">Problem: segment 8 = 1:30 in a 3-min pop track, but 5:00 in a 10-min ambient piece. Same column, incomparable meaning.</div>
+  <svg id="pc-svg" viewBox="0 0 860 190" preserveAspectRatio="none"></svg>
+</div>
+
+<!-- ── HEATMAP ── -->
+<div class="hm-wrap">
+  <h2>Approach B2 — Structural Heatmap (label-indexed)</h2>
+  <div class="subtitle">Each column = a section type. Opacity = classifier confidence. Blank = section not detected. Sorted by structural archetype.</div>
+  <div class="hm-header" id="hm-header"></div>
+  <div id="hm-rows"></div>
+</div>
+
+<div class="legend" id="legend"></div>
+<div class="note">Cell opacity reflects MLP confidence — low-confidence sections fade, absent sections are dark. Tracks within each group share the same structural archetype.</div>
+
+<script>
+const COLORS = {
+  I: '#4a9eff', V: '#7eb87e', P: '#b8a0d0', C: '#e8605a', B: '#e8a84a', O: '#4ab8a8', E: '#888888'
+};
+const NAMES = { I:'Intro', V:'Verse', P:'Pre-Ch.', C:'Chorus', B:'Bridge', O:'Outro', E:'End' };
+const COL_ORDER = ['I','V','P','C','B','O','E'];
+
+const tracks = [
+  { name: 'Coldplay – Fix You',         arch: 'Pop / Rock',   s: {I:.95, V:.88, P:.72, C:.91, O:.80} },
+  { name: 'Adele – Someone Like You',   arch: 'Pop / Rock',   s: {I:.90, V:.92, P:.65, C:.89, O:.75} },
+  { name: 'Radiohead – Creep',          arch: 'Pop / Rock',   s: {I:.85, V:.80,        C:.88, O:.70} },
+  { name: 'Nirvana – Come As You Are',  arch: 'Pop / Rock',   s: {I:.80, V:.84,        C:.86, O:.62} },
+  { name: 'Rammstein – Amour',          arch: 'Build / Drop', s: {I:.92, V:.75, B:.68, C:.93        } },
+  { name: 'NIN – Head Down',            arch: 'Build / Drop', s: {I:.88, V:.72,        C:.90, E:.82} },
+  { name: 'Daft Punk – One More Time',  arch: 'Build / Drop', s: {I:.84, V:.68,        C:.92, O:.76} },
+  { name: 'Vangelis – Conquest',        arch: 'Orchestral',   s: {I:.70, V:.55,        C:.60, O:.72} },
+  { name: 'Bach – Air on G String',     arch: 'Orchestral',   s: {I:.40, V:.35,                O:.45} },
+  { name: 'Aphex Twin – Xtal',          arch: 'Ambient',      s: {I:.60, V:.42,                O:.55} },
+  { name: 'Brian Eno – Thursday',       arch: 'Ambient',      s: {I:.45, V:.30,                O:.50} },
+];
+
+// Header
+const header = document.getElementById('hm-header');
+COL_ORDER.forEach(k => {
+  const s = document.createElement('span');
+  s.textContent = NAMES[k];
+  header.appendChild(s);
+});
+
+// Rows
+const container = document.getElementById('hm-rows');
+let lastArch = null;
+tracks.forEach(track => {
+  if (track.arch !== lastArch) {
+    if (lastArch !== null) {
+      const spacer = document.createElement('div');
+      spacer.className = 'arch-divider';
+      container.appendChild(spacer);
+    }
+    const archRow = document.createElement('div');
+    archRow.style.display = 'flex';
+    archRow.style.alignItems = 'center';
+    archRow.style.marginBottom = '4px';
+    const archLbl = document.createElement('div');
+    archLbl.className = 'arch-label';
+    archLbl.textContent = track.arch;
+    archRow.appendChild(archLbl);
+    container.appendChild(archRow);
+    lastArch = track.arch;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'hm-row';
+  const label = document.createElement('div');
+  label.className = 'hm-label';
+  label.textContent = track.name;
+  row.appendChild(label);
+
+  COL_ORDER.forEach(k => {
+    const cell = document.createElement('div');
+    cell.className = 'hm-cell';
+    if (track.s[k] != null) {
+      cell.style.background = COLORS[k];
+      cell.style.opacity = 0.2 + track.s[k] * 0.8;
+      cell.title = `${NAMES[k]}: ${Math.round(track.s[k]*100)}% confidence`;
+    } else {
+      cell.style.background = '#1c1c22';
+    }
+    row.appendChild(cell);
+  });
+  container.appendChild(row);
+});
+
+// Legend
+const legend = document.getElementById('legend');
+COL_ORDER.forEach(k => {
+  const item = document.createElement('div'); item.className = 'legend-item';
+  const sw = document.createElement('div'); sw.className = 'legend-swatch'; sw.style.background = COLORS[k];
+  item.appendChild(sw);
+  item.appendChild(document.createTextNode(NAMES[k]));
+  legend.appendChild(item);
+});
+
+// ── PARALLEL COORDINATES ──
+const svg = document.getElementById('pc-svg');
+const W = 860, H = 190, PAD = 50, STEPS = 16;
+const xStep = (W - PAD*2) / (STEPS - 1);
+
+// Axes
+for (let i = 0; i < STEPS; i++) {
+  const x = PAD + i * xStep;
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',x); line.setAttribute('x2',x);
+  line.setAttribute('y1',20); line.setAttribute('y2',H-25);
+  line.setAttribute('stroke','#222'); line.setAttribute('stroke-width','1');
+  svg.appendChild(line);
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',x); t.setAttribute('y',H-10);
+  t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','8');
+  t.setAttribute('fill','#333');
+  t.textContent = i+1;
+  svg.appendChild(t);
+}
+// Y axis label
+const yl = document.createElementNS('http://www.w3.org/2000/svg','text');
+yl.setAttribute('x',12); yl.setAttribute('y',H/2);
+yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','9');
+yl.setAttribute('fill','#444'); yl.setAttribute('transform',`rotate(-90,12,${H/2})`);
+yl.textContent = 'Energy';
+svg.appendChild(yl);
+
+// Curves — pop/rock (structured, varied)
+const popCurves = [
+  [.08,.12,.20,.38,.32,.58,.72,.68,.42,.62,.76,.72,.65,.52,.38,.18],
+  [.05,.10,.22,.32,.36,.62,.66,.56,.44,.66,.71,.69,.61,.46,.34,.14],
+  [.18,.28,.34,.64,.54,.72,.76,.62,.54,.72,.79,.73,.61,.51,.40,.24],
+  [.14,.24,.28,.58,.48,.66,.70,.60,.48,.63,.74,.69,.57,.44,.34,.19],
+];
+// Ambient/classical (flat, long)
+const ambCurves = [
+  [.28,.30,.32,.35,.37,.40,.42,.45,.48,.50,.52,.50,.46,.42,.37,.30],
+  [.22,.25,.27,.30,.32,.35,.37,.40,.43,.40,.38,.36,.33,.29,.26,.23],
+];
+// Build/drop (dramatic, EDM-like)
+const dropCurves = [
+  [.05,.08,.55,.72,.48,.82,.88,.38,.60,.84,.90,.52,.72,.87,.62,.28],
+  [.10,.14,.50,.68,.44,.78,.84,.36,.58,.80,.87,.50,.70,.82,.58,.24],
+];
+
+function drawCurves(curvesArr, color) {
+  curvesArr.forEach(pts => {
+    let d = '';
+    pts.forEach((v,i) => {
+      const x = PAD + i*xStep;
+      const y = (H-45)*(1-v)+20;
+      d += (i===0?'M':'L')+`${x.toFixed(1)},${y.toFixed(1)} `;
+    });
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d);
+    path.setAttribute('stroke',color);
+    path.setAttribute('stroke-width','1.5');
+    path.setAttribute('fill','none');
+    svg.appendChild(path);
+  });
+}
+
+drawCurves(popCurves,  '#4a9eff55');
+drawCurves(ambCurves,  '#4ab8a855');
+drawCurves(dropCurves, '#e8605a66');
+
+// Annotation: problem bracket
+const br = document.createElementNS('http://www.w3.org/2000/svg','rect');
+const bx = PAD + 7*xStep - 8;
+br.setAttribute('x', bx); br.setAttribute('y', 18);
+br.setAttribute('width', 20); br.setAttribute('height', H-43);
+br.setAttribute('fill','#ffffff08'); br.setAttribute('stroke','#ffffff18');
+br.setAttribute('stroke-width','1'); br.setAttribute('rx','2');
+svg.appendChild(br);
+
+const bt = document.createElementNS('http://www.w3.org/2000/svg','text');
+bt.setAttribute('x', PAD + 7*xStep + 14); bt.setAttribute('y', 30);
+bt.setAttribute('font-size','9'); bt.setAttribute('fill','#666');
+bt.textContent = '← seg 8: 1:30 in pop, 5:00 in ambient';
+svg.appendChild(bt);
+
+// Mini legend for PC
+[['#4a9eff','Pop / Rock'],['#e8605a','Build / Drop'],['#4ab8a8','Ambient / Classical']].forEach(([c,lbl],i) => {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('x', W-190); r.setAttribute('y', 22+i*16);
+  r.setAttribute('width',10); r.setAttribute('height',10); r.setAttribute('rx',2);
+  r.setAttribute('fill',c); r.setAttribute('opacity','0.7');
+  const t2 = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t2.setAttribute('x', W-175); t2.setAttribute('y', 31+i*16);
+  t2.setAttribute('font-size','9'); t2.setAttribute('fill','#666');
+  t2.textContent = lbl;
+  g.appendChild(r); g.appendChild(t2);
+  svg.appendChild(g);
+});
+</script>
+</body>
+</html>

@@ -75,6 +75,102 @@ However, we export and use the **non-fusion ONNX pathway**: each window is proce
 
 ---
 
+## Future direction: Per-section CLAP embeddings (structure-guided)
+
+### Motivation
+
+The tercile and temporal-spread algorithms are indirect proxies for song structure — they use
+energy as a stand-in for "this is a verse" or "this is a chorus." Once the structural
+classifier (MLP from `doc/sax_structure_learning.md`) produces reliable per-segment labels,
+we can be explicit: sample one CLAP window per detected section, centered within that
+section's run.
+
+### Data model
+
+Rather than one pooled embedding per track, store one embedding per detected structural
+section run in a separate table:
+
+```sql
+CREATE TABLE section_embeddings (
+    id INTEGER PRIMARY KEY,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    section_type TEXT NOT NULL,   -- 'I','V','P','C','B','O','E', or NULL for tercile fallback
+    position_start REAL NOT NULL, -- fractional position [0,1] in track
+    position_end   REAL NOT NULL,
+    confidence     REAL NOT NULL, -- MLP probability of the assigned label
+    embedding      BLOB NOT NULL  -- 512-dim float32 CLAP vector (sqlite-vec)
+);
+```
+
+A track with consolidated section runs `[I, V, C, V, C, B, O]` produces 7 rows. A track
+where MLP confidence is low falls back to the tercile/temporal-spread algorithm and stores
+3 rows with `section_type = NULL`.
+
+### Window placement
+
+For each consolidated section run (adjacent segments with the same label, after confidence
+filtering):
+
+- **Center the 10-second window** at the midpoint of the run.
+- If the run is shorter than 10 seconds, center within it and pad; if longer, center in the
+  densest (highest confidence) sub-segment.
+- Skip the first 5% and last 5% of any `Intro` or `Outro` run to avoid fade-in/fade-out
+  artifacts.
+
+### Query patterns
+
+**Whole-track similarity (current "sounds like"):**
+Reconstruct by averaging all section embeddings for a track, weighted by section duration.
+Equivalent to the current pooled embedding, but derived from structure-aware windows.
+
+**Section-specific similarity:**
+```sql
+-- "Find tracks whose chorus sounds like X"
+SELECT track_id, MIN(distance) AS best_chorus_distance
+FROM section_embeddings
+WHERE section_type = 'C'
+GROUP BY track_id
+ORDER BY best_chorus_distance;
+```
+
+**Cross-section queries:**
+"Find tracks whose verse sounds like this track's chorus" — query the verse embedding of all
+tracks against the chorus embedding of the seed. No mainstream music app exposes this.
+
+### Blending with tercile embeddings
+
+Since CLAP is cheap, both approaches can coexist:
+
+- **Structure-guided** (section_type IS NOT NULL): used for section-specific and
+  cross-section queries; also feeds the pooled whole-track embedding.
+- **Tercile fallback** (section_type IS NULL): always computed as a safety net; used when
+  MLP confidence is low or labels haven't been computed yet.
+
+A confidence-weighted blend: `α × structure_pooled + (1−α) × tercile_pooled` where α = mean
+label confidence across all section embeddings for the track. When the MLP is uncertain,
+tercile dominates; when confident, structure-guided dominates.
+
+### Pipeline dependency
+
+```
+audio_analysis  →  sax + repetition vector (waveform_labels)
+waveform_labels →  MLP structural classifier  →  section_type assignments
+section_types   →  CLAP pass  →  section_embeddings rows
+```
+
+CLAP becomes the final pass. For new tracks, tercile embeddings can be computed immediately;
+structure-guided embeddings are added once the MLP pass completes. The `section_embeddings`
+table can be populated incrementally without invalidating existing tercile rows.
+
+### Prerequisite
+
+Reliable MLP labels. At 51% overall accuracy (current D2 model, Downspiral-only training)
+this would degrade CLAP quality for ~half the library. Target: retrain on Genius-expanded
+dataset (400–600 labeled tracks) and validate Chorus recall ≥ 50% before switching
+structure-guided windows on by default.
+
+---
+
 ## Future direction: CLAP native fusion pathway
 
 The CLAP training code (`CLAP/src/laion_clap/training/data.py`) implements a 4-window fusion scheme:
