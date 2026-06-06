@@ -4,6 +4,22 @@ This document details user interface and layout improvements for playlist and sa
 
 ---
 
+## Implementation Status
+
+This page mixes shipped playlist infrastructure with UI ideas that still need design review.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Playlist storage and ordering | Implemented | `playlists` and `playlist_tracks` store ordered tracks, and backend playlist commands support reorder operations. |
+| Drag-to-reorder interface | Partially implemented | The data model and command surface support ordering. A dedicated polished drag/drop list flow still needs review against the current UI. |
+| Saved search smart auto-naming | Implemented | Filter-based naming is implemented in the saved-search flow. |
+| Energy wave sparkline | Need human review | The 128-bin waveform data exists, but no playlist-level stitched sparkline UI was found. |
+| Visual connection badges | Need human review | BPM/key data exists, but transition badge UI is still proposal material. |
+| Transition pathfinder optimizer | Need human review | Structural similarity data is emerging, but automatic playlist ordering has not been productized. |
+| Vibe-based recommendations | Need human review | Embeddings exist; a playlist recommendation surface was not found. |
+
+---
+
 ## 1. Drag-to-Reorder Interface
 - Implement an interactive drag-and-drop ordering interface in the Svelte 5 frontend.
 - Uses Svelte's native `animate:flip` and HTML5 Drag and Drop APIs to let users rearrange tracks manually.

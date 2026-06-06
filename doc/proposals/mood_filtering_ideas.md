@@ -8,6 +8,21 @@ Fuzzy logic treats mood membership as a matter of degree, which matches how we a
 
 ---
 
+## Current State
+
+Mood display and hard range filtering are shipped. The fuzzy/radar interaction model below remains a design proposal.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Mood radar display | Implemented | A reusable `MoodRadar` is used for read-only mood comparison surfaces. |
+| Mood range filtering | Implemented | The filter store and sidebar expose seven Essentia mood ranges with histogram-backed sliders. |
+| Interactive radar filtering | Need human review | Dragging radar vertices to drive filters was intentionally deferred in favor of sliders for filtering and radar for display. |
+| Fuzzy ranking / strictness | Need human review | The fuzzy score model is not part of the current filter path. Re-evaluate against current filter UX before implementing. |
+| Named mood profiles | Need human review | Saved-search infrastructure exists, but specialized mood profile presets/export are not implemented. |
+| Mood-match map coloring | Need human review | Map coloring exists for several dimensions; this specific target-profile overlay was not found. |
+
+---
+
 ## Fuzzy Filtering Model
 
 ### Membership functions
@@ -173,5 +188,5 @@ This refactor should happen before adding mood filter state, to avoid duplicatin
 ## Cross-References
 
 - **Map layouts** (`map_layouts.md`) — the radar target profile should drive the map's mood contour overlay simultaneously. When the user adjusts the radar in the sidebar, the matching density contour lights up on the mood layout in real time — the two UIs are two views of the same query.
-- **Saved searches** (`playlists_and_saved_searches.md`) — a named radar preset is a specialised saved search stored as `type: 'mood_profile'` in `query_json`. Presets appear as one-click sidebar shortcuts and can be used as track set inputs in the statistics page.
+- **Saved searches** (`playlist_view_enhancements.md`) — a named radar preset is a specialised saved search stored as `type: 'mood_profile'` in `query_json`. Presets appear as one-click sidebar shortcuts and can be used as track set inputs in the statistics page.
 - **Statistics page** (`statistics_page.md`) — the radar overlay on the statistics summary KPIs (mood centroid thumbnail) uses the same component, making the mood profile of any track set immediately comparable at a glance.

@@ -1,5 +1,18 @@
 # SAX Structure Learning — Model Options
 
+## Current State
+
+This document is a model-research backlog. The current app uses SAX/alignment/cluster analysis, but no production learned section-label model was found.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Hand-engineered SAX/structure features | Implemented | Energy-envelope SAX, alignment, and structure clustering are present in the app. |
+| Weak-label experiments | Active research | The Downspiral/lyrics workflow is useful evidence, but it is not a production dependency. |
+| GMM / contrastive / sequence-model options | Need human review | These are alternative research paths. Pick one deliberately before adding model code or schema. |
+| Production learned labels | Not implemented | No shipped classifier, model artifact, or inference path for learned section labels was found. |
+
+---
+
 ## Context
 
 The hand-tuned centroid approach (7 fixed (energy, repetition) centroids derived from 153

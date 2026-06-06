@@ -1,5 +1,18 @@
 # CLAP Window Selection — Research & Findings
 
+## Current State
+
+The adaptive window-selection algorithm described here is implemented in the CLAP embedding path.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Three independent CLAP windows with average pooling | Implemented | `run_clap_inference_pooled` computes independent windows and normalizes the pooled embedding. |
+| Adaptive tercile / temporal-spread selection | Implemented | `select_clap_window_pcts` selects representative windows using waveform-envelope variation. |
+| Order-insensitivity assumption | Implemented assumption | The exported non-fusion ONNX pathway processes windows independently, so pooled order does not matter. |
+| Per-section CLAP embeddings | Need human review | Structure data now exists, but the proposed `section_embeddings` table and section-specific CLAP query path are not implemented. |
+
+---
+
 ## Background
 
 CLAP embeddings are computed by running the audio encoder on a 10-second mel-spectrogram window. For tracks longer than 10 seconds we must choose which part(s) of the track to sample. The embedding quality — and therefore the accuracy of similarity search and semantic features — depends heavily on this choice.

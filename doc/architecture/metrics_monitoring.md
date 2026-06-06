@@ -4,6 +4,20 @@ To diagnose performance bottlenecks (e.g. analysis pass duration, llama-server l
 
 ---
 
+## Current State
+
+Metrics are partially implemented, but some names and UX details below are historical proposal text.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Separate metrics database | Implemented | The app uses a dedicated metrics database, currently represented in code as `metrics.db` rather than the proposed `telemetry.db` name. |
+| Pipeline metrics and system events | Implemented | Backend metrics commands and metrics database support pipeline timings and event records. |
+| Metrics inspector UI | Implemented | A developer-facing metrics inspector exists in the frontend. |
+| Resource snapshots | Need human review | The proposed periodic CPU/memory snapshot table was not found in the shipped path. |
+| Diagnostics export modal | Need human review | Export/approval UX remains proposal material unless a separate diagnostics flow is added later. |
+
+---
+
 ## 1. Objectives
 
 1. **Performance Profiling**: Measure execution latency for all pipeline passes (Audio Analysis, Essentia, Qwen, CLAP) to isolate slow segments (audio decoding vs. inference).
@@ -84,4 +98,3 @@ Instead of exposing a generic SQL query interface, the modal provides simple, ta
 
 ### 3. Verification & Export
 Once the user reviews the exact metrics and confirms that the log files are clean, they can click **"Approve & Export Diagnostics Zip"** to download the bundle.
-

@@ -13,6 +13,20 @@ Multiple named layouts, each computed from a different feature space, let the us
 
 ---
 
+## Current State
+
+The app now has several switchable projection modes, but not the full persisted layout-management model described later in this proposal.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Switchable map projection modes | Implemented | `MusicMap.svelte` and backend map commands support modes such as `sonic`, `description`, `hybrid`, `essentia`, `harmonic`, and `genre_wheel`. |
+| Animated transition between projections | Implemented | Position interpolation is part of the current map interaction model. |
+| Dynamic on-demand projection computation | Implemented | Projections are computed on demand rather than stored as named layout definitions. |
+| Persisted layout catalog | Need human review | The proposed `map_layouts` table, parameter serialization, and staleness logic are not implemented. Revisit only if dynamic projection recomputation becomes a real workflow problem. |
+| Idle-time precomputation and coordinate stabilizers | Need human review | These are plausible scaling ideas but were not found in the production path. |
+
+---
+
 ## Layouts
 
 ### Acoustic Similarity (current)
@@ -135,5 +149,5 @@ All layouts support the same colour modes and overlays (genre, BPM, Camelot, moo
 ## Cross-References
 
 - **Mood filtering / radar** (`mood_filtering_ideas.md`) — the mood layout is where contour overlays will look best, since input dimensions are clean 7-dim Essentia scores rather than opaque 512-dim embeddings. The radar target profile and the mood map overlay should update in sync.
-- **Playlists** (`playlists_and_saved_searches.md`) — rendering a playlist's tracks highlighted on the map reveals whether it is acoustically coherent (tight cluster) or diverse (scattered). Spatially adjacent unlabelled tracks become natural candidates to add to the playlist.
+- **Playlists** (`playlist_view_enhancements.md`) — rendering a playlist's tracks highlighted on the map reveals whether it is acoustically coherent (tight cluster) or diverse (scattered). Spatially adjacent unlabelled tracks become natural candidates to add to the playlist.
 - **Compact embedding** (`private/acousticbrainz-exploration.md`) — a bottleneck network trained on CLAP + Essentia + Qwen2 data would be a superior input for the hybrid layout, learning the optimal feature weighting rather than relying on user-tuned sliders over concatenated raw spaces.

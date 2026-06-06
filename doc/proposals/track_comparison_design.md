@@ -4,6 +4,19 @@ This document explores the design tradeoffs and UI/UX paradigms for comparing tr
 
 ---
 
+## Current State
+
+This is still primarily a design brainstorm. The structural analysis substrate exists, but a dedicated track-comparison workflow has not been found in the app.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Structural analysis data | Partially implemented | SAX strings, alignment data, and structure clusters are available in the backend and surfaced in several existing views. |
+| Structural block timeline | Need human review | The mockup in `track-comparison-mockup.png` documents the intended direction, but no dedicated comparison page/panel was found. |
+| Deep-focus comparison deck | Need human review | Synchronized playback, crossfader, and section connector UI remain proposal material. |
+| Cohort comparison workflow | Need human review | Existing track lists and structure filters provide adjacent building blocks, but the comparison dock/grid workflow is not implemented. |
+
+---
+
 ## The Core Dilemma: Deep Focus vs. Cohort Analysis
 
 How we design the track comparison UI depends heavily on the scale of tracks being compared:

@@ -29,6 +29,8 @@ A docs skill would help future agents decide whether to:
 5. Keep collaboration `session.md` files as working logs unless the user asks for summarization.
 6. After moving docs, update relative links and run a local link check.
 7. When implementation differs from the proposal, add an "Implemented outcome" note rather than deleting the old rationale.
+8. For partially implemented proposal docs, prefer a compact per-area status table near the top over splitting into `*_implemented.md` files. Splitting loses context and creates a synchronization burden; the table makes mixed lifecycle state visible without rewriting the brainstorm.
+9. Use `superseded` only when code or git history shows the design was replaced or removed. Use `need-human-review` for ideas that are merely unfinished or strategically ambiguous.
 
 ## Recommended Doc Shapes
 
@@ -77,3 +79,5 @@ Research docs:
 - The riskiest docs are broad roadmap matrices that imply priority from excitement scores. These should stay `need-human-review` until Roberto explicitly picks them up.
 - SAX/structure docs are valuable but dense. They probably need a single current architecture summary plus separate historical experiment logs.
 - Map and playlist proposals are plausible, but several ideas are UI-heavy and can easily expand the app surface area faster than the core library-management loop. A docs skill should ask for acceptance criteria before implementation.
+- The best status unit is usually a feature slice, not a document. A single proposal can contain implemented storage, partially implemented backend commands, and unimplemented UI. Future agents should update the status table instead of treating the whole document as one lifecycle state.
+- Status evidence should point to durable code areas or migrations, not just current filenames when possible. Component names are useful, but migrations and command modules make stronger anchors for backend state.

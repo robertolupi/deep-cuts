@@ -4,6 +4,20 @@ This document provides a comparative analysis of the 5 proposed features we brai
 
 ---
 
+## Current Implementation Snapshot
+
+This document is a feasibility brainstorm, not a commitment list. Several items were implemented differently from the original sketch, so use this table before treating an older section as current design.
+
+| Feature Area | Current Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Two-Stage Structural Search | Partially implemented | SAX extraction, alignment, alignment segments, structure clusters, and structure filtering exist. The specific sqlite-vec waveform table and full block-query UI are still research/proposal material. |
+| Spectral Map Projections | Partially implemented | Multiple dynamic projection modes are available from the frontend and backend. The proposed persisted multi-layout schema, staleness tracking, and parameter serialization are not implemented. |
+| Mastering Style Auto-Tagging | Implemented | Implemented in the audio analysis pass and stored as `mastering:*` tags rather than a dedicated column. |
+| Playlist Drag-to-Reorder & Visualizer UI | Partially implemented | Playlist schema, commands, position storage, and saved-search naming exist. Dedicated drag/drop polish and transition visualizer ideas still need review. |
+| Vibe-Based Playlist Recommendations | Need human review | Embedding sources exist, but no dedicated recommendations workflow was found. Re-evaluate product fit before implementation. |
+
+---
+
 ## 📊 Summary Comparison Matrix
 
 | Feature Area | Complexity | DB Changes? | UI Responsiveness (60fps?) | Sizing (Est.) | Status |

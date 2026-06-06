@@ -1,5 +1,19 @@
 # SAX Structural Search — Design & Experiments
 
+## Current State
+
+This is active research with several supporting pieces now in production. Treat the UI and model-training sections as design input, not as the current app contract.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| SAX and alignment substrate | Implemented | The app stores SAX strings plus alignment/segment data used by structure views and filters. |
+| Structure clusters | Implemented | Cluster analysis and cluster-based filtering/coloring are present. |
+| Nearest-neighbour sequence matching | Partially implemented | The codebase has structure-alignment machinery, but the full visual query workflow described here is not a shipped feature. |
+| Visual block composer | Need human review | No dedicated composer UI was found. Re-evaluate after the current structure-cluster UX settles. |
+| Learned section labels / Viterbi flow | Need human review | These ideas belong with `sax_structure_learning.md` until there is an approved model path. |
+
+---
+
 ## Goal
 
 A visual block composer UI that lets users search the library by song architecture ("find tracks with a quiet intro, then a chorus, then a drop") without writing regex. The user composes a named-block sequence; the backend finds tracks whose structural arc best matches it.

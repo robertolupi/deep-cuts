@@ -4,6 +4,20 @@ This document outlines the design for allowing users to manually edit track meta
 
 ---
 
+## Current State
+
+This proposal is partially implemented, but the shipped shape is narrower than the full override design below.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| User tag additions | Implemented | The app supports user-managed tags in the library command/UI path. |
+| Automatic tag suppression/discard | Implemented | Tag metadata includes discard state, and the UI can hide or suppress unwanted automatic tags. |
+| Metadata override tables | Partially implemented | Later migrations added user-tag and suppression support, but the broad `user_track_overrides`/`COALESCE` field override design is not fully shipped. |
+| Manual editing of core fields | Need human review | Title, artist, BPM, key, description, and other field-level overrides need review against the current scanner and sidecar model before implementation. |
+| Sidecar round-trip for overrides | Need human review | Sidecar support exists for analysis metadata, but override-specific sync should be revalidated before relying on this design. |
+
+---
+
 ## 1. The Challenge
 
 1. **Scanner Upserts**: The file scanner reads tags from files and writes/updates the `tracks` table directly via `upsert_tracks_transactional` (which runs `ON CONFLICT(path) DO UPDATE SET...`). Any full rescan or automatic file update will overwrite manual changes made to the `tracks` table.

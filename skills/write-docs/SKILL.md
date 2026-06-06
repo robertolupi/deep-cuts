@@ -29,6 +29,8 @@ Use the current folders consistently:
 
 When a doc mixes categories, prefer preserving it and adding status/context over splitting it immediately.
 
+For partially implemented docs, classify at the smallest useful feature slice. A single proposal can contain implemented storage, partially implemented backend commands, and unimplemented UI. Prefer a compact status table near the top over creating parallel `*_implemented.md` files.
+
 ## Lifecycle Status
 
 Use these statuses from `doc/README.md`:
@@ -104,6 +106,7 @@ Many docs are intentionally exploratory. Preserve useful history, but make curre
 - Add a "Current State" or "Status" section when a doc still matters.
 - Add "Implemented outcome" when code diverged from the original proposal.
 - Add "Superseded by" when another doc or implementation replaced the idea.
+- Use `superseded` only when code or git history shows replacement/removal; use `need-human-review` for unfinished or strategically ambiguous ideas.
 - Leave broad roadmap matrices as `need-human-review` unless Roberto explicitly promotes them.
 - If you have product-fit or feasibility concerns, add them as clearly labeled notes, not as hidden rewrites.
 

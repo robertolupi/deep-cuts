@@ -1,5 +1,19 @@
 # SAX-Based Track Structure Analysis
 
+## Current State
+
+SAX moved from experiment into the app, but several early schema and query ideas were superseded by later structure-cluster work.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Waveform SAX extraction | Implemented | The app stores and computes SAX strings from waveform envelopes. |
+| SAX alignment and segment storage | Implemented | Later migrations added alignment and alignment-segment tables used by structure views and filters. |
+| Structure clusters | Implemented | Structure cluster analysis and UI/filter integration are present. |
+| `waveform_fingerprint` column | Superseded | A later migration drops this field; treat fingerprint-specific sections as historical unless revived. |
+| Two-stage structural search | Partially implemented | The data substrate exists, but block sketch/query and full blended DTW+CLAP search UX remain design/research material. |
+
+---
+
 ## Background
 
 SAX (Symbolic Aggregate approXimation, Lin et al. 2003) converts a time series into a short string over a small alphabet by:

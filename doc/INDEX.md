@@ -50,14 +50,14 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 |---|---|---:|---|
 | [feature_feasibility_analysis.md](proposals/feature_feasibility_analysis.md) | need-human-review | High | Mixed matrix: one item marked done, others still proposals. Good candidate for phase-2 split into implemented notes vs backlog. |
 | [library_maintenance_utilities.md](proposals/library_maintenance_utilities.md) | need-human-review | Medium | Short brainstorm; unclear commitment or implementation status. |
-| [map_layouts.md](proposals/map_layouts.md) | need-human-review | Medium | Some map layout code exists, but doc contains broader layout/product concepts and one stale link to `playlists_and_saved_searches.md`. Product fit and scope need review. |
+| [map_layouts.md](proposals/map_layouts.md) | partially-implemented | High | Projection modes and transitions are implemented; persisted layout catalog, staleness tracking, and coordinate-stability ideas still need review. |
 | [mood_filtering_ideas.md](proposals/mood_filtering_ideas.md) | partially-implemented | Medium | Mood filter/radar UI exists, but fuzzy ranking/radar interaction details should be reviewed against current UX. |
 | [music_map_improvements.md](proposals/music_map_improvements.md) | need-human-review | Medium | Map improvements are plausible but mixed with expensive projection/outlier ideas. Feasibility should be reconsidered against current code and performance. |
-| [playlist_view_enhancements.md](proposals/playlist_view_enhancements.md) | need-human-review | High | Playlist schema exists, but most UI/optimizer/recommendation ideas are wishlist-level. |
+| [playlist_view_enhancements.md](proposals/playlist_view_enhancements.md) | partially-implemented | High | Playlist ordering and saved-search naming exist; drag UI polish, transition visualizer, optimizer, and recommendation ideas still need review. |
 | [roadmap_ideas.md](proposals/roadmap_ideas.md) | need-human-review | High | Explicitly deferred/wishful brainstorming. Keep as backlog source, not commitment. |
 | [semantic_feature_brainstorm.md](proposals/semantic_feature_brainstorm.md) | need-human-review | High | Central brainstorm with phased roadmap language; should not drive implementation without human review. |
 | [track_comparison_design.md](proposals/track_comparison_design.md) | need-human-review | Medium | Design brainstorm; some supporting primitives exist, but no clear current implementation commitment. |
-| [user_edit_song.md](proposals/user_edit_song.md) | need-human-review | High | Manual override schema/UX proposal; no clear implemented migration path in current schema. |
+| [user_edit_song.md](proposals/user_edit_song.md) | partially-implemented | High | User tags and automatic tag suppression exist; broad field-level metadata override schema/UX remains unimplemented proposal material. |
 
 ## Model Evaluation / External Research
 
