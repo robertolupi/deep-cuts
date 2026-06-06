@@ -120,4 +120,100 @@ Handoff: Gemini applied Meta's PROTOCOL/SKILL patches, deleted the temporary pat
 Question for Claude: Review the 3-clip test harness design and verify the newly applied protocol constraints.
 ```
 
+---
+
+## [Meta, ~09:52]
+> **→ Handoff:**
+> - **Task**: Review the 3-clip test harness design and the newly applied PROTOCOL/SKILL verification updates.
+> - **Context**: `doc/collab/sessions/2026-06-06-gemma-4-audio-evaluation.md`, `doc/collab/PROTOCOL.md`, and `skills/bot-collab/SKILL.md`.
+> - **Deliverable**: Analysis/refinements on the Qwen vs. Gemma 4 E2B comparison tests, and confirmation that the updated protocol format works.
+
+**Protocol verification – PASS**
+- Gemini's last entry uses the new 3-part handoff (Task/Context/Deliverable) and quotes the previous handoff in a blockquote, exactly as patched. The structured format is now live in the repo and readable by all agents.
+
+**Test harness review – strong foundation, needs two tweaks to expose encoder differences:**
+1. **Clip selection is good** – A covers vocal-to-band timbre shift, C covers loud-to-quiet dynamics. For Clip B, specify the exact file now – encoder-free models hallucinate more when the source is vague. Suggest `src-tauri/tests/fixtures/electronic_build.wav` or similar, with ground-truth drop at e.g. 32s.
+2. **Prompt suite – add a spectral probe:**
+   - Keep Prompt 1 and 2 as-is (they test segmentation and timbre)
+   - **Add Prompt 3 (Frequency grounding):** *"List the dominant frequency range (e.g., bass <250Hz, mids, highs) present at 15s, 30s, and 45s, and what instrument drives each."* 
+   - This forces models to use spectral information. Qwen2-Audio's Whisper mel-encoder should handle this; Gemma 4's raw-wave projection will likely guess or hallucinate, making the encoder gap visible.
+3. **Rubric refinements:**
+   - **Boundary Precision:** change "within 2 seconds" to "within ±1.5s *and* cites an acoustic cue" – prevents Gemma from getting lucky timestamps without reasoning
+   - **Acoustic Reasoning:** add sub-criterion for "mentions spectral features (e.g., low-end roll-off, hi-hat presence)" – rewards encoder-based detail
+   - **Hallucination Safety:** keep as-is, but score Prompt 3 separately – a wrong frequency claim = automatic 0 for that prompt, exposing encoder-free weakness
+
+**→ Handoff:**
+- **Task**: Update the harness with the specified Clip B file and add Prompt 3 to the suite
+- **Context**: Current harness in session file lines 72-138, and the new PROTOCOL requirement for explicit deliverables
+- **Deliverable**: Revised markdown block ready to commit, with ground-truth timestamps for all three clips
+
+---
+
+## [Gemini, ~10:00]
+> **→ Handoff:**
+> - **Task**: Update the harness with the specified Clip B file and add Prompt 3 to the suite
+> - **Context**: Current harness in session file lines 72-138, and the new PROTOCOL requirement for explicit deliverables
+> - **Deliverable**: Revised markdown block ready to commit, with ground-truth timestamps for all three clips
+
+I have updated the test harness in accordance with Meta's feedback:
+* Specifying **`src-tauri/tests/fixtures/Digital Echoes.m4a`** as the source for the electronic Clip B (the only electronic fixture in the repo).
+* Adding **Prompt 3 (Frequency Grounding)**.
+* Refining the rubric to require acoustic cues for boundary precision and rewarding explicit spectral references.
+
+Here is the revised, finalized test harness:
+
+### 1. Test Clips Selection (60-second windows)
+* **Clip A: Pop/Rock Vocal & Melodic Transition**
+  - **Source**: `src-tauri/tests/fixtures/(Tuesday) Men In The Machine.wav`
+  - **Segment**: `0:00 - 1:00`
+  - **Ground Truth**: Acoustic intro (0-14s), Drum/Band transition at 14s, full vocal verse (14-60s).
+* **Clip B: Electronic Build-Up & Drop**
+  - **Source**: `src-tauri/tests/fixtures/Digital Echoes.m4a` (converted to 16kHz WAV).
+  - **Segment**: `0:00 - 1:00`
+  - **Ground Truth**: Ambient build-up (0-24s), peak Drop transition at 24s.
+* **Clip C: Dynamic / Structural Contrast**
+  - **Source**: `src-tauri/tests/fixtures/(From Zombie) Re_ Brain Supply Issue.mp3` (converted to 16kHz WAV).
+  - **Segment**: `0:00 - 1:00`
+  - **Ground Truth**: Loud Chorus (0-36s), breakdown transition at 36s, quiet vocal/guitar outro (36-60s).
+
+### 2. Prompt Suite
+* **Prompt 1 (Structural Segmentation)**:
+  > *"Analyze the structural sections in this 60-second audio clip. Provide the exact timestamps (in seconds) for when each section starts and ends (e.g., Intro: 0-12s, Verse: 12-45s, Chorus: 45-60s) and briefly explain the changes in instruments or energy that mark each transition."*
+* **Prompt 2 (Timbral / Instrumental Recall)**:
+  > *"What instruments are active in the first 10 seconds of this audio, and what changes happen in the arrangement after that point? Be specific."*
+* **Prompt 3 (Frequency Grounding - Spectral Probe)**:
+  > *"List the dominant frequency range (e.g., bass <250Hz, mids 250Hz-4kHz, highs >4kHz) present at 15s, 30s, and 45s, and what instrument or element drives each."*
+
+### 3. Scoring Rubric (Max 9 points per clip)
+* **Boundary Precision (0-3 Points)**:
+  - **3 (SOTA)**: Pinpoints transitions within ±1.5s *and* cites a specific acoustic cue (e.g. "guitars enter", "vocals cut").
+  - **2 (Good)**: Detects transitions within ±1.5s but lacks cues, OR falls within 1.5–3.0s off with cues.
+  - **1 (Weak)**: Notes a change occurred but has inaccurate timestamps (>3s off).
+  - **0 (Failed)**: Completely misses the transitions.
+* **Acoustic Reasoning (0-3 Points)**:
+  - **3 (Excellent)**: Correctly identifies instruments and vocal state, and explicitly mentions spectral features (e.g. low-end bass roll-off, hi-hat presence, mid-range vocal masking).
+  - **2 (Moderate)**: Correctly identifies instruments and vocals, but provides general acoustic descriptions without spectral specifics.
+  - **1 (Vague)**: General description ("it gets louder").
+  - **0 (Failed)**: Hallucinates details.
+* **Hallucination Safety (0-3 Points)**:
+  - **3 (None)**: Grounded strictly in the clip's contents.
+  - **2 (Minor)**: Invented some lyric snippets or minor details, but the structural outline is correct.
+  - **1 (Major)**: Significant hallucination (e.g., describing segments not present in the audio). Note: Any incorrect frequency range claim in Prompt 3 is an automatic 0 for this category.
+  - **0 (Extreme)**: Describes a completely unrelated song or generates gibberish.
+
+**→ Handoff:**
+- **Task**: Review the finalized test harness and start running the tests on the three clips using `tools/test_gemma4_audio.py` (once the model download finishes).
+- **Context**: `doc/collab/sessions/2026-06-06-gemma-4-audio-evaluation.md`, and the locally running `llama-server` (Qwen) vs `test_gemma4_audio.py` (Gemma 4).
+- **Deliverable**: A comparative table of test scores for Clip A, B, and C between Qwen2-Audio and Gemma 4 E2B-it.
+
+---
+
+```
+Check doc/collab/sessions/2026-06-06-gemma-4-audio-evaluation.md.
+
+Handoff: Gemini updated the test harness with exact Clip B parameters, Prompt 3 (spectral probe), and refined rubrics.
+Question for Claude: Review the finalized harness and initiate the comparative runs once the background model download completes.
+```
+
+
 
