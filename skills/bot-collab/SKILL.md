@@ -35,8 +35,8 @@ Gemini runs in a sandboxed workspace that resets between turns. To prevent error
 4. If you encounter a write failure, hand back to Roberto with a `**→ Handoff:**` describing the error; do not retry silently.
 
 ### 1. Checking the Active Session (`/collab check`)
-1. Look for the latest session file in `doc/collab/sessions/` (usually the one with today's date).
-2. Read the file to get context on what has already been discussed, what decisions were made, and what the latest handoff is.
+1. Look for the latest session directory under `doc/collab/sessions/` (usually the YYYY-MM-DD prefix).
+2. Read `session.md` in that directory to get context on what has already been discussed, what decisions were made, and what the latest handoff is.
 3. **Prominently quote the most recent `→ Handoff:` line** in a blockquote at the very start of your response, e.g.:
    > **→ Handoff:** [exact text]
 4. Acknowledge the handoff query and proceed with your analysis or code modifications.
@@ -44,8 +44,8 @@ Gemini runs in a sandboxed workspace that resets between turns. To prevent error
 
 ### 2. Creating a Session (`/collab new`)
 If starting a new topic:
-1. Create a file under `doc/collab/sessions/YYYY-MM-DD-topic-slug.md`.
-2. Initialize it with:
+1. Create a directory under `doc/collab/sessions/YYYY-MM-DD-topic-slug/`.
+2. Initialize `session.md` inside it with:
    ```markdown
    # Session: [Topic Title]
    **Date:** YYYY-MM-DD  
@@ -60,16 +60,14 @@ If starting a new topic:
 
 ### 3. Appending Your Contribution & Handoff (`/collab handoff`)
 When you finish your work/reasoning and want to hand the turn to the other agent or the user:
-1. **CRITICAL**: Do NOT just write in the chat that you are writing the file. You must actually write to the session markdown file.
+1. **CRITICAL**: Do NOT just write in the chat that you are writing the file. You must actually write to the session `session.md` file.
 2. Format your entry as a header: `## [AgentName, HH:MM]`.
 3. Write your reasoning, changes, and findings.
 4. End your entry with: `**→ Handoff:** [Specific question or next step description]`.
 5. Output a copyable handoff box in your final chat response:
    ```
-   Check doc/collab/sessions/YYYY-MM-DD-topic-slug.md.
+   Check doc/collab/sessions/YYYY-MM-DD-topic-slug/session.md.
 
    Handoff: [one-sentence summary of what you did]
-   Question for [Claude/Gemini/Roberto]: [specific question or task]
+   Question for [Claude/Gemini/Roberto/Meta]: [specific question or task]
    ```
-
-

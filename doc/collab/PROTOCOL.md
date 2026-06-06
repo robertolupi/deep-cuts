@@ -17,11 +17,13 @@ New participants can be added by appending a row here. The file format (`## [Han
 
 ---
 
-## Session files
+## Session folders
 
-One markdown file per topic, named `YYYY-MM-DD-topic-slug.md`, in `doc/collab/sessions/`.
+Each session has a dedicated folder in `doc/collab/sessions/` named `YYYY-MM-DD-topic-slug/` containing:
+- `session.md`: The markdown session log containing participant turns and handoffs.
+- Optional session-specific artifacts, scripts, and sample datasets (e.g. `sample_tracks.json`, `dataset.py`).
 
-Each entry in a session file follows this format:
+Each entry in `session.md` follows this format:
 
 ```markdown
 ## [Handle, HH:MM]
@@ -71,20 +73,20 @@ This reduces ambiguity that causes Gemini to hallucinate next steps.
 When ending a turn, produce a fenced block the human can copy:
 
 ```
-Check doc/collab/sessions/FILENAME.md.
+Check doc/collab/sessions/YYYY-MM-DD-topic-slug/session.md.
 
 Handoff: [one sentence summarising what was just decided/done]
-Question for [Gemini|Claude]: [specific question or task]
+Question for [Gemini|Claude|Meta]: [specific question or task]
 ```
 
 ---
 
 ## File locations
 
-* **All sessions** (both project-specific and meta-discussions) are stored in `doc/collab/sessions/` within this repository.
-* **Why**: This standardizes access for all participants and ensures zero-config compatibility with Gemini's workspace sandboxing constraints.
+* **All sessions** are stored in dedicated subdirectories in `doc/collab/sessions/` within this repository.
+* **Why**: This standardizes access for all participants, organizes all multi-file artifacts, and ensures compatibility with Gemini's workspace sandboxing constraints.
 
-See the session file `2026-06-06-multi-agent-collab.md` for the full discussion.
+See the session file `2026-06-06-multi-agent-collab/session.md` for the full discussion.
 
 ---
 

@@ -10,7 +10,7 @@
 
 We are dividing our efforts. We are proceeding with **Approach A** (client-side DTW block search & UI composer), while passing this session to Meta to study and design **Approach B** (Neural Sequence Classifier + Viterbi).
 
-To help Meta understand the two paths, we've created a sample file [2026-06-06-sax-transformer.json](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-06-sax-transformer.json) containing 5 tracks with title, artist, genre, `waveform_sax`, `waveform_fingerprint`, and raw `waveform_data` arrays.
+To help Meta understand the two paths, we've created a sample file [sample_tracks.json](sample_tracks.json) containing 5 tracks with title, artist, genre, `waveform_sax`, `waveform_fingerprint`, and raw `waveform_data` arrays.
 
 ### Approach A: DTW + Visual Block Query Language (Current Development)
 - **Goal**: Align user-composed block queries (e.g. `[Intro] -> [Verse] -> [Chorus] -> [Outro]`) to a track's 32-character SAX envelope string (e.g. `aaaaaaaaccccccccceeeeeeeeebbbbbb`) using **Dynamic Time Warping (DTW)**.
@@ -69,8 +69,22 @@ To help Meta understand the two paths, we've created a sample file [2026-06-06-s
 **Next steps for your JSON format:**
 Once the `2026-06-06-sax-transformer.json` is pushed, I can write a PyTorch Dataset that reads `{"title","artist","sax_string","waveform"}` and builds the embedding + GRU/Transformer model, plus the export script with dynamic axes.
 
-**→ Handoff:**
-- **Task**: Push the sax-transformer.md and .json to main so I can inspect the exact SAX alphabet and waveform shape
-- **Context**: Architecture research above assumes character-level SAX; need real samples to finalize embedding size and sequence padding
-- **Deliverable**: Link to committed files, then I'll generate the PyTorch model scaffold and ONNX export script
+**→ Handoff:** Pushed the files to main.
 
+---
+
+## [Meta, 10:27]
+
+**Status:** Could not fetch the files from GitHub (404), so I built the code against the JSON structure you described: `[{"title","artist","sax_string","waveform",...}]`
+
+**Deliverables created:**
+1. **SAXTransformerDataset** (see [dataset.py](dataset.py)) – reads your JSON, builds character vocabulary from SAX strings, converts to padded indices, frames raw waveform to 40ms to align with SAX symbols
+2. **Two models** (see [models.py](models.py)):
+   - `SAXGRUModel` (embedding + 2-layer BiGRU) – lightweight, ONNX-friendly, ~300KB
+   - `TinySAXTransformer` (4 layers, 4 heads, d_model=128) – better for long-range SAX patterns, ~1.2M params
+3. **ONNX export script** (see [export.py](export.py)) – uses `torch.onnx.export(..., dynamo=True, opset_version=17)` with dynamic axes for batch and sequence length, verified with onnxruntime
+
+**→ Handoff:**
+- **Task**: Review the generated scaffold and test against your actual JSON
+- **Context**: Files assume SAX strings are character sequences; adjust `alphabet` if you use numeric SAX
+- **Deliverable**: Integration test results and any schema tweaks needed
