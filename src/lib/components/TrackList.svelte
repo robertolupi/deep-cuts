@@ -133,17 +133,27 @@
                   {#if track.waveform_data}
                     {@const bars = waveformBarsFromJson(track.waveform_data)}
                     {@const peak = Math.max(...bars, 1e-6)}
+                    {@const segments = track.sax_alignment_segments?.split(',') ?? []}
                     {@const sax = track.waveform_sax ?? ''}
                     {#if bars.length > 0}
                       <div class="mini-waveform">
                         {#each bars as energy, i}
                           {@const norm = energy / peak}
-                          {@const saxIdx = Math.min(Math.floor((i * 3) / 4), sax.length - 1)}
-                          {@const letter = sax[saxIdx] ?? ''}
-                          <div
-                             class="waveform-bar"
-                             style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35}; {letter ? `background: var(--sax-${letter});` : ''}"
-                          ></div>
+                          {#if segments.length > 0}
+                            {@const segIdx = Math.min(Math.floor(i * segments.length / bars.length), segments.length - 1)}
+                            {@const label = segments[segIdx] ?? 'unknown'}
+                            <div
+                               class="waveform-bar"
+                               style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35}; background: var(--label-{label});"
+                            ></div>
+                          {:else}
+                            {@const saxIdx = Math.min(Math.floor((i * 3) / 4), sax.length - 1)}
+                            {@const letter = sax[saxIdx] ?? ''}
+                            <div
+                               class="waveform-bar"
+                               style="height: {Math.max(2, Math.round(norm * 20))}px; opacity: {norm * 0.65 + 0.35}; {letter ? `background: var(--sax-${letter});` : ''}"
+                            ></div>
+                          {/if}
                         {/each}
                       </div>
                     {:else}

@@ -35,6 +35,8 @@ export interface Track {
   waveform_data: string | null;
   waveform_sax: string | null;
   waveform_fingerprint: string | null;
+  sax_alignment: string | null;
+  sax_alignment_segments: string | null;
   key: string | null;
   scale: string | null;
   key_strength: number | null;

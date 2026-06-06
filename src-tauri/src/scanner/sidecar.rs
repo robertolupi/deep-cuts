@@ -14,6 +14,7 @@ pub mod pass_version {
     pub const QWEN: u32 = 6;
     pub const DESCRIPTION_EMBED: u32 = 1;
     pub const SAX: u32 = 2; // v2: adds waveform_fingerprint
+    pub const SAX_ALIGNMENT: u32 = 3; // v3: alphabet form (IVPCBO…) replaces human-readable string
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

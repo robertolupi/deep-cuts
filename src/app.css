@@ -45,6 +45,16 @@
   --sg-glow-secondary:       0 0 20px rgba(254, 0, 254, 0.30);
   --sg-glow-card:            0 8px 32px rgba(0, 0, 0, 0.37);
 
+  /* — Structural alignment label colors — */
+  --label-intro:       #5b8dd9;
+  --label-verse:       #4db89a;
+  --label-pre-chorus:  #7ecfb0;
+  --label-chorus:      #f0a030;
+  --label-bridge:      #b07fd4;
+  --label-outro:       #6b7fa8;
+  --label-end:         #3d4050;
+  --label-unknown:     #5a5a6a;
+
   /* — Ambient radial gradient — */
   --sg-ambient-bg:
     radial-gradient(at 10% 10%, rgba(0, 240, 255, 0.06) 0px, transparent 50%),

@@ -209,6 +209,94 @@ Incorporated refinement logic based on user feedback:
 - **Context**: [viterbi_alignment_explorer.py](file:///Users/rlupi/src/deep-cuts/tools/viterbi_alignment_explorer.py) and the session outputs.
 - **Deliverable**: Rust-side alignment code and Tauri integration.
 
+---
 
+## [Claude, 12:05]
 
+Implemented the `sax_alignment` analysis pass in Rust. All 137 tests pass.
 
+### Deliverables
+
+**DB migration** — `src-tauri/migrations/26_sax_alignment.sql` adds `sax_alignment TEXT` column to `tracks`. Registered in `database.rs` and the `Track` struct updated with `pub sax_alignment: Option<String>` at index 51.
+
+**Pass version constant** — `pass_version::SAX_ALIGNMENT = 1` added to `scanner/sidecar.rs`. The sidecar is fully dynamic (backed by PASS_REGISTRY), so no further sidecar wiring is needed.
+
+**Analysis pass** — `src-tauri/src/analysis/sax_alignment.rs`:
+- **Input**: `waveform_sax` (32-char SAX string, already produced by the `sax` pass at priority 12)
+- **Algorithm**: downsamples 32→16 segments by averaging pairs, builds emission probabilities from a Gaussian energy model per label, runs Viterbi with a music-aware transition matrix (calibrated from Meta's recommendations), post-processes leading/trailing `unknown` → `intro`/`outro`, then compacts runs with Pratchett troll counting
+- **Output**: compact label string stored in `sax_alignment`, e.g. `intro2 ➔ verse* ➔ chorus ➔ bridge3 ➔ outro`
+- **Priority**: 13 (immediately after `sax` at 12), dependency: `["sax"]`
+
+**Transition matrix highlights** (from Meta's calibration):
+- Intro→Verse: 0.45, Verse→Pre-Chorus: 0.30, Pre-Chorus→Chorus: 0.70
+- Chorus→Bridge: 0.15, Bridge→Chorus: 0.55
+- Outro→End: 0.35; backwards jumps (Chorus→Intro) remain at smoothing floor (0.02)
+- All rows row-normalised
+
+**Pipeline registration** — `sax_alignment::SaxAlignmentPass::SPEC` added to `PASS_REGISTRY` in `mod.rs`; Phase 1d inserted between SAX encoding and CLAP.
+
+### Notes on the ONNX upgrade path
+
+The current pass derives emission probabilities purely from SAX energy (no ONNX model). When `models/sax_sequence_tagger.onnx` is bundled as a Tauri sidecar:
+1. Load it once at startup via `ort::Session`
+2. Build the `16 × 3` feature matrix: `[energy, rep_score, position]` per segment (rep_score requires SSM computation, not yet in pipeline)
+3. Replace the `emission()` calls in `execute_job` with ONNX inference output → feed the resulting `16 × 8` probability matrix directly into `viterbi()`
+4. The transition matrix and compact/post-processing logic remain unchanged
+
+**→ Handoff:** Ready for Approach A/B integration — `sax_alignment` field is now available on every `Track` struct for use in the DTW block query UI or any new search pass.
+
+---
+
+## [Claude, continued — UI integration & structural alphabet]
+
+Continued from the above implementation. This section covers the follow-on UI work, a key data modelling insight, and a research direction.
+
+### UI: structural coloring
+
+Added `sax_alignment_segments` (DB migration 27) alongside `sax_alignment`. The segments column stores a comma-separated 16-label string (e.g. `"intro,intro,verse,verse,chorus,outro"`) for per-pixel waveform coloring. All three waveform surfaces were updated to use it:
+
+- **TrackList mini-bars** — each bar picks its color from the segment index (`--label-intro`, `--label-verse`, etc.), with SAX energy colors as fallback when the column is null.
+- **Player waveform regions** — `PlayerStore.updateStructuralRegions()` merges consecutive identical labels into WaveSurfer `RegionsPlugin` regions with a translucent fill and a monospaced label text overlay.
+- **TrackDetailPane waveform** — SVG bars colored by segment label; falls back to `--sax-a…e` palette.
+
+All colors are defined as CSS custom properties in `:root` (`app.css`) so the palette is shared across all surfaces without any JS import.
+
+The `SONG STRUCTURE` section label in the detail pane is now a clickable button ("CLICK TO FILTER BY SONG STRUCTURE") when `sax_alignment` is present; clicking it seeds the structure filter with an anchored exact-match regex.
+
+### Data modelling insight: the structural alphabet
+
+During review we found that the troll-count compacted strings (e.g. `"intro2 ➔ verse* ➔ chorus ➔ outro"`) are effectively **unique per track** — 1743 unique strings out of 1743 tracks with data. Exact-match filtering was useless.
+
+The fix: replace the stored format with a **structural alphabet** where each label maps to a single letter:
+
+| Label | Letter |
+|-------|--------|
+| unknown | U |
+| intro | I |
+| verse | V |
+| pre-chorus | P |
+| chorus | C |
+| bridge | B |
+| outro | O |
+| end | E |
+
+Section repeat counts become **letter repetitions** (capped at 4), so `chorus*` → `CCCC` and `verse2` → `VV`. The stored `sax_alignment` is now a pure letter string like `IIVVVVPCCCCO`. This was a one-line change to the Rust `compact()` function (`pass_version::SAX_ALIGNMENT` bumped to 3 to trigger re-analysis).
+
+Benefits:
+- All characters are regex-safe — no escaping needed
+- The structure filter accepts JS regex directly against the alphabet string
+- Regex queries are natural and powerful: `B` (has bridge), `^I` (starts with intro), `O$` (ends with outro), `^I.*O$` (intro to outro arc), `VC` (verse straight into chorus, no pre-chorus), `CC` (two consecutive chorus sections)
+- The filter sidebar shows a legend and example queries on focus
+
+The `saxAlignmentToAlphabet` helper function (previously a converter) became an identity function and was deleted entirely once the stored format was updated. Full test coverage in `filters.test.ts`.
+
+### Research direction: Levenshtein similarity on alphabet strings
+
+A quick experiment computed edit distance between alphabet strings from real tracks. Results were encouraging: `d=2` naturally grouped "same structure, missing bridge" and "starts mid-song"; `d=3` caught "no pre-chorus" variants. The normalized distance (`d / max_length`) handles varying track lengths well.
+
+Key insight: repetition count differences inflate raw distance (a track with `VVVV` vs `VV` scores d=2 even though it's the same section). Two levels of comparison are worth pursuing:
+
+1. **Skeleton distance** — collapse runs first (`IIVVPCCCCO` → `IVPCO`), then compute Levenshtein on the skeleton. Makes repeat-count-only differences distance 0.
+2. **Raw distance** — preserves pacing information; useful for "how close is the structure *and* the density?"
+
+Full pairwise over 1891 tracks is ~1.8M pairs — feasible as a one-shot offline pass, or fast enough at query time for nearest-neighbour search. This is the natural next step after SALAMI benchmark evaluation, as it would turn structure into a proper similarity signal rather than a filter.

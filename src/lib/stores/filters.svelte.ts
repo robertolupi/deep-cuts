@@ -148,17 +148,17 @@ function createFiltersStore() {
         if (!clapTrackIds.has(t.id)) return false;
       }
 
-      // Structure filter (SQL LIKE against waveform_fingerprint, falls back to waveform_sax)
+      // Structure filter — regex against compact alphabet derived from sax_alignment.
+      // Label → letter: intro=I verse=V pre-chorus=P chorus=C bridge=B outro=O end=E unknown=U
+      // Troll-count suffixes (2, 3, *) are preserved, e.g. "intro2 ➔ chorus* ➔ outro" → "I2C*O"
+      // Query is treated as a JS regex; falls back to substring match on parse error.
       if (structureFilter.trim()) {
-        const fp = t.waveform_fingerprint ?? t.waveform_sax ?? '';
-        const parts = structureFilter.trim().split(/\s+/);
-        for (const part of parts) {
-          if (part.startsWith('!') || part.startsWith('-')) {
-            const pattern = part.slice(1);
-            if (pattern && sqlLike(fp.toUpperCase(), pattern.toUpperCase())) return false;
-          } else {
-            if (!sqlLike(fp.toUpperCase(), part.toUpperCase())) return false;
-          }
+        const alpha = t.sax_alignment ?? '';
+        const q = structureFilter.trim();
+        try {
+          if (!new RegExp(q, 'i').test(alpha)) return false;
+        } catch {
+          if (!alpha.toLowerCase().includes(q.toLowerCase())) return false;
         }
       }
 
@@ -421,3 +421,5 @@ function createFiltersStore() {
 }
 
 export const filters = createFiltersStore();
+
+// ── Structural alphabet ───────────────────────────────────────────────────────

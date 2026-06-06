@@ -482,31 +482,85 @@ describe("FiltersStore — playlist filter", () => {
   });
 });
 
+// ── structureFilter (regex against alphabet) ──────────────────────────────────
+
 describe("FiltersStore — structureFilter", () => {
   beforeEach(() => { resetFilters(); });
 
-  it("filters tracks by positive SQL LIKE patterns", () => {
+  it("matches a single label letter", () => {
     seedLibrary([
-      createTrack({ id: 1, waveform_fingerprint: "L*MH*L*" }),
-      createTrack({ id: 2, waveform_fingerprint: "MHM*H*" }),
-      createTrack({ id: 3, waveform_fingerprint: "L*H*" }),
+      createTrack({ id: 1, sax_alignment: "IVBO" }),
+      createTrack({ id: 2, sax_alignment: "IVCO" }),
     ]);
-    filters.structureFilter = "L%H%";
+    filters.structureFilter = "B";
     const ids = filters.filteredTracks.map(t => t.id);
     expect(ids).toContain(1);
-    expect(ids).toContain(3);
     expect(ids).not.toContain(2);
   });
 
-  it("filters tracks using negative SQL LIKE patterns (starting with - or !)", () => {
+  it("matches anchored exact sequence", () => {
     seedLibrary([
-      createTrack({ id: 1, waveform_fingerprint: "L*MH*L*" }),
-      createTrack({ id: 2, waveform_fingerprint: "L*H*L*" }),
+      createTrack({ id: 1, sax_alignment: "IVCO" }),
+      createTrack({ id: 2, sax_alignment: "VCO" }),
     ]);
-    filters.structureFilter = "L%H% -L%M%H%";
+    filters.structureFilter = "^IVCO$";
+    expect(filters.filteredTracks.map(t => t.id)).toEqual([1]);
+  });
+
+  it("matches tracks ending with outro", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "IVO" }),
+      createTrack({ id: 2, sax_alignment: "IVC" }),
+    ]);
+    filters.structureFilter = "O$";
+    expect(filters.filteredTracks.map(t => t.id)).toEqual([1]);
+  });
+
+  it("matches verse straight into chorus (no pre-chorus)", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "IVCO" }),
+      createTrack({ id: 2, sax_alignment: "IVPCO" }),
+    ]);
+    filters.structureFilter = "VC";
+    expect(filters.filteredTracks.map(t => t.id)).toEqual([1]);
+  });
+
+  it("includes all tracks when structureFilter is empty", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "IVO" }),
+      createTrack({ id: 2, sax_alignment: null }),
+    ]);
+    filters.structureFilter = "";
+    expect(filters.filteredTracks).toHaveLength(2);
+  });
+
+  it("excludes tracks with no sax_alignment when a filter is set", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "IVO" }),
+      createTrack({ id: 2, sax_alignment: null }),
+    ]);
+    filters.structureFilter = "I";
+    expect(filters.filteredTracks.map(t => t.id)).toEqual([1]);
+  });
+
+  it("matches repeated letters (CC = two chorus sections)", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "IVCCО" }),
+      createTrack({ id: 2, sax_alignment: "IVCO" }),
+    ]);
+    filters.structureFilter = "CC";
+    expect(filters.filteredTracks.map(t => t.id)).toEqual([1]);
+  });
+
+  it("falls back to substring match on invalid regex", () => {
+    seedLibrary([
+      createTrack({ id: 1, sax_alignment: "intro ➔ verse ➔ outro" }),
+      createTrack({ id: 2, sax_alignment: "verse ➔ chorus" }),
+    ]);
+    filters.structureFilter = "[invalid";
     const ids = filters.filteredTracks.map(t => t.id);
-    expect(ids).toContain(2);
-    expect(ids).not.toContain(1);
+    // "[invalid" as substring won't match any alphabet string — all excluded
+    expect(ids).toHaveLength(0);
   });
 });
 

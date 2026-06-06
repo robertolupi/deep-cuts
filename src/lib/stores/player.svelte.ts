@@ -159,9 +159,67 @@ class PlayerStore {
     this.updateMarkers();
   }
 
+  // ── Structural alignment regions ─────────────────────────────────────────
+
+  // CSS variable values for each structural label, looked up once at call time.
+  #labelColor(label: string, alpha: number): string {
+    const style = getComputedStyle(document.documentElement);
+    const hex = style.getPropertyValue(`--label-${label}`).trim() || '#5a5a6a';
+    // Convert #rrggbb to rgba()
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  updateStructuralRegions() {
+    if (!this.#regionsPlugin || !this.selectedTrack || !this.duration) return;
+    const segments = this.selectedTrack.sax_alignment_segments?.split(',');
+    if (!segments || segments.length === 0) return;
+
+    const n = segments.length;
+    const segDuration = this.duration / n;
+
+    // Merge consecutive identical labels into contiguous regions
+    let i = 0;
+    while (i < n) {
+      const label = segments[i];
+      let j = i + 1;
+      while (j < n && segments[j] === label) j++;
+
+      const el = document.createElement('div');
+      el.innerText = label;
+      el.style.cssText = [
+        'font-size: 7px',
+        'font-family: JetBrains Mono, monospace',
+        'padding: 1px 3px',
+        `color: ${this.#labelColor(label, 0.9)}`,
+        'position: absolute',
+        'bottom: 2px',
+        'left: 3px',
+        'white-space: nowrap',
+        'pointer-events: none',
+        'text-transform: uppercase',
+        'letter-spacing: 0.04em',
+      ].join(';');
+
+      this.#regionsPlugin.addRegion({
+        start:   i * segDuration,
+        end:     j * segDuration,
+        color:   this.#labelColor(label, 0.12),
+        drag:    false,
+        resize:  false,
+        content: el,
+      });
+
+      i = j;
+    }
+  }
+
   updateMarkers() {
     if (!this.#wavesurfer || !this.#regionsPlugin) return;
     this.#regionsPlugin.clearRegions();
+    this.updateStructuralRegions();
     if (!this.showLoudestMarker || !this.selectedTrack) return;
 
     const waveformData = this.selectedTrack.waveform_data;

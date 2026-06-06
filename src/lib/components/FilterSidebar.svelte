@@ -16,18 +16,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   // Tag autocomplete
   let tagInput = $state("");
+  let structureFocused = $state(false);
 
-  // Structure filter autocomplete — unique fingerprints from library, sorted by frequency
-  const structureSuggestions = $derived.by(() => {
-    const freq = new Map<string, number>();
-    for (const t of library.tracks) {
-      const fp = t.waveform_fingerprint;
-      if (fp) freq.set(fp, (freq.get(fp) ?? 0) + 1);
-    }
-    return [...freq.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([fp]) => fp);
-  });
   let folderSearchInput = $state("");
   let playlistSearchInput = $state("");
 
@@ -294,20 +284,40 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
           </svg>
           <input
             type="text"
-            placeholder="Structure: LMHLH or L%…"
+            placeholder="song structure regex"
             bind:value={filters.structureFilter}
             class="search-input structure-search-input"
-            list="structure-suggestions-list"
+            onfocus={() => structureFocused = true}
+            onblur={() => structureFocused = false}
           />
-          <datalist id="structure-suggestions-list">
-            {#each structureSuggestions as fp}
-              <option value={fp}></option>
-            {/each}
-          </datalist>
           {#if filters.structureFilter}
             <button class="clear-x" onclick={() => filters.structureFilter = ""}>×</button>
           {/if}
         </div>
+        {#if structureFocused}
+        <div class="structure-help">
+          <div class="structure-legend">
+            <code>I</code>=intro <code>V</code>=verse <code>P</code>=pre-chorus <code>C</code>=chorus <code>B</code>=bridge <code>O</code>=outro <code>E</code>=end <code>U</code>=unknown
+          </div>
+          <div class="structure-examples">
+            <code>.</code> any label &nbsp;·&nbsp;
+            <code>*</code> zero or more &nbsp;·&nbsp;
+            <code>+</code> one or more &nbsp;·&nbsp;
+            <code>^</code> start &nbsp;·&nbsp;
+            <code>$</code> end
+          </div>
+          <div class="structure-examples">
+            <code>B</code> any bridge &nbsp;·&nbsp;
+            <code>^I</code> starts with intro &nbsp;·&nbsp;
+            <code>O$</code> ends with outro &nbsp;·&nbsp;
+            <code>^I.*O$</code> intro→outro &nbsp;·&nbsp;
+            <code>B.*O</code> bridge before outro &nbsp;·&nbsp;
+            <code>^[^I]</code> no intro &nbsp;·&nbsp;
+            <code>VC</code> verse straight into chorus &nbsp;·&nbsp;
+            <code>CC</code> two chorus runs
+          </div>
+        </div>
+        {/if}
 
         <!-- Genre filter -->
         <div class="genre-wrap">
@@ -1180,5 +1190,35 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .structure-search-input:focus {
     border-color: rgba(232, 160, 32, 0.5) !important;
     box-shadow: 0 0 8px rgba(232, 160, 32, 0.12);
+  }
+
+  .structure-help {
+    padding: 0.4rem 0.5rem 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .structure-legend {
+    font-family: var(--sg-font-mono);
+    font-size: 10px;
+    color: var(--sg-outline);
+    letter-spacing: 0.03em;
+    line-height: 1.8;
+  }
+
+  .structure-examples {
+    font-size: 10px;
+    color: var(--sg-outline);
+    line-height: 1.7;
+  }
+
+  .structure-examples code {
+    font-family: var(--sg-font-mono);
+    font-size: 10px;
+    color: var(--sax-d, #e8a020);
+    background: rgba(232, 160, 32, 0.08);
+    padding: 0 3px;
+    border-radius: 2px;
   }
 </style>

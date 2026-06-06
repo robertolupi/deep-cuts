@@ -14,6 +14,7 @@ pub mod qwen;
 pub mod description_embed;
 pub mod essentia;
 pub mod bpm_refinement;
+pub mod sax_alignment;
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub static ANALYSIS_MANUALLY_PAUSED: AtomicBool = AtomicBool::new(false);
@@ -381,6 +382,7 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
     audio::AudioPass::SPEC,
     bpm_correction::BpmCorrectionPass::SPEC,
     sax::SaxPass::SPEC,
+    sax_alignment::SaxAlignmentPass::SPEC,
     clap::ClapPass::SPEC,
     qwen::QwenPass::SPEC,
     description_embed::DescriptionEmbedPass::SPEC,
@@ -712,6 +714,12 @@ impl PipelineManager {
             log::info!("[pipeline] starting sax phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, sax::SaxPass, &run_id_spawn) {
                 emit_pipeline_error(&app, "sax", e);
+            }
+
+            // ── Phase 1d: SAX structural alignment (Viterbi) ─────────────────
+            log::info!("[pipeline] starting sax_alignment phase");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, sax_alignment::SaxAlignmentPass, &run_id_spawn) {
+                emit_pipeline_error(&app, "sax_alignment", e);
             }
 
             // ── Phase 2: CLAP ─────────────────────────────────────────────────

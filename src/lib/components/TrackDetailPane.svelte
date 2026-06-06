@@ -338,26 +338,33 @@
         </div>
       </div>
 
-      <!-- Waveform + SAX coloring -->
+      <!-- Waveform + structural coloring -->
       {#if waveformBins.length > 0}
         <div class="section waveform-section">
-          <span class="section-label">SONG STRUCTURE{#if rawFingerprint}: <button
-              class="fingerprint-btn"
-              onclick={() => { filters.structureFilter = fingerprintToLikePattern(rawFingerprint); }}
+          {#if track?.sax_alignment}
+            <button
+              class="section-label section-label-btn"
+              onclick={() => {
+                filters.structureFilter = '^' + track!.sax_alignment! + '$';
+              }}
               title="Filter by this structure"
-            >{rawFingerprint}</button>{/if}</span>
+            >CLICK TO FILTER BY SONG STRUCTURE</button>
+          {:else}
+            <span class="section-label">SONG STRUCTURE</span>
+          {/if}
           <div class="waveform-wrap" role="img" aria-label="Waveform">
             <svg class="waveform-svg" viewBox="0 0 {waveformBins.length} 64" preserveAspectRatio="none">
               {#each waveformBins as bin, j}
-                {@const letter = saxLetterForBin(track?.waveform_sax, j, waveformBins.length)}
                 {@const h = Math.max(1, Math.round((bin / waveformPeak) * 64))}
-                <rect
-                  x={j}
-                  y={64 - h}
-                  width="1"
-                  height={h}
-                  style="fill: var(--sax-{letter}, var(--sax-c))"
-                />
+                {@const segs = track?.sax_alignment_segments?.split(',') ?? []}
+                {#if segs.length > 0}
+                  {@const segIdx = Math.min(Math.floor(j * segs.length / waveformBins.length), segs.length - 1)}
+                  {@const label = segs[segIdx] ?? 'unknown'}
+                  <rect x={j} y={64 - h} width="1" height={h} style="fill: var(--label-{label})" />
+                {:else}
+                  {@const letter = saxLetterForBin(track?.waveform_sax, j, waveformBins.length)}
+                  <rect x={j} y={64 - h} width="1" height={h} style="fill: var(--sax-{letter}, var(--sax-c))" />
+                {/if}
               {/each}
             </svg>
           </div>
@@ -951,6 +958,16 @@
     text-transform: uppercase;
     color: var(--sg-outline, #849495);
     margin-bottom: 0.5rem;
+  }
+  .section-label-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+  }
+  .section-label-btn:hover {
+    color: var(--sg-primary, #00f0ff);
   }
 
   /* ── Specs grid ── */

@@ -34,6 +34,8 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     waveform_data: null,
     waveform_sax: null,
     waveform_fingerprint: null,
+    sax_alignment: null,
+    sax_alignment_segments: null,
     key: "C",
     scale: "major",
     key_strength: 0.82,
