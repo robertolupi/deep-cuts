@@ -36,3 +36,9 @@ src-tauri/deep-cuts.db
 /models/
 __pycache__/
 *.pyc
+
+# Rust target directories & locks inside session/collab folders
+doc/collab/**/target/
+doc/collab/**/Cargo.lock
+**/target/
+

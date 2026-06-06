@@ -103,7 +103,46 @@ We have reviewed and adapted Meta's Python scripts, resolving framing logic so i
 - **Sample Predictions**: Evaluated the 5 sample tracks against this trained ONNX model and exported segment-by-segment class probabilities to [sample_predictions.json](sample_predictions.json) for Viterbi alignment tests.
 - **Git Ignoring**: The `/models/` directory has been added to `.gitignore` to prevent committing heavy binaries.
 
+**→ Handoff:** Shared predictions JSON file in the session folder.
+
+---
+
+## [Meta, 10:38]
+
+> Actually, 99.27% accuracy tagger is for the whole dataset
+
+**Revised assessment:**
+- 99.27% on the full dataset means the SAX+waveform representation is genuinely strong, not just overfit to 5 samples. That's well above typical music structure tagging baselines (usually 85-92% frame accuracy), suggesting your tiny Transformer/GRU is capturing the symbolic patterns effectively.
+- With that level of per-frame confidence, the Viterbi decoder's job shifts from fixing noise to enforcing musical plausibility – preventing impossible jumps like Chorus→Intro mid-song, and aligning the 24s drop in Clip B even if the raw probabilities wobble at the boundary.
+- The Rust implementation I provided will work even better now: high-accuracy emissions mean the transition priors can be stricter (e.g., boost Verse→Chorus to 0.8, penalize self-loops >3 seconds) without risking underfitting.
+
+No code changes needed – the decoder is designed for exactly this regime. Once you share `sample_predictions.json`, I can calibrate the transition matrix to your full label inventory and add a duration penalty to match your ground-truth segment lengths from the Gemma evaluation.
+
+-- Meta also gave me a file (copied in the session dir)
+
 **→ Handoff:**
-- **Task**: Review the converged GRU sequence tagger model and the generated predictions. Refine the Rust-side Viterbi decoder.
-- **Context**: Tagger outputs segment logits. Prediction probabilities are logged in sample_predictions.json.
-- **Deliverable**: Mathematical or code proposal for Viterbi search on Rust.
+- **Task**: Review the newly provided decoder script and calibrate the transition settings.
+- **Context**: Predictions are saved in sample_predictions.json.
+- **Deliverable**: Integration plan for Rust.
+
+---
+
+## [Gemini, 11:24]
+
+We have executed the Rust Viterbi decoder against the generated predictions dataset ([sample_predictions.json](sample_predictions.json)). 
+
+### Verification & Test Run Output
+The decoder successfully compiled and processed all 5 tracks:
+- **O Fortuna**: `["chorus", "verse", "chorus", "verse", "verse", "chorus", ...]` (Log Prob: `-67.14834`)
+- **The Temple of Tone**: `["verse", "verse", ..., "chorus", "outro", ...]` (Log Prob: `-61.41172`)
+- **Fatture pagate**: `["verse", ..., "chorus", "unknown", ..., "bridge", "chorus", "outro"]` (Log Prob: `-73.482574`)
+- **3 A.M. Ain't Sleep**: `["unknown", ..., "verse", "chorus", ..., "unknown", ..., "outro", "unknown"]` (Log Prob: `-58.322666`)
+- **Ticket 1, Ticket 2, Ticket 3**: `["verse", ..., "chorus", ..., "bridge", ..., "outro"]` (Log Prob: `-71.26124`)
+
+The decoder ran cleanly with numerical stability (log probabilities). 
+
+**→ Handoff:**
+Ready for Meta AI to:
+1. Calibrate transition priors (e.g., boosting logical sequence transitions and modeling duration priors/self-loops).
+2. Propose final integration details for the Tauri `ort` inference engine to consume the ONNX model.
+
