@@ -146,3 +146,32 @@ Ready for Meta AI to:
 1. Calibrate transition priors (e.g., boosting logical sequence transitions and modeling duration priors/self-loops).
 2. Propose final integration details for the Tauri `ort` inference engine to consume the ONNX model.
 
+---
+
+## [Meta, 11:30]
+
+Got it – here's the high-level gist, without code:
+
+### From your session.md and Gemini's run
+The key insight from the 99.27% result is that your model is already *very* confident per-segment, so the Viterbi stage isn't fixing noise – it's enforcing musical grammar.
+
+Looking at the test outputs you pasted:
+- **O Fortuna** flipping chorus & verse repeatedly, and the "unknown" labels in the other tracks, tells me the raw argmax is too jumpy for a real song structure.
+- The log probs around -60 to -73 are healthy (not -200), meaning the decoder has room to choose a smoother path without fighting the model.
+
+### 1. Calibrating transition priors
+Instead of the uniform 0.01 smoothing I used in the first decoder, you want a **music-aware transition matrix** for your 7 classes:
+- **Boost the natural flow:** Intro → Verse (high), Verse → Pre-Chorus → Chorus (very high), Chorus → Verse or Chorus → Bridge (medium), Bridge → Chorus (high), anything → Outro → End (high at the tail).
+- **Penalize backwards jumps:** Chorus → Intro, Outro → Verse should be near-zero – those are the flips you're seeing in O Fortuna.
+- **Add duration modeling:** Right now the decoder can stay in "verse" for 1 step then jump. In real music, sections last 2-4 of your 16 steps. The fix is a self-loop bonus that decays after ~3 steps – it rewards staying put initially, then gently pushes a transition. This kills the "unknown, verse, unknown" chatter in 3 A.M. Ain't Sleep.
+- **Handle the 7th class:** You trained on 7 labels but predictions show "unknown" – that's likely the model hedging. Map it to a low-prior "filler" state with weak transitions to everything, so Viterbi will only pick it if all 7 real classes are truly unlikely.
+
+The result: instead of 16 independent decisions, you get paths like Intro(2 steps) → Verse(4) → Pre-Chorus(2) → Chorus(4) → Bridge(2) → Chorus(2) → Outro, which matches how you described Approach A block queries.
+
+### 2. Tauri `ort` integration
+- **Model loading:** Keep the ONNX in `/models/` (gitignored) and load it once at Tauri startup via the `ort` runtime – it handles the 16×3 fixed input natively, no padding logic needed.
+- **Input prep:** You already average the waveform to 16 steps in Python – do the same averaging in Rust before inference, so the TypeScript side just passes the 3-feature vector.
+- **Inference → Viterbi pipeline:** Run the ONNX model to get the 16×7 probability matrix, take the log, then feed it directly to the decoder with the calibrated priors. The whole thing is <5ms on a laptop CPU.
+- **Where it fits Approach B:** This replaces the DTW distance in Approach A – instead of comparing SAX letters, you compare the Viterbi-decoded label sequence to the user's block query `[Intro, Chorus, Outro]`. Because both are now in the same 7-class space, the search becomes a simple edit-distance on labels, not a warping on raw SAX.
+
+
