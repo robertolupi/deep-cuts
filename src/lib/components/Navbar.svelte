@@ -2,8 +2,56 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { library } from "$lib/stores/library.svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import { devInspector } from "$lib/stores/devInspector.svelte";
 
   const analysisActive = $derived(library.analysisRunning && !library.analysisPaused);
+
+  // ── Dev context menu ─────────────────────────────────────────────────────────
+  let devMenuOpen = $state(false);
+  let devMenuX = $state(0);
+  let devMenuY = $state(0);
+
+  // Acoustid batch state
+  let acoustidRunning = $state(false);
+  let acoustidProgress = $state('');
+
+  function openDevMenu(e: MouseEvent) {
+    if (!import.meta.env.DEV) return;
+    e.preventDefault();
+    devMenuX = e.clientX;
+    devMenuY = e.clientY;
+    devMenuOpen = true;
+  }
+
+  function closeDevMenu() { devMenuOpen = false; }
+
+  async function runAcoustidBatch() {
+    closeDevMenu();
+    if (acoustidRunning) return;
+    acoustidRunning = true;
+    acoustidProgress = 'starting…';
+
+    const unlisten = await listen<[number, number]>('acoustid-batch-progress', (e) => {
+      const [done, total] = e.payload;
+      acoustidProgress = `${done} / ${total}`;
+    });
+    const unlistenDone = await listen<[number, number]>('acoustid-batch-done', (e) => {
+      const [done, total] = e.payload;
+      acoustidProgress = `done — ${done} / ${total} enriched`;
+      acoustidRunning = false;
+      unlisten();
+      unlistenDone();
+    });
+
+    await invoke('enrich_all_pending_acoustid').catch((err: unknown) => {
+      acoustidProgress = `error: ${err}`;
+      acoustidRunning = false;
+      unlisten();
+      unlistenDone();
+    });
+  }
 
   const views: { id: typeof ui.activeView; label: string }[] = [
     { id: 'table',      label: 'Library'    },
@@ -17,8 +65,44 @@
 </script>
 
 <header class="navbar">
-  <!-- Wordmark -->
-  <span class="brand">DEEP CUTS</span>
+  <!-- Wordmark (right-click for dev menu in debug builds) -->
+  <span
+    class="brand"
+    oncontextmenu={openDevMenu}
+    role="button"
+    tabindex="-1"
+  >DEEP CUTS</span>
+
+  {#if import.meta.env.DEV}
+    {#await import('$lib/components/dev/DevHud.svelte') then { default: DevHud }}
+      <DevHud
+        totalPending={devInspector.totalPending}
+        onOpen={() => devInspector.open = true}
+      />
+    {/await}
+  {/if}
+
+  {#if import.meta.env.DEV && acoustidProgress}
+    <span class="dev-status">{acoustidProgress}</span>
+  {/if}
+
+  {#if import.meta.env.DEV && devMenuOpen}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="dev-backdrop" onclick={closeDevMenu}></div>
+    <menu class="dev-menu" style="left:{devMenuX}px; top:{devMenuY}px">
+      <li class="dev-menu-header">⚙ Dev tools</li>
+      <li>
+        <button class="dev-menu-item" onclick={() => { closeDevMenu(); devInspector.open = true; }}>
+          Open inspector
+        </button>
+      </li>
+      <li>
+        <button class="dev-menu-item" onclick={runAcoustidBatch} disabled={acoustidRunning}>
+          {acoustidRunning ? `AcoustID batch… ${acoustidProgress}` : 'Enrich pending tracks (AcoustID)'}
+        </button>
+      </li>
+    </menu>
+  {/if}
 
   <!-- View toggles -->
   <nav class="view-toggle">
@@ -112,6 +196,71 @@
     color: var(--sg-primary, #00f0ff);
     flex-shrink: 0;
     text-shadow: 0 0 12px rgba(0,240,255,0.4);
+  }
+
+  /* ── Dev status badge ── */
+  .dev-status {
+    font-family: var(--sg-font-mono);
+    font-size: 10px;
+    color: var(--sg-warning, #f0a500);
+    opacity: 0.8;
+    flex-shrink: 0;
+  }
+
+  /* ── Dev context menu ── */
+  .dev-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+  }
+
+  .dev-menu {
+    position: fixed;
+    z-index: 1000;
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    min-width: 220px;
+    background: #1a1f2e;
+    border: 1px solid rgba(0,240,255,0.25);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+
+  .dev-menu-header {
+    font-family: var(--sg-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--sg-primary, #00f0ff);
+    padding: 6px 12px 4px;
+    opacity: 0.7;
+    pointer-events: none;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    margin-bottom: 4px;
+  }
+
+  .dev-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
+    color: var(--sg-on-surface, #e3e1e9);
+    background: transparent;
+    border: none;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .dev-menu-item:hover:not(:disabled) {
+    background: rgba(0,240,255,0.08);
+    color: var(--sg-primary, #00f0ff);
+  }
+
+  .dev-menu-item:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   /* ── View toggles ── */

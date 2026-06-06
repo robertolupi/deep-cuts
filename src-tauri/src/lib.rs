@@ -258,7 +258,12 @@ pub fn run() {
             commands::chat::get_chat_messages,
             commands::chat::save_chat_message,
             commands::chat::search_chats,
+            #[cfg(debug_assertions)]
             enrich_track_metadata,
+            #[cfg(debug_assertions)]
+            enrich_all_pending_acoustid,
+            #[cfg(debug_assertions)]
+            commands::debug::debug_track_raw,
             commands::playlists::get_playlists,
             commands::playlists::create_playlist,
             commands::playlists::delete_playlist,
@@ -290,6 +295,8 @@ pub fn run() {
     });
 }
 
+/// Single-track AcoustID enrichment. Debug builds only.
+#[cfg(debug_assertions)]
 #[tauri::command]
 async fn enrich_track_metadata(
     track_id: i64,
@@ -298,7 +305,7 @@ async fn enrich_track_metadata(
 ) -> Result<(), String> {
     log::info!("[ipc] enrich_track_metadata called for track_id: {}", track_id);
     let force_val = force.unwrap_or(false);
-    
+
     // Spawn the async enrichment pipeline in a background task so it doesn't block IPC
     tauri::async_runtime::spawn(async move {
         if let Err(e) = acoustid::enrich_track(track_id, force_val, &app_handle).await {
@@ -307,4 +314,21 @@ async fn enrich_track_metadata(
     });
 
     Ok(())
+}
+
+/// Bulk AcoustID enrichment for all tracks with no acoustid_status.
+/// Runs sequentially with a 1.5-second inter-request delay.
+/// Debug builds only — not available in release.
+#[cfg(debug_assertions)]
+#[tauri::command]
+async fn enrich_all_pending_acoustid(app_handle: tauri::AppHandle) -> Result<u64, String> {
+    log::info!("[ipc] enrich_all_pending_acoustid called");
+    // Run in a background task; frontend tracks progress via acoustid-batch-* events
+    tauri::async_runtime::spawn(async move {
+        match acoustid::enrich_all_pending(&app_handle).await {
+            Ok(n) => log::info!("[acoustid] Batch enrichment done: {} tracks", n),
+            Err(e) => log::error!("[acoustid] Batch enrichment failed: {}", e),
+        }
+    });
+    Ok(0) // actual count delivered via acoustid-batch-done event
 }

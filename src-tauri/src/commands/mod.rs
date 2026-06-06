@@ -1,6 +1,8 @@
 pub mod analysis;
 pub mod chat;
 pub mod config;
+#[cfg(debug_assertions)]
+pub mod debug;
 pub mod download;
 pub mod library;
 pub mod map;

@@ -5,11 +5,26 @@ use tauri::{AppHandle, Manager, Emitter};
 use rusqlite::Connection;
 use tokio::sync::Semaphore;
 
-// Global 1 req/sec rate limiter for MusicBrainz API
+// Per-service rate limiters (each service has its own independent quota)
+static ACOUSTID_SEMAPHORE: OnceLock<Semaphore> = OnceLock::new();
 static MB_SEMAPHORE: OnceLock<Semaphore> = OnceLock::new();
+static CAA_SEMAPHORE: OnceLock<Semaphore> = OnceLock::new();
 
+// AcoustID: allows ~3 req/sec; we stay at ~2 req/sec (500ms gap)
+const ACOUSTID_DELAY_MS: u64 = 500;
+// MusicBrainz: strict 1 req/sec; add buffer to 1500ms
+const MB_DELAY_MS: u64 = 1500;
+// Cover Art Archive: same policy as MusicBrainz
+const CAA_DELAY_MS: u64 = 1500;
+
+fn get_acoustid_semaphore() -> &'static Semaphore {
+    ACOUSTID_SEMAPHORE.get_or_init(|| Semaphore::new(1))
+}
 fn get_mb_semaphore() -> &'static Semaphore {
     MB_SEMAPHORE.get_or_init(|| Semaphore::new(1))
+}
+fn get_caa_semaphore() -> &'static Semaphore {
+    CAA_SEMAPHORE.get_or_init(|| Semaphore::new(1))
 }
 
 // Default fallback AcoustID client API key
@@ -161,6 +176,8 @@ fn run_fpcalc(fpcalc_path: &Path, file_path: &str) -> Result<FpcalcOutput, Strin
 }
 
 /// Core pipeline: fpcalc -> AcoustID -> MusicBrainz -> Cover Art Archive -> DB update.
+/// Only available in debug builds — not compiled into release binaries.
+#[cfg(debug_assertions)]
 pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result<(), String> {
     // 1. Resolve SQLite connection from tauri state
     let db_state = app
@@ -260,9 +277,14 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
         get_acoustid_client_key(), duration_secs, fp.fingerprint
     );
 
-    let resp_res = ureq::post(acoustid_url)
-        .set("Content-Type", "application/x-www-form-urlencoded")
-        .send_string(&form_data);
+    let resp_res = {
+        let _permit = get_acoustid_semaphore().acquire().await.map_err(|e| e.to_string())?;
+        let r = ureq::post(acoustid_url)
+            .set("Content-Type", "application/x-www-form-urlencoded")
+            .send_string(&form_data);
+        tokio::time::sleep(Duration::from_millis(ACOUSTID_DELAY_MS)).await;
+        r
+    };
 
     let resp = match resp_res {
         Ok(r) => r,
@@ -336,19 +358,14 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
     );
 
     let mb_parsed = {
-        // Critical section for rate limiter
-        let _permit = get_mb_semaphore()
-            .acquire()
-            .await
-            .map_err(|e| e.to_string())?;
+        let _permit = get_mb_semaphore().acquire().await.map_err(|e| e.to_string())?;
 
         log::info!("[acoustid] Fetching rich metadata from MusicBrainz...");
         let mb_resp_res = ureq::get(&mb_url)
             .set("User-Agent", &user_agent())
             .call();
 
-        // Hold permit and sleep to ensure spacing
-        tokio::time::sleep(Duration::from_millis(1000)).await;
+        tokio::time::sleep(Duration::from_millis(MB_DELAY_MS)).await;
 
         let mb_resp = match mb_resp_res {
             Ok(r) => r,
@@ -406,11 +423,7 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
     // 6. Try downloading cover art from Cover Art Archive if release exists
     let mut cover_art_blob: Option<Vec<u8>> = None;
     if let Some(ref release_mbid) = release_mbid_opt {
-        // Rate-limited Cover Art Archive query
-        let _permit = get_mb_semaphore()
-            .acquire()
-            .await
-            .map_err(|e| e.to_string())?;
+        let _permit = get_caa_semaphore().acquire().await.map_err(|e| e.to_string())?;
 
         let caa_url = format!("https://coverartarchive.org/release/{}/front-250", release_mbid);
         log::info!("[acoustid] Querying Cover Art Archive: {}", caa_url);
@@ -419,7 +432,7 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
             .set("User-Agent", &user_agent())
             .call();
 
-        tokio::time::sleep(Duration::from_millis(1000)).await;
+        tokio::time::sleep(Duration::from_millis(CAA_DELAY_MS)).await;
 
         if let Ok(caa_resp) = caa_resp_res {
             let mut bytes = Vec::new();
@@ -484,4 +497,54 @@ pub async fn enrich_track(track_id: i64, force: bool, app: &AppHandle) -> Result
     );
 
     Ok(())
+}
+
+/// Bulk enrichment: processes all tracks with NULL acoustid_status sequentially.
+/// Emits progress events to the frontend as each track completes.
+/// Only available in debug builds — not compiled into release binaries.
+#[cfg(debug_assertions)]
+pub async fn enrich_all_pending(app: &AppHandle) -> Result<u64, String> {
+    let db_state = app
+        .try_state::<std::sync::Mutex<rusqlite::Connection>>()
+        .ok_or_else(|| "Database connection not registered in tauri state".to_string())?;
+
+    // Collect all pending track IDs up front so we don't hold the lock during enrichment
+    let pending_ids: Vec<i64> = {
+        let conn = db_state.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM tracks WHERE acoustid_status IS NULL OR acoustid_status = '' ORDER BY id")
+            .map_err(|e| e.to_string())?;
+        let ids: Vec<i64> = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        ids
+    };
+
+    let total = pending_ids.len() as u64;
+    log::info!("[acoustid] enrich_all_pending: {} tracks to process", total);
+
+    app.emit("acoustid-batch-start", total)
+        .map_err(|e: tauri::Error| e.to_string())?;
+
+    let mut completed: u64 = 0;
+    for track_id in pending_ids {
+        match enrich_track(track_id, false, app).await {
+            Ok(_) => completed += 1,
+            Err(e) => log::warn!("[acoustid] Track {} failed: {}", track_id, e),
+        }
+
+        app.emit("acoustid-batch-progress", (completed, total))
+            .map_err(|e: tauri::Error| e.to_string())?;
+    }
+
+    log::info!(
+        "[acoustid] enrich_all_pending complete: {}/{} tracks enriched",
+        completed, total
+    );
+    app.emit("acoustid-batch-done", (completed, total))
+        .map_err(|e: tauri::Error| e.to_string())?;
+
+    Ok(completed)
 }

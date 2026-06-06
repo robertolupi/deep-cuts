@@ -36,6 +36,12 @@
 </div>
 <Toast />
 
+{#if import.meta.env.DEV}
+  {#await import('$lib/components/dev/DevDrawer.svelte') then { default: DevDrawer }}
+    <DevDrawer />
+  {/await}
+{/if}
+
 <style>
   .app-shell {
     display: flex;
