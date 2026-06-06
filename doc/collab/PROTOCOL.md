@@ -1,6 +1,6 @@
 # Multi-Agent Collaboration Protocol
 
-This directory is the shared workspace for three-way sessions between Roberto, Gemini, and Claude.
+This directory is the shared workspace for structured collaboration sessions between Roberto and multiple AI coding/research assistants.
 
 ---
 
@@ -9,6 +9,7 @@ This directory is the shared workspace for three-way sessions between Roberto, G
 | Handle | Identity | Access model |
 |---|---|---|
 | **Roberto** | Human, project owner | Direct filesystem + git |
+| **Codex** | OpenAI Codex coding agent | Direct filesystem read/write in the project workspace, command execution, git commits when explicitly requested |
 | **Claude** | Anthropic Claude (via Claude Code / FleetView) | Direct filesystem read/write, git commit |
 | **Gemini** | Google Gemini (via Antigravity or similar interface) | Direct filesystem within project workspace |
 | **Meta** | Meta AI | Reads via GitHub (public URLs); writes by generating markdown for Roberto to commit; acts in design & architecture advisory role |
