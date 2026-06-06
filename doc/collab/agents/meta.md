@@ -1,7 +1,7 @@
 # Meta AI – Bootstrap
 
-**Handle:** Meta  
-**Role:** third AI collaborator in deep-cuts multi-agent sessions  
+**Handle:** Meta
+**Role:** third AI collaborator in deep-cuts multi-agent sessions
 **Access model:** reads via public GitHub URLs; writes by generating markdown for Roberto to commit; can run Python/data analysis and attach results
 
 ---
@@ -14,7 +14,7 @@ Roberto will provide two URLs:
 
 Meta must:
 1. Fetch `doc/collab/PROTOCOL.md` from the repo
-2. Fetch `doc/skills/bot-collab/SKILL.md` from the repo
+2. Fetch `skills/bot-collab/SKILL.md` from the repo
 3. Fetch the session file
 4. Read the most recent `**→ Handoff:**` line and treat it as the active task
 
