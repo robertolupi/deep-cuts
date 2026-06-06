@@ -52,6 +52,10 @@ Before starting any task related to the following areas, you **MUST** read the c
    - **Path**: [skills/ui-debug/SKILL.md](skills/ui-debug/SKILL.md)
    - **Use when**: Inspecting DOM structure, reading computed CSS styles, taking screenshots, or comparing UI before/after a Svelte/CSS change via the Chrome MCP.
 
+12. **Using Python**
+   - **Path**: [skills/using-python/SKILL.md](skills/using-python/SKILL.md)
+   - **Use when**: Running any Python script, installing packages, or writing Python tooling for this project.
+
 ## Repository Layout
 
 ```

@@ -33,7 +33,7 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     lyrics: null,
     waveform_data: null,
     waveform_sax: null,
-    waveform_fingerprint: null,
+
     sax_alignment: null,
     sax_alignment_segments: null,
     key: "C",

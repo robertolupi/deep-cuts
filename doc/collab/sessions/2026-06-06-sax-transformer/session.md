@@ -300,3 +300,65 @@ Key insight: repetition count differences inflate raw distance (a track with `VV
 2. **Raw distance** — preserves pacing information; useful for "how close is the structure *and* the density?"
 
 Full pairwise over 1891 tracks is ~1.8M pairs — feasible as a one-shot offline pass, or fast enough at query time for nearest-neighbour search. This is the natural next step after SALAMI benchmark evaluation, as it would turn structure into a proper similarity signal rather than a filter.
+
+---
+
+## [Claude, 2026-06-06]
+
+### Structure cluster coloring: end-to-end pipeline
+
+#### Motivation
+The structural alphabet strings are unique per track (1743 strings for 1743 tracks). To give the music map a meaningful "structure" color dimension we need a coarser grouping. HDBSCAN over RapidFuzz edit-distance embeddings gave 14 clusters that each represent a structural archetype (e.g. "4-section VPC loop ending with Outro").
+
+#### DB changes (migrations 28–29)
+- **Migration 28** (`src-tauri/migrations/28_structure_cluster.sql`): `ALTER TABLE tracks ADD COLUMN structure_cluster_id INTEGER`
+- **Migration 29** (`src-tauri/migrations/29_drop_waveform_fingerprint.sql`): `ALTER TABLE tracks DROP COLUMN waveform_fingerprint`
+
+`waveform_fingerprint` was dead weight: computed by the `sax` pass, stored in the DB, shown only in DevDrawer, never used for search or display. Removing it simplified the schema and the `sax` pass (`SaxPass::owned_columns` reduced to `&["waveform_sax"]`).
+
+#### Python clustering (tools/structure_map.py)
+Pipeline:
+1. Load all `(id, sax_alignment)` pairs from SQLite
+2. Pairwise RapidFuzz `ratio` distance matrix (rapidfuzz.process.cdist)
+3. UMAP with `metric='precomputed'` → 2D embedding
+4. HDBSCAN `min_cluster_size=40` → 14 clusters + 1.9% noise
+5. Write `cluster_id` (or NULL for noise) back to `tracks.structure_cluster_id`
+
+The script is idempotent: re-running it after sax re-analysis re-classifies all tracks.
+
+#### Cluster labels and regex
+Each cluster was auto-labelled by finding the dominant skeleton (collapsed run-length encoding), then:
+- Human-readable label: `I·VPC×2·O` (readable name)
+- Regex label: `^I+(V+P+C+){2,}O+$` (directly usable as structure filter query)
+
+Match rates range from 5% (loose cluster 0) to 90% (tight cluster 7). The regex is approximate for loose clusters and exact for tight ones.
+
+```ts
+// src/lib/utils/mapMath.ts
+export const STRUCTURE_CLUSTER_LABELS: Record<number, string> = { 0: 'I·VPC×4·O', ..., 13: 'I·VPC·VCV' };
+export const STRUCTURE_CLUSTER_REGEX:  Record<number, string> = { 0: '^I+(V+P+C+){4,}O+$', ..., 13: '^I+V+P+(C+V+){2,}$' };
+export const STRUCTURE_CLUSTER_COLORS: string[] = [ /* tab20 palette, 20 entries */ ];
+```
+
+#### Music map integration
+- `MappedTrackPoint` interface extended with `structure_cluster_id?: number | null`
+- Both SQL queries in `commands/map.rs` select `t.structure_cluster_id` at index 19
+- `resolveTrackColor` handles `colorCoding === 'structure'` via `structureClusterColor()`
+- `MusicMap.svelte`: "Structure" toggle button added; legend renders 14 cluster rows with label + color swatch; **legend rows are clickable** — clicking a row sets `filters.structureFilter` to the cluster's regex; tooltip title shows the raw regex
+
+#### TrackDetailPane filter UI
+The "SONG STRUCTURE" section label was previously a single button ("CLICK TO FILTER BY SONG STRUCTURE") that set the structure filter to the exact `sax_alignment` string. Replaced with a row containing two independent filter pills:
+
+- **`exact`** (amber pill) — sets `structureFilter` to `^<sax_alignment>$` for strict exact-match
+- **`<cluster label>`** (cyan pill, e.g. `I·VPC×2·O`) — sets `structureFilter` to the cluster regex, catching all tracks in that structural archetype
+
+Each pill only renders when the relevant data is present on the track.
+
+#### GCP / SALAMI
+Preemptible VM on GCP was redeployed with a systemd service (`Restart=on-failure`) to auto-resume the SALAMI download after preemption-triggered reboots. The download script is already idempotent (skips GCS-present files). Progress was active when last observed; some tracks fail with age-gated 403s.
+
+**→ Handoff to Gemini:**
+- `structure_cluster_id` is populated for all tracks (re-run `tools/structure_map.py` after any sax re-analysis)
+- The map "Structure" view and legend-click-to-filter are complete
+- TrackDetailPane has exact + cluster filter pills
+- Pending: SALAMI evaluation once download completes; potential Levenshtein similarity pass over alphabet strings

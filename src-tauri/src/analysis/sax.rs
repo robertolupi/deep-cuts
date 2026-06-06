@@ -15,7 +15,6 @@ impl super::PassJob for SaxJob {
 
 pub struct SaxOutput {
     pub waveform_sax: String,
-    pub waveform_fingerprint: String,
 }
 
 pub struct SaxPass;
@@ -100,138 +99,6 @@ pub fn sax_mindist(a: &str, b: &str) -> Option<f64> {
     Some((sum_sq / n).sqrt())
 }
 
-/// Map a SAX letter to its energy level: L (low), M (mid), H (high).
-fn sax_to_lmh(c: char) -> char {
-    match c {
-        'a' | 'b' => 'L',
-        'c'       => 'M',
-        _         => 'H', // d, e
-    }
-}
-
-/// Run-length encode a string, collapsing consecutive identical chars.
-fn rle(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if out.chars().last() != Some(c) {
-            out.push(c);
-        }
-    }
-    out
-}
-
-/// Troll-count: 1 → "", 2 → "2", 3 → "3", ≥4 → "*"
-/// (Reference: Pratchett trolls count "one, two, many")
-fn troll(n: usize) -> &'static str {
-    match n {
-        1 => "",
-        2 => "2",
-        3 => "3",
-        _ => "*",
-    }
-}
-
-/// Compute the structural fingerprint from a SAX string.
-///
-/// Pipeline:
-///   1. Map each SAX letter to L/M/H
-///   2. RLE-collapse consecutive identical letters
-///   3. Greedily tokenise into compound tokens: MHM > MH > HM > single char
-///   4. Troll-count consecutive identical tokens
-///
-/// Examples:
-///   "aabbbcdddeee" → LMH → LMH → [L,MH] → "LMH"
-///   "aacccddddccc" → LMMHHHMMM → LMHM → [L,MH,M] → "LMHM"
-///
-/// Token legend:
-///   L   = quiet section          MH  = build/ramp into chorus
-///   M   = mid-energy section     HM  = chorus dissolving into mid
-///   H   = loud / chorus peak     MHM = chorus flanked by mid
-///   2/3/* = Pratchett troll count
-pub fn waveform_fingerprint(sax: &str) -> String {
-    if sax.is_empty() {
-        return String::new();
-    }
-
-    // Step 1: to L/M/H chars
-    let lmh: Vec<char> = sax.chars().map(sax_to_lmh).collect();
-
-    // Step 2: RLE with counts
-    struct LmhRun {
-        char: char,
-        count: usize,
-    }
-    let mut lmh_runs: Vec<LmhRun> = Vec::new();
-    for &c in &lmh {
-        if let Some(last) = lmh_runs.last_mut() {
-            if last.char == c {
-                last.count += 1;
-                continue;
-            }
-        }
-        lmh_runs.push(LmhRun { char: c, count: 1 });
-    }
-
-    // Step 3: greedy tokenise runs (group MHM, MH, HM, etc. and sum their counts)
-    struct TokenRun {
-        token: &'static str,
-        count: usize,
-    }
-    let mut tokens: Vec<TokenRun> = Vec::new();
-    let mut i = 0;
-    while i < lmh_runs.len() {
-        if i + 2 < lmh_runs.len()
-            && lmh_runs[i].char == 'M'
-            && lmh_runs[i+1].char == 'H'
-            && lmh_runs[i+2].char == 'M'
-        {
-            tokens.push(TokenRun {
-                token: "MHM",
-                count: lmh_runs[i].count + lmh_runs[i+1].count + lmh_runs[i+2].count,
-            });
-            i += 3;
-        } else if i + 1 < lmh_runs.len()
-            && lmh_runs[i].char == 'M'
-            && lmh_runs[i+1].char == 'H'
-        {
-            tokens.push(TokenRun {
-                token: "MH",
-                count: lmh_runs[i].count + lmh_runs[i+1].count,
-            });
-            i += 2;
-        } else if i + 1 < lmh_runs.len()
-            && lmh_runs[i].char == 'H'
-            && lmh_runs[i+1].char == 'M'
-        {
-            tokens.push(TokenRun {
-                token: "HM",
-                count: lmh_runs[i].count + lmh_runs[i+1].count,
-            });
-            i += 2;
-        } else {
-            let token = match lmh_runs[i].char {
-                'L' => "L",
-                'M' => "M",
-                _   => "H",
-            };
-            tokens.push(TokenRun {
-                token,
-                count: lmh_runs[i].count,
-            });
-            i += 1;
-        }
-    }
-
-    // Step 4: format with troll counting for each run
-    let mut out = String::new();
-    for tok in tokens {
-        out.push_str(tok.token);
-        out.push_str(troll(tok.count));
-    }
-    out
-}
-
 impl super::AnalysisPass for SaxPass {
     type Job = SaxJob;
     type Output = SaxOutput;
@@ -240,7 +107,7 @@ impl super::AnalysisPass for SaxPass {
     fn priority(&self) -> i32 { 12 }
     fn version(&self) -> u32 { pass_version::SAX }
     fn dependencies(&self) -> &'static [&'static str] { &["audio_analysis"] }
-    fn owned_columns(&self) -> &'static [&'static str] { &["waveform_sax", "waveform_fingerprint"] }
+    fn owned_columns(&self) -> &'static [&'static str] { &["waveform_sax"] }
     fn owned_tables(&self) -> &'static [&'static str] { &[] }
 
     fn load_jobs(&self, conn: &Connection) -> Result<Vec<Self::Job>, String> {
@@ -271,8 +138,7 @@ impl super::AnalysisPass for SaxPass {
             .ok_or_else(|| "no waveform_data".to_string())?;
         let sax = waveform_to_sax(wf)
             .ok_or_else(|| "waveform too short or flat".to_string())?;
-        let fingerprint = waveform_fingerprint(&sax);
-        Ok(SaxOutput { waveform_sax: sax, waveform_fingerprint: fingerprint })
+        Ok(SaxOutput { waveform_sax: sax })
     }
 
     fn save_result(
@@ -283,8 +149,8 @@ impl super::AnalysisPass for SaxPass {
         _duration_ms: i64,
     ) -> Result<(), String> {
         conn.execute(
-            "UPDATE tracks SET waveform_sax = ?1, waveform_fingerprint = ?2 WHERE id = ?3",
-            rusqlite::params![output.waveform_sax, output.waveform_fingerprint, job.track_id],
+            "UPDATE tracks SET waveform_sax = ?1 WHERE id = ?2",
+            rusqlite::params![output.waveform_sax, job.track_id],
         ).map_err(|e| e.to_string())?;
         if let Err(e) = crate::scanner::sidecar::save(conn, job.track_id) {
             log::error!("[sax] sidecar save failed for track {}: {}", job.track_id, e);
@@ -299,7 +165,7 @@ impl SaxPass {
         priority: 12,
         version: pass_version::SAX,
         dependencies: &["audio_analysis"],
-        owned_columns: &["waveform_sax", "waveform_fingerprint"],
+        owned_columns: &["waveform_sax"],
         owned_tables: &[],
         owned_tag_sources: &[],
         custom_reset: None,
@@ -353,46 +219,4 @@ mod tests {
         assert_eq!(sax_mindist(&a, &b).unwrap(), 0.0);
     }
 
-    #[test]
-    fn test_fingerprint_quiet_intro_two_choruses_quiet_outro() {
-        // aaa...ccc...ddd...ccc...ddd...aaa → L*M*H*M*H*L* → rle LMHMHL → [L,MH,MH,L] → LMH2L
-        let sax = "aaaacccddddcccddddaaaa".chars()
-            .chain(std::iter::repeat('a'))
-            .take(32)
-            .collect::<String>();
-        let fp = waveform_fingerprint(&sax);
-        assert!(fp.starts_with('L'), "expected quiet intro, got {fp}");
-        assert!(fp.contains("MH"), "expected MH token, got {fp}");
-    }
-
-    #[test]
-    fn test_fingerprint_flat_track() {
-        let sax = "c".repeat(32);
-        let fp = waveform_fingerprint(&sax);
-        assert_eq!(fp, "M*");
-    }
-
-    #[test]
-    fn test_fingerprint_hard_ramp() {
-        // All a→e ramp: LLLL...MMMM...HHHH → rle LMH → [L,MH] → "LMH"
-        let sax: String = (0..32).map(|i| {
-            if i < 10 { 'a' } else if i < 20 { 'c' } else { 'e' }
-        }).collect();
-        let fp = waveform_fingerprint(&sax);
-        assert_eq!(fp, "L*MH*");
-    }
-
-    #[test]
-    fn test_fingerprint_troll_count() {
-        // Many MH cycles: aacddcddcddcddcaa → L(MHM cycles)L
-        // Actual result depends on exact tokenisation — just verify multiple tokens present
-        let sax: String = "aacddcddcddcddcaa".chars()
-            .chain(std::iter::repeat('a'))
-            .take(32)
-            .collect();
-        let fp = waveform_fingerprint(&sax);
-        // Should contain a troll count somewhere (2, 3 or *)
-        assert!(fp.contains('2') || fp.contains('3') || fp.contains('*'),
-            "expected troll count in fingerprint, got {fp}");
-    }
 }

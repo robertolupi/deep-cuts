@@ -25,6 +25,7 @@ pub struct MappedTrackPoint {
     pub mood_party: Option<f64>,
     pub mood_acoustic: Option<f64>,
     pub mood_electronic: Option<f64>,
+    pub structure_cluster_id: Option<i64>,
 }
 
 #[derive(serde::Serialize)]
@@ -259,7 +260,8 @@ pub fn get_projection_coordinates(
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
                 COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm,
-                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic
+                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic,
+                t.structure_cluster_id
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id
          WHERE (t.detected_genre IS NULL OR t.detected_genre NOT LIKE 'Non-Music%')"
@@ -267,7 +269,8 @@ pub fn get_projection_coordinates(
         "SELECT tc.track_id, tc.x, tc.y,
                 t.watched_directory_id, t.title, t.filename, t.artist,
                 COALESCE(t.detected_genre, t.genre), t.bpm, t.key, t.scale, tc.algorithm,
-                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic
+                t.mood_happy, t.mood_sad, t.mood_aggressive, t.mood_relaxed, t.mood_party, t.mood_acoustic, t.mood_electronic,
+                t.structure_cluster_id
          FROM track_coords tc
          JOIN tracks t ON t.id = tc.track_id"
     };
@@ -294,6 +297,7 @@ pub fn get_projection_coordinates(
                 mood_party: row.get(16)?,
                 mood_acoustic: row.get(17)?,
                 mood_electronic: row.get(18)?,
+                structure_cluster_id: row.get(19)?,
             })
         })
         .map_err(|e| e.to_string())?;

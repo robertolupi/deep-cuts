@@ -20,6 +20,7 @@ export interface MappedTrackPoint {
   mood_party?: number | null;
   mood_acoustic?: number | null;
   mood_electronic?: number | null;
+  structure_cluster_id?: number | null;
 }
 
 export const camelotMap: { [key: string]: { code: string; color: string } } = {
@@ -49,9 +50,56 @@ export const camelotMap: { [key: string]: { code: string; color: string } } = {
   "E":   { code: "12B", color: "#A5D6A7" }
 };
 
+export const STRUCTURE_CLUSTER_REGEX: Record<number, string> = {
+  0: '^I+(V+P+C+){4,}O+$',
+  1: '^I+(V+P+C+){3,}V+$',
+  2: '^I+(V+P+C+){3,}O+$',
+  3: '^I+V+(C+V+P+){2,}C+V+$',
+  4: '^I+(V+P+C+){3,}$',
+  5: '^I+V+P+C+V+$',
+  6: '^I+V+P+C+O+$',
+  7: '^I+(V+P+C+){2,}O+$',
+  8: '^I+V+C+V+P+C+V+$',
+  9: '^I+(V+P+C+){2,}$',
+  10: '^I+(V+P+C+){2,}V+$',
+  11: '^E+(P+C+V+){2,}P+C+$',
+  12: '^I+V+P+C+B+C+O+$',
+  13: '^I+V+P+(C+V+){2,}$',
+};
+
+export const STRUCTURE_CLUSTER_LABELS: Record<number, string> = {
+  0: 'I·VPC×4·O',
+  1: 'I·VPC×3·V',
+  2: 'I·VPC×3·O',
+  3: 'I·VC·VPCVPCV',
+  4: 'I·VPC×3',
+  5: 'I·VPC·V',
+  6: 'I·VPC·O',
+  7: 'I·VPC×2·O',
+  8: 'I·VC·VPCV',
+  9: 'I·VPC×2',
+  10: 'I·VPC×2·V',
+  11: 'E·PC·VPCVPC',
+  12: 'I·VPCB·C·O',
+  13: 'I·VPC·VCV',
+};
+
+// tab20-equivalent palette matching Python's matplotlib tab20 for cluster IDs 0–19
+export const STRUCTURE_CLUSTER_COLORS: string[] = [
+  '#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c',
+  '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5',
+  '#8c564b', '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f',
+  '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5',
+];
+
+export function structureClusterColor(clusterId: number | null | undefined): string {
+  if (clusterId == null || clusterId < 0) return '#333340';
+  return STRUCTURE_CLUSTER_COLORS[clusterId % STRUCTURE_CLUSTER_COLORS.length];
+}
+
 export function resolveTrackColor(
   track: MappedTrackPoint,
-  colorCoding: 'genre' | 'camelot' | 'bpm' | 'mood',
+  colorCoding: 'genre' | 'camelot' | 'bpm' | 'mood' | 'structure',
   dynamicGenreColors: Record<string, string>,
   themeColors: { bpmCool: string; bpmHot: string; dotBorder: string; dotBorderWidth: number; canvasBg: string },
 ): string {
@@ -98,6 +146,8 @@ export function resolveTrackColor(
     }
     if (maxMood.val <= 1e-5) return "#aaaaaa";
     return maxMood.color;
+  } else if (colorCoding === 'structure') {
+    return structureClusterColor(track.structure_cluster_id);
   } else {
     const bpmVal = track.bpm || 120;
     const pct = Math.max(0, Math.min(1, (bpmVal - 70) / 110));

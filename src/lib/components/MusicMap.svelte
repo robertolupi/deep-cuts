@@ -10,7 +10,7 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { curation } from '$lib/stores/curation.svelte';
 
-  import { camelotMap, resolveTrackColor } from '$lib/utils/mapMath';
+  import { camelotMap, resolveTrackColor, STRUCTURE_CLUSTER_COLORS, STRUCTURE_CLUSTER_LABELS, STRUCTURE_CLUSTER_REGEX } from '$lib/utils/mapMath';
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
 
   // Optional prop: when set, the map will pan to and select this track
@@ -21,7 +21,7 @@
   let isLoading       = $state(false);
   let algorithm       = $state<'pca' | 'umap'>('pca');
 
-  let colorCoding = $state<'genre' | 'camelot' | 'bpm' | 'mood'>('genre');
+  let colorCoding = $state<'genre' | 'camelot' | 'bpm' | 'mood' | 'structure'>('genre');
 
   // Legend state
   let legendOpen        = $state(true);
@@ -521,7 +521,7 @@
     <div class="toolbar-group">
       <span class="toolbar-label">COLOR</span>
       <div class="toolbar-toggle">
-        {#each [['genre','Genre'],['camelot','Camelot'],['bpm','BPM'],['mood','Mood']] as [val, label]}
+        {#each [['genre','Genre'],['camelot','Camelot'],['bpm','BPM'],['mood','Mood'],['structure','Structure']] as [val, label]}
           <button
             class="ttog-btn"
             class:ttog-active={colorCoding === val}
@@ -688,6 +688,7 @@
         {#if colorCoding === 'genre'}GENRES
         {:else if colorCoding === 'camelot'}CAMELOT
         {:else if colorCoding === 'bpm'}BPM
+        {:else if colorCoding === 'structure'}STRUCTURE
         {:else}MOOD
         {/if}
       </span>
@@ -752,6 +753,27 @@
             </div>
           </div>
 
+        {:else if colorCoding === 'structure'}
+          {#each Object.entries(STRUCTURE_CLUSTER_LABELS) as [id, label]}
+            {@const color = STRUCTURE_CLUSTER_COLORS[Number(id) % STRUCTURE_CLUSTER_COLORS.length]}
+            {@const rx = STRUCTURE_CLUSTER_REGEX[Number(id)]}
+            <div
+              class="legend-row legend-row-clickable"
+              role="button"
+              tabindex="0"
+              title={rx}
+              onclick={() => { filters.structureFilter = rx; }}
+              onkeydown={(e) => e.key === 'Enter' && (filters.structureFilter = rx)}
+            >
+              <span class="legend-swatch" style="background:{color};"></span>
+              <span class="legend-label">{label}</span>
+            </div>
+          {/each}
+          <div class="legend-row">
+            <span class="legend-swatch" style="background:#333340;"></span>
+            <span class="legend-label">Unclassified</span>
+          </div>
+
         {:else}
           <!-- BPM gradient bar -->
           <div class="legend-bpm">
@@ -791,6 +813,9 @@
           {#if score !== undefined}
             <span class="ht-badge ht-score-clap">{Math.round(score)}%</span>
           {/if}
+        {/if}
+        {#if colorCoding === 'structure' && hoveredTrack.structure_cluster_id != null}
+          <span class="ht-badge ht-structure">{STRUCTURE_CLUSTER_LABELS[hoveredTrack.structure_cluster_id] ?? `Cluster ${hoveredTrack.structure_cluster_id}`}</span>
         {/if}
         {#if hoveredTrack.genre}<span class="ht-badge ht-genre">{hoveredTrack.genre}</span>{/if}
         {#if hoveredTrack.bpm}<span class="ht-badge">{Math.round(hoveredTrack.bpm)} BPM</span>{/if}
@@ -993,6 +1018,13 @@
     font-weight: 700;
   }
 
+  .ht-structure {
+    border-color: rgba(255, 200, 80, 0.3);
+    color: #ffc850;
+    background: rgba(255, 200, 80, 0.08);
+    font-family: monospace;
+  }
+
   /* ── Sonic Vibe Search Styles ── */
   .sonic-search-group {
     margin-left: 0.5rem;
@@ -1177,6 +1209,17 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .legend-row-clickable {
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 1px 3px;
+    margin: 0 -3px;
+    transition: background 0.1s;
+  }
+  .legend-row-clickable:hover {
+    background: rgba(255,255,255,0.07);
   }
 
   .legend-swatch {

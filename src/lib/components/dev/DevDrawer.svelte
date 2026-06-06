@@ -204,7 +204,7 @@
             <DevKV label="duration" value={t.duration ? `${Math.round(t.duration)}s` : '—'} />
             <DevKV label="acoustid" value={t.acoustid_status} />
             <DevKV label="waveform_sax" value={t.waveform_sax} />
-            <DevKV label="waveform_fingerprint" value={t.waveform_fingerprint} />
+
           </div>
           <div class="divider"></div>
           <DevKV label="isPlaying"   value={player.isPlaying} />
@@ -212,7 +212,7 @@
           <div class="divider"></div>
           <!-- All remaining fields -->
           {#each Object.entries(t) as [k, v]}
-            {#if !['id','title','artist','bpm','key','scale','duration','acoustid_status','waveform_sax','waveform_fingerprint'].includes(k)}
+            {#if !['id','title','artist','bpm','key','scale','duration','acoustid_status','waveform_sax'].includes(k)}
               <DevKV label={k} value={v} dim={v === null || v === undefined || v === ''} truncate={80} />
             {/if}
           {/each}

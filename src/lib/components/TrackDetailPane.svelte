@@ -8,6 +8,7 @@
   import TagsAutocomplete from "./TagsAutocomplete.svelte";
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
   import CollapsiblePane from '$lib/components/CollapsiblePane.svelte';
+  import { STRUCTURE_CLUSTER_REGEX, STRUCTURE_CLUSTER_LABELS } from '$lib/utils/mapMath';
 
   const track     = $derived(player.selectedTrack);
   const isPlaying = $derived(player.isPlaying);
@@ -114,115 +115,6 @@
     const pos = Math.floor((j / total) * sax.length);
     return sax[Math.min(pos, sax.length - 1)] ?? 'c';
   }
-
-  /** Mirror of the Rust waveform_fingerprint() function — computes client-side from waveform_sax */
-  function computeFingerprint(sax: string): string {
-    if (!sax) return '';
-    // Step 1: to L/M/H chars
-    const lmh = sax.split('').map(c => c <= 'b' ? 'L' : c === 'c' ? 'M' : 'H');
-
-    // Step 2: RLE with counts
-    const lmhRuns: { char: string; count: number }[] = [];
-    for (const c of lmh) {
-      const last = lmhRuns[lmhRuns.length - 1];
-      if (last && last.char === c) {
-        last.count++;
-      } else {
-        lmhRuns.push({ char: c, count: 1 });
-      }
-    }
-
-    // Step 3: greedy tokenise runs
-    const tokens: { token: string; count: number }[] = [];
-    let i = 0;
-    while (i < lmhRuns.length) {
-      if (i + 2 < lmhRuns.length && lmhRuns[i].char === 'M' && lmhRuns[i+1].char === 'H' && lmhRuns[i+2].char === 'M') {
-        tokens.push({ token: 'MHM', count: lmhRuns[i].count + lmhRuns[i+1].count + lmhRuns[i+2].count });
-        i += 3;
-      } else if (i + 1 < lmhRuns.length && lmhRuns[i].char === 'M' && lmhRuns[i+1].char === 'H') {
-        tokens.push({ token: 'MH', count: lmhRuns[i].count + lmhRuns[i+1].count });
-        i += 2;
-      } else if (i + 1 < lmhRuns.length && lmhRuns[i].char === 'H' && lmhRuns[i+1].char === 'M') {
-        tokens.push({ token: 'HM', count: lmhRuns[i].count + lmhRuns[i+1].count });
-        i += 2;
-      } else {
-        const token = lmhRuns[i].char === 'L' ? 'L' : lmhRuns[i].char === 'M' ? 'M' : 'H';
-        tokens.push({ token, count: lmhRuns[i].count });
-        i += 1;
-      }
-    }
-
-    // Step 4: Format with troll counting for each run
-    const troll = (n: number) => n === 1 ? '' : n === 2 ? '2' : n === 3 ? '3' : '*';
-    return tokens.map(tok => tok.token + troll(tok.count)).join('');
-  }
-
-  /** Format fingerprint for display: bracket repeated compound tokens */
-  function formatFingerprint(fp: string | null | undefined): string {
-    if (!fp) return '';
-    return fp
-      .replace(/(MHM|MH|HM)([23*])/g, (_, tok, cnt) => `(${tok})×${cnt === '*' ? '∞' : cnt}`)
-      .replace(/(L|M|H)([23*])/g, (_, tok, cnt) => `${tok}×${cnt === '*' ? '∞' : cnt}`);
-  }
-
-  /** Converts a structural fingerprint (e.g. "LMH2L" or "LMHL") into a compressed SQL LIKE wildcard pattern (e.g. "L%MH%L%") */
-  function fingerprintToLikePattern(fp: string | null | undefined): string {
-    if (!fp) return '';
-    const rawTokens = fp.match(/(MHM|MH|HM|L|M|H)([23*])?/g) || [];
-    if (rawTokens.length === 0) return '';
-
-    // Strip counts/stars to get base tokens
-    const tokens = rawTokens.map(t => t.replace(/[23*]/g, ''));
-
-    const startsWithL = tokens[0] === 'L';
-    const endsWithL = tokens[tokens.length - 1] === 'L';
-
-    // Extract high-energy milestones (builds, choruses, drops)
-    const milestones = tokens.filter(t => t === 'MHM' || t === 'MH' || t === 'HM' || t === 'H');
-
-    // De-duplicate consecutive identical milestones
-    const deduped: string[] = [];
-    for (const m of milestones) {
-      if (deduped[deduped.length - 1] !== m) {
-        deduped.push(m);
-      }
-    }
-
-    // Penalize large sequences: if it doesn't end with L, we can drop the last milestone (like a trailing H)
-    // since the outro doesn't need to match it.
-    if (!endsWithL && deduped.length > 1) {
-      deduped.pop();
-    }
-
-    // Construct the LIKE pattern
-    let pattern = '';
-    if (startsWithL) {
-      pattern += 'L%';
-    } else {
-      pattern += '%';
-    }
-
-    if (deduped.length > 0) {
-      pattern += deduped.join('%') + '%';
-    }
-
-    if (endsWithL) {
-      pattern += 'L';
-    }
-
-    return pattern;
-  }
-
-  /** Raw fingerprint (stored or computed) — shown as large background text */
-  const rawFingerprint = $derived(
-    track?.waveform_fingerprint
-      ?? (track?.waveform_sax ? computeFingerprint(track.waveform_sax) : null)
-  );
-
-  /** Formatted fingerprint — reserved for future decoded section labels */
-  const displayFingerprint = $derived(
-    rawFingerprint ? formatFingerprint(rawFingerprint) : null
-  );
 
   const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'clap', 'essentia', 'bpm_refinement', 'qwen', 'description_embed'];
   let resetMenuOpen = $state(false);
@@ -341,17 +233,23 @@
       <!-- Waveform + structural coloring -->
       {#if waveformBins.length > 0}
         <div class="section waveform-section">
-          {#if track?.sax_alignment}
-            <button
-              class="section-label section-label-btn"
-              onclick={() => {
-                filters.structureFilter = '^' + track!.sax_alignment! + '$';
-              }}
-              title="Filter by this structure"
-            >CLICK TO FILTER BY SONG STRUCTURE</button>
-          {:else}
-            <span class="section-label">SONG STRUCTURE</span>
-          {/if}
+          <div class="structure-filter-row">
+            <span class="section-label" style="margin-bottom:0">SONG STRUCTURE</span>
+            {#if track?.sax_alignment}
+              <button
+                class="structure-filter-pill"
+                onclick={() => { filters.structureFilter = '^' + track!.sax_alignment! + '$'; }}
+                title="Filter by exact song structure: {track.sax_alignment}"
+              >exact</button>
+            {/if}
+            {#if track?.structure_cluster_id != null && STRUCTURE_CLUSTER_REGEX[track.structure_cluster_id] != null}
+              <button
+                class="structure-filter-pill structure-filter-pill--cluster"
+                onclick={() => { filters.structureFilter = STRUCTURE_CLUSTER_REGEX[track!.structure_cluster_id!]; }}
+                title="Filter by cluster: {STRUCTURE_CLUSTER_LABELS[track.structure_cluster_id]}"
+              >{STRUCTURE_CLUSTER_LABELS[track.structure_cluster_id]}</button>
+            {/if}
+          </div>
           <div class="waveform-wrap" role="img" aria-label="Waveform">
             <svg class="waveform-svg" viewBox="0 0 {waveformBins.length} 64" preserveAspectRatio="none">
               {#each waveformBins as bin, j}
@@ -1365,6 +1263,48 @@
     font-size: var(--sg-text-md);
     line-height: 1;
     padding: 0 2px;
+  }
+
+  /* ── Structure filter row ── */
+  .structure-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+
+  .structure-filter-pill {
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-3xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,160,32,0.4);
+    background: rgba(232,160,32,0.07);
+    color: var(--sax-d, #e8a020);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .structure-filter-pill:hover {
+    background: rgba(232,160,32,0.16);
+    border-color: rgba(232,160,32,0.7);
+  }
+
+  .structure-filter-pill--cluster {
+    border-color: rgba(0,240,255,0.35);
+    background: rgba(0,240,255,0.06);
+    color: var(--sg-primary, #00f0ff);
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  .structure-filter-pill--cluster:hover {
+    background: rgba(0,240,255,0.13);
+    border-color: rgba(0,240,255,0.65);
   }
 
   /* ── Fingerprint click-to-filter button ── */
