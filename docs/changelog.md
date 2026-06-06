@@ -10,6 +10,21 @@ permalink: /changelog/
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.7] — 2026-06-06
+
+### Features
+
+- **Song Structure Archetypes**: Deep Cuts now automatically groups your tracks by structural blueprint — intro, verse, chorus, outro patterns are compared across your whole library, and tracks with the same shape are clustered together. Labels like "I·VPC×2·O" appear on the track detail pane and in the Music Map structure view. Useful for spotting which tracks have a two-drop structure vs. a long build, or finding all your quick-intro tracks for a live set.
+- **Filter by Structural Archetype**: Two filter pills now appear under the structure display in the track pane — one to find tracks with the *exact same* section sequence, one to find all tracks in the same *structural family*. Great for building sets where the song shapes complement each other.
+- **Faster Analysis on Large Libraries**: The structure encoding step is now dramatically faster on big collections — what previously stalled on libraries of 1000+ tracks now runs in a single pass.
+
+### Fixes
+
+- **Misidentified Outros**: Quiet breakdowns and drops in the middle of a track were sometimes labelled as "Outro", which threw off structure matching. The app now correctly identifies those as Bridges or Breakdowns, reserving Outro for the actual end of the track.
+- **Structure Filter Missing Tracks**: Clicking the structure family filter pill was silently excluding roughly half the matching tracks. It now reliably returns every track in the cluster.
+
+---
+
 ## [0.1.6] — 2026-06-05
 
 ### Features
