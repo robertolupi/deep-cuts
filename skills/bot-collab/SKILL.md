@@ -3,19 +3,20 @@ name: bot-collab
 description: Pattern for multi-agent collaboration sessions in the deep-cuts repository
 ---
 
-# Multi-Agent Collaboration Protocol
+# Multi-Agent Collaboration Skill
 
-This skill outlines the process for conducting structured collaborative coding sessions between human developers and multiple agentic coding assistants (e.g. Gemini/Antigravity and Claude).
+This skill is the trigger and quick-start checklist for structured collaborative coding sessions between Roberto and multiple agentic coding assistants. The canonical protocol lives in `doc/collab/PROTOCOL.md`; if this skill and the protocol disagree, follow `PROTOCOL.md` and update this skill later.
 
-All coordination documents reside under the [doc/collab/](file:///Users/rlupi/src/deep-cuts/doc/collab/) directory:
-* **[PROTOCOL.md](file:///Users/rlupi/src/deep-cuts/doc/collab/PROTOCOL.md)**: Rules and structures for turn-taking.
-* **[sessions/](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/)**: Topic-specific markdown log files.
+All coordination documents reside under `doc/collab/`:
+
+- `doc/collab/PROTOCOL.md`: source of truth for turn-taking, handoff structure, and error recovery.
+- `doc/collab/sessions/`: topic-specific session directories. New sessions should use `YYYY-MM-DD-topic-slug/session.md`.
 
 ---
 
 ## Agent Usage Instructions
 
-When the user mentions that they are running a multi-agent or 3-way session (or when they invoke the `/collab` command), follow these steps:
+When the user mentions a multi-agent or 3-way session, or invokes a `/collab` command, first read `doc/collab/PROTOCOL.md`, then use this checklist.
 
 ### ⚠️ Verification rule (applies to every action)
 **Never describe writing a file — actually write it.** Confirm the write succeeded before
@@ -63,11 +64,19 @@ When you finish your work/reasoning and want to hand the turn to the other agent
 1. **CRITICAL**: Do NOT just write in the chat that you are writing the file. You must actually write to the session `session.md` file.
 2. Format your entry as a header: `## [AgentName, HH:MM]`.
 3. Write your reasoning, changes, and findings.
-4. End your entry with: `**→ Handoff:** [Specific question or next step description]`.
+4. End your entry with the structured handoff required by `PROTOCOL.md`:
+   ```markdown
+   **→ Handoff:**
+   **Task:** [what to do]
+   **Context:** [files, data, or prior decisions needed]
+   **Deliverable:** [expected artifact]
+   ```
 5. Output a copyable handoff box in your final chat response:
    ```
    Check doc/collab/sessions/YYYY-MM-DD-topic-slug/session.md.
 
-   Handoff: [one-sentence summary of what you did]
-   Question for [Claude/Gemini/Roberto/Meta]: [specific question or task]
+   Handoff:
+   Task: [what to do]
+   Context: [files, data, or prior decisions needed]
+   Deliverable: [expected artifact]
    ```

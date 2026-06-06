@@ -1,7 +1,7 @@
 ---
 name: ui-debug
 description: >
-  Inspect, debug, and compare the Deep Cuts UI using the Chrome MCP.
+  Inspect, debug, and compare the Deep Cuts UI using an available browser tool.
   Use this skill whenever the user wants to inspect DOM structure, read computed
   CSS styles, take a screenshot of the app, or compare the UI before and after
   a Svelte/CSS change. Triggers on phrases like "show me the DOM", "what styles
@@ -13,14 +13,12 @@ description: >
 
 # UI Debug Skill
 
-This skill connects to the running Deep Cuts dev server via the Chrome MCP and
-lets you inspect the live UI: read the DOM, capture computed CSS styles, take
-screenshots, and diff styles before/after a change.
+This skill connects to the running Deep Cuts dev server with whichever browser automation is available. Use Chrome MCP when available; in Codex, prefer the in-app Browser plugin for localhost/file targets. The goal is the same in every environment: inspect the live UI, read DOM/accessibility structure, capture computed styles, take screenshots, and diff styles before/after a change.
 
 ## Prerequisites
 
 - The app must be running: `npm run tauri dev` (or just `npm run dev` for frontend-only)
-- Chrome must be open with the "Claude in Chrome" extension connected
+- A browser inspection tool must be available: Chrome MCP, Codex in-app Browser, Playwright, or a manual browser fallback
 - For realistic data, use the `?local_debug=1` query parameter (see below)
 
 ## The local_debug mode
@@ -30,7 +28,7 @@ Navigating to `http://localhost:1420/?local_debug=1` activates mock IPC data
 the Tauri backend. Use this URL for all CSS/Svelte debugging. Without the param,
 the library will be empty because `window.__TAURI__` is not injected in Chrome.
 
-## Setup sequence
+## Setup sequence — Chrome MCP
 
 Run this once per session before any inspection tools:
 
@@ -43,6 +41,24 @@ Run this once per session before any inspection tools:
 ```
 
 After setup, reuse the same `tabId` for all subsequent calls.
+
+## Setup sequence — Codex in-app Browser
+
+When working in Codex with the Browser plugin available:
+
+1. Start `npm run dev` for frontend-only inspection, or `npm run tauri dev` for full Tauri behavior.
+2. Navigate the in-app Browser to `http://localhost:1420/?local_debug=1` for mock IPC data.
+3. Use screenshots and DOM inspection to verify the changed surface at desktop and narrow widths.
+4. If a component depends on real Tauri APIs not represented by local-debug mocks, add or update the mock in `src/lib/ipc.ts` before judging the UI.
+
+## Manual fallback
+
+If no browser automation is available, still perform a structured manual check:
+
+- run the app or Vite dev server;
+- open `http://localhost:1420/?local_debug=1`;
+- verify the changed state in dark, light, and accessible themes;
+- record what you checked and any unverified states in the final response.
 
 ## Reading the DOM
 

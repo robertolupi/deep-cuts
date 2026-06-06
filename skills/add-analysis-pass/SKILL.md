@@ -122,8 +122,8 @@ impl super::AnalysisPass for YourPass {
             })
         })
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
         Ok(rows)
     }
@@ -269,8 +269,8 @@ impl super::BatchAnalysisPass for YourBatchPass {
         let rows: Vec<(i64, String)> = stmt
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
             .map_err(|e| e.to_string())?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
         drop(stmt);
 
         // ── 2. Compute entirely in memory (parallelise with rayon if safe) ────
@@ -286,10 +286,12 @@ impl super::BatchAnalysisPass for YourBatchPass {
                 rusqlite::params![result, id],
             ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
         }
-        // Mark all track_passes rows done so AnalysisPanel shows correct progress.
+        // Mark applicable track_passes rows done so AnalysisPanel shows correct progress.
+        // If some tracks are not applicable, mark them done with a log explaining why;
+        // do not leave them pending forever.
         conn.execute(
             "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP
-             WHERE pass_name = 'your_batch_pass'",
+             WHERE pass_name = 'your_batch_pass' AND track_id IN (SELECT id FROM tracks WHERE some_column IS NOT NULL)",
             rusqlite::params![pass_status::DONE, pass_version::YOUR_BATCH_PASS],
         ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
         conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
@@ -390,5 +392,7 @@ To inspect the metrics after a run, see the `query-metrics-db` skill or use the 
 | Using `AnalysisPass` for a fast per-track pass that reads large blobs | App freezes during analysis; thousands of SQLite round-trips | Convert to `BatchAnalysisPass`: one SELECT + one transaction replaces N×3 round-trips |
 | Doing per-track DB writes inside `BatchAnalysisPass::execute()` | Defeats the purpose; still causes lock contention | Collect all results in memory, write in a single `BEGIN`/`COMMIT` block |
 | Forgetting to `UPDATE track_passes` to DONE in a batch pass | AnalysisPanel shows all tracks permanently pending for this pass | Add a bulk `UPDATE track_passes SET status = DONE WHERE pass_name = '...'` inside the write transaction |
+| Returning early from a batch pass when there is not enough data | Same batch pass reruns forever | Mark pending rows done/skipped with a clear `log` explaining why no output was produced |
+| Using `filter_map(|r| r.ok())` on DB rows | Corrupt rows or schema drift disappear silently | Use `collect::<Result<Vec<_>, _>>()` and return/log the mapping error |
 | Listing a no-`track_id` table in `owned_tables` | `reset_pass` fails with "no such column: track_id" | Use `owned_tables: &[]` + `custom_reset: Some(...)` to delete the table manually |
 | Emitting per-track progress events from a batch pass | UI receives thousands of events at once | Emit one event before and one after via `run_batch_pass`; add coarse checkpoints only for very large compute phases |

@@ -48,12 +48,14 @@ Forgetting this step compiles cleanly but the frontend call will throw at runtim
 ### 3. Call it from the frontend
 
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "$lib/ipc";
 
 const result = await invoke<MyReturnType>('my_command', { someArg: 'value' });
 ```
 
 Argument names are converted from camelCase (TypeScript) to snake_case (Rust) automatically by Tauri. The return type generic is optional but recommended for type safety.
+
+All app code should import `invoke` and `listen` from `$lib/ipc`, not directly from `@tauri-apps/api/core` or `@tauri-apps/api/event`. The wrapper owns local-debug mocks and is the right place to add typed command mappings.
 
 ---
 
@@ -82,7 +84,7 @@ fn start_long_task(app: tauri::AppHandle) -> Result<(), String> {
 ### Frontend side — listen for events
 
 ```typescript
-import { listen } from '@tauri-apps/api/event';
+import { listen } from "$lib/ipc";
 import { onDestroy } from 'svelte';
 
 const unlisten = await listen<{ percent: number }>('my-task-progress', (event) => {
@@ -117,7 +119,12 @@ fn my_command(my_state: tauri::State<'_, MyState>) -> Result<(), String> { ... }
 
 - [ ] Handler decorated with `#[tauri::command]`
 - [ ] Added to `tauri::generate_handler![]`
+- [ ] Added to the frontend IPC wrapper/type map in `src/lib/ipc.ts`
+- [ ] Local-debug mock added when the command affects visible UI
 - [ ] Frontend call uses the correct snake_case command name as a string literal
+- [ ] Frontend imports `invoke` / `listen` from `$lib/ipc`
 - [ ] `Result<T, String>` return type (or `()` for fire-and-forget)
+- [ ] Push-event payload type, event name, lifecycle, and ownership documented
 - [ ] Push-event listeners cleaned up with `onDestroy` (if applicable)
+- [ ] Frontend test or store test added when the command drives user-visible behavior
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` still passes

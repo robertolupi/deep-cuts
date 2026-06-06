@@ -130,7 +130,7 @@ Real-time filtering in the sidebar with zero round-trips to the backend:
 | [Rust](https://rustup.rs/) | ≥ 1.77.2 | Install via `rustup` |
 | [Node.js](https://nodejs.org/) | ≥ 18 | LTS recommended |
 | [Python](https://www.python.org/) | ≥ 3.10 | Required to export ONNX models |
-| [llama.cpp](https://github.com/ggerganov/llama.cpp) | latest | Bundled as an in-app sidecar (can be staged via `python tools/download_llama_server.py`) |
+| [llama.cpp](https://github.com/ggerganov/llama.cpp) | latest | Bundled as an in-app sidecar (can be staged via `tools/.venv/bin/python tools/download_llama_server.py`) |
 
 On macOS and Linux, the application automatically bundles and resolves a local `llama-server` sidecar, meaning external installation via Homebrew is optional.
 
@@ -145,16 +145,14 @@ The easiest way to set up models is to use the **in-app Model Downloader**:
 Alternatively, for offline setup or development, you can use the command-line tools:
 
 ```bash
-cd tools
-# Activate virtual environment
-source .venv/bin/activate
+# Run from the repository root.
 
 # 1. Download and stage the llama-server sidecar binary and dynamic libraries:
-python tools/download_llama_server.py
+tools/.venv/bin/python tools/download_llama_server.py
 
 # 2. Generate CLAP and sentence encoder models (~700 MB total)
-python tools/export_clap_onnx.py
-python tools/export_sentence_onnx.py
+tools/.venv/bin/python tools/export_clap_onnx.py
+tools/.venv/bin/python tools/export_sentence_onnx.py
 ```
 
 Then download the Essentia classifier models from the [Essentia model hub](https://essentia.upf.edu/models/) and Qwen2-Audio GGUF weights (`Qwen2-Audio-7B-Instruct.Q4_K_M.gguf` & `Qwen2-Audio-7B-Instruct.mmproj-Q8_0.gguf`) and place them in your configured models directory. See [models/README.md](models/README.md) for full offline instructions.

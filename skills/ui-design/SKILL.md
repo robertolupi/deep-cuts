@@ -9,7 +9,7 @@ This document outlines the design conventions for the Deep Cuts desktop applicat
 
 ## 1. The Sonic Glitch Design System
 
-Deep Cuts uses custom CSS variables starting with `--sg-` for layout, colors, effects, and typography. **Never hardcode hex, RGB, or HSL values** directly in components. Always use the design system tokens.
+Deep Cuts uses custom CSS variables starting with `--sg-` for layout, colors, effects, and typography. **Never hardcode hex, RGB, RGBA, or HSL values** directly in components. Always use the design system tokens or derive from them with `color-mix()`.
 
 ### Core Theme Colors
 - **App Shell & Panel Surfaces**: `var(--sg-surface)`, `var(--sg-surface-dim)`, `var(--sg-surface-low)`, `var(--sg-surface-container)`, `var(--sg-surface-slate)`.
@@ -58,8 +58,8 @@ If you must define new component-specific styling (such as badges, specialized b
    ```css
    .silence-badge {
      color: var(--sg-error);
-     background: rgba(255, 75, 75, 0.08); /* Transparent variant of error */
-     border: 1px solid rgba(255, 75, 75, 0.3);
+     background: color-mix(in srgb, var(--sg-error) 8%, transparent);
+     border: 1px solid color-mix(in srgb, var(--sg-error) 30%, transparent);
    }
    ```
 2. **Support the Accessible High-Contrast Theme**:
@@ -75,3 +75,13 @@ If you must define new component-specific styling (such as badges, specialized b
 3. **Typography Standards**:
    - UI elements and tables must use `var(--sg-font-ui)` (Inter / system font).
    - Technical values, keys, and paths must use `var(--sg-font-mono)` (JetBrains Mono).
+
+## 4. Verification Checklist
+
+Before finishing UI work:
+
+- Search changed components for hardcoded `#`, `rgb(`, `rgba(`, and inline `style="color`.
+- Verify dark, light, and accessible themes.
+- For canvas/SVG palettes, read colors from CSS variables via `getComputedStyle()` instead of duplicating literals in TypeScript.
+- Confirm focus, hover, active, disabled, loading, empty, and error states are legible.
+- If layout or styling changed materially, follow `skills/ui-debug/SKILL.md` for browser verification.

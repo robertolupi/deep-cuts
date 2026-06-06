@@ -118,7 +118,7 @@ Use `$effect` with an async unlisten pattern. The listener is automatically clea
 
 ```svelte
 <script lang="ts">
-  import { listen } from '@tauri-apps/api/event';
+  import { listen } from '$lib/ipc';
 
   $effect(() => {
     let unlisten: (() => void) | undefined;
@@ -133,6 +133,12 @@ Use `$effect` with an async unlisten pattern. The listener is automatically clea
 
 For persistent app-wide listeners (scan progress, analysis events), prefer wiring them into the appropriate store's `init()` method instead of individual components.
 
+Stores that register Tauri listeners must be idempotent. Keep an `initialized` flag, retain every unlisten function, and expose a `dispose()` method for tests and hot-reload cleanup. Avoid hidden cross-store writes; route shared updates through explicit store methods.
+
+## IPC access
+
+App components and stores should import `invoke` and `listen` from `$lib/ipc`. Do not import directly from `@tauri-apps/api/core` or `@tauri-apps/api/event` unless you are adding a low-level wrapper in `src/lib/ipc.ts`. This keeps local-debug mode, browser-only UI debugging, and tests consistent.
+
 ---
 
 ## Common mistakes
@@ -143,4 +149,6 @@ For persistent app-wide listeners (scan progress, analysis events), prefer wirin
 | `$:` reactive statement | Replace with `$derived` (value) or `$effect` (side-effect) |
 | `writable()`/ `readable()` | Use a class with `$state` fields |
 | `import { get } from 'svelte/store'` | Not needed — access store properties directly |
+| Direct Tauri `invoke` / `listen` imports in app code | Import from `$lib/ipc` so mocks and typed wrappers stay centralized |
+| Store `init()` adds listeners every call | Make `init()` idempotent and keep unlisten functions for `dispose()` |
 | Forgetting `lang="ts"` on `<script>` | Add it — the project is fully TypeScript |

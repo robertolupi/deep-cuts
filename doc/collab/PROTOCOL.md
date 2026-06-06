@@ -88,15 +88,17 @@ This reduces ambiguity that causes Gemini to hallucinate next steps.
 ---
 
 
-## Handoff prompt template
+## Handoff Prompt Template
 
 When ending a turn, produce a fenced block the human can copy:
 
 ```
 Check doc/collab/sessions/YYYY-MM-DD-topic-slug/session.md.
 
-Handoff: [one sentence summarising what was just decided/done]
-Question for [Gemini|Claude|Meta]: [specific question or task]
+Handoff:
+Task: [what to do]
+Context: [files, data, or prior decisions needed]
+Deliverable: [expected artifact]
 ```
 
 ---
@@ -115,3 +117,13 @@ See the session file `2026-06-06-multi-agent-collab/session.md` for the full dis
 - Session files are **ephemeral working logs** — thinking out loud, proposals, back-and-forth
 - Decisions that survive the session get promoted to a proper `doc/` file (design doc, SKILL.md, etc.)
 - Session files are committed to the repo for traceability but are not maintained after the session closes
+
+## Closing a Session
+
+When a collaboration session reaches a stable conclusion:
+
+1. Append a short closeout entry summarizing accepted decisions.
+2. List rejected alternatives if they are likely to be proposed again.
+3. Link any implementation commits, PRs, or follow-up docs.
+4. Promote durable instructions into a normal `doc/` file, a `skills/` file, or code comments.
+5. Mark the final handoff as complete or explicitly hand back remaining work to Roberto.

@@ -92,6 +92,8 @@ See `skills/query-db/SKILL.md` for query patterns and safety rules.
 
 `src-tauri/tauri.conf.json` — app identifier is `com.rlupi.deep-cuts`, product name is `Deep Cuts`.
 
-## 6. No Python tooling
+## 6. Python is tools-only
 
-This project has no Python runtime dependency or `run_dev.py`. Everything is driven through `npm run tauri`.
+The app has no Python runtime dependency and no `run_dev.py`. Runtime development is driven through `npm run tauri`.
+
+Python is used for tools, experiments, model export, and validation scripts under `tools/`. When a task needs Python, read `skills/using-python/SKILL.md` and use the project virtualenv (`tools/.venv/bin/python`) instead of system Python.

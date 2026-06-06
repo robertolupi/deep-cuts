@@ -6,55 +6,13 @@ Welcome to the Deep Cuts repository — a clean-room Tauri/Rust/Svelte 5 desktop
 
 All custom skills are located in the [skills/](skills/) directory.
 
-Before starting any task related to the following areas, you **MUST** read the corresponding `SKILL.md` file and follow its instructions:
+The generated [skills/INDEX.md](skills/INDEX.md) lists every skill by extracting frontmatter from `skills/*/SKILL.md`. Before starting any task, inspect that index and read every `SKILL.md` whose description matches the work.
 
-1. **IPC Commands**
-   - **Path**: [skills/add-ipc-command/SKILL.md](skills/add-ipc-command/SKILL.md)
-   - **Use when**: Adding or editing Tauri/IPC endpoints between the frontend and Rust backend.
+Regenerate the index after adding, removing, renaming, or changing the frontmatter for a skill:
 
-2. **Database Migrations**
-   - **Path**: [skills/db-migration/SKILL.md](skills/db-migration/SKILL.md)
-   - **Use when**: Creating, running, or debugging database schema changes.
-
-3. **Development Guidelines**
-   - **Path**: [skills/dev-guidelines/SKILL.md](skills/dev-guidelines/SKILL.md)
-   - **Use when**: Onboarding, running the app, or checking general repository conventions.
-
-4. **Querying the Database**
-   - **Path**: [skills/query-db/SKILL.md](skills/query-db/SKILL.md)
-   - **Use when**: Formulating database queries or interacting with the SQLite database directly.
-
-5. **Querying the Metrics Database**
-   - **Path**: [skills/query-metrics-db/SKILL.md](skills/query-metrics-db/SKILL.md)
-   - **Use when**: Inspecting pipeline performance data, latency stats, failure logs, or the `metrics.db` file.
-
-6. **Adding an Analysis Pass**
-   - **Path**: [skills/add-analysis-pass/SKILL.md](skills/add-analysis-pass/SKILL.md)
-   - **Use when**: Adding a new pass to the analysis pipeline (e.g. essentia, qwen, bpm_correction).
-
-7. **Release Build**
-   - **Path**: [skills/release-build/SKILL.md](skills/release-build/SKILL.md)
-   - **Use when**: Producing a signed macOS release build, verifying the bundle, or publishing.
-
-8. **Bump Dev Version**
-   - **Path**: [skills/bump-dev-version/SKILL.md](skills/bump-dev-version/SKILL.md)
-   - **Use when**: Advancing `Cargo.toml` to the next version after a release has shipped.
-
-9. **Bundling an External Binary (Tauri Sidecar)**
-   - **Path**: [skills/add-tauri-sidecar/SKILL.md](skills/add-tauri-sidecar/SKILL.md)
-   - **Use when**: Bundling a new external executable (e.g. fpcalc, llama-server) with the Tauri app.
-
-10. **Svelte Components & Stores**
-   - **Path**: [skills/svelte-component/SKILL.md](skills/svelte-component/SKILL.md)
-   - **Use when**: Writing or editing Svelte 5 components, stores, or frontend reactive logic.
-
-11. **UI Debugging & Style Inspection**
-   - **Path**: [skills/ui-debug/SKILL.md](skills/ui-debug/SKILL.md)
-   - **Use when**: Inspecting DOM structure, reading computed CSS styles, taking screenshots, or comparing UI before/after a Svelte/CSS change via the Chrome MCP.
-
-12. **Using Python**
-   - **Path**: [skills/using-python/SKILL.md](skills/using-python/SKILL.md)
-   - **Use when**: Running any Python script, installing packages, or writing Python tooling for this project.
+```bash
+tools/.venv/bin/python tools/generate_skill_index.py
+```
 
 ## Repository Layout
 
