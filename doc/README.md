@@ -2,6 +2,8 @@
 
 This directory holds design notes, feature proposals, research logs, and collaboration records for Deep Cuts.
 
+Start with [INDEX.md](INDEX.md) for the current status map. The index is intentionally non-destructive: it classifies existing docs without moving or rewriting brainstorming notes.
+
 ## Proposal Lifecycle
 
 Feature proposal docs should start with frontmatter so future contributors and agents can tell whether the document is current:
@@ -20,9 +22,10 @@ related_skills:
 
 Use these statuses consistently:
 
-- `proposed`: plausible, not committed to implementation.
-- `active`: current working direction.
 - `implemented`: shipped or merged into the app; include code references.
+- `partially-implemented`: meaningful parts exist, but the doc still contains unimplemented proposal material.
+- `active-research`: current or recent research direction, not necessarily committed product work.
+- `need-human-review`: unimplemented, mixed, stale, or strategic enough that Roberto should decide whether it still matters.
 - `superseded`: replaced by a newer doc or implementation approach.
 - `deferred`: intentionally parked.
 - `rejected`: evaluated and intentionally not pursued.
