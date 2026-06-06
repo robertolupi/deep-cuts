@@ -14,6 +14,7 @@ Run `tools/.venv/bin/python tools/generate_skill_index.py` after adding, removin
 | `bump-dev-version` | [skills/bump-dev-version/SKILL.md](bump-dev-version/SKILL.md) | Bump the app version in Cargo.toml after a release to start the next dev cycle |
 | `db-migration` | [skills/db-migration/SKILL.md](db-migration/SKILL.md) | Safe pattern for adding SQLite schema migrations in the deep-cuts Rust/rusqlite_migration stack |
 | `dev-guidelines` | [skills/dev-guidelines/SKILL.md](dev-guidelines/SKILL.md) | Guidelines to prevent development false starts, environment mismatches, and incorrect commands in the deep-cuts monorepo |
+| `how-to-experiment` | [skills/how-to-experiment/SKILL.md](how-to-experiment/SKILL.md) | Experimental protocol for Deep Cuts research, prototypes, model evaluations, threshold tuning, ablations, metric comparisons, and claims about accuracy or quality. Use before running or interpreting experiments so bots preserve train/validation/test boundaries, avoid leakage, compare against baselines, and report results honestly. |
 | `query-db` | [skills/query-db/SKILL.md](query-db/SKILL.md) | How to locate and query the deep-cuts production SQLite database |
 | `query-metrics-db` | [skills/query-metrics-db/SKILL.md](query-metrics-db/SKILL.md) | How to locate and query the deep-cuts pipeline metrics SQLite database |
 | `release-build` | [skills/release-build/SKILL.md](release-build/SKILL.md) | End-to-end checklist for building a signed macOS release — bump manifest min_app_version, verify sidecars, build, and inspect the .app |
