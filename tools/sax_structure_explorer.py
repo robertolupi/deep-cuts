@@ -58,6 +58,104 @@ BLOCK_PATTERNS = {
     "Outro":      r"L$",
 }
 
+def sax_to_lmh(c: str) -> str:
+    if c in ("a", "b"):
+        return "L"
+    if c == "c":
+        return "M"
+    return "H"
+
+def troll(n: int) -> str:
+    if n == 1:
+        return ""
+    if n == 2:
+        return "2"
+    if n == 3:
+        return "3"
+    return "*"
+
+def compute_fingerprint(sax: str) -> str:
+    if not sax:
+        return ""
+    lmh = [sax_to_lmh(c) for c in sax]
+    
+    # RLE with counts
+    lmh_runs = []
+    for c in lmh:
+        if lmh_runs and lmh_runs[-1]["char"] == c:
+            lmh_runs[-1]["count"] += 1
+        else:
+            lmh_runs.append({"char": c, "count": 1})
+            
+    # Greedy tokenize runs (group MHM, MH, HM, sum counts)
+    tokens = []
+    i = 0
+    while i < len(lmh_runs):
+        if i + 2 < len(lmh_runs) and lmh_runs[i]["char"] == 'M' and lmh_runs[i+1]["char"] == 'H' and lmh_runs[i+2]["char"] == 'M':
+            tokens.append({
+                "token": "MHM",
+                "count": lmh_runs[i]["count"] + lmh_runs[i+1]["count"] + lmh_runs[i+2]["count"]
+            })
+            i += 3
+        elif i + 1 < len(lmh_runs) and lmh_runs[i]["char"] == 'M' and lmh_runs[i+1]["char"] == 'H':
+            tokens.append({
+                "token": "MH",
+                "count": lmh_runs[i]["count"] + lmh_runs[i+1]["count"]
+            })
+            i += 2
+        elif i + 1 < len(lmh_runs) and lmh_runs[i]["char"] == 'H' and lmh_runs[i+1]["char"] == 'M':
+            tokens.append({
+                "token": "HM",
+                "count": lmh_runs[i]["count"] + lmh_runs[i+1]["count"]
+            })
+            i += 2
+        else:
+            token = "L" if lmh_runs[i]["char"] == 'L' else "M" if lmh_runs[i]["char"] == 'M' else "H"
+            tokens.append({
+                "token": token,
+                "count": lmh_runs[i]["count"]
+            })
+            i += 1
+            
+    # Format with troll counting
+    return "".join(t["token"] + troll(t["count"]) for t in tokens)
+
+def fingerprint_to_like_pattern(fp: str) -> str:
+    if not fp:
+        return ""
+    # Tokenize the fingerprint: matches tokens like MHM, MH, HM, L, M, H, optionally followed by 2, 3, *
+    raw_tokens = re.findall(r"(MHM|MH|HM|L|M|H)([23*])?", fp)
+    if not raw_tokens:
+        return ""
+    
+    # Strip counts/stars to get base tokens
+    tokens = [tok for tok, cnt in raw_tokens]
+    
+    starts_with_l = tokens[0] == 'L'
+    ends_with_l = tokens[-1] == 'L'
+    
+    # Extract high-energy milestones
+    milestones = [t for t in tokens if t in ('MHM', 'MH', 'HM', 'H')]
+    
+    # De-duplicate consecutive milestones
+    deduped = []
+    for m in milestones:
+        if not deduped or deduped[-1] != m:
+            deduped.append(m)
+            
+    # Penalize large sequences: drop trailing milestone if not ending in L
+    if not ends_with_l and len(deduped) > 1:
+        deduped.pop()
+        
+    # Construct LIKE pattern
+    pattern = "L%" if starts_with_l else "%"
+    if deduped:
+        pattern += "%".join(deduped) + "%"
+    if ends_with_l:
+        pattern += "L"
+    return pattern
+
+
 
 # ── data loading ──────────────────────────────────────────────────────────────
 
@@ -65,12 +163,12 @@ BLOCK_PATTERNS = {
 def load_tracks():
     con = sqlite3.connect(DB)
     rows = con.execute(
-        "SELECT id, path, title, artist, duration_seconds, waveform_data, waveform_sax "
+        "SELECT id, path, title, artist, duration_seconds, waveform_data, waveform_sax, genre "
         "FROM tracks WHERE waveform_sax IS NOT NULL"
     ).fetchall()
     con.close()
     tracks = []
-    for id_, path, title, artist, dur, wf_json, sax in rows:
+    for id_, path, title, artist, dur, wf_json, sax, genre in rows:
         if not wf_json or not sax:
             continue
         try:
@@ -81,6 +179,7 @@ def load_tracks():
             "id": id_, "path": path, "title": title or Path(path).stem,
             "artist": artist, "duration": dur,
             "waveform": wf, "sax": sax,
+            "genre": genre or "Unknown",
             "rle": to_rle(sax),
         })
     return tracks
@@ -413,6 +512,86 @@ def page_track_detail(tracks):
             st.text(Path(lpath).read_text(errors="replace"))
 
 
+def page_similarity_search(tracks):
+    st.header("Duration-Aware Similarity Search")
+    st.caption("Select a track to compute its fingerprint, see its SQL LIKE wildcard compression, and find matching tracks.")
+
+    # Search and select track
+    options = {f"[{t['id']}] {t['title']} — {t['artist'] or 'Unknown'} ({t['rle']})": t for t in tracks}
+    choice = st.selectbox("Select query track", list(options.keys()))
+    t = options[choice]
+
+    # Compute duration-aware fingerprint
+    fp = compute_fingerprint(t["sax"])
+    like_pattern = fingerprint_to_like_pattern(fp)
+
+    st.subheader("Query Details")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Selected Track RLE", t["rle"])
+    c2.metric("Raw SAX string", t["sax"][:16] + "...")
+    c3.metric("waveform_fingerprint", fp)
+    c4.metric("LIKE search pattern", like_pattern)
+
+    # Perform LIKE search
+    st.subheader("Matching Tracks")
+    
+    import fnmatch
+    
+    # Translate SQL LIKE pattern to fnmatch pattern (replace % with *, _ with ?)
+    fn_pattern = like_pattern.replace("%", "*").replace("_", "?")
+    
+    matched = []
+    for ot in tracks:
+        ofp = compute_fingerprint(ot["sax"])
+        if fnmatch.fnmatch(ofp.upper(), fn_pattern.upper()):
+            matched.append((ot, ofp))
+            
+    st.write(f"Found **{len(matched)}** matching tracks using pattern `{like_pattern}`")
+    
+    if matched:
+        # Display as a dataframe
+        rows = []
+        for ot, ofp in matched:
+            olike = fingerprint_to_like_pattern(ofp)
+            rows.append({
+                "ID": ot["id"],
+                "Title": ot["title"],
+                "Artist": ot["artist"],
+                "Genre": ot.get("genre") or "—",
+                "waveform_sax": ot["sax"],
+                "waveform_fingerprint": ofp,
+                "compressed LIKE": olike,
+            })
+        st.dataframe(rows, use_container_width=True)
+
+        # Plot waveforms side-by-side or stacked for selected matches
+        st.subheader("Visual Waveform Comparison")
+        num_to_show = min(5, len(matched))
+        st.write(f"Showing waveforms for top {num_to_show} matches:")
+        
+        for idx in range(num_to_show):
+            ot, ofp = matched[idx]
+            wf = ot["waveform"]
+            sax = ot["sax"]
+            peak = max(wf) if wf else 1
+            n = len(wf)
+            bar_colors = [SAX_COLORS.get(sax[min(int(i * len(sax) / n), len(sax) - 1)], "#aaa") for i in range(n)]
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=list(range(n)), y=[v / peak for v in wf],
+                marker_color=bar_colors, name="Waveform",
+            ))
+            fig.update_layout(
+                template="plotly_dark", 
+                height=150, 
+                showlegend=False,
+                margin=dict(t=20, b=20, l=10, r=10),
+                title=f"[{ot['id']}] {ot['title']} — {ot['artist']} (fp: {ofp})"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title="SAX Structure Explorer", layout="wide")
@@ -429,6 +608,7 @@ page = st.sidebar.radio("Page", [
     "Pattern recall",
     "Block composer",
     "Track detail",
+    "Similarity search",
 ])
 
 if page == "Overview":
@@ -441,3 +621,5 @@ elif page == "Block composer":
     page_block_composer(tracks)
 elif page == "Track detail":
     page_track_detail(tracks)
+elif page == "Similarity search":
+    page_similarity_search(tracks)

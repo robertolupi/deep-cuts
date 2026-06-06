@@ -167,13 +167,15 @@ computed by the SAX pass alongside `waveform_sax`.
 ```
 waveform_sax (32 chars, alphabet a–e)
   → to_lmh:    a/b → L,  c → M,  d/e → H          (energy level)
-  → rle:       collapse consecutive identical chars  (e.g. LLLMMHH → LMH)
-  → tokenise:  greedy left-to-right compound tokens:
+  → rle:       collapse consecutive identical chars and retain run counts
+                 (e.g. LLLMMHH → [('L', 3), ('M', 2), ('H', 2)])
+  → tokenise:  greedy left-to-right compound tokens on the runs, summing grouped counts:
                  MHM  →  chorus flanked by mid on both sides
                  MH   →  build/ramp into chorus
                  HM   →  chorus dissolving into mid
                  L/M/H → standalone
-  → bracket:   consecutive identical tokens troll-counted + bracketed if count > 1
+  → troll:     troll-count the run counts of each token individually (none = 1, 2, 3, * = 4+)
+                 to preserve duration/transition speed (e.g. L*MH* vs LMH2)
 ```
 
 #### Troll counting (Pratchett)
@@ -197,18 +199,17 @@ A reference to Pratchett's trolls, who count "one, two, many."
 
 | `waveform_fingerprint` | Reading |
 |---|---|
-| `L(MH)2L` | quiet intro, two build→chorus cycles, quiet outro |
-| `LMHMHL` | quiet intro, build→chorus→build→chorus, quiet fade |
-| `LH*L` | quiet intro, many hard choruses, quiet outro |
-| `LH2H` | quiet intro, two choruses, ends loud |
-| `HH*L` | starts loud, many choruses, quiet outro (orchestral / live) |
+| `L*MH2L*` | quiet intro (long), fast build→chorus, quiet outro (long) |
+| `L*MH*L*` | quiet intro (long), gradual slow build→chorus, quiet outro (long) |
+| `LMHMHL` | quiet intro, fast build→chorus→build→chorus, quiet fade |
+| `L*H*L*` | quiet intro (long), long choruses, quiet outro (long) |
+| `HH*L*` | starts loud, long choruses, quiet outro (orchestral / live) |
 | `L*M*H*` | long gradual ramp (ambient / classical) |
 
 #### Display notation
 
-For UI display, consecutive compound tokens in parens: `(MH)2` instead of `MHMH`.
-The flat form (e.g. `LMHMHL`) is what is stored in the DB; the bracket form is rendered
-client-side for readability.
+For UI display, compound tokens are formatted: `MH*` is rendered with `×` on the count.
+The flat form (e.g. `L*MH*`) is what is stored in the DB.
 
 #### Usefulness for music producers
 
