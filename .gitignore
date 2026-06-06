@@ -31,3 +31,4 @@ memory/
 tools/.venv
 tools/validate_tags_results.json
 tools/tag_quality_report.md
+tools/nohup.out
