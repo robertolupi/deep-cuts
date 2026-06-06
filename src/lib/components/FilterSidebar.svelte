@@ -125,6 +125,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     filters.semanticQuery !== "" ||
     filters.clapQuery !== "" ||
     filters.structureFilter !== "" ||
+    filters.structureSimilarToTrack !== null ||
     filters.genreFilter !== "" ||
     filters.selectedDirectoryIds.length > 0 ||
     filters.selectedKeys.length > 0 ||
@@ -149,6 +150,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     filters.semanticQuery    = "";
     filters.clapQuery        = "";
     filters.structureFilter  = "";
+    filters.clearStructureSimilar();
     filters.genreFilter   = "";
     filters.clearDirectories();
     filters.clearKeys();
@@ -271,6 +273,12 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
         </div>
 
         <!-- Song Structure filter -->
+        {#if filters.structureSimilarToTrack}
+          <div class="structure-similar-badge">
+            <span>≈ {filters.structureSimilarToTrack.title}</span>
+            <button class="clear-x" onclick={() => filters.clearStructureSimilar()}>×</button>
+          </div>
+        {/if}
         <div class="search-wrap structure-wrap">
           <!-- Waveform icon -->
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon structure-icon">
@@ -1182,6 +1190,32 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   /* ── Structure filter ── */
   .structure-icon { color: var(--sax-d, #e8a020); }
+
+  .structure-similar-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(232,160,32,0.4);
+    background: rgba(232,160,32,0.08);
+    font-family: var(--sg-font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sax-d, #e8a020);
+    letter-spacing: 0.04em;
+  }
+
+  .structure-similar-badge .clear-x {
+    color: var(--sax-d, #e8a020);
+    opacity: 0.7;
+  }
+
+  .structure-similar-badge .clear-x:hover {
+    opacity: 1;
+  }
 
   .structure-search-input {
     border-color: rgba(232, 160, 32, 0.15) !important;

@@ -38,6 +38,10 @@ function createFiltersStore() {
   let semanticTrackScores = $state<Map<number, number>>(new Map());
   let isSemanticLoading = $state(false);
 
+  let structureSimilarToTrack = $state<{ id: number; title: string; alignment: string } | null>(null);
+  let structureSimilarIds = $state<Set<number>>(new Set());
+  let structureSimilarScores = $state<Map<number, number>>(new Map());
+
   let moodHappyMin      = $state(0); let moodHappyMax      = $state(1);
   let moodSadMin        = $state(0); let moodSadMax        = $state(1);
   let moodAggressiveMin = $state(0); let moodAggressiveMax = $state(1);
@@ -70,6 +74,9 @@ function createFiltersStore() {
 
       // Sounds similar filter
       if (similarTrackIds.size > 0 && !similarTrackIds.has(t.id)) return false;
+
+      // Structure similar filter
+      if (structureSimilarIds.size > 0 && !structureSimilarIds.has(t.id)) return false;
 
       // Music only: exclude tracks Essentia classified as Non-Music
       if (musicOnly && t.detected_genre?.startsWith("Non-Music")) return false;
@@ -337,6 +344,29 @@ function createFiltersStore() {
     get structureFilter()  { return structureFilter; },
     set structureFilter(v) { structureFilter = v; },
 
+    get structureSimilarToTrack() { return structureSimilarToTrack; },
+    get structureSimilarScores()  { return structureSimilarScores; },
+
+    setStructureSimilarTo(track: { id: number; title: string; alignment: string }) {
+      if (!track.alignment) return;
+      const scores = new Map<number, number>();
+      for (const t of library.tracks) {
+        if (!t.sax_alignment || t.id === track.id) continue;
+        scores.set(t.id, levDistance(track.alignment, t.sax_alignment));
+      }
+      // Keep tracks within distance 4 (roughly same skeleton ± a section)
+      const threshold = 4;
+      structureSimilarIds     = new Set([track.id, ...scores.keys().filter(id => (scores.get(id) ?? Infinity) <= threshold)]);
+      structureSimilarScores  = scores;
+      structureSimilarToTrack = track;
+    },
+
+    clearStructureSimilar() {
+      structureSimilarToTrack = null;
+      structureSimilarIds     = new Set();
+      structureSimilarScores  = new Map();
+    },
+
     async setSimilarTo(track: { id: number; title: string; }) {
       isSimilarLoading = true;
       try {
@@ -414,12 +444,30 @@ function createFiltersStore() {
       semanticTrackScores  = new Map();
       clapTrackIds         = new Set();
       clapTrackScores      = new Map();
-      selectedTags         = [];
-      structureFilter      = "";
+      selectedTags            = [];
+      structureFilter         = "";
+      structureSimilarToTrack = null;
+      structureSimilarIds     = new Set();
+      structureSimilarScores  = new Map();
     },
   };
 }
 
 export const filters = createFiltersStore();
+
+function levDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const curr = [i];
+    for (let j = 1; j <= n; j++) {
+      curr[j] = a[i - 1] === b[j - 1]
+        ? prev[j - 1]
+        : 1 + Math.min(prev[j], curr[j - 1], prev[j - 1]);
+    }
+    prev = curr;
+  }
+  return prev[n];
+}
 
 // ── Structural alphabet ───────────────────────────────────────────────────────

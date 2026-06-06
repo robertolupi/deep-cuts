@@ -368,6 +368,25 @@
               {/each}
             </svg>
           </div>
+          {#if track?.sax_alignment}
+            <button
+              class="structure-similar-btn"
+              class:structure-similar-active={filters.structureSimilarToTrack?.id === track.id}
+              onclick={() => {
+                if (filters.structureSimilarToTrack?.id === track.id) {
+                  filters.clearStructureSimilar();
+                } else {
+                  filters.setStructureSimilarTo({ id: track.id, title: track.title ?? track.filename, alignment: track.sax_alignment! });
+                }
+              }}
+            >
+              {#if filters.structureSimilarToTrack?.id === track.id}
+                Clear structure filter
+              {:else}
+                Find structurally similar
+              {/if}
+            </button>
+          {/if}
         </div>
       {/if}
 
@@ -1202,6 +1221,35 @@
   .similar-btn.similar-active {
     background: rgba(254,0,254,0.12);
     border-color: var(--sg-secondary, #fe00fe);
+  }
+
+  .structure-similar-btn {
+    width: 100%;
+    margin-top: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--sg-font-mono);
+    font-size: var(--sg-text-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(232,160,32,0.3);
+    background: rgba(232,160,32,0.06);
+    color: var(--sax-d, #e8a020);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .structure-similar-btn:hover {
+    background: rgba(232,160,32,0.12);
+    border-color: rgba(232,160,32,0.55);
+  }
+
+  .structure-similar-btn.structure-similar-active {
+    background: rgba(232,160,32,0.12);
+    border-color: var(--sax-d, #e8a020);
   }
 
   .similar-spinner {
