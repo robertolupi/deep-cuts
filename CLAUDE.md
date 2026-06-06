@@ -72,6 +72,10 @@ skills/          — project-specific agent playbooks
 
 Always run `cargo test --manifest-path src-tauri/Cargo.toml` after Rust changes. **Never commit — wait for the user to explicitly say so after manual testing.**
 
+## File System Rules
+
+**Never search in global directories** (`~/Library`, `~/Documents`, `/`, etc.). All project files live under `/Users/rlupi/src/deep-cuts/`. For database access, always use the `skills/query-db/SKILL.md` skill — it specifies the correct DB path.
+
 ## Tech Stack
 
 - **Frontend**: Svelte 5, SvelteKit, TypeScript, D3.js, WaveSurfer.js

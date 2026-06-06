@@ -100,6 +100,69 @@
   }
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');
 
+  // ── Waveform ──────────────────────────────────────────────────────────────
+  const waveformBins = $derived<number[]>((() => {
+    if (!track?.waveform_data) return [];
+    try { return JSON.parse(track.waveform_data) as number[]; } catch { return []; }
+  })());
+
+  const waveformPeak = $derived(Math.max(...waveformBins, 1e-6));
+
+  /** Return the SAX letter for bin index j */
+  function saxLetterForBin(sax: string | null | undefined, j: number, total: number): string {
+    if (!sax || total === 0) return 'c';
+    const pos = Math.floor((j / total) * sax.length);
+    return sax[Math.min(pos, sax.length - 1)] ?? 'c';
+  }
+
+  /** Mirror of the Rust waveform_fingerprint() function — computes client-side from waveform_sax */
+  function computeFingerprint(sax: string): string {
+    // Step 1: to LMH
+    const lmh = sax.split('').map(c => c <= 'b' ? 'L' : c === 'c' ? 'M' : 'H').join('');
+    // Step 2: RLE
+    let rled = '';
+    for (const c of lmh) { if (rled[rled.length - 1] !== c) rled += c; }
+    // Step 3: greedy tokenise (MHM > MH > HM > single)
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < rled.length) {
+      if (rled[i] === 'M' && rled[i+1] === 'H' && rled[i+2] === 'M') { tokens.push('MHM'); i += 3; }
+      else if (rled[i] === 'M' && rled[i+1] === 'H') { tokens.push('MH'); i += 2; }
+      else if (rled[i] === 'H' && rled[i+1] === 'M') { tokens.push('HM'); i += 2; }
+      else { tokens.push(rled[i]); i += 1; }
+    }
+    // Step 4: troll-count consecutive identical tokens
+    let out = '';
+    let j = 0;
+    while (j < tokens.length) {
+      const tok = tokens[j];
+      let count = 1;
+      while (tokens[j + count] === tok) count++;
+      out += tok + (count === 1 ? '' : count === 2 ? '2' : count === 3 ? '3' : '*');
+      j += count;
+    }
+    return out;
+  }
+
+  /** Format fingerprint for display: bracket repeated compound tokens */
+  function formatFingerprint(fp: string | null | undefined): string {
+    if (!fp) return '';
+    return fp
+      .replace(/(MHM|MH|HM)([23*])/g, (_, tok, cnt) => `(${tok})×${cnt === '*' ? '∞' : cnt}`)
+      .replace(/(L|M|H)([23*])/g, (_, tok, cnt) => `${tok}×${cnt === '*' ? '∞' : cnt}`);
+  }
+
+  /** Raw fingerprint (stored or computed) — shown as large background text */
+  const rawFingerprint = $derived(
+    track?.waveform_fingerprint
+      ?? (track?.waveform_sax ? computeFingerprint(track.waveform_sax) : null)
+  );
+
+  /** Formatted fingerprint — reserved for future decoded section labels */
+  const displayFingerprint = $derived(
+    rawFingerprint ? formatFingerprint(rawFingerprint) : null
+  );
+
   const PASS_NAMES = ['audio_analysis', 'bpm_correction', 'clap', 'essentia', 'bpm_refinement', 'qwen', 'description_embed'];
   let resetMenuOpen = $state(false);
 
@@ -213,6 +276,32 @@
           {/if}
         </div>
       </div>
+
+      <!-- Waveform + SAX coloring -->
+      {#if waveformBins.length > 0}
+        <div class="section waveform-section">
+          <span class="section-label">SONG STRUCTURE{#if rawFingerprint}: <button
+              class="fingerprint-btn"
+              onclick={() => { filters.structureFilter = rawFingerprint; }}
+              title="Filter by this structure"
+            >{rawFingerprint}</button>{/if}</span>
+          <div class="waveform-wrap" role="img" aria-label="Waveform">
+            <svg class="waveform-svg" viewBox="0 0 {waveformBins.length} 64" preserveAspectRatio="none">
+              {#each waveformBins as bin, j}
+                {@const letter = saxLetterForBin(track?.waveform_sax, j, waveformBins.length)}
+                {@const h = Math.max(1, Math.round((bin / waveformPeak) * 64))}
+                <rect
+                  x={j}
+                  y={64 - h}
+                  width="1"
+                  height={h}
+                  style="fill: var(--sax-{letter}, var(--sax-c))"
+                />
+              {/each}
+            </svg>
+          </div>
+        </div>
+      {/if}
 
       <!-- Technical specs -->
       <div class="specs-grid">
@@ -1150,6 +1239,49 @@
     font-size: var(--sg-text-md);
     line-height: 1;
     padding: 0 2px;
+  }
+
+  /* ── Fingerprint click-to-filter button ── */
+  .fingerprint-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: var(--sg-primary, #00f0ff);
+    letter-spacing: inherit;
+    text-transform: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+  }
+
+  .fingerprint-btn:hover { opacity: 1; }
+
+  /* ── Waveform ── */
+  .waveform-section {
+    padding-bottom: 0.5rem;
+  }
+
+  .waveform-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .waveform-svg {
+    display: block;
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 56px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.25);
   }
 
 </style>

@@ -32,6 +32,8 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     bpm: 128,
     lyrics: null,
     waveform_data: null,
+    waveform_sax: null,
+    waveform_fingerprint: null,
     key: "C",
     scale: "major",
     key_strength: 0.82,

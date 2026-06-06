@@ -7,6 +7,16 @@ import { generateSmartName } from "$lib/utils/naming";
 
 export type ScaleFilter = "all" | "major" | "minor";
 
+/** SQL LIKE pattern match: % = any sequence, _ = any single char */
+function sqlLike(str: string, pattern: string): boolean {
+  // Escape regex special chars except % and _
+  const re = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/%/g, '.*')
+    .replace(/_/g, '.');
+  return new RegExp(`^${re}$`).test(str);
+}
+
 function createFiltersStore() {
   let searchQuery  = $state("");
   let semanticQuery = $state("");
@@ -43,6 +53,8 @@ function createFiltersStore() {
   let clapTrackIds = $state<Set<number>>(new Set());
   let clapTrackScores = $state<Map<number, number>>(new Map());
   let isClapLoading = $state(false);
+
+  let structureFilter = $state("");
 
   const filteredTracks = $derived.by(() => {
     const results = library.tracks.filter((t) => {
@@ -134,6 +146,12 @@ function createFiltersStore() {
       // CLAP Sonic AI search
       if (clapQuery.trim()) {
         if (!clapTrackIds.has(t.id)) return false;
+      }
+
+      // Structure filter (SQL LIKE against waveform_fingerprint, falls back to waveform_sax)
+      if (structureFilter.trim()) {
+        const fp = t.waveform_fingerprint ?? t.waveform_sax ?? '';
+        if (!sqlLike(fp.toUpperCase(), structureFilter.trim().toUpperCase())) return false;
       }
 
       // Tag filter (AND — track must have every selected tag)
@@ -308,6 +326,8 @@ function createFiltersStore() {
     get semanticTrackScores() { return semanticTrackScores; },
     get isClapLoading() { return isClapLoading; },
     get clapTrackScores() { return clapTrackScores; },
+    get structureFilter()  { return structureFilter; },
+    set structureFilter(v) { structureFilter = v; },
 
     async setSimilarTo(track: { id: number; title: string; }) {
       isSimilarLoading = true;
@@ -387,6 +407,7 @@ function createFiltersStore() {
       clapTrackIds         = new Set();
       clapTrackScores      = new Map();
       selectedTags         = [];
+      structureFilter      = "";
     },
   };
 }

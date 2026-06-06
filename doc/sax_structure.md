@@ -157,7 +157,72 @@ DTW captures envelope shape similarity but is agnostic to timbre — two tracks 
 
 The blend mode is the most interesting: it would surface tracks that are both structurally and sonically kindred — something no mainstream music app exposes.
 
-### 2. CLAP fusion pathway
+### 2. Structural fingerprint (`waveform_fingerprint`)
+
+A human-readable compact encoding of the track's energy arc, stored as a DB column and
+computed by the SAX pass alongside `waveform_sax`.
+
+#### Encoding pipeline
+
+```
+waveform_sax (32 chars, alphabet a–e)
+  → to_lmh:    a/b → L,  c → M,  d/e → H          (energy level)
+  → rle:       collapse consecutive identical chars  (e.g. LLLMMHH → LMH)
+  → tokenise:  greedy left-to-right compound tokens:
+                 MHM  →  chorus flanked by mid on both sides
+                 MH   →  build/ramp into chorus
+                 HM   →  chorus dissolving into mid
+                 L/M/H → standalone
+  → bracket:   consecutive identical tokens troll-counted + bracketed if count > 1
+```
+
+#### Troll counting (Pratchett)
+
+Counts compress to: (none) = 1, `2` = 2, `3` = 3, `*` = 4 or more.
+A reference to Pratchett's trolls, who count "one, two, many."
+
+#### Token legend
+
+| Token | Meaning |
+|---|---|
+| `L` | quiet section (energy level a or b) |
+| `M` | mid-energy section (energy level c) |
+| `H` | loud section / chorus peak (energy level d or e) |
+| `MH` | build / ramp up into a chorus |
+| `HM` | chorus dissolving into mid-energy |
+| `MHM` | chorus flanked by mid on both sides |
+| `2`, `3`, `*` | ×2, ×3, many (Pratchett counting) |
+
+#### Examples
+
+| `waveform_fingerprint` | Reading |
+|---|---|
+| `L(MH)2L` | quiet intro, two build→chorus cycles, quiet outro |
+| `LMHMHL` | quiet intro, build→chorus→build→chorus, quiet fade |
+| `LH*L` | quiet intro, many hard choruses, quiet outro |
+| `LH2H` | quiet intro, two choruses, ends loud |
+| `HH*L` | starts loud, many choruses, quiet outro (orchestral / live) |
+| `L*M*H*` | long gradual ramp (ambient / classical) |
+
+#### Display notation
+
+For UI display, consecutive compound tokens in parens: `(MH)2` instead of `MHMH`.
+The flat form (e.g. `LMHMHL`) is what is stored in the DB; the bracket form is rendered
+client-side for readability.
+
+#### Usefulness for music producers
+
+The fingerprint is immediately meaningful to anyone who structures songs:
+`L(MH)2L` = "quiet intro, two build→chorus cycles, quiet outro" is a complete structural
+description. Can be used as a search/filter input: `(MH)*L` = "ends with many chorus cycles
+then fades out."
+
+#### DB column
+
+`waveform_fingerprint TEXT` — added in migration `25_waveform_fingerprint.sql`.
+Computed by the `sax` pass (version bump to 2) alongside `waveform_sax`.
+
+### 3. CLAP fusion pathway
 
 Separately from SAX, the CLAP paper's native fusion pathway uses a 4-window scheme (compressed full-track thumbnail + front + middle + back) processed through attention-based fusion in a single forward pass. The "shrink" thumbnail gives the model a global structural view that our 3-window average lacks. Requires re-exporting the ONNX model with `enable_fusion=True`. See `doc/clap_window_selection.md`.
 

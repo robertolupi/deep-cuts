@@ -16,6 +16,18 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   // Tag autocomplete
   let tagInput = $state("");
+
+  // Structure filter autocomplete — unique fingerprints from library, sorted by frequency
+  const structureSuggestions = $derived.by(() => {
+    const freq = new Map<string, number>();
+    for (const t of library.tracks) {
+      const fp = t.waveform_fingerprint;
+      if (fp) freq.set(fp, (freq.get(fp) ?? 0) + 1);
+    }
+    return [...freq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([fp]) => fp);
+  });
   let folderSearchInput = $state("");
   let playlistSearchInput = $state("");
 
@@ -122,6 +134,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     filters.searchQuery !== "" ||
     filters.semanticQuery !== "" ||
     filters.clapQuery !== "" ||
+    filters.structureFilter !== "" ||
     filters.genreFilter !== "" ||
     filters.selectedDirectoryIds.length > 0 ||
     filters.selectedKeys.length > 0 ||
@@ -142,9 +155,10 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   );
 
   function clearAll() {
-    filters.searchQuery   = "";
-    filters.semanticQuery = "";
-    filters.clapQuery     = "";
+    filters.searchQuery      = "";
+    filters.semanticQuery    = "";
+    filters.clapQuery        = "";
+    filters.structureFilter  = "";
     filters.genreFilter   = "";
     filters.clearDirectories();
     filters.clearKeys();
@@ -263,6 +277,35 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
           />
           {#if filters.clapQuery}
             <button class="clear-x" onclick={() => filters.clapQuery = ""}>×</button>
+          {/if}
+        </div>
+
+        <!-- Song Structure filter -->
+        <div class="search-wrap structure-wrap">
+          <!-- Waveform icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon structure-icon">
+            <line x1="2"  y1="12" x2="2"  y2="12"/>
+            <line x1="5"  y1="8"  x2="5"  y2="16"/>
+            <line x1="8"  y1="5"  x2="8"  y2="19"/>
+            <line x1="11" y1="9"  x2="11" y2="15"/>
+            <line x1="14" y1="4"  x2="14" y2="20"/>
+            <line x1="17" y1="8"  x2="17" y2="16"/>
+            <line x1="20" y1="11" x2="20" y2="13"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Structure: LMHLH or L%…"
+            bind:value={filters.structureFilter}
+            class="search-input structure-search-input"
+            list="structure-suggestions-list"
+          />
+          <datalist id="structure-suggestions-list">
+            {#each structureSuggestions as fp}
+              <option value={fp}></option>
+            {/each}
+          </datalist>
+          {#if filters.structureFilter}
+            <button class="clear-x" onclick={() => filters.structureFilter = ""}>×</button>
           {/if}
         </div>
 
@@ -1126,4 +1169,16 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .tag-search-input::placeholder { color: var(--sg-outline, #849495); }
+
+  /* ── Structure filter ── */
+  .structure-icon { color: var(--sax-d, #e8a020); }
+
+  .structure-search-input {
+    border-color: rgba(232, 160, 32, 0.15) !important;
+  }
+
+  .structure-search-input:focus {
+    border-color: rgba(232, 160, 32, 0.5) !important;
+    box-shadow: 0 0 8px rgba(232, 160, 32, 0.12);
+  }
 </style>

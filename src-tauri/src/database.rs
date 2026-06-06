@@ -74,6 +74,7 @@ pub struct Track {
 
     pub is_stale: i64,
     pub waveform_sax: Option<String>,
+    pub waveform_fingerprint: Option<String>,
 }
 
 impl WatchedDirectory {
@@ -131,7 +132,7 @@ impl Track {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax
+                    is_stale, waveform_sax, waveform_fingerprint
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -186,6 +187,7 @@ impl Track {
                 description: row.get(47)?,
                 is_stale: row.get(48)?,
                 waveform_sax: row.get(49)?,
+                waveform_fingerprint: row.get(50)?,
             })
         })?;
         let mut list = Vec::new();
@@ -211,7 +213,7 @@ impl Track {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax
+                    is_stale, waveform_sax, waveform_fingerprint
              FROM tracks WHERE id = ?1",
         )?;
         let mut rows = stmt.query_map([id], |row| {
@@ -266,6 +268,7 @@ impl Track {
                 description: row.get(47)?,
                 is_stale: row.get(48)?,
                 waveform_sax: row.get(49)?,
+                waveform_fingerprint: row.get(50)?,
             })
         })?;
         if let Some(row) = rows.next() {
@@ -354,6 +357,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/22_track_tags_discard.sql")),
         M::up(include_str!("../migrations/23_user_tags_and_suppressions.sql")),
         M::up(include_str!("../migrations/24_waveform_sax.sql")),
+        M::up(include_str!("../migrations/25_waveform_fingerprint.sql")),
     ])
 }
 
@@ -455,7 +459,7 @@ mod tests {
                     mood_happy, mood_sad, mood_aggressive, mood_relaxed,
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax
+                    is_stale, waveform_sax, waveform_fingerprint
              FROM tracks WHERE title = 'My Song'",
                 [],
                 |row| {
@@ -509,7 +513,8 @@ mod tests {
                         ai_instruments: row.get(46)?,
                         description: row.get(47)?,
                         is_stale: row.get(48)?,
-                waveform_sax: row.get(49)?,
+                        waveform_sax: row.get(49)?,
+                        waveform_fingerprint: row.get(50)?,
                     })
                 },
             )
