@@ -150,45 +150,84 @@ fn troll(n: usize) -> &'static str {
 ///   H   = loud / chorus peak     MHM = chorus flanked by mid
 ///   2/3/* = Pratchett troll count
 pub fn waveform_fingerprint(sax: &str) -> String {
-    // Step 1: to LMH
-    let lmh: String = sax.chars().map(sax_to_lmh).collect();
+    if sax.is_empty() {
+        return String::new();
+    }
 
-    // Step 2: RLE
-    let rled = rle(&lmh);
+    // Step 1: to L/M/H chars
+    let lmh: Vec<char> = sax.chars().map(sax_to_lmh).collect();
 
-    // Step 3: greedy tokenise (longest match first)
-    let chars: Vec<char> = rled.chars().collect();
-    let mut tokens: Vec<&'static str> = Vec::new();
+    // Step 2: RLE with counts
+    struct LmhRun {
+        char: char,
+        count: usize,
+    }
+    let mut lmh_runs: Vec<LmhRun> = Vec::new();
+    for &c in &lmh {
+        if let Some(last) = lmh_runs.last_mut() {
+            if last.char == c {
+                last.count += 1;
+                continue;
+            }
+        }
+        lmh_runs.push(LmhRun { char: c, count: 1 });
+    }
+
+    // Step 3: greedy tokenise runs (group MHM, MH, HM, etc. and sum their counts)
+    struct TokenRun {
+        token: &'static str,
+        count: usize,
+    }
+    let mut tokens: Vec<TokenRun> = Vec::new();
     let mut i = 0;
-    while i < chars.len() {
-        if i + 2 < chars.len() && chars[i] == 'M' && chars[i+1] == 'H' && chars[i+2] == 'M' {
-            tokens.push("MHM"); i += 3;
-        } else if i + 1 < chars.len() && chars[i] == 'M' && chars[i+1] == 'H' {
-            tokens.push("MH"); i += 2;
-        } else if i + 1 < chars.len() && chars[i] == 'H' && chars[i+1] == 'M' {
-            tokens.push("HM"); i += 2;
+    while i < lmh_runs.len() {
+        if i + 2 < lmh_runs.len()
+            && lmh_runs[i].char == 'M'
+            && lmh_runs[i+1].char == 'H'
+            && lmh_runs[i+2].char == 'M'
+        {
+            tokens.push(TokenRun {
+                token: "MHM",
+                count: lmh_runs[i].count + lmh_runs[i+1].count + lmh_runs[i+2].count,
+            });
+            i += 3;
+        } else if i + 1 < lmh_runs.len()
+            && lmh_runs[i].char == 'M'
+            && lmh_runs[i+1].char == 'H'
+        {
+            tokens.push(TokenRun {
+                token: "MH",
+                count: lmh_runs[i].count + lmh_runs[i+1].count,
+            });
+            i += 2;
+        } else if i + 1 < lmh_runs.len()
+            && lmh_runs[i].char == 'H'
+            && lmh_runs[i+1].char == 'M'
+        {
+            tokens.push(TokenRun {
+                token: "HM",
+                count: lmh_runs[i].count + lmh_runs[i+1].count,
+            });
+            i += 2;
         } else {
-            tokens.push(match chars[i] {
+            let token = match lmh_runs[i].char {
                 'L' => "L",
                 'M' => "M",
                 _   => "H",
+            };
+            tokens.push(TokenRun {
+                token,
+                count: lmh_runs[i].count,
             });
             i += 1;
         }
     }
 
-    // Step 4: troll-count consecutive identical tokens
+    // Step 4: format with troll counting for each run
     let mut out = String::new();
-    let mut j = 0;
-    while j < tokens.len() {
-        let tok = tokens[j];
-        let mut count = 1;
-        while j + count < tokens.len() && tokens[j + count] == tok {
-            count += 1;
-        }
-        out.push_str(tok);
-        out.push_str(troll(count));
-        j += count;
+    for tok in tokens {
+        out.push_str(tok.token);
+        out.push_str(troll(tok.count));
     }
     out
 }
@@ -330,7 +369,7 @@ mod tests {
     fn test_fingerprint_flat_track() {
         let sax = "c".repeat(32);
         let fp = waveform_fingerprint(&sax);
-        assert_eq!(fp, "M");
+        assert_eq!(fp, "M*");
     }
 
     #[test]
@@ -340,7 +379,7 @@ mod tests {
             if i < 10 { 'a' } else if i < 20 { 'c' } else { 'e' }
         }).collect();
         let fp = waveform_fingerprint(&sax);
-        assert_eq!(fp, "LMH");
+        assert_eq!(fp, "L*MH*");
     }
 
     #[test]

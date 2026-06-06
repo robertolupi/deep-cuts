@@ -482,6 +482,34 @@ describe("FiltersStore — playlist filter", () => {
   });
 });
 
+describe("FiltersStore — structureFilter", () => {
+  beforeEach(() => { resetFilters(); });
+
+  it("filters tracks by positive SQL LIKE patterns", () => {
+    seedLibrary([
+      createTrack({ id: 1, waveform_fingerprint: "L*MH*L*" }),
+      createTrack({ id: 2, waveform_fingerprint: "MHM*H*" }),
+      createTrack({ id: 3, waveform_fingerprint: "L*H*" }),
+    ]);
+    filters.structureFilter = "L%H%";
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(1);
+    expect(ids).toContain(3);
+    expect(ids).not.toContain(2);
+  });
+
+  it("filters tracks using negative SQL LIKE patterns (starting with - or !)", () => {
+    seedLibrary([
+      createTrack({ id: 1, waveform_fingerprint: "L*MH*L*" }),
+      createTrack({ id: 2, waveform_fingerprint: "L*H*L*" }),
+    ]);
+    filters.structureFilter = "L%H% -L%M%H%";
+    const ids = filters.filteredTracks.map(t => t.id);
+    expect(ids).toContain(2);
+    expect(ids).not.toContain(1);
+  });
+});
+
 describe("FiltersStore — clearAll", () => {
   beforeEach(() => { resetFilters(); seedLibrary(); });
 

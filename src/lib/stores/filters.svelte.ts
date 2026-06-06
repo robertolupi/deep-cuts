@@ -151,7 +151,15 @@ function createFiltersStore() {
       // Structure filter (SQL LIKE against waveform_fingerprint, falls back to waveform_sax)
       if (structureFilter.trim()) {
         const fp = t.waveform_fingerprint ?? t.waveform_sax ?? '';
-        if (!sqlLike(fp.toUpperCase(), structureFilter.trim().toUpperCase())) return false;
+        const parts = structureFilter.trim().split(/\s+/);
+        for (const part of parts) {
+          if (part.startsWith('!') || part.startsWith('-')) {
+            const pattern = part.slice(1);
+            if (pattern && sqlLike(fp.toUpperCase(), pattern.toUpperCase())) return false;
+          } else {
+            if (!sqlLike(fp.toUpperCase(), part.toUpperCase())) return false;
+          }
+        }
       }
 
       // Tag filter (AND — track must have every selected tag)

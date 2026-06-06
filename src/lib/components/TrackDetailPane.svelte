@@ -117,31 +117,44 @@
 
   /** Mirror of the Rust waveform_fingerprint() function — computes client-side from waveform_sax */
   function computeFingerprint(sax: string): string {
-    // Step 1: to LMH
-    const lmh = sax.split('').map(c => c <= 'b' ? 'L' : c === 'c' ? 'M' : 'H').join('');
-    // Step 2: RLE
-    let rled = '';
-    for (const c of lmh) { if (rled[rled.length - 1] !== c) rled += c; }
-    // Step 3: greedy tokenise (MHM > MH > HM > single)
-    const tokens: string[] = [];
+    if (!sax) return '';
+    // Step 1: to L/M/H chars
+    const lmh = sax.split('').map(c => c <= 'b' ? 'L' : c === 'c' ? 'M' : 'H');
+
+    // Step 2: RLE with counts
+    const lmhRuns: { char: string; count: number }[] = [];
+    for (const c of lmh) {
+      const last = lmhRuns[lmhRuns.length - 1];
+      if (last && last.char === c) {
+        last.count++;
+      } else {
+        lmhRuns.push({ char: c, count: 1 });
+      }
+    }
+
+    // Step 3: greedy tokenise runs
+    const tokens: { token: string; count: number }[] = [];
     let i = 0;
-    while (i < rled.length) {
-      if (rled[i] === 'M' && rled[i+1] === 'H' && rled[i+2] === 'M') { tokens.push('MHM'); i += 3; }
-      else if (rled[i] === 'M' && rled[i+1] === 'H') { tokens.push('MH'); i += 2; }
-      else if (rled[i] === 'H' && rled[i+1] === 'M') { tokens.push('HM'); i += 2; }
-      else { tokens.push(rled[i]); i += 1; }
+    while (i < lmhRuns.length) {
+      if (i + 2 < lmhRuns.length && lmhRuns[i].char === 'M' && lmhRuns[i+1].char === 'H' && lmhRuns[i+2].char === 'M') {
+        tokens.push({ token: 'MHM', count: lmhRuns[i].count + lmhRuns[i+1].count + lmhRuns[i+2].count });
+        i += 3;
+      } else if (i + 1 < lmhRuns.length && lmhRuns[i].char === 'M' && lmhRuns[i+1].char === 'H') {
+        tokens.push({ token: 'MH', count: lmhRuns[i].count + lmhRuns[i+1].count });
+        i += 2;
+      } else if (i + 1 < lmhRuns.length && lmhRuns[i].char === 'H' && lmhRuns[i+1].char === 'M') {
+        tokens.push({ token: 'HM', count: lmhRuns[i].count + lmhRuns[i+1].count });
+        i += 2;
+      } else {
+        const token = lmhRuns[i].char === 'L' ? 'L' : lmhRuns[i].char === 'M' ? 'M' : 'H';
+        tokens.push({ token, count: lmhRuns[i].count });
+        i += 1;
+      }
     }
-    // Step 4: troll-count consecutive identical tokens
-    let out = '';
-    let j = 0;
-    while (j < tokens.length) {
-      const tok = tokens[j];
-      let count = 1;
-      while (tokens[j + count] === tok) count++;
-      out += tok + (count === 1 ? '' : count === 2 ? '2' : count === 3 ? '3' : '*');
-      j += count;
-    }
-    return out;
+
+    // Step 4: Format with troll counting for each run
+    const troll = (n: number) => n === 1 ? '' : n === 2 ? '2' : n === 3 ? '3' : '*';
+    return tokens.map(tok => tok.token + troll(tok.count)).join('');
   }
 
   /** Format fingerprint for display: bracket repeated compound tokens */
