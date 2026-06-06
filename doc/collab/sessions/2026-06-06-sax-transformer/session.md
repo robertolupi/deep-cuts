@@ -362,3 +362,44 @@ Preemptible VM on GCP was redeployed with a systemd service (`Restart=on-failure
 - The map "Structure" view and legend-click-to-filter are complete
 - TrackDetailPane has exact + cluster filter pills
 - Pending: SALAMI evaluation once download completes; potential Levenshtein similarity pass over alphabet strings
+
+---
+
+## [Claude → Gemini: task brief]
+
+**Task:** Reimplement `tools/structure_map.py` as a cleaner, production-ready Python script. The goal is the same: cluster all tracks by structural shape and write cluster IDs back to `structure_cluster_id` in the SQLite DB.
+
+### What the current script does (step by step)
+
+1. **Load** all `(id, sax_alignment)` rows from `tracks` where `sax_alignment IS NOT NULL AND length(sax_alignment) >= 4`. Skip any old-format rows containing `➔` (those are pre-alphabet strings from an earlier pass version and should not exist in a clean DB).
+
+2. **Skeleton helper** — collapse character runs: `IIVVVVPCCCCO → IVPCO`. This strips repeat-count noise so two tracks with the same shape but different pacing land close together.
+
+3. **Pairwise Levenshtein distance matrix** over the *raw* alignment strings using `rapidfuzz.process.cdist` with `scorer=Levenshtein.distance`. Result: `float32` array of shape `(n, n)`. This is the slow step — for ~1800 tracks it takes ~10 s.
+
+4. **Skeleton distance matrix** — same thing but over the collapsed skeletons.
+
+5. **UMAP on the skeleton distances** (`metric='precomputed'`, `n_neighbors=20`, `min_dist=0.05`, `random_state=42`) → 2D embedding.
+
+6. **HDBSCAN on the skeleton UMAP embedding** (`min_cluster_size=40`, `min_samples=5`) → integer labels, `-1` = noise.
+
+7. **Write back** — for each `(track_id, cluster_label)` pair: `UPDATE tracks SET structure_cluster_id = ? WHERE id = ?`. Noise tracks (`label == -1`) get `NULL`. Commit once at the end.
+
+### What to improve
+
+- **Make it a proper CLI tool** — accept `--db` path as an argument (default: the macOS app support path) so it works in CI or on a different machine without editing the file.
+- **Separate concerns** — split into clear functions: `load_tracks()`, `compute_distances()`, `cluster()`, `write_back()`. The current script is one flat sequence.
+- **Skip the plot by default** — add a `--plot` flag; plotting blocks and is useless in headless runs.
+- **Report cluster labels** — after writing back, print the 14 cluster IDs and the dominant skeleton for each, so the TypeScript constants in `mapMath.ts` can be updated if the clustering changes.
+- **Idempotency guard** — before writing, check if any `structure_cluster_id` is already set. Offer a `--force` flag to overwrite; default should warn and exit so an accidental re-run doesn't silently re-cluster while the user has already manually corrected some values.
+
+### What NOT to change
+
+- The UMAP and HDBSCAN hyperparameters (`n_neighbors=20`, `min_dist=0.05`, `min_cluster_size=40`, `min_samples=5`) — these were tuned to produce 14 coherent clusters. Don't adjust them without checking that the cluster count and shapes stay stable.
+- The skeleton definition (collapse identical adjacent characters). Simple and correct.
+- The DB column name: `structure_cluster_id INTEGER` (nullable, -1 noise → NULL).
+- The distance metric: `Levenshtein.distance` on raw alignment strings for the primary matrix, skeleton strings for the UMAP input.
+
+### Environment
+
+Uses `tools/.venv` (Python 3.14). Installed packages relevant here: `rapidfuzz`, `umap-learn`, `hdbscan`, `numpy`, `matplotlib`. See `skills/using-python/SKILL.md` for how to run scripts in this project.
