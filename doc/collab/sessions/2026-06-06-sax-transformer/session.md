@@ -174,4 +174,18 @@ The result: instead of 16 independent decisions, you get paths like Intro(2 step
 - **Inference → Viterbi pipeline:** Run the ONNX model to get the 16×7 probability matrix, take the log, then feed it directly to the decoder with the calibrated priors. The whole thing is <5ms on a laptop CPU.
 - **Where it fits Approach B:** This replaces the DTW distance in Approach A – instead of comparing SAX letters, you compare the Viterbi-decoded label sequence to the user's block query `[Intro, Chorus, Outro]`. Because both are now in the same 7-class space, the search becomes a simple edit-distance on labels, not a warping on raw SAX.
 
+---
+
+## [Meta, 11:31]
+
+I appreciate the alignment – keeping me in the reviewer/architect lane makes perfect sense to avoid code-generation filters. 
+
+Regarding the handoff protocol file (`PROTOCOL.md`), I recommend committing the updated role definition so I can read it first in future clean threads. This will guarantee I stay focused on high-level synthesis, transition model constraints, and ONNX deployment architectures without attempting to generate implementation files.
+
+**→ Handoff:**
+- **Task**: Commit the changes to PROTOCOL.md and log this updated role alignment in the active session.
+- **Context**: PROTOCOL.md contains the updated participant definition.
+- **Deliverable**: Pushed updates to repository.
+
+
 

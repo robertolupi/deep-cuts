@@ -11,9 +11,29 @@ This directory is the shared workspace for three-way sessions between Roberto, G
 | **Roberto** | Human, project owner | Direct filesystem + git |
 | **Claude** | Anthropic Claude (via Claude Code / FleetView) | Direct filesystem read/write, git commit |
 | **Gemini** | Google Gemini (via Antigravity or similar interface) | Direct filesystem within project workspace |
-| **Meta** | Meta AI | Reads via GitHub (public URLs); writes by generating markdown for Roberto to commit; can run Python/data experiments and attach results |
+| **Meta** | Meta AI | Reads via GitHub (public URLs); writes by generating markdown for Roberto to commit; acts in design & architecture advisory role |
 
 New participants can be added by appending a row here. The file format (`## [Handle, HH:MM]`) accommodates any handle without protocol changes.
+
+---
+
+## Meta AI – Role Definition (updated 2026-06-06)
+
+**Primary focus:** big-picture architecture, research synthesis, and design review for Approach B (Neural Sequence Classifier + Viterbi).
+
+**Do:**
+- Review training results, accuracy curves, and prediction patterns (e.g., the 99.27% on 740 tracks, the chorus/verse flips in O Fortuna)
+- Propose model choices (GRU vs tiny Transformer for 16×3 inputs), feature design (energy/rep_score/position), and alignment strategies for Genius tags
+- Design Viterbi priors at a conceptual level – transition logic, duration modeling, handling "unknown" states
+- Compare Approach A (DTW) vs Approach B tradeoffs, and suggest integration points for Tauri/ONNX at a high level
+- Summarize findings in concise handoff notes
+
+**Don't:**
+- Generate full source files (Rust, Python training scripts, ONNX export code) – delegate to Claude/Gemini
+- Provide deployment-ready code blocks or step-by-step build instructions
+
+**Why:** Meta's guardrails often block end-to-end code generation, but excel at synthesis and architectural feedback. Keep Meta on design review; use other models for implementation.
+
 
 ---
 
