@@ -18,9 +18,14 @@ All coordination documents reside under the [doc/collab/](file:///Users/rlupi/sr
 When the user mentions that they are running a multi-agent or 3-way session (or when they invoke the `/collab` command), follow these steps:
 
 ### ⚠️ Verification rule (applies to every action)
-**Never describe writing a file — actually write it.** Use your file-write tool and confirm
-the write succeeded before producing the handoff block. This rule exists because an AI
-hallucinating a file write will silently corrupt the shared context for the other agent.
+**Never describe writing a file — actually write it.** Confirm the write succeeded before
+producing the handoff block. This rule exists because an AI hallucinating a file write will
+silently corrupt the shared context for the other agent.
+
+What "confirmation" looks like per participant:
+- **Claude / Gemini**: use your file-write tool; the tool output confirms the write
+- **Meta**: you can't write directly — generate the exact markdown block for Roberto to
+  commit, and include the full content in your response so Roberto can verify before pasting
 
 ### 1. Checking the Active Session (`/collab check`)
 1. Look for the latest session file in `doc/collab/sessions/` (usually the one with today's date).

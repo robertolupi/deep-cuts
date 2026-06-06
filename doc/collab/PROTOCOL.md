@@ -6,11 +6,14 @@ This directory is the shared workspace for three-way sessions between Roberto, G
 
 ## Participants
 
-| Handle | Identity |
-|---|---|
-| **Roberto** | Human, project owner |
-| **Gemini** | Google Gemini (via Antigravity or similar interface) |
-| **Claude** | Anthropic Claude (via Claude Code / FleetView) |
+| Handle | Identity | Access model |
+|---|---|---|
+| **Roberto** | Human, project owner | Direct filesystem + git |
+| **Claude** | Anthropic Claude (via Claude Code / FleetView) | Direct filesystem read/write, git commit |
+| **Gemini** | Google Gemini (via Antigravity or similar interface) | Direct filesystem within project workspace |
+| **Meta** | Meta AI | Reads via GitHub (public URLs); writes by generating markdown for Roberto to commit; can run Python/data experiments and attach results |
+
+New participants can be added by appending a row here. The file format (`## [Handle, HH:MM]`) accommodates any handle without protocol changes.
 
 ---
 
