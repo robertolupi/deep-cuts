@@ -76,6 +76,7 @@ The handoff line is optional if the session is just a log, not a turn-taking exc
    - The handoff line verbatim
 3. The receiving AI reads the session file, appends its response, and writes the next handoff.
 4. Either AI can pass back to Roberto instead of the other AI when human judgement is needed.
+5. **Documenting Roberto's Active Feedback**: When Roberto provides active direction, feedback, or manually runs commands/code (instead of just copy-pasting handoffs), the acting agent must document his contribution in the session log. This can be done by adding a dedicated `## [Roberto, HH:MM]` block or explicitly detailing his input in the agent's turn to ensure the log is a complete history.
 
 ### 5. Pre-flight verification (all AIs)
 Before appending, each AI must:

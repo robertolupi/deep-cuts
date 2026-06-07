@@ -53,3 +53,11 @@ Task: [what to do]
 Context: [files, data, or prior decisions needed]
 Deliverable: [expected artifact]
 ```
+
+## Documenting Roberto's Contributions
+
+When Roberto makes a direct contribution (e.g., providing design direction, running commands, writing code, or giving explicit feedback that is not just copy-pasting an AI's handoff), the active agent must document it in the session log:
+* Insert a `## [Roberto, HH:MM]` block outlining his feedback, code changes, or decisions, OR
+* Explicitly credit and outline his steering decisions within the agent's own turn.
+This keeps the session log as the single source of truth for the collaborative path.
+
