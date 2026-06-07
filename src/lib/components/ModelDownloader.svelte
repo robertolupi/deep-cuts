@@ -53,6 +53,7 @@
         if (!exist.clap_exists) targets.push("clap");
         if (!exist.qwen_exists) targets.push("qwen");
         if (!exist.sentence_exists) targets.push("sentence");
+        if (!exist.sax_exists) targets.push("sax");
       } catch (e) {
         errorMessage = "Failed to auto-detect missing neural models.";
         isDownloading = false;

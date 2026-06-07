@@ -33,6 +33,7 @@
     sentence_exists: boolean;
     clap_exists: boolean;
     essentia_exists: boolean;
+    sax_exists: boolean;
     all_exist: boolean;
     missing_files: string[];
     [key: string]: boolean | string[];
@@ -125,6 +126,7 @@
     if (!modelStatus.clap_exists) missing.push("clap");
     if (!modelStatus.qwen_exists) missing.push("qwen");
     if (!modelStatus.sentence_exists) missing.push("sentence");
+    if (!modelStatus.sax_exists) missing.push("sax");
     return missing;
   });
   let isCheckingModels  = $state(false);
@@ -435,6 +437,7 @@
           { key: 'clap_exists', groupKey: 'clap', label: 'CLAP Embedder' },
           { key: 'qwen_exists', groupKey: 'qwen', label: 'Qwen Audio LLM' },
           { key: 'sentence_exists', groupKey: 'sentence', label: 'MiniLM Text Embedder' },
+          { key: 'sax_exists', groupKey: 'sax', label: 'SAX Sequence Tagger' },
         ] as group}
           {@const groupOk = modelStatus[group.key] as boolean}
           {@const groupMissing = (modelStatus.missing_files as string[]).filter(f => f.startsWith(group.groupKey + '/'))}
