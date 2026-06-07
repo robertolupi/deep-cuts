@@ -19,8 +19,11 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
 4. **Parallel Coordination (Maildir / Dynamic MCP - Recommended)**:
    - Use the `CoordinationAdapter` or `collab` MCP tools.
    - **Identity**: Inspect your system prompt to resolve your actor name:
+     - If your system prompt identifies you as **Codex** $\to$ use `actor="codex"`.
      - If your system prompt identifies you as **Antigravity** $\to$ use `actor="agy"` (peer is `"claude"`).
      - If your system prompt identifies you as **Claude** $\to$ use `actor="claude"` (peer is `"agy"`).
+     - If your peer is not obvious, derive it from the active session's `## Participants` list or the latest handoff rather than assuming a two-agent pairing.
+     - The project `.mcp.json` leaves `COLLAB_ACTOR` unset so different clients can share it; pass the explicit `actor` argument when your actor is not the server default.
    - **Handoff**: Append your turn entry to the active `session.md` file, then send a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
 5. **FIFO Coordination (Legacy Serial)** — use the [`collab`](../collab/SKILL.md) skill for the handshake.
 6. **Manual Coordination (Fallback)**:
@@ -76,4 +79,3 @@ Agreement is signal worth keeping, not just handoffs and disagreements. When you
 * A one-line `## [X, HH:MM]` block when relaying someone else's ACK (e.g. Gemini endorsing a revision).
 
 This makes consensus — and who reached it — part of the durable record.
-

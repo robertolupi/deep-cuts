@@ -6,6 +6,7 @@ Run from the tools/ directory:
 
 from __future__ import annotations
 
+import json
 import tempfile
 import time
 import uuid
@@ -33,6 +34,14 @@ def main() -> None:
     assert b is not None and b["type"] == "typeB" and b["payload"] == 2, "selective receive"
     a = agy.try_recv("typeA")
     assert a is not None and a["type"] == "typeA", "the other message was left for later"
+
+    # message order comes from envelope ts, not adapter-specific filenames
+    early = {"id": uuid.uuid4().hex, "from": "claude", "to": "agy", "type": "ordered", "payload": "early", "ts": 1.0}
+    late = {"id": uuid.uuid4().hex, "from": "claude", "to": "agy", "type": "ordered", "payload": "late", "ts": 2.0}
+    (agy.root / "agy" / "new" / f"z-foreign-{early['id']}.json").write_text(json.dumps(early))
+    (agy.root / "agy" / "new" / f"a-foreign-{late['id']}.json").write_text(json.dumps(late))
+    assert agy.try_recv("ordered")["id"] == early["id"], "recv order follows envelope ts"
+    assert agy.try_recv("ordered")["id"] == late["id"], "filename is only a tie-breaker"
 
     # recv blocks then times out -> None
     t0 = time.monotonic()
@@ -89,7 +98,6 @@ def main() -> None:
     w2.complete(swept_task["id"], {"ok": True})
 
     # cross-scheme filename: complete locates a claimed task by env id, not filename
-    import json
     foreign = {"id": uuid.uuid4().hex, "from": "agy", "type": "task", "payload": {}, "status": "open"}
     (claude.root / "tasks" / "open" / f"foreign-prefix-{foreign['id']}.json").write_text(json.dumps(foreign))
     fc = w1.claim()

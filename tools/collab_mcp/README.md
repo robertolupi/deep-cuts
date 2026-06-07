@@ -1,14 +1,14 @@
-# collab_mcp — Claude's coordination adapter (v0)
+# collab_mcp — shared coordination adapter (v0)
 
 Maildir-backed MCP server implementing the actor coordination protocol
 ([../../doc/collab/coordination-protocol.md](../../doc/collab/coordination-protocol.md)).
-This is Claude's side of the asymmetric design
-([../../doc/collab/claude-mcp-adapter.md](../../doc/collab/claude-mcp-adapter.md)); agy connects
-its own adapter to the same `scratch/coordination/` layout — they share only the directory layout
-and the message envelope.
+This started as Claude's side of the asymmetric design
+([../../doc/collab/claude-mcp-adapter.md](../../doc/collab/claude-mcp-adapter.md)); the current
+implementation is shared by any actor that can run the MCP server, parameterized by `COLLAB_ACTOR`
+or by each tool call's optional `actor` argument.
 
 ## Modules
-- `store.py` — `MailStore`, the pure-stdlib maildir backend (send/recv/try_recv/post/claim/complete/inbox). No MCP dependency, so it is unit-testable on its own.
+- `store.py` — `MailStore`, the pure-stdlib maildir backend (send/recv/try_recv/post/claim/complete/heartbeat/abandon/sweep/inbox). No MCP dependency, so it is unit-testable on its own.
 - `server.py` — thin FastMCP wrapper exposing the store methods as tools.
 - `__main__.py` — `python -m collab_mcp` runs the stdio server.
 
@@ -25,13 +25,17 @@ Add to `.mcp.json` at the repo root, then grant `mcp__collab__*` once (no furthe
     "args": ["-m", "collab_mcp"],
     "env": { "PYTHONPATH": "tools", "COLLAB_ACTOR": "claude" } } } }
 ```
-`COLLAB_ACTOR` names this server's mailbox (default `claude`); `COLLAB_ROOT` is the shared root
-(default `scratch/coordination`, gitignored).
+`COLLAB_ACTOR` names this server's default mailbox (default `claude`); use `codex`, `claude`, `agy`,
+or another session participant handle. `COLLAB_ROOT` is the shared root (default
+`scratch/coordination`, gitignored). The checked-in project `.mcp.json` intentionally leaves
+`COLLAB_ACTOR` unset so clients can share the registration; non-Claude clients should pass the
+optional `actor` argument in tool calls.
 
 ## Tools
-`send` · `recv` · `try_recv` · `post` · `claim` · `complete` · `inbox` — see `server.py` docstrings.
+`send` · `recv` · `try_recv` · `post` · `claim` · `complete` · `heartbeat` · `abandon` · `sweep` ·
+`inbox` — see `server.py` docstrings.
 
 ## v0 scope
-Core ops + `inbox` tracing. Event-driven `recv` via `watchfiles` (poll fallback if absent). The
-robustness layer (lease/TTL, `heartbeat`, `abandon`) and the Redis backend are deferred — both slot
-in behind the same tool surface.
+Core ops + `inbox` tracing + the lease robustness layer (`heartbeat`, `abandon`, coordinator
+`sweep`). Event-driven `recv` uses `watchfiles` when present, with a poll fallback. The Redis backend
+is still deferred behind the same tool surface.

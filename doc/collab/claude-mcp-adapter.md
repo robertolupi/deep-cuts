@@ -1,9 +1,9 @@
 # Claude's Collab Adapter — MCP Server over the Maildir Backend
 
-Claude's implementation of the [coordination-protocol.md](coordination-protocol.md) contract. This
-is **one of the asymmetric adapters**: Claude talks to the shared maildir backend through this MCP
-server; agy brings its own adapter to the same directories. They share only the **backend layout**
-and the **message envelope** — neither cares how the other connects.
+Claude's original implementation of the [coordination-protocol.md](coordination-protocol.md)
+contract. It now serves as the shared MCP implementation for any actor that can run the server
+(`COLLAB_ACTOR=claude`, `agy`, `codex`, etc.), while preserving the same maildir backend layout and
+message envelope.
 
 Status: **design** (round 3 follow-up, 2026-06-07). v0 backend = maildir (Roberto's call); Redis is
 the eventual swap behind the same tools.
@@ -24,8 +24,9 @@ the eventual swap behind the same tools.
 - **Python**, using the official `mcp` SDK (FastMCP), run as a stdio MCP server.
 - Lives in `tools/collab_mcp/` (reuses the existing `tools/.venv`). Event-driven `recv` via
   **`watchfiles`** (Rust-backed, pip-installable; falls back to a poll loop if absent).
-- Actor identity is fixed by config/env at launch (`COLLAB_ACTOR=claude`), so the server knows whose
-  mailbox it owns.
+- Actor identity is fixed by config/env at launch (`COLLAB_ACTOR=claude`) or supplied per call via
+  the optional `actor` argument, so one project registration can serve Claude, agy, Codex, or another
+  participant handle.
 
 ## Backend layout (shared contract with agy)
 
@@ -51,7 +52,10 @@ Every message/task is a JSON file named `<ts>-<uuid>.json` holding the envelope
 | `try_recv(pattern?)` | `try_recv` | scan `<me>/new/` once; return oldest match or `null`. Non-blocking. |
 | `post(task)` | `post` | write to `tmp/` → rename to `tasks/open/`. |
 | `claim()` | `claim` | list `tasks/open/`, attempt `rename(open/T → claimed/<me>/T)`; first winner gets it, `ENOENT` = lost the race, retry next. Atomic, exactly-one. |
-| `complete(task_id, result)` | `complete` | write result envelope, `rename(claimed/<me>/T → done/T)`. |
+| `complete(task_id, result)` | `complete` | write result envelope, move `claimed/<me>/T → done/T`; task lookup matches `envelope.id`, not filename. |
+| `heartbeat(task_id)` | `heartbeat` | extend the lease on a claimed task. |
+| `abandon(task_id, reason)` | `abandon` | return a claimed task to `open/` with diagnostics. |
+| `sweep()` | `sweep` | coordinator operation that returns expired claimed tasks to `open/`. |
 
 **Traceability helper (for "let me trace what happens"):**
 - `inbox(actor?)` — list `new/` (pending) and recent `cur/` (processed) for an actor, plus
@@ -66,8 +70,8 @@ Every message/task is a JSON file named `<ts>-<uuid>.json` holding the envelope
   `new/→cur/` on delivery; a crash *after* `recv` returns but *before* the agent acts would lose
   that message. Hardening (v0+): keep a `proc/` staging dir and an explicit `ack(id)` that finalizes
   `proc/→cur/`, so unacked messages are re-delivered on restart. Not needed for the first loop.
-- **Lease/heartbeat/abandon** (the robustness layer) are **out of v0** — added once the basic
-  post/claim/complete loop runs, per the protocol.
+- **Lease/heartbeat/abandon/sweep** are implemented for crash recovery. A coordinator can sweep
+  expired claims back to `open/`.
 
 ## Permissions & registration
 
@@ -75,7 +79,7 @@ Every message/task is a JSON file named `<ts>-<uuid>.json` holding the envelope
   ```json
   { "mcpServers": { "collab": { "command": "tools/.venv/bin/python",
                                  "args": ["-m", "collab_mcp"],
-                                 "env": { "COLLAB_ACTOR": "claude" } } } }
+                                 "env": { "PYTHONPATH": "tools", "COLLAB_ACTOR": "claude" } } } }
   ```
 - One-time permission grant `mcp__collab__*` in settings → no further prompts.
 - Plugin packaging (skill + MCP server + optional SessionStart "catch up on `new/`" hook) is a later
@@ -83,10 +87,10 @@ Every message/task is a JSON file named `<ts>-<uuid>.json` holding the envelope
 
 ## v0 cut & open items
 
-- **v0:** `send`/`recv`/`try_recv` + `post`/`claim`/`complete` + `inbox`, maildir backend, one
-  worker (Claude) + the human/coordinator, worktrees for isolation. Prove the "block only on `recv`"
-  loop end-to-end.
-- **Next:** at-least-once `ack` hardening; lease/`heartbeat`/`abandon`; a coordinator that merges
-  worker branches (rebase + `cargo test` + keep `main` green); then the Redis backend swap.
+- **v0:** `send`/`recv`/`try_recv` + `post`/`claim`/`complete` + lease operations + `inbox`, maildir
+  backend, workers + the human/coordinator, worktrees for isolation. Prove the "block only on
+  `recv`" loop end-to-end.
+- **Next:** at-least-once `ack` hardening; a coordinator that merges worker branches (rebase +
+  `cargo test` + keep `main` green); then the Redis backend swap.
 - **Interop check with agy:** confirm the exact envelope field names and the `scratch/coordination/`
   layout match agy's adapter, since those two things are the only shared contract.

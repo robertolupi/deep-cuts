@@ -94,11 +94,17 @@ class MailStore:
         self._atomic_write(self._mbox("new", to) / _new_filename(env["id"]), env)
         return env
 
-    def try_recv(self, match_type: Optional[str] = None) -> Optional[dict]:
-        for p in sorted(self._mbox("new").glob("*.json")):
+    def _pending_messages(self, match_type: Optional[str] = None) -> list[tuple[float, str, Path, dict]]:
+        pending: list[tuple[float, str, Path, dict]] = []
+        for p in self._mbox("new").glob("*.json"):
             env = self._read(p)
             if env is None or (match_type is not None and env.get("type") != match_type):
                 continue
+            pending.append((float(env.get("ts", 0)), p.name, p, env))
+        return sorted(pending)
+
+    def try_recv(self, match_type: Optional[str] = None) -> Optional[dict]:
+        for _, _, p, env in self._pending_messages(match_type):
             try:
                 os.replace(p, self._mbox("cur") / p.name)  # take it (new -> cur)
             except FileNotFoundError:

@@ -17,9 +17,9 @@ Status: **agreed** (round 3, 2026-06-07) — Claude + agy reached consensus on t
 - **Protected objects for the little shared state.** The work queue and the integration point are
   passive resources with guarded, mutually-exclusive operations (Ada protected objects / monitors).
   Callers invoke the guarded op; serialization happens inside it.
-- **Asymmetric adapters.** The *contract* below is shared; each agent implements it however its
-  harness prefers. Claude → an MCP server (tools, allowlisted once, server-side blocking `recv`);
-  agy → its own adapter. They interoperate by sharing the backend + the envelope format.
+- **Adapter boundary.** The *contract* below is shared; each agent can implement it however its
+  harness prefers. The current v0 collapses Claude, agy, and Codex onto one MCP server,
+  parameterized by actor, while preserving the same backend + envelope contract.
 
 ## The contract
 
@@ -118,7 +118,10 @@ Both are daemonless and local; neither needs new infra beyond an optional watche
 
 ## Adapters (asymmetric, interoperable)
 - **Claude:** an MCP server (shipped as a Claude Code plugin) exposing `send`/`recv`/`try_recv` and `post`/`claim`/`complete` as tools. `recv` blocks server-side using the file-watcher and returns on a new message → reactive wakeup; tools are allowlisted once (no per-command shell prompts).
-- **agy:** its own adapter to the same backend (Antigravity-native).
+- **agy:** originally its own adapter to the same backend (Antigravity-native); now also runs the
+  shared MCP implementation when available.
+- **Codex:** use the same MCP implementation with `actor="codex"` in tool calls unless a
+  Codex-specific `COLLAB_ACTOR` is configured.
 - **Interop:** they share only the backend + the envelope format. Neither cares how the other connects.
 
 ### Implemented outcome (2026-06-07): converged on a single MCP implementation
