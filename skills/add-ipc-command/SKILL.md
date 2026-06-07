@@ -45,7 +45,55 @@ Find the `tauri::generate_handler![]` macro in `lib.rs` and add your command:
 
 Forgetting this step compiles cleanly but the frontend call will throw at runtime.
 
-### 3. Call it from the frontend
+### 3. Update `src/lib/ipc.ts`
+
+**This step is required for every new command.** `$lib/ipc` is the single import point for all frontend IPC — it owns local-debug mocks and the command type boundary.
+
+#### 3a. Add a mock response
+
+The mock system has two files:
+
+- **`src/lib/mock-data.ts`** — typed fixture data exported as constants (`MOCK_TRACKS`, `MOCK_PLAYLISTS`, etc.). Add new entity arrays or objects here when the command introduces a new return type.
+- **`src/lib/ipc.ts`** — the `MOCK_RESPONSES` map wires command names to handlers that use data from `mock-data.ts`.
+
+For a simple query command:
+
+```typescript
+// In src/lib/mock-data.ts — add fixture data if introducing a new type
+export const MOCK_MY_THINGS: MyThing[] = [
+  { id: 1, name: "Example Thing", value: 42 },
+];
+
+// In src/lib/ipc.ts — wire the command
+import { MOCK_MY_THINGS } from "$lib/mock-data";
+
+const MOCK_RESPONSES: Record<string, (args?: any) => unknown> = {
+  // ... existing entries ...
+  get_my_things: () => MOCK_MY_THINGS,
+  get_my_thing: ({ id }: { id: number }) => MOCK_MY_THINGS.find(t => t.id === id) ?? null,
+  save_my_thing: () => null,   // side-effect only — still add entry to suppress warning
+};
+```
+
+Rules:
+- If the command returns data that affects visible UI, provide a realistic mock value so `?local_debug=1` dev mode works without Tauri. Reference the `ui-debug` skill for how to verify this.
+- If the command is a side-effect only (e.g. `save_*`, `delete_*`), return `null` or `undefined` — still add the entry so the console warning for unhandled commands is suppressed.
+- If the command result depends on args (e.g. `get_track`), pattern-match on `args` to return something plausible.
+- Rich structured data (new entity types, lists of items) belongs in `mock-data.ts`; inline lambdas in `ipc.ts` are for simple derivations from that data.
+
+#### 3b. Keep the import boundary clean
+
+```typescript
+// ✓ correct
+import { invoke, listen } from "$lib/ipc";
+
+// ✗ wrong — bypasses mocks and type map
+import { invoke } from "@tauri-apps/api/core";
+```
+
+Never import `invoke` or `listen` directly from `@tauri-apps/api` in app code. Only `$lib/ipc.ts` itself imports from the Tauri package.
+
+### 4. Call it from the frontend
 
 ```typescript
 import { invoke } from "$lib/ipc";
@@ -54,8 +102,6 @@ const result = await invoke<MyReturnType>('my_command', { someArg: 'value' });
 ```
 
 Argument names are converted from camelCase (TypeScript) to snake_case (Rust) automatically by Tauri. The return type generic is optional but recommended for type safety.
-
-All app code should import `invoke` and `listen` from `$lib/ipc`, not directly from `@tauri-apps/api/core` or `@tauri-apps/api/event`. The wrapper owns local-debug mocks and is the right place to add typed command mappings.
 
 ---
 
@@ -97,6 +143,20 @@ onDestroy(() => unlisten());
 
 Always store and call the unlisten function in `onDestroy` — leaked listeners accumulate across hot-reloads in dev mode.
 
+### Document push event metadata
+
+Add a comment near the `listen` call (or in the relevant store) that documents:
+
+```typescript
+// Event: 'my-task-progress'
+// Payload: { percent: number }
+// Emitted by: start_long_task (commands/your_domain.rs)
+// Lifecycle: emitted 0–N times between 'my-task-start' and 'my-task-complete'
+// Unlisten: owned by ThisComponent, cleaned up in onDestroy
+```
+
+This prevents the event name, payload shape, and lifecycle from becoming implicit tribal knowledge. Push events are harder to discover than commands — document them at the listen site.
+
 ---
 
 ## Managed state
@@ -117,14 +177,34 @@ fn my_command(my_state: tauri::State<'_, MyState>) -> Result<(), String> { ... }
 
 ## Checklist
 
+**Rust**
 - [ ] Handler decorated with `#[tauri::command]`
-- [ ] Added to `tauri::generate_handler![]`
-- [ ] Added to the frontend IPC wrapper/type map in `src/lib/ipc.ts`
-- [ ] Local-debug mock added when the command affects visible UI
-- [ ] Frontend call uses the correct snake_case command name as a string literal
-- [ ] Frontend imports `invoke` / `listen` from `$lib/ipc`
-- [ ] `Result<T, String>` return type (or `()` for fire-and-forget)
-- [ ] Push-event payload type, event name, lifecycle, and ownership documented
-- [ ] Push-event listeners cleaned up with `onDestroy` (if applicable)
-- [ ] Frontend test or store test added when the command drives user-visible behavior
+- [ ] Return type is `Result<T, String>` (or `Result<(), String>` for side-effects)
+- [ ] Heavy logic extracted into a helper function, not inline in the handler
+- [ ] Added to `tauri::generate_handler![]` in `lib.rs`
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` still passes
+
+**`src/lib/ipc.ts` + `src/lib/mock-data.ts`** (required — do not skip)
+- [ ] Fixture data for new entity types added to `mock-data.ts` as typed exported constants
+- [ ] Entry added to `MOCK_RESPONSES` in `ipc.ts` with a realistic return value for UI-affecting commands, or `null`/`undefined` for pure side-effects
+- [ ] No direct `@tauri-apps/api` imports added to app code
+
+**Frontend**
+- [ ] `invoke` / `listen` imported from `$lib/ipc` (not from `@tauri-apps/api` directly)
+- [ ] Command name string matches the Rust function name exactly (Tauri does not rename)
+- [ ] For push events: payload type, event name, emit source, lifecycle, and unlisten ownership documented at the listen site
+- [ ] Push-event `unlisten` stored and called in `onDestroy`
+- [ ] Frontend test or store test added when the command drives user-visible state
+
+---
+
+## Common mistakes
+
+| Mistake | Symptom | Fix |
+|---------|---------|-----|
+| Forgetting `tauri::generate_handler![]` | Frontend call throws `"command not found"` at runtime; Rust compiles fine | Add the command to `generate_handler![]` in `lib.rs` |
+| Importing `invoke` directly from `@tauri-apps/api/core` | `?local_debug=1` mock mode silently falls through to real Tauri and errors | Import from `$lib/ipc` only |
+| No `MOCK_RESPONSES` entry for a UI-affecting command | `?local_debug=1` logs a console warning and resolves `undefined`; UI breaks in ways that are hard to debug | Add a realistic mock to `MOCK_RESPONSES` |
+| Mismatched command name string | Frontend call throws `"command not found"`; Rust compiles fine | The string must match the Rust function name exactly — Tauri does not rename handlers |
+| Push-event listener not cleaned up | Duplicate handlers accumulate across hot-reloads; events fire multiple times | Store the `unlisten` fn and call it in `onDestroy` |
+| Push-event payload type not documented | Future callers guess the shape from runtime logs | Add payload type, event name, emit source, lifecycle, and unlisten ownership as a comment at the listen site |
