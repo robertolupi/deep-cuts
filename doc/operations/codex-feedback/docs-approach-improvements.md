@@ -18,33 +18,7 @@ Recommended document shape:
 
 This keeps valuable research while preventing stale early sections from driving implementation.
 
-## 2. Add acceptance criteria to feature docs
-
-Before implementing proposal docs, require an "Acceptance Criteria" section covering:
-
-- user-visible behavior;
-- data model and migration impact;
-- IPC commands/events and typed frontend boundary changes;
-- tests required;
-- local-debug/browser verification steps;
-- theme/accessibility requirements for UI work;
-- migration/sidecar/reset behavior for analysis features.
-
-Good candidates: `music_map_improvements.md`, `playlist_view_enhancements.md`, `statistics_page.md`, `user_edit_song.md`, and structural search docs.
-
-## 3. Promote durable decisions out of session logs
-
-The collaboration logs are useful, but they are not maintained design docs. Add a closing step to collaboration sessions:
-
-- summarize accepted decisions;
-- list rejected alternatives;
-- link implementation PR/commits;
-- promote durable instructions into `doc/`, `skills/`, or code comments;
-- mark the session archived.
-
-This would reduce repeated rediscovery in future agent runs.
-
-## 4. Keep docs synchronized with implementation
+## 2. Keep docs synchronized with implementation
 
 Recent history shows docs and implementation moving fast around SAX/structure analysis. Add a lightweight "doc sync" checklist for feature commits:
 
@@ -54,7 +28,7 @@ Recent history shows docs and implementation moving fast around SAX/structure an
 - If a proposal was implemented differently than planned, add an "Implemented outcome" note.
 - If a feature was removed, mark the proposal or old approach as superseded.
 
-## 5. Add a short architecture map
+## 3. Add a short architecture map
 
 The repo would benefit from a maintained architecture map under `doc/` or `docs/tech.md` that connects:
 

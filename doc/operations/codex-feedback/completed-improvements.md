@@ -97,3 +97,38 @@ Added `## Doc Sync` section to `CLAUDE.md` after "Testing & Committing" with a f
 **Note:** `models/` is gitignored — `models/README.md` was fixed locally but cannot be committed.
 
 Fixed four `cd tools` + bare `python` patterns in `models/README.md` to use `tools/.venv/bin/python` from repo root. Skills directory was already correct. The bad-example block in `doc/operations/codex-feedback/docs-approach-improvements.md` was intentionally left unchanged (it illustrates the anti-pattern).
+
+## Skills Improvements
+
+### Make ui-debug skill portable (S2)
+
+**Completed:** 2026-06-07
+**Commit:** `85d87aa docs(skills): make ui-debug portable across agent environments`
+
+Added three fallback sections to `skills/ui-debug/SKILL.md`: Codex/no-MCP browser workflow using `?local_debug=1` mock mode, Playwright screenshot/DOM assertion pattern, and a manual verification checklist. Skill is now outcome-oriented rather than Chrome-MCP-specific.
+
+### Add lint scripts for proposals, Tauri imports, filter_map (S3a/b/c)
+
+**Completed:** 2026-06-07
+**Commit:** `a03517e tools: add S3a/b/c lint scripts for proposals, Tauri imports, filter_map`
+
+Three new scripts in `tools/`:
+- `lint_proposals.py`: warns on `doc/proposals/` and `doc/research/` files missing `status`/`owner` frontmatter (11 files currently warn)
+- `lint_ipc_imports.py`: errors on `@tauri-apps/api` imports outside `src/lib/ipc.ts` (28 violations — the F1 codebase item); `*.test.ts` exempt
+- `lint_filter_map.py`: warns on `filter_map(|r| r.ok())` in `src-tauri/src/` (2 hits: `chat.rs:446`, `scanner/fs.rs:47`)
+
+## Docs and Process Improvements
+
+### Add acceptance criteria to feature docs (D3)
+
+**Completed:** 2026-06-07
+**Commit:** `790be0d docs: acceptance criteria, session closings, protocol archive step`
+
+Added `## Acceptance Criteria` sections to: `music_map_improvements.md`, `playlist_view_enhancements.md`, `user_edit_song.md`, `doc/architecture/statistics_page.md`, `doc/research/sax_structural_search.md`. Note: `statistics_page.md` lives under `doc/architecture/`, not `doc/proposals/`.
+
+### Promote durable decisions from collab sessions (D4)
+
+**Completed:** 2026-06-07
+**Commit:** `790be0d docs: acceptance criteria, session closings, protocol archive step`
+
+Added "mark session archived" step (with `## [Closed, YYYY-MM-DD]` format) to `doc/collab/PROTOCOL.md` closing checklist. Added closing entries to `2026-06-06-multi-agent-collab` and `2026-06-06-blog-post-multiagent-collab` sessions. Two sessions (`gemma-4-audio-evaluation`, `sax-transformer`) left open as they have unresolved handoffs.
