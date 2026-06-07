@@ -4,9 +4,9 @@ import json
 import sqlite3
 import csv
 import warnings
-from pathlib import Path
 import numpy as np
 import mir_eval
+from pathlib import Path
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -72,10 +72,21 @@ def parse_jams_boundaries_and_labels(jams_path, onset_offset, duration):
                 })
     return annotators_passes
 
-# ---------- boundary evaluation algorithms ----------
+def intervals(bounds, dur):
+    b = sorted(set([0.0] + [x for x in bounds if 0 < x < dur] + [float(dur)]))
+    return mir_eval.util.boundaries_to_intervals(np.array(b))
+
+def evaluate_boundaries_mir(ref_b, est_b, dur, win):
+    try:
+        p, r, f = mir_eval.segment.detection(
+            intervals(ref_b, dur), intervals(est_b, dur), window=win, trim=True
+        )
+        return p, r, f
+    except Exception:
+        return 0.0, 0.0, 0.0
 
 def evaluate_boundaries_greedy(pred_bounds, gt_bounds, tolerance):
-    """Fast internal greedy nearest-match scorer (sanity check only)."""
+    # Precision, Recall, F1
     if not pred_bounds and not gt_bounds:
         return 1.0, 1.0, 1.0
     if not pred_bounds or not gt_bounds:
@@ -84,6 +95,7 @@ def evaluate_boundaries_greedy(pred_bounds, gt_bounds, tolerance):
     tp = 0
     matched_gt = set()
     for pb in pred_bounds:
+        # Find closest ground truth boundary within tolerance
         best_gt = None
         best_dist = tolerance
         for gb in gt_bounds:
@@ -100,19 +112,15 @@ def evaluate_boundaries_greedy(pred_bounds, gt_bounds, tolerance):
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
     return precision, recall, f1
 
-evaluate_boundaries = evaluate_boundaries_greedy
+def evaluate_boundaries(ref_b, est_b, dur, win, method="mir"):
+    if method == "greedy":
+        return evaluate_boundaries_greedy(est_b, ref_b, win)
+    return evaluate_boundaries_mir(ref_b, est_b, dur, win)
 
-
-def intervals(bounds, dur):
-    """Convert boundary list to interval representation required by mir_eval."""
-    b = sorted(set([0.0] + [x for x in bounds if 0 < x < dur] + [float(dur)]))
-    return mir_eval.util.boundaries_to_intervals(np.array(b))
-
-def evaluate_boundaries_mir(ref_b, est_b, dur, win):
-    """Benchmark-standard boundary evaluator using mir_eval bipartite matching."""
-    _, _, f = mir_eval.segment.detection(
-        intervals(ref_b, dur), intervals(est_b, dur), window=win, trim=True)
-    return f
+def sym_boundary_f1(a, b, dur, win, method="mir"):
+    _, _, f_ab = evaluate_boundaries(a, b, dur, win, method=method)
+    _, _, f_ba = evaluate_boundaries(b, a, dur, win, method=method)
+    return 0.5 * (f_ab + f_ba)
 
 def evaluate_pairwise_clustering(pred_labels, gt_segments, duration, step=0.5):
     # Construct labels for sampled frames
@@ -126,7 +134,8 @@ def evaluate_pairwise_clustering(pred_labels, gt_segments, duration, step=0.5):
     if n_frames < 2:
         return 1.0, 1.0, 1.0
 
-    # Get prediction label per frame (16-bin grid)
+    # Get prediction label per frame
+    # pred_labels has exactly 16 elements
     bin_dur = duration / 16.0
     pred_frames = []
     for t in times:
@@ -181,12 +190,6 @@ def project_jams_to_16_bins(gt_segments, duration):
             proj_boundaries.append(i * bin_dur)
     return proj_labels, proj_boundaries
 
-def sym_boundary_f1(a, b, dur, win):
-    """Symmetric human inter-annotator agreement (mean A1->A2 and A2->A1)."""
-    f_ab = evaluate_boundaries_mir(a, b, dur, win)
-    f_ba = evaluate_boundaries_mir(b, a, dur, win)
-    return 0.5 * (f_ab + f_ba)
-
 def main():
     if not VAL_TRACKS_PATH.exists():
         print(f"Error: Validation tracks list not found at {VAL_TRACKS_PATH}. Run prepare_eval_splits.py first.")
@@ -200,148 +203,186 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    total_tracks_evaluated = 0
+    # Track metrics accumulators
+    # 1. Full validation set
+    full_f1_0_5 = []
+    full_f1_3_0 = []
+    full_pw_f1 = []
+    full_grid_f1_0_5 = []
+    full_grid_f1_3_0 = []
+    full_limit_f1_0_5 = []
+    full_limit_f1_3_0 = []
     
-    # mir_eval aggregates (±3.0s and ±0.5s)
-    f1_3_0_base, f1_3_0_ref, f1_3_0_grid, f1_3_0_hum = [], [], [], []
-    f1_0_5_base, f1_0_5_ref, f1_0_5_grid, f1_0_5_hum = [], [], [], []
-    
-    # Greedy aggregates (±3.0s) for sanity checks
-    greedy_3_0_base, greedy_3_0_ref, greedy_3_0_hum = [], [], []
-
-    # Per-track normalized metrics
-    norm_3_0 = []
-    norm_0_5 = []
-    n_zero_human_3_0 = 0
-    n_zero_human_0_5 = 0
-
-    # Local novelty-augment setup for 'refined' candidate boundary list
-    from refine_salami_boundaries import baseline_boundaries, ranked_novelty_peaks, augment_with_peaks
+    # 2. Dual-annotator subset
+    dual_f1_0_5 = []
+    dual_f1_3_0 = []
+    dual_pw_f1 = []
+    dual_grid_f1_0_5 = []
+    dual_grid_f1_3_0 = []
+    dual_limit_f1_0_5 = []
+    dual_limit_f1_3_0 = []
+    dual_human_f1_0_5 = []
+    dual_human_f1_3_0 = []
 
     for track in val_tracks:
         db_id = track["db_id"]
         salami_id = track["salami_id"]
         
         # Load from DB
-        cursor.execute("SELECT duration_seconds, waveform_data, sax_alignment_segments FROM tracks WHERE id = ?", (db_id,))
+        cursor.execute("SELECT duration_seconds, sax_alignment_segments FROM tracks WHERE id = ?", (db_id,))
         row = cursor.fetchone()
-        if not row or not row[0] or not row[2]:
+        if not row or not row[0] or not row[1]:
             continue
         
-        duration, waveform_json, sax_segments_str = row
-        labels = sax_segments_str.split(",")
-        if len(labels) != 16:
-            continue
+        duration = row[0]
+        sax_segments_str = row[1]
+        pred_labels = sax_segments_str.split(",")
 
-        base_bounds = baseline_boundaries(labels, duration)
-        refined_bounds = augment_with_peaks(base_bounds, ranked_novelty_peaks(waveform_json, duration), 8, 5.0)
+        # Construct predicted boundary times (where label changes)
+        bin_dur = duration / 16.0
+        pred_boundaries = []
+        for i in range(1, 16):
+            if pred_labels[i-1] != pred_labels[i]:
+                pred_boundaries.append(i * bin_dur)
 
         # Parse JAMS ground truth
         jams_path = JAMS_DIR / f"SALAMI_{salami_id}.jams"
         onset_offset = onset_map.get(salami_id, 0.0)
         gt_passes = parse_jams_boundaries_and_labels(jams_path, onset_offset, duration)
 
-        if len(gt_passes) != 2: # Limit to dual-annotator subset to keep ceilings aligned
+        if not gt_passes:
             continue
 
-        # Evaluate passes
-        pass_base_3, pass_ref_3, pass_grid_3 = [], [], []
-        pass_base_05, pass_ref_05, pass_grid_05 = [], [], []
+        # Evaluate against each annotator's pass and average them for the track
+        track_f1_0_5 = []
+        track_f1_3_0 = []
+        track_pw_f1 = []
+        track_grid_0_5 = []
+        track_grid_3_0 = []
+        track_limit_0_5 = []
+        track_limit_3_0 = []
         
-        pass_gr_base_3, pass_gr_ref_3 = [], []
-
-        for p in gt_passes:
-            # mir_eval @3.0s
-            pass_base_3.append(evaluate_boundaries_mir(p["boundaries"], base_bounds, duration, 3.0))
-            pass_ref_3.append(evaluate_boundaries_mir(p["boundaries"], refined_bounds, duration, 3.0))
+        for pass_info in gt_passes:
+            # Boundary F1 at 0.5s and 3.0s (using mir_eval)
+            _, _, f1_0_5 = evaluate_boundaries(pass_info["boundaries"], pred_boundaries, duration, 0.5)
+            _, _, f1_3_0 = evaluate_boundaries(pass_info["boundaries"], pred_boundaries, duration, 3.0)
             
-            # mir_eval @0.5s
-            pass_base_05.append(evaluate_boundaries_mir(p["boundaries"], base_bounds, duration, 0.5))
-            pass_ref_05.append(evaluate_boundaries_mir(p["boundaries"], refined_bounds, duration, 0.5))
+            # Pairwise Clustering F1
+            _, _, pw_f1 = evaluate_pairwise_clustering(pred_labels, pass_info["segments"], duration)
 
-            # Greedy @3.0s
-            _, _, fg_b = evaluate_boundaries_greedy(base_bounds, p["boundaries"], 3.0)
-            _, _, fg_r = evaluate_boundaries_greedy(refined_bounds, p["boundaries"], 3.0)
-            pass_gr_base_3.append(fg_b)
-            pass_gr_ref_3.append(fg_r)
+            # Low-res projection
+            proj_labels, proj_boundaries = project_jams_to_16_bins(pass_info["segments"], duration)
+            
+            # Pred vs. Projected GT
+            _, _, f1_g_0_5 = evaluate_boundaries(proj_boundaries, pred_boundaries, duration, 0.5)
+            _, _, f1_g_3_0 = evaluate_boundaries(proj_boundaries, pred_boundaries, duration, 3.0)
+            
+            # Projected GT vs. Continuous GT (quantization upper limit)
+            _, _, f1_lim_0_5 = evaluate_boundaries(pass_info["boundaries"], proj_boundaries, duration, 0.5)
+            _, _, f1_lim_3_0 = evaluate_boundaries(pass_info["boundaries"], proj_boundaries, duration, 3.0)
 
-            # Grid ceiling
-            _, proj_bounds = project_jams_to_16_bins(p["segments"], duration)
-            pass_grid_3.append(evaluate_boundaries_mir(p["boundaries"], proj_bounds, duration, 3.0))
-            pass_grid_05.append(evaluate_boundaries_mir(p["boundaries"], proj_bounds, duration, 0.5))
+            track_f1_0_5.append(f1_0_5)
+            track_f1_3_0.append(f1_3_0)
+            track_pw_f1.append(pw_f1)
+            track_grid_0_5.append(f1_g_0_5)
+            track_grid_3_0.append(f1_g_3_0)
+            track_limit_0_5.append(f1_lim_0_5)
+            track_limit_3_0.append(f1_lim_3_0)
 
-        # Human agreement ceiling (symmetric)
-        h_3 = sym_boundary_f1(gt_passes[0]["boundaries"], gt_passes[1]["boundaries"], duration, 3.0)
-        h_05 = sym_boundary_f1(gt_passes[0]["boundaries"], gt_passes[1]["boundaries"], duration, 0.5)
+        # Average over passes for this track
+        mean_f1_0_5 = np.mean(track_f1_0_5)
+        mean_f1_3_0 = np.mean(track_f1_3_0)
+        mean_pw_f1 = np.mean(track_pw_f1)
+        mean_grid_0_5 = np.mean(track_grid_0_5)
+        mean_grid_3_0 = np.mean(track_grid_3_0)
+        mean_limit_0_5 = np.mean(track_limit_0_5)
+        mean_limit_3_0 = np.mean(track_limit_3_0)
 
-        avg_ref_3 = np.mean(pass_ref_3)
-        avg_ref_05 = np.mean(pass_ref_05)
+        # Append to full validation set
+        full_f1_0_5.append(mean_f1_0_5)
+        full_f1_3_0.append(mean_f1_3_0)
+        full_pw_f1.append(mean_pw_f1)
+        full_grid_f1_0_5.append(mean_grid_0_5)
+        full_grid_f1_3_0.append(mean_grid_3_0)
+        full_limit_f1_0_5.append(mean_limit_0_5)
+        full_limit_f1_3_0.append(mean_limit_3_0)
 
-        # Track-level normalization (cap at 1.5)
-        if h_3 > 0.05:
-            norm_3_0.append(min(avg_ref_3 / h_3, 1.5))
-        else:
-            n_zero_human_3_0 += 1
-
-        if h_05 > 0.05:
-            norm_0_5.append(min(avg_ref_05 / h_05, 1.5))
-        else:
-            n_zero_human_0_5 += 1
-
-        # Accumulate
-        f1_3_0_base.append(np.mean(pass_base_3))
-        f1_3_0_ref.append(avg_ref_3)
-        f1_3_0_grid.append(np.mean(pass_grid_3))
-        f1_3_0_hum.append(h_3)
-
-        f1_0_5_base.append(np.mean(pass_base_05))
-        f1_0_5_ref.append(avg_ref_05)
-        f1_0_5_grid.append(np.mean(pass_grid_05))
-        f1_0_5_hum.append(h_05)
-
-        greedy_3_0_base.append(np.mean(pass_gr_base_3))
-        greedy_3_0_ref.append(np.mean(pass_gr_ref_3))
-        
-        _, _, h_gr_3 = evaluate_boundaries_greedy(gt_passes[0]["boundaries"], gt_passes[1]["boundaries"], 3.0)
-        greedy_3_0_hum.append(h_gr_3)
-
-        total_tracks_evaluated += 1
+        # Append to dual-annotator subset if applicable
+        if len(gt_passes) == 2:
+            dual_f1_0_5.append(mean_f1_0_5)
+            dual_f1_3_0.append(mean_f1_3_0)
+            dual_pw_f1.append(mean_pw_f1)
+            dual_grid_f1_0_5.append(mean_grid_0_5)
+            dual_grid_f1_3_0.append(mean_grid_3_0)
+            dual_limit_f1_0_5.append(mean_limit_0_5)
+            dual_limit_f1_3_0.append(mean_limit_3_0)
+            
+            # Human ceiling (consensus)
+            h_0_5 = sym_boundary_f1(gt_passes[0]["boundaries"], gt_passes[1]["boundaries"], duration, 0.5)
+            h_3_0 = sym_boundary_f1(gt_passes[0]["boundaries"], gt_passes[1]["boundaries"], duration, 3.0)
+            dual_human_f1_0_5.append(h_0_5)
+            dual_human_f1_3_0.append(h_3_0)
 
     conn.close()
 
-    if total_tracks_evaluated == 0:
-        print("No tracks were evaluated.")
+    if not full_f1_0_5:
+        print("No tracks were evaluated. Check that the analysis passes have finished and JAMS files exist.")
         return
 
-    # Print Headline results under mir_eval (optimal matching)
-    print(f"\nBenchmark-Standard mir_eval Boundary Evaluation  (N = {total_tracks_evaluated} dual-annotator tracks)")
-    print("=" * 75)
-    print(f"{'Metric':<22}{'Baseline':>12}{'Refined':>12}{'Grid Limit':>14}{'Human Ceiling':>15}")
-    print("-" * 75)
-    print(f"{'Boundary F1 (±3.0s)':<22}{np.mean(f1_3_0_base)*100:>11.2f}%{np.mean(f1_3_0_ref)*100:>11.2f}%{np.mean(f1_3_0_grid)*100:>13.2f}%{np.mean(f1_3_0_hum)*100:>14.2f}%")
-    print(f"{'Boundary F1 (±0.5s)':<22}{np.mean(f1_0_5_base)*100:>11.2f}%{np.mean(f1_0_5_ref)*100:>11.2f}%{np.mean(f1_0_5_grid)*100:>13.2f}%{np.mean(f1_0_5_hum)*100:>14.2f}%")
-    print("-" * 75)
-    
-    # Print Decomposition
-    ref_3 = np.mean(f1_3_0_ref)
-    grid_3 = np.mean(f1_3_0_grid)
-    hum_3 = np.mean(f1_3_0_hum)
-    ref_05 = np.mean(f1_0_5_ref)
-    grid_05 = np.mean(f1_0_5_grid)
-    hum_05 = np.mean(f1_0_5_hum)
+    # Print Headline Results on Full Validation Set
+    print("\n=== HEADLINE RESULTS (Full Validation Set) ===")
+    print(f"Tracks Evaluated: {len(full_f1_0_5)} / {len(val_tracks)}")
+    print("-" * 50)
+    print("1. SAX Prediction vs. Original Continuous JAMS GT:")
+    print(f"   Boundary F1-Score (±0.5s tolerance): {100 * np.mean(full_f1_0_5):.2f}%")
+    print(f"   Boundary F1-Score (±3.0s tolerance): {100 * np.mean(full_f1_3_0):.2f}%")
+    print(f"   Pairwise Clustering F1-Score:       {100 * np.mean(full_pw_f1):.2f}%")
+    print("-" * 50)
+    print("2. SAX Prediction vs. 16-Bin Projected JAMS GT (Classification on Grid):")
+    print(f"   Boundary F1-Score (±0.5s tolerance): {100 * np.mean(full_grid_f1_0_5):.2f}%")
+    print(f"   Boundary F1-Score (±3.0s tolerance): {100 * np.mean(full_grid_f1_3_0):.2f}%")
+    print("-" * 50)
+    print("3. Theoretical Upper Limit of 16-Bin Grid (Projected JAMS vs. Continuous JAMS):")
+    print(f"   Boundary F1-Score (±0.5s tolerance): {100 * np.mean(full_limit_f1_0_5):.2f}%")
+    print(f"   Boundary F1-Score (±3.0s tolerance): {100 * np.mean(full_limit_f1_3_0):.2f}%")
+    print("=================================================")
 
-    print(f"Refined / GRID ceiling  (±3.0s) : {(ref_3 / grid_3)*100:6.1f}%  (detector saturation score)")
-    print(f"Refined / GRID ceiling  (±0.5s) : {(ref_05 / grid_05)*100:6.1f}%")
-    print(f"GRID / HUMAN ceiling    (±3.0s) : {(grid_3 / hum_3)*100:6.1f}%  (pure quantization loss)")
-    print(f"Refined / HUMAN ceiling (±3.0s) : {(ref_3 / hum_3)*100:6.1f}%  (ratio of means)")
-    print(f"Per-track normalized mean (±3.0s): {np.mean(norm_3_0)*100:6.1f}%  (mean model/human, cap 1.5, n={len(norm_3_0)})")
-    print(f"Per-track normalized mean (±0.5s): {np.mean(norm_0_5)*100:6.1f}%  (mean model/human, cap 1.5, n={len(norm_0_5)})")
-    print("=" * 75)
+    # Print Aligned Decompositions on Dual-Annotator Subset
+    if dual_f1_0_5:
+        mean_base_05 = 100 * np.mean(dual_f1_0_5)
+        mean_base_30 = 100 * np.mean(dual_f1_3_0)
+        mean_grid_05 = 100 * np.mean(dual_grid_f1_0_5)
+        mean_grid_30 = 100 * np.mean(dual_grid_f1_3_0)
+        mean_limit_05 = 100 * np.mean(dual_limit_f1_0_5)
+        mean_limit_30 = 100 * np.mean(dual_limit_f1_3_0)
+        mean_human_05 = 100 * np.mean(dual_human_f1_0_5)
+        mean_human_30 = 100 * np.mean(dual_human_f1_3_0)
 
-    # Fast internal sanity check (greedy vs mir_eval)
-    print("\n[Sanity Check] Greedy matching vs mir_eval (±3s):")
-    print(f"  Greedy: baseline={np.mean(greedy_3_0_base)*100:.2f}%, refined={np.mean(greedy_3_0_ref)*100:.2f}%, human={np.mean(greedy_3_0_hum)*100:.2f}%")
-    print(f"  mir_eval: baseline={np.mean(f1_3_0_base)*100:.2f}%, refined={np.mean(f1_3_0_ref)*100:.2f}%, human={np.mean(f1_3_0_hum)*100:.2f}%")
+        print("\n=== ALIGNED DECOMPOSITIONS (Dual-Annotator Subset) ===")
+        print(f"Tracks Evaluated: {len(dual_f1_0_5)}")
+        print("-" * 60)
+        print(f"  Tolerance:                           ±0.5s       ±3.0s")
+        print(f"  Baseline Model F1:                  {mean_base_05:6.2f}%     {mean_base_30:6.2f}%")
+        print(f"  16-bin GRID Ceiling (Limit):        {mean_limit_05:6.2f}%     {mean_limit_30:6.2f}%")
+        print(f"  Human Consensus Ceiling:            {mean_human_05:6.2f}%     {mean_human_30:6.2f}%")
+        print("-" * 60)
+        
+        # Decompositions
+        # Model / GRID ceiling
+        ratio_grid_05 = (mean_base_05 / mean_limit_05 * 100) if mean_limit_05 > 0 else 0.0
+        ratio_grid_30 = (mean_base_30 / mean_limit_30 * 100) if mean_limit_30 > 0 else 0.0
+        print(f"  Baseline / GRID ceiling:            {ratio_grid_05:5.1f}%     {ratio_grid_30:5.1f}%")
+        
+        # GRID / HUMAN ceiling
+        ratio_human_grid_05 = (mean_limit_05 / mean_human_05 * 100) if mean_human_05 > 0 else 0.0
+        ratio_human_grid_30 = (mean_limit_30 / mean_human_30 * 100) if mean_human_30 > 0 else 0.0
+        print(f"  GRID / HUMAN ceiling:               {ratio_human_grid_05:5.1f}%     {ratio_human_grid_30:5.1f}%  (pure quantization debt)")
+        
+        # Model / HUMAN ceiling
+        ratio_human_05 = (mean_base_05 / mean_human_05 * 100) if mean_human_05 > 0 else 0.0
+        ratio_human_30 = (mean_base_30 / mean_human_30 * 100) if mean_human_30 > 0 else 0.0
+        print(f"  Baseline / HUMAN ceiling:           {ratio_human_05:5.1f}%     {ratio_human_30:5.1f}%")
+        print("=================================================")
 
 if __name__ == "__main__":
     main()

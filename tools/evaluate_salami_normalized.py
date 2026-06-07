@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""
-Normalized boundary evaluation (SALAMI validation, dual-annotator subset).
-
-Computes the model score, the 16-bin grid quantization ceiling, and the human
-consensus ceiling on the SAME dual-annotator track subset, so the
-"% of ceiling" ratio is apples-to-apples (the difficulty tool computed the
-human ceiling on a different N than the model score).
-
-Decomposition reported:
-  - Refined / GRID ceiling   -> how much of the 16-bin grid's reachable signal
-                                the refined detector extracts.
-  - Refined / HUMAN ceiling  -> how close to human inter-annotator agreement.
-  - GRID / HUMAN ceiling     -> the pure quantization loss (architectural debt
-                                that no post-processing can recover).
-
-Validation only. Holdout untouched.
-"""
 import os
 import sys
 import json
@@ -32,13 +15,11 @@ from refine_salami_boundaries import (  # noqa: E402
 
 TOL = 3.0
 
-
-def sym_boundary_f1(a, b, tol):
+def sym_boundary_f1(a, b, dur, tol):
     """Order-independent boundary F1 (mean of both directions)."""
-    _, _, f_ab = evaluate_boundaries(a, b, tol)
-    _, _, f_ba = evaluate_boundaries(b, a, tol)
+    _, _, f_ab = evaluate_boundaries(a, b, dur, tol)
+    _, _, f_ba = evaluate_boundaries(b, a, dur, tol)
     return 0.5 * (f_ab + f_ba)
-
 
 def main():
     val = json.load(open(VAL_TRACKS_PATH))
@@ -72,12 +53,12 @@ def main():
 
         mf, bf, gf = [], [], []
         for p in passes:
-            _, _, f = evaluate_boundaries(refined, p["boundaries"], TOL); mf.append(f)
-            _, _, fb = evaluate_boundaries(base, p["boundaries"], TOL); bf.append(fb)
+            _, _, f = evaluate_boundaries(p["boundaries"], refined, dur, TOL); mf.append(f)
+            _, _, fb = evaluate_boundaries(p["boundaries"], base, dur, TOL); bf.append(fb)
             _, proj_b = project_jams_to_16_bins(p["segments"], dur)
-            _, _, fg = evaluate_boundaries(proj_b, p["boundaries"], TOL); gf.append(fg)
+            _, _, fg = evaluate_boundaries(p["boundaries"], proj_b, dur, TOL); gf.append(fg)
         m = sum(mf) / len(mf)
-        h = sym_boundary_f1(passes[0]["boundaries"], passes[1]["boundaries"], TOL)
+        h = sym_boundary_f1(passes[0]["boundaries"], passes[1]["boundaries"], dur, TOL)
 
         ref_s.append(m)
         base_s.append(sum(bf) / len(bf))
@@ -104,7 +85,6 @@ def main():
     print(f"  Refined / HUMAN ceiling  : {100*sum(ref_s)/sum(human_s):5.1f}%  (ratio of means)")
     print(f"  Per-track normalized mean: {100*sum(norm)/len(norm):5.1f}%  (mean model/human, cap 1.5, n={len(norm)})")
     print(f"  Tracks with ~0 human agreement (excluded from norm): {n_zero_human}")
-
 
 if __name__ == "__main__":
     main()
