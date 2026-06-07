@@ -10,21 +10,27 @@ class LibraryStore {
   trackTagMap = $state<Map<number, string[]>>(new Map());
   allTags = $state<string[]>([]);
   staleCount = $derived(this.tracks.filter(t => t.is_stale === 1).length);
-  
+
   isScanning = $state(false);
   scanProgress = $state(0);
   scanCurrentFile = $state("Idle");
   scanProcessedCount = $state(0);
   scanTotalCount = $state(0);
-  
+
   tauriConnected = $state(false);
   analysisRunning = $state(false);
   analysisManuallyPaused = $state(false);
   analysisAutoPaused = $state(false);
   analysisPaused = $derived(this.analysisManuallyPaused || this.analysisAutoPaused);
 
+  private initialized = false;
+  private unlisteners: Array<() => void> = [];
+
   // Initialize and load initial database states
   async init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     try {
       await this.fetchDirectories();
       await this.fetchTrackCount();
@@ -40,18 +46,18 @@ class LibraryStore {
         }).catch(() => {});
 
       // Sync paused changes from backend
-      await listen<{ manually_paused: boolean; auto_paused: boolean }>("analysis-paused-changed", (event) => {
+      this.unlisteners.push(await listen<{ manually_paused: boolean; auto_paused: boolean }>("analysis-paused-changed", (event) => {
         this.analysisManuallyPaused = event.payload.manually_paused;
         this.analysisAutoPaused = event.payload.auto_paused;
-      });
+      }));
 
       // Reload tracks after each analysis phase completes so extracted data is visible
-      await listen<any>("analysis-phase-complete", () => {
+      this.unlisteners.push(await listen<any>("analysis-phase-complete", () => {
         this.fetchTracks();
-      });
+      }));
 
       let tagsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-      await listen<any>("analysis-progress", () => {
+      this.unlisteners.push(await listen<any>("analysis-progress", () => {
         this.analysisRunning = true;
         // Debounce tag refresh so the filter stays current without flooding the DB.
         if (tagsRefreshTimer) clearTimeout(tagsRefreshTimer);
@@ -59,23 +65,23 @@ class LibraryStore {
           this.fetchTags();
           tagsRefreshTimer = null;
         }, 2000);
-      });
+      }));
 
-      await listen<any>("analysis-complete", () => {
+      this.unlisteners.push(await listen<any>("analysis-complete", () => {
         this.analysisRunning = false;
         this.analysisManuallyPaused = false;
         this.analysisAutoPaused = false;
         this.fetchTracks();
-      });
+      }));
 
-      await listen<any>("analysis-error", () => {
+      this.unlisteners.push(await listen<any>("analysis-error", () => {
         this.analysisRunning = false;
         this.analysisManuallyPaused = false;
         this.analysisAutoPaused = false;
-      });
+      }));
 
       // Listen for AcoustID dynamic enrichment events to refresh the library and details view
-      await listen<any>("track-enriched", async (event) => {
+      this.unlisteners.push(await listen<any>("track-enriched", async (event) => {
         const enrichedId = event.payload;
         try {
           const freshTrack = await invoke<Track | null>("get_track", { trackId: enrichedId });
@@ -84,6 +90,9 @@ class LibraryStore {
             if (idx !== -1) {
               this.tracks[idx] = freshTrack;
             }
+            // TODO: known cross-store coupling — player.selectedTrack is mutated here to keep the
+            // details view in sync after enrichment. Decouple by having the player store react to
+            // library track changes rather than being written to directly.
             if (player.selectedTrack && player.selectedTrack.id === enrichedId) {
               player.selectedTrack = freshTrack;
             }
@@ -91,10 +100,10 @@ class LibraryStore {
         } catch (e) {
           console.error("Failed to fetch enriched track:", e);
         }
-      });
+      }));
 
       // Listen for progress updates emitted by the background scanner
-      await listen<any>("scan:progress", (event) => {
+      this.unlisteners.push(await listen<any>("scan:progress", (event) => {
         const payload = event.payload;
         this.isScanning = payload.is_scanning;
         this.scanProgress = payload.progress;
@@ -107,10 +116,19 @@ class LibraryStore {
           this.fetchTrackCount();
           this.fetchTracks();
         }
-      });
+      }));
     } catch (e) {
+      this.initialized = false;
       console.warn("Tauri context offline or library database loading.");
     }
+  }
+
+  dispose() {
+    for (const unlisten of this.unlisteners) {
+      unlisten();
+    }
+    this.unlisteners = [];
+    this.initialized = false;
   }
 
   async fetchDirectories() {
