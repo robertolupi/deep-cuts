@@ -53,15 +53,10 @@ This reduces the risk that a new analysis column breaks unrelated queries or sil
 
 ### 5. Route all Tauri calls through `$lib/ipc`
 
-`src/lib/ipc.ts` provides mock/local-debug support, but many components import `@tauri-apps/api/core` directly. That weakens browser-only UI debugging and tests.
+**Import routing: done** (commit `8e25954`). `tools/lint_ipc_imports.py` is clean.
 
-Make `$lib/ipc` the only invoke/listen import for app code, except for APIs it intentionally re-exports such as `convertFileSrc` if needed.
-
-Next step:
-
-- Define a `CommandMap` type from command name to args/result.
-- Type `invoke` as `invoke<K extends keyof CommandMap>(cmd: K, args: CommandMap[K]["args"])`.
-- Require each new IPC command to update the wrapper, mock response when applicable, and at least one frontend test or store test.
+**F1b — Typed CommandMap (remaining):**
+Define a `CommandMap` type in `src/lib/ipc.ts` mapping every command name to its args and result type. Type `invoke` as `invoke<K extends keyof CommandMap>(cmd: K, args: CommandMap[K]["args"]): Promise<CommandMap[K]["result"]>`. Require each new IPC command to add a `CommandMap` entry. Update `skills/add-ipc-command/SKILL.md` and `skills/svelte-component/SKILL.md` to require the CommandMap entry as part of the checklist. Bundle with typed mock responses and at least one frontend store test per new command.
 
 ### 6. Split oversized UI surfaces
 

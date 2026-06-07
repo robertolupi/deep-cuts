@@ -52,6 +52,13 @@ Flat session files migrated to `YYYY-MM-DD-slug/session.md` directories. Two non
 
 ## Codebase Improvements
 
+### Route all Tauri imports through $lib/ipc — import routing (F1a)
+
+**Completed:** 2026-06-07
+**Commit:** `8e25954 fix(ipc): route all Tauri imports through $lib/ipc (F1a)`
+
+All 21 files importing `@tauri-apps/api` directly now go through `$lib/ipc`. Added re-exports for `convertFileSrc` (with LOCAL_DEBUG passthrough), `getVersion` (mock returns `"0.0.0-dev"`), `openUrl` (no-op in mock mode), and `UnlistenFn` type. `tools/lint_ipc_imports.py` now prints clean.
+
 ### Make manifest/download errors explicit (C6)
 
 **Completed:** 2026-06-07
