@@ -6,12 +6,12 @@ mod bpm;
 mod classifier;
 pub mod commands;
 mod database;
-mod metrics_database;
 mod dsp;
 mod embeddings;
 pub mod error;
 pub mod hardware;
 mod llama;
+mod metrics_database;
 mod models;
 mod scanner;
 mod spectrogram;
@@ -150,10 +150,22 @@ pub fn run() {
             // Initialize database manager and bootstrap SQLite.
             // This is fatal — the app cannot function without the main DB.
             let db_manager = DbManager::new(app.handle());
-            let conn = db_manager.connect_and_migrate().map_err(|e| {
-                log::error!("[startup] Main database initialization failed: {e}");
-                e
-            })?;
+            let conn = match db_manager.connect_and_migrate() {
+                Ok(c) => c,
+                Err(e) => {
+                    let msg = format!(
+                        "Deep Cuts could not open its database. \
+                        Check that the application data is not corrupted.\n\nError: {e}"
+                    );
+                    log::error!("[startup] {msg}");
+                    rfd::MessageDialog::new()
+                        .set_level(rfd::MessageLevel::Error)
+                        .set_title("Deep Cuts — Startup Error")
+                        .set_description(&msg)
+                        .show();
+                    std::process::exit(1);
+                }
+            };
             // Crash recovery: reset any in-flight pending AcoustID lookups
             let _ = conn.execute(
                 "UPDATE tracks SET acoustid_status = NULL WHERE acoustid_status = 'pending'",
@@ -300,7 +312,10 @@ async fn enrich_track_metadata(
     force: Option<bool>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    log::info!("[ipc] enrich_track_metadata called for track_id: {}", track_id);
+    log::info!(
+        "[ipc] enrich_track_metadata called for track_id: {}",
+        track_id
+    );
     let force_val = force.unwrap_or(false);
 
     // Spawn the async enrichment pipeline in a background task so it doesn't block IPC
