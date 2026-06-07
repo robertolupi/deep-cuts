@@ -108,6 +108,8 @@ Update code and skills so new UI work requires:
 - canvas palettes read from computed CSS variables;
 - high-contrast checks for new controls.
 
+**D3.js caveat:** D3 canvas/SVG rendering cannot consume `var(--sg-*)` CSS variables directly. The correct workaround is to resolve tokens at render time via `getComputedStyle(document.documentElement).getPropertyValue('--sg-primary').trim()`. Do not replace D3 hex literals with raw hex — replace them with `getComputedStyle` lookups so theme-switching still works. This also means canvas components must re-read colors on theme change (listen for `html[data-theme]` attribute mutations or re-render on a theme store change).
+
 ## Testing Priorities
 
 1. Rust: pass registry/order/reset invariant tests.

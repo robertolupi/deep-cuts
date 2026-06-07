@@ -10,11 +10,15 @@ related_skills:
 
 # Waveform Envelope Analysis
 
-This document outlines structural and mathematical features utilizing the 128-point low-resolution `waveform_data` (RMS/energy envelope) stored in the Deep Cuts database.
+## Current State
+
+These are research-stage proposals for features utilizing the 128-point `waveform_data` envelope. None of the three approaches described here (two-stage KNN+DTW structural search, pairwise matrix similarity, and derived spectral graph metrics) have been implemented in the production app. They remain valid ideas pending a concrete use-case trigger.
 
 ---
 
-## 1. Two-Stage Structural Similarity Search (KNN + DTW)
+## Historical / Research Notes
+
+### 1. Two-Stage Structural Similarity Search (KNN + DTW)
 
 To query the library for tracks sharing similar energy arrangement shapes (e.g. build-ups, breakdowns, climax positions) regardless of absolute tempo/duration differences:
 
@@ -29,7 +33,7 @@ To query the library for tracks sharing similar energy arrangement shapes (e.g. 
 
 ---
 
-## 2. Pairwise Matrix Similarity ($M M^T$)
+### 2. Pairwise Matrix Similarity ($M M^T$)
 
 If the $L_2$-normalized envelopes of all $N$ tracks in the library are placed in an $N \times 128$ matrix $M$, computing $M M^T$ yields an $N \times N$ matrix $S$.
 

@@ -10,7 +10,9 @@ related_skills:
 
 # Technical Feasibility & Performance Analysis
 
-This document provides a comparative analysis of the 5 proposed features we brainstormed. Each analysis details the implementation complexity, database changes required, and user interface responsiveness guidelines.
+## Current State
+
+This is a feasibility reference document, not an active implementation guide. Mastering-style auto-tagging (feature 3) is fully implemented. Two-stage structural search and spectral map projections are partially implemented. Playlist drag-to-reorder and vibe-based recommendations have infrastructure in place but no production UI. See the implementation snapshot table below for per-feature status.
 
 ---
 

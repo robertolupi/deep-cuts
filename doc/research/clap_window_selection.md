@@ -12,7 +12,7 @@ related_skills:
 
 ## Current State
 
-The adaptive window-selection algorithm described here is implemented in the CLAP embedding path.
+The adaptive tercile / temporal-spread window-selection algorithm is fully implemented. Per-section CLAP embeddings (structure-guided) are not yet implemented and are gated on the MLP structural classifier reaching ≥ 50% Chorus recall on a Genius-expanded training set.
 
 | Area | Status | Evidence / Notes |
 | :--- | :--- | :--- |
@@ -23,7 +23,46 @@ The adaptive window-selection algorithm described here is implemented in the CLA
 
 ---
 
-## Background
+## Accepted Constraints
+
+- We export and use the **non-fusion ONNX pathway**: each window is encoded independently, then average-pooled in Rust. Order is irrelevant (pooling is commutative).
+- Three 10-second windows per track; average pooling plus L2-normalisation produces the final 512-dim embedding.
+- The CV threshold of 0.25 separates dynamic tracks (~82%) from flat-loudness tracks (~18%). This split should be re-evaluated if library composition changes significantly.
+
+---
+
+## Rejected Alternatives
+
+- **Fixed 25%/50%/75% window positions:** Blind to track content; commonly places one or more windows in silent intros/outros or inside the outro of energy-building tracks. Replaced by the current adaptive algorithm.
+- **Top-3 loudest bins without spacing (original "top-3 loudest spaced"):** All three windows clustered in the final 20–30% for climax-building tracks. The third pick was ≥ 0.85 into the track in the vast majority of cases for such tracks. Replaced by tercile selection.
+- **CLAP native fusion pathway (4-window, attention-based):** Requires re-exporting the ONNX model with `enable_fusion=True` and additional convolutional layers. Not feasible with the current exported model. Kept as a documented future option.
+
+---
+
+## Implementation Plan
+
+Per-section CLAP embeddings (structure-guided) are the next step, but are gated on a reliable MLP structural classifier. Prerequisites in order:
+
+1. Expand MLP training data via Genius API (see `sax_structure_learning.md`).
+2. Validate MLP Chorus recall ≥ 50% on the retrained model.
+3. Add `section_embeddings` table (schema below in Future Directions).
+4. Implement CLAP pass that runs per detected section run, falling back to tercile for low-confidence tracks.
+5. Bump `pass_version::CLAP` to trigger a full re-run; regenerate `track_coords` (UMAP projections).
+
+---
+
+## Validation Plan
+
+- After implementing any algorithm change: bump CLAP pass version and verify full re-run completes.
+- `track_coords` table must be regenerated after re-embedding.
+- Manual spot-check: tracks with known pathological window selection (11511, 12160, 11381) should no longer place all windows in the final portion of the track.
+- Listening test with `scripts/compare_clap_windows.py` — new algorithm should match or exceed current on all 10 sampled tracks.
+
+---
+
+## Historical / Research Notes
+
+### Background
 
 CLAP embeddings are computed by running the audio encoder on a 10-second mel-spectrogram window. For tracks longer than 10 seconds we must choose which part(s) of the track to sample. The embedding quality — and therefore the accuracy of similarity search and semantic features — depends heavily on this choice.
 
@@ -31,7 +70,7 @@ Our current implementation (`src-tauri/src/embeddings.rs`, `run_clap_inference_p
 
 ---
 
-## Current Algorithm: Top-3 Loudest Spaced
+### Current Algorithm: Top-3 Loudest Spaced
 
 `select_clap_window_pcts` in `embeddings.rs`:
 
@@ -43,7 +82,7 @@ Our current implementation (`src-tauri/src/embeddings.rs`, `run_clap_inference_p
 
 ---
 
-## Proposed Algorithm: Adaptive (Tercile + Temporal Spread)
+### Proposed Algorithm: Adaptive (Tercile + Temporal Spread)
 
 ### Key insight: coefficient of variation as a loudness-flatness detector
 
@@ -88,7 +127,7 @@ Notable egregious current-algorithm failures:
 
 ---
 
-## Order Sensitivity
+### Order Sensitivity
 
 **Finding: order does not matter for our implementation.**
 

@@ -10,6 +10,58 @@ related_skills:
 
 # Music Map Improvements
 
+## Current State
+
+The core map quality improvements are shipped. Percentile-clipped normalization, silence detection, energy-based CLAP window selection, non-music filtering via Essentia `is_music`, and multiple projection modes are all implemented. What remains unimplemented: the outlier satellite / pinned HUD mini-map inset, algorithm parameter configuration UI, and topological labeling (DBSCAN + TF-IDF cluster labels).
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Percentile-clipped normalization (§1) | Implemented | `standardize_to_100` in `commands/map.rs` uses p1–p99 clipping. |
+| Soft-boundary outlier compression + micro-jitter | Need human review | The mechanism described in §1 may or may not be fully applied; verify against current `map.rs`. |
+| Multiple projection algorithms with tunable parameters (§2) | Partially implemented | Multiple modes (`sonic`, `description`, `hybrid`, `essentia`, `harmonic`, `genre_wheel`) exist; algorithm parameter UI is not implemented. |
+| Outlier satellite / Pinned HUD Mini-Map Inset (§3) | Not implemented | Deferred. |
+| Non-music detection and map filtering (§4) | Implemented | Essentia `is_music` check filters non-music tracks from projection. |
+| Silence detection pass (§5) | Implemented | `analysis/audio.rs` populates `silence_regions` and `has_long_silence`. |
+| Energy-based CLAP window selection (§6) | Implemented | `select_clap_window_pcts` in `embeddings.rs` selects three loudest spaced bins. |
+| Topological map labeling (§7) | Not implemented | DBSCAN + TF-IDF cluster labels not implemented. |
+
+---
+
+## Accepted Constraints
+
+- Outlier tracks are not hidden — they remain accessible in all views and are only visually separated or clamped, never removed.
+- Non-music tracks (Essentia `is_music = false`) are excluded from map projection but remain visible in table view and accessible via "Show non-music content" toggle.
+- CLAP window selection must remain fully deterministic: same audio in → same windows out.
+- Any algorithm change that alters embeddings requires bumping `pass_version::CLAP` and regenerating `track_coords`.
+
+---
+
+## Rejected Alternatives
+
+- **Min/max normalization in `standardize_to_100`:** A handful of acoustically extreme tracks define the bounding box and compress 96%+ of the library into a small canvas region. Replaced by p1–p99 percentile clipping.
+- **Fixed 25%/50%/75% CLAP window positions:** Blind to track content; places windows in silent intros/outros. Replaced by energy-based selection. (Full history in `doc/research/clap_window_selection.md`.)
+- **LLM text-only non-music detection:** Slow and unreliable for filtering out non-music audio; Essentia `is_music` classifier is faster and more accurate.
+
+---
+
+## Implementation Plan
+
+Remaining work:
+
+1. **Verify soft-boundary squashing** — check whether the sigmoid/arctan compression described in §1 is actually applied in `map.rs` or if it is only hard-clamping. Implement if missing.
+2. **Topological map labeling (§7)** — DBSCAN on 2D output coordinates, TF-IDF tag summarization per cluster, exemplar (medoid) selection, D3 force-directed label placement. This is the highest-impact remaining item for map usability.
+3. **Outlier satellite region (§3)** — deferred until topological labeling is working; re-evaluate product priority at that time.
+4. **Algorithm parameter UI (§2)** — settings panel for algorithm choice and hyperparameters; deferred until a concrete user need is identified.
+
+---
+
+## Validation Plan
+
+- After verifying §1: confirm in SQLite that `is_map_outlier` flag is set for extreme tracks; main cluster fills canvas; outlier dot is still hoverable.
+- After §7: cluster labels appear on map at appropriate zoom levels; force simulation prevents label collisions.
+
+---
+
 ## Acceptance Criteria
 
 - **User-visible:** Map no longer compresses the main library cluster; outlying tracks are soft-clamped to canvas edges rather than dominating the bounding box. Hovering over edge-stacked dots reveals distinct tracks via micro-jitter offsets.
@@ -26,7 +78,9 @@ related_skills:
 
 ---
 
-## 1. Fix Map Cramping: Percentile-Clipped Normalization
+## Historical / Research Notes
+
+### 1. Fix Map Cramping: Percentile-Clipped Normalization
 
 **Problem:** `standardize_to_100` in `commands/map.rs` maps the absolute min/max of UMAP output coordinates to `[0, 100]`. A handful of acoustically extreme tracks (early ragtime, heavy metal) sit far from the main cluster and define the bounding box, compressing 96%+ of the library into a small region of the canvas.
 
@@ -52,7 +106,7 @@ let x_hi = xs[(n as f64 * 0.99) as usize];
 
 ---
 
-## 2. Multiple Projection Algorithms with Tunable Parameters
+### 2. Multiple Projection Algorithms with Tunable Parameters
 
 **Problem:** `rag-umap 0.0.0` has no public configuration surface — all parameters (n_neighbors, min_dist, epochs) are hardcoded. The `_algorithm`, `_n_neighbors`, `_min_dist`, and `_perplexity` arguments accepted by `recompute_projection` are currently ignored.
 
@@ -97,7 +151,7 @@ map_normalization_percentile: f64 // default 1.0 (p1/p99 clipping)
 
 ---
 
-## 3. Outlier Handling: Satellite Regions
+### 3. Outlier Handling: Satellite Regions
 
 **Problem:** Acoustically extreme tracks (1920s ragtime, heavy metal) are correctly placed far from the main cluster by the projection algorithm. They are not wrong — they are genuinely distant in acoustic space. But their existence stretches the canvas and marginalizes the main library mass.
 
@@ -123,7 +177,7 @@ To improve layout coherence, the outlier satellite region is designed as a **Pin
 
 ---
 
-## 4. Non-Music Detection and Map Filtering
+### 4. Non-Music Detection and Map Filtering
 
 **Problem:** Some libraries contain non-music content (audiobooks, podcasts, field recordings, sound effects, short jingles) that pollutes the map projection. These tracks have no acoustic relationship to the rest of the library and distort the projection for everyone.
 
@@ -152,7 +206,7 @@ A track scoring 2 or more of these signals is flagged `is_non_music = true`. The
 
 ---
 
-## 5. Silence Detection Pass
+### 5. Silence Detection Pass
 
 **Problem:** The current CLAP embedding pipeline samples windows at fixed 25%, 50%, 75% positions. If a track has a long silent intro or outro, one or more of these windows captures silence rather than music content, producing a contaminated embedding.
 
@@ -175,7 +229,7 @@ Runs as a lightweight pre-pass during track analysis (before CLAP), using only t
 
 ---
 
-## 6. Energy-Based CLAP Window Selection
+### 6. Energy-Based CLAP Window Selection
 
 **Problem (continued from §5):** Fixed 25/50/75% window positions are naive. They are blind to the actual content of the track.
 
@@ -198,7 +252,7 @@ Runs as a lightweight pre-pass during track analysis (before CLAP), using only t
 
 ---
 
-## 7. Topological Map Labeling & Exemplars (DBSCAN + TF-IDF)
+### 7. Topological Map Labeling & Exemplars (DBSCAN + TF-IDF)
 
 **Problem:** Currently, the map relies purely on color codes and a side legend to communicate region characteristics. This requires constant cognitive context-switching for the user to understand what "acoustic zone" they are looking at.
 
@@ -226,13 +280,4 @@ For each spatial cluster $C$, we mathematically determine its characteristic des
 
 ---
 
-## Status
-
-* **Implemented**:
-  - **Percentile clipping** in `standardize_to_100` (clipping p1–p99) is fully active in `commands/map.rs`.
-  - **Silence detection** pass is fully implemented in `analysis/audio.rs` (populating `silence_regions` and `has_long_silence`).
-  - **Energy-based CLAP window selection** is implemented in `embeddings.rs` (utilizing `select_clap_window_pcts` which selects three loudest spaced bins based on waveform data).
-  - **Non-Music Filtering**: Classification via Essentia `is_music` check is implemented, and coordinates projection excludes non-music tracks when `musicOnly` is true.
-  - **Alternative Projections**: Svelte map mode supports multiple layout/projections (`sonic`, `description`, `hybrid`, `essentia`, `harmonic`, `genre_wheel`).
-* **Not Implemented / Deferred**:
-  - Outlier satellite regions ("Pinned HUD Mini-Map Inset") and settings configuration UI panels for custom algorithm hyper-parameters.
+*(Implementation status is tracked in the Current State table at the top of this document.)*

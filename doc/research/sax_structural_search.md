@@ -10,6 +10,59 @@ related_skills:
 
 # SAX Structural Search — Design & Experiments
 
+## Current State
+
+Active research with the analysis substrate partially shipped. The MLP-based Viterbi scoring path and the block composer UI are not yet implemented. The immediate next step is expanding labeled training data (Genius API) and retraining the MLP before productizing the UI.
+
+| Area | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| SAX and alignment substrate | Implemented | The app stores SAX strings plus alignment/segment data used by structure views and filters. |
+| Structure clusters | Implemented | Cluster analysis and cluster-based filtering/coloring are present. |
+| Nearest-neighbour sequence matching | Partially implemented | The codebase has structure-alignment machinery, but the full visual query workflow described here is not a shipped feature. |
+| Visual block composer | Need human review | No dedicated composer UI was found. Re-evaluate after the current structure-cluster UX settles. |
+| Learned section labels / Viterbi flow | Need human review | These ideas belong with `sax_structure_learning.md` until there is an approved model path. |
+
+---
+
+## Accepted Constraints
+
+- Section labels must be computed as soft probability vectors (not hard assignments) to allow Viterbi forced alignment with continuous costs — see `sax_structure_learning.md` for the MLP path.
+- The 7 centroids (Intro, End, Verse, Pre-Chorus, Bridge, Outro, Chorus) were derived from 153 Downspiral tracks and will be replaced by a retrained MLP; the centroid table below is the current fallback, not the permanent design.
+- The block composer UI uses strict adjacency by default (no implicit gaps between blocks); `[···]` wildcard is the explicit escape hatch.
+- Low-confidence MLP segments are hidden from display but still used in Viterbi scoring — uncertain segments act as natural low-penalty gaps.
+
+---
+
+## Rejected Alternatives
+
+- **Energy-only RLE regex matching:** Energy alone cannot separate Chorus (0.647) from Outro (0.617) or Pre-Chorus (0.447) from Bridge (0.556). Recall is near-100% but precision is ~5% — almost every track matches any pattern. Ruled out as a standalone approach.
+- **Hard centroid quantization (edit distance with discrete costs):** Costs clump at identical values (many tracks tie at 2.50 or 6.50) because substitution costs between similar centroids are equal. Viterbi over MLP probabilities was chosen instead to produce continuous, tie-free scores.
+
+---
+
+## Implementation Plan
+
+### Phase 0 — Pipeline consolidation (prerequisite)
+Merge SAX and repetition vector computation into the `audio_analysis` pass. Schema addition: `migrations/25_waveform_repetition.sql` adds `waveform_repetition TEXT` (JSON array of 16 floats) and `waveform_labels TEXT` (JSON array of 16 label strings). Retire `SaxPass` from the pipeline registry while keeping `waveform_to_sax` and `sax_mindist` as library functions.
+
+### Phase 1 — Segment quantization + sequence matching
+Per-track label sequence from (energy, repetition) coordinates → nearest centroid → `waveform_labels`. Viterbi forced alignment replaces edit distance. IPC command: `search_by_structure(blocks: string[], tolerance: number) → { track: Track, cost: number }[]`.
+
+### Phase 2 — Block composer UI
+Svelte component: palette + horizontal lane, drag-to-reorder, live result count, sorted list with Structural Match % and Sonic Match % badges. Waveform overlay shows inferred `[I][V][C]` labels. Fuzziness slider controls within-block energy tolerance (not insertion penalties).
+
+---
+
+## Validation Plan
+
+- `SELECT waveform_labels FROM tracks LIMIT 5` returns JSON arrays of 16 label strings after re-analysis.
+- Query `[Intro → Chorus]` in block composer returns a non-empty list with ascending cost order.
+- Waveform label overlay is visible on the first result.
+- No two tracks share identical Viterbi costs (continuous cost requirement).
+- Rust unit tests: centroid-label assignment, edit-distance cost function, `search_by_structure([I, V, C])` returns at least one result sorted by ascending cost.
+
+---
+
 ## Acceptance Criteria
 
 - **User-visible:** A block composer panel (palette of named blocks: Intro, Verse, Pre-Chorus, Chorus, Drop, Bridge, Outro, `[···]` wildcard) lets users build a structural query by clicking or dragging blocks into a horizontal lane; a live result count and ranked result list (sorted by match cost) updates as the query changes.
@@ -26,21 +79,9 @@ related_skills:
 
 ---
 
-## Current State
+## Historical / Research Notes
 
-This is active research with several supporting pieces now in production. Treat the UI and model-training sections as design input, not as the current app contract.
-
-| Area | Status | Evidence / Notes |
-| :--- | :--- | :--- |
-| SAX and alignment substrate | Implemented | The app stores SAX strings plus alignment/segment data used by structure views and filters. |
-| Structure clusters | Implemented | Cluster analysis and cluster-based filtering/coloring are present. |
-| Nearest-neighbour sequence matching | Partially implemented | The codebase has structure-alignment machinery, but the full visual query workflow described here is not a shipped feature. |
-| Visual block composer | Need human review | No dedicated composer UI was found. Re-evaluate after the current structure-cluster UX settles. |
-| Learned section labels / Viterbi flow | Need human review | These ideas belong with `sax_structure_learning.md` until there is an approved model path. |
-
----
-
-## Goal
+### Goal
 
 A visual block composer UI that lets users search the library by song architecture ("find tracks with a quiet intro, then a chorus, then a drop") without writing regex. The user composes a named-block sequence; the backend finds tracks whose structural arc best matches it.
 

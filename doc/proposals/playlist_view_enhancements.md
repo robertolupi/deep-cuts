@@ -10,7 +10,9 @@ related_skills:
 
 # Playlist & Saved Search View Enhancements
 
-This document details user interface and layout improvements for playlist and saved search views in Deep Cuts, focusing on transition analysis, reordering, and smart suggestions.
+## Current State
+
+Playlist storage, ordering, and saved-search smart auto-naming are implemented. Drag-to-reorder has schema and command support but no polished UI. The energy sparkline, visual BPM/key transition badges, TSP transition optimizer, and vibe-based recommendation panel are all unimplemented proposals pending design review.
 
 ---
 

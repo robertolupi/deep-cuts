@@ -10,7 +10,9 @@ related_skills:
 
 # Library Maintenance & Validation Utilities
 
-This document proposes catalog verification tools to audit and flag files in the library.
+## Current State
+
+The mastering-style brickwall/dynamic tagging described in §1 is implemented as `mastering:brickwalled` and `mastering:dynamic` system tags written by `audio_analysis`. The broader catalog auditing and gain-offset warning ideas in §1 remain unimplemented proposals.
 
 ---
 

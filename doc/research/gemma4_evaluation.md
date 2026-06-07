@@ -10,11 +10,42 @@ related_skills:
 
 # Evaluation: Gemma 4 E2B-it for Local Chat & Audio
 
-This document evaluates the feasibility and architectural advantages of replacing our current **Qwen2-Audio-7B-Instruct** chat model with Google's newly released **Gemma 4 E2B-it** (Effective 2B Instruction Tuned) model.
+## Current State
+
+Qwen2-Audio-7B-Instruct is the current production chat/audio model. This document evaluates replacing it with Gemma 4 E2B-it, which offers a significantly smaller memory footprint (~3.5 GB vs ~7.5 GB) and a unified single-file architecture. The evaluation has not been run yet — no GGUF has been downloaded or tested against the current `llama-server` sidecar.
 
 ---
 
-## Model Comparison
+## Accepted Constraints
+
+- The replacement model must be loadable by the bundled `llama-server` sidecar without structural changes to `llama.rs` or the message-construction logic.
+- Audio must be passable via the existing `/v1/chat/completions` `input_audio` payload format (`{ "type": "input_audio", "input_audio": { "data": "<base64>", "format": "wav" } }`).
+- Target hardware is Apple M-series with 8 GB RAM minimum — the 3.5 GB VRAM budget for the model is a hard constraint.
+
+---
+
+## Implementation Plan
+
+1. Download the Gemma 4 E2B-it QAT GGUF to a temporary workspace directory.
+2. Spawn the bundled `llama-server` sidecar manually on port 8080 targeting the Gemma 4 model.
+3. Send a test cURL request with a 10-second WAV sample from the library and verify endpoint compatibility with the existing `input_audio` format.
+4. Compare against Qwen2-Audio baseline on transcription accuracy, musical/acoustic reasoning quality, TTFT, and tokens-per-second.
+5. If results are comparable or better, update `llama.rs` model path and remove the `--mmproj` dual-file logic.
+
+---
+
+## Validation Plan
+
+- `llama-server` accepts `input_audio` payload without modification.
+- Gemma 4 genre/mood/instrument outputs on 10 sampled tracks are qualitatively comparable to Qwen2-Audio baseline.
+- TTFT ≤ Qwen2-Audio TTFT on the same hardware.
+- Peak VRAM usage ≤ 4 GB (headroom for Tauri/Webview).
+
+---
+
+## Historical / Research Notes
+
+### Model Comparison
 
 | Dimension | Current: Qwen2-Audio-7B-Instruct | Proposed: Gemma 4 E2B-it |
 | :--- | :--- | :--- |

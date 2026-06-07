@@ -12,7 +12,7 @@ related_skills:
 
 ## Current State
 
-This document is a model-research backlog. The current app uses SAX/alignment/cluster analysis, but no production learned section-label model was found.
+The app ships hand-engineered SAX/alignment/cluster analysis. Experiments have validated that the 3D feature space (energy × repetition × position) supports soft classifiers but not hard cluster boundaries. Option D2 (sklearn MLP, 51% overall accuracy) is the best validated model so far. No production learned-label model or inference path has shipped. The next concrete step is expanding the labeled training set via the Genius API and retraining the MLP.
 
 | Area | Status | Evidence / Notes |
 | :--- | :--- | :--- |
@@ -23,7 +23,46 @@ This document is a model-research backlog. The current app uses SAX/alignment/cl
 
 ---
 
-## Context
+## Accepted Constraints
+
+- Features per segment are limited to what is already stored: `energy` (SAX letter → [0,1]), `rep_score` (SSM repetition score [0,1]), and `position` (fractional [0,1]).
+- Labeled training data is scarce: 153 Downspiral tracks with lyrics-based weak labels (~2,400 segments), biased toward one artist.
+- Any production model must run at inference time inside the Rust/ONNX pipeline — no Python runtime at query time.
+- Soft probability output is required; hard label assignment broke the edit-distance cost function (discrete quantization problem).
+
+---
+
+## Rejected Alternatives
+
+- **Option A — GMM (hard clusters):** Tried June 2025. Three components collapsed to Chorus; Intro/Pre-Chorus/Bridge/Outro/End accuracy 0%. Root cause: Pre-Chorus centroid (0.447, 0.845) and Chorus (0.647, 0.875) too close in 2D; brickwall masters collapse the gap further. Hard boundaries do not work in 3D feature space.
+- **Option D1 — Logistic Regression:** Tried June 2025. Overall accuracy 38%. Verse recall 9% — still confused with everything. Continuous costs were a win, but discriminative power insufficient. Feature set is sufficient; model capacity is not.
+
+---
+
+## Implementation Plan
+
+1. **Register a Genius API app** (user action, ~2 min at genius.com/api-clients) — produces a client access token, no OAuth needed for read-only search.
+2. **Write `tools/fetch_genius_lyrics.py`** — query Genius search API, match on artist similarity, save lyrics to `lyrics.txt` alongside audio (same format as Downspiral), skip tracks already labeled, rate-limit to 1 req/sec.
+3. **Validate a sample** — spot-check 20 fetched lyrics files for label quality before retraining.
+4. **Retrain MLP** on full labeled set (153 Downspiral + N Genius); fix convergence warning (increase `max_iter` to 1000 or use `solver='adam'` with `early_stopping=True`).
+5. **Re-run queries** and compare against current D2 results. Target: Chorus recall ≥ 50%.
+
+No DB changes needed — lyrics live on disk alongside audio files; the training pipeline discovers them via `Path(track.path).parent / "lyrics.txt"`.
+
+---
+
+## Validation Plan
+
+- Overall MLP accuracy > 51% (current D2 baseline).
+- Chorus recall ≥ 50% (currently 32% — the weakest class and most needed for structural search).
+- Viterbi query results: no structural ties (continuous cost requirement already met by D2).
+- Spot-check: "Build [I,V,C]" and "Ends quietly [C,C,E]" queries return genre-diverse, structurally appropriate results comparable to current D2 highlights.
+
+---
+
+## Historical / Research Notes
+
+### Context
 
 The hand-tuned centroid approach (7 fixed (energy, repetition) centroids derived from 153
 Downspiral tracks) has two known problems:
