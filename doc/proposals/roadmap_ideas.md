@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Roadmap Ideas & Deferred Brainstorms
 
 This document consolidates various unimplemented, brainstorming, and deferred feature proposals for the Deep Cuts application. These ideas are not currently scheduled or committed for implementation.

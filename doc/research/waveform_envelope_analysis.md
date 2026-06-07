@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Waveform Envelope Analysis
 
 This document outlines structural and mathematical features utilizing the 128-point low-resolution `waveform_data` (RMS/energy envelope) stored in the Deep Cuts database.

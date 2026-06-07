@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Evaluation: Gemma 4 E2B-it for Local Chat & Audio
 
 This document evaluates the feasibility and architectural advantages of replacing our current **Qwen2-Audio-7B-Instruct** chat model with Google's newly released **Gemma 4 E2B-it** (Effective 2B Instruction Tuned) model.

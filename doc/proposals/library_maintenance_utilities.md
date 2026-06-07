@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Library Maintenance & Validation Utilities
 
 This document proposes catalog verification tools to audit and flag files in the library.

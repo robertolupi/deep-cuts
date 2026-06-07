@@ -1,3 +1,13 @@
+---
+status: active
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Centralized Index: Advanced Feature Evaluations
 
 Welcome to the central feature planning index. Deep Cuts is equipped with a robust local multi-modal database (acoustic CLAP embeddings, Qwen2-Audio prose descriptions, MiniLM text embeddings, and structured tags). This document centralizes the technical evaluation, resource sizing, and prioritization of 7 advanced feature areas that leverage this data, linking to the standalone technical breakdowns.

@@ -1,3 +1,13 @@
+---
+status: active
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Brainstorming: User Manual Song Editing & Overrides
 
 This document outlines the design for allowing users to manually edit track metadata (Title, Artist, Album, BPM, Genre, etc.) and manage tags (adding custom tags, suppressing automatic tags) such that these changes persist across automatic scans, background ML analysis, and file updates.

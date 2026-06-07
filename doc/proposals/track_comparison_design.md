@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Track Comparison UI: Design & Brainstorming
 
 This document explores the design tradeoffs and UI/UX paradigms for comparing tracks based on their structural labels (Intro, Verse, Chorus, Outro) and timbral embeddings (CLAP).
