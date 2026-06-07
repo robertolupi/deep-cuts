@@ -205,7 +205,18 @@ if let Err(e) = run_pass_pipeline(&app, &conn_arc, your_pass::YourPass, &run_id_
 
 The `run_id_spawn` variable is already declared near the top of the background thread closure — do not create a new one.
 
-### 5. Update AnalysisPanel.svelte
+### 5. Update TypeScript types
+
+If your pass writes any field that the frontend reads, update the TypeScript boundary:
+
+1. Add the field to the relevant type in `src/lib/types.ts` (e.g. `Track`, `TrackDetail`).
+2. If the field is returned by an IPC command, add it to the `CommandMap` in `src/lib/ipc.ts`.
+3. Add a plausible mock value in the local-debug mock responses in `src/lib/ipc.ts` so the UI is testable without Tauri.
+4. Check any component that displays or derives from this field — it may need a null/undefined guard.
+
+If your pass does not add any frontend-visible fields, skip this step but add a comment in `execute_job` / `execute` noting that explicitly.
+
+### 6. Update AnalysisPanel.svelte
 
 Add your pass to three places in `src/lib/components/AnalysisPanel.svelte`:
 - `PASS_ORDER` — insert at the correct position matching `PipelineManager::run()`
@@ -286,14 +297,27 @@ impl super::BatchAnalysisPass for YourBatchPass {
                 rusqlite::params![result, id],
             ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
         }
-        // Mark applicable track_passes rows done so AnalysisPanel shows correct progress.
-        // If some tracks are not applicable, mark them done with a log explaining why;
-        // do not leave them pending forever.
+
+        // Mark EVERY pending track_passes row with a terminal status.
+        // Rows with output → DONE. Rows without applicable data → also DONE
+        // (with a log note). Never leave rows stuck in PENDING — they will
+        // cause the pass to re-run every pipeline cycle.
+        //
+        // Applicable tracks (have output):
         conn.execute(
             "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP
              WHERE pass_name = 'your_batch_pass' AND track_id IN (SELECT id FROM tracks WHERE some_column IS NOT NULL)",
             rusqlite::params![pass_status::DONE, pass_version::YOUR_BATCH_PASS],
         ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+        // Not-applicable tracks (missing prerequisite data) — mark done so they
+        // don't re-queue. Log the reason so it is visible in pass history.
+        conn.execute(
+            "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP,
+             log = 'skipped: no some_column data'
+             WHERE pass_name = 'your_batch_pass' AND status = ?3",
+            rusqlite::params![pass_status::DONE, pass_version::YOUR_BATCH_PASS, pass_status::PENDING],
+        ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+
         conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
 
         Ok(format!("processed {} tracks", results.len()))
@@ -329,7 +353,11 @@ if let Err(e) = run_batch_pass(&app, &conn_arc, your_batch_pass::YourBatchPass, 
 }
 ```
 
-### 5. Update AnalysisPanel.svelte
+### 5. Update TypeScript types
+
+Same as per-track step 5 — add to `src/lib/types.ts`, `src/lib/ipc.ts` `CommandMap`, and local-debug mocks for any frontend-visible fields. If there are none, note that in a comment.
+
+### 6. Update AnalysisPanel.svelte
 
 Same as per-track — add to `PASS_ORDER`, `PASS_ROLE`, and `PASS_META`.
 
@@ -371,7 +399,7 @@ Every pass automatically gets per-track metrics logged to the metrics database v
 
 **Custom passes** (like `ClapPass` and `EssentiaPass`) that override `run_pass` must call `log_pipeline_metric` themselves at each success/failure site. See `src-tauri/src/analysis/clap.rs` for the pattern.
 
-**Batch passes** emit a single summary event (`analysis-phase-complete`) via `run_batch_pass` rather than per-track metrics. The infrastructure is the same — `run_id` is forwarded automatically.
+**Batch passes** emit a single summary event (`analysis-phase-complete`) via `run_batch_pass` rather than per-track metrics. Note that `run_batch_pass` currently receives `run_id` but does not forward it to `execute()`. If your batch pass needs to record a structured metric entry, call `crate::metrics_database::log_system_event` directly at the end of `execute()`, passing the pass name and a summary string. If you deliberately skip metrics, document why in a comment so future readers do not add it incorrectly.
 
 The `run_id` parameter threads through the entire pipeline so that all spans from a single invocation share the same `run_id` in `pipeline_metrics`. Always forward `run_id` — never generate a new one inside a pass.
 
@@ -396,3 +424,5 @@ To inspect the metrics after a run, see the `query-metrics-db` skill or use the 
 | Using `filter_map(|r| r.ok())` on DB rows | Corrupt rows or schema drift disappear silently | Use `collect::<Result<Vec<_>, _>>()` and return/log the mapping error |
 | Listing a no-`track_id` table in `owned_tables` | `reset_pass` fails with "no such column: track_id" | Use `owned_tables: &[]` + `custom_reset: Some(...)` to delete the table manually |
 | Emitting per-track progress events from a batch pass | UI receives thousands of events at once | Emit one event before and one after via `run_batch_pass`; add coarse checkpoints only for very large compute phases |
+| Adding a frontend-visible field without updating TypeScript types | Frontend silently receives `undefined`; type errors only surface at runtime | Follow step 5 — add to `types.ts`, `CommandMap`, and local-debug mocks |
+| Not-applicable tracks left in PENDING after a batch pass | Pass re-runs every pipeline cycle even when there is nothing to do | Mark all remaining PENDING rows DONE with a `log` note explaining why they were skipped |
