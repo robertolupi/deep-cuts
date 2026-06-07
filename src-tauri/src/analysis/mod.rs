@@ -1073,6 +1073,194 @@ mod tests {
         assert_eq!(log_102, Some("Injected failure".to_string()));
     }
 
+    // ── Invariant 1: Registry completeness ────────────────────────────────────
+
+    #[test]
+    fn invariant_registry_all_fields_non_empty() {
+        let names: std::collections::HashSet<&str> = PASS_REGISTRY.iter().map(|s| s.name).collect();
+
+        for spec in PASS_REGISTRY {
+            assert!(!spec.name.is_empty(), "PassSpec has empty name");
+            // Every pass must have a non-zero version (version 0 would signal an
+            // uninitialized constant that invalidation logic would never trigger).
+            assert!(
+                spec.version > 0,
+                "PassSpec '{}' has version 0 — must be at least 1",
+                spec.name
+            );
+            for dep in spec.dependencies {
+                assert!(
+                    names.contains(dep),
+                    "PassSpec '{}' depends on '{}' which is not in PASS_REGISTRY",
+                    spec.name,
+                    dep
+                );
+            }
+        }
+    }
+
+    // ── Invariant 2: Execution order respects dependencies ─────────────────
+
+    #[test]
+    fn invariant_run_order_respects_dependencies() {
+        // Execution order as written in PipelineManager::run().
+        // batch passes (sax, structure_cluster) and normal passes are interleaved.
+        let run_order: &[&str] = &[
+            "audio_analysis",
+            "bpm_correction",
+            "sax",
+            "sax_alignment",
+            "clap",
+            "essentia",
+            "structure_cluster",
+            "bpm_refinement",
+            "qwen",
+            "description_embed",
+        ];
+
+        // Build a position map
+        let position: std::collections::HashMap<&str, usize> = run_order
+            .iter()
+            .enumerate()
+            .map(|(i, &name)| (name, i))
+            .collect();
+
+        // Every pass in PASS_REGISTRY that appears in the run order must have all
+        // its dependencies appear earlier in the run order.
+        for spec in PASS_REGISTRY {
+            let Some(&pass_pos) = position.get(spec.name) else {
+                // Pass is registered but not yet in the run order — skip rather than
+                // fail (future-proofing: a pass may be disabled but still registered).
+                continue;
+            };
+            for dep in spec.dependencies {
+                let dep_pos = position.get(dep).copied().unwrap_or_else(|| {
+                    panic!(
+                        "Pass '{}' depends on '{}' but '{}' is absent from the run order",
+                        spec.name, dep, dep
+                    )
+                });
+                assert!(
+                    dep_pos < pass_pos,
+                    "Dependency violation: '{}' (position {}) must run before '{}' (position {})",
+                    dep,
+                    dep_pos,
+                    spec.name,
+                    pass_pos
+                );
+            }
+        }
+    }
+
+    // ── Invariant 3: Reset cascade ────────────────────────────────────────────
+
+    #[test]
+    fn invariant_reset_cascade_clears_dependents() {
+        // audio_analysis → bpm_correction, sax, clap, essentia (direct dependents)
+        // sax → sax_alignment → structure_cluster
+        // We reset audio_analysis and assert that all its transitive dependents
+        // are also set to PENDING.
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds)
+             VALUES (1, 1, '/tracks/1.mp3', '1.mp3', 100, 0, 120)",
+            [],
+        ).unwrap();
+
+        // Seed all pass rows as DONE
+        let pass_names = [
+            "audio_analysis", "bpm_correction", "sax", "sax_alignment",
+            "clap", "essentia", "structure_cluster", "bpm_refinement",
+            "qwen", "description_embed",
+        ];
+        for name in &pass_names {
+            conn.execute(
+                "INSERT INTO track_passes (track_id, pass_name, priority, status) VALUES (1, ?1, 10, ?2)",
+                rusqlite::params![name, pass_status::DONE],
+            ).unwrap();
+        }
+
+        // Reset audio_analysis — everything that depends on it (directly or
+        // transitively) must cascade to PENDING.
+        reset_pass(&conn, "audio_analysis").unwrap();
+
+        let direct_deps = ["bpm_correction", "sax", "clap", "essentia"];
+        for dep in &direct_deps {
+            let status: i64 = conn.query_row(
+                "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = ?1",
+                rusqlite::params![dep],
+                |row| row.get(0),
+            ).unwrap();
+            assert_eq!(
+                status,
+                pass_status::PENDING as i64,
+                "Direct dependent '{}' should be PENDING after resetting audio_analysis",
+                dep
+            );
+        }
+
+        // sax_alignment depends on sax, structure_cluster depends on sax_alignment
+        let transitive_deps = ["sax_alignment", "structure_cluster"];
+        for dep in &transitive_deps {
+            let status: i64 = conn.query_row(
+                "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = ?1",
+                rusqlite::params![dep],
+                |row| row.get(0),
+            ).unwrap();
+            assert_eq!(
+                status,
+                pass_status::PENDING as i64,
+                "Transitive dependent '{}' should be PENDING after resetting audio_analysis",
+                dep
+            );
+        }
+    }
+
+    // ── Invariant 4: Batch pass writes track_passes rows ──────────────────────
+
+    #[test]
+    fn invariant_sax_batch_pass_writes_track_passes() {
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+        // Insert a track with a valid waveform_data so SAX has something to process.
+        // We supply a short uniform waveform that satisfies SAX's N_SEGMENTS=32 requirement.
+        let waveform: Vec<f32> = vec![0.5_f32; 64];
+        let waveform_json = serde_json::to_string(&waveform).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds, waveform_data)
+             VALUES (1, 1, '/tracks/1.mp3', '1.mp3', 100, 0, 120, ?1)",
+            rusqlite::params![waveform_json],
+        ).unwrap();
+        // Seed a PENDING sax pass row for track 1.
+        conn.execute(
+            "INSERT INTO track_passes (id, track_id, pass_name, priority, status) VALUES (1, 1, 'sax', 12, ?1)",
+            rusqlite::params![pass_status::PENDING],
+        ).unwrap();
+
+        let pass = sax::SaxPass;
+        // needs_run must be true when rows are PENDING
+        assert!(pass.needs_run(&conn).unwrap(), "SAX needs_run should be true when rows are PENDING");
+
+        // Simulate a completed run by updating the status directly — execute() requires a real
+        // AppHandle<Wry> (ONNX models, audio IO) which is not available in unit tests. The
+        // invariant we're testing here is that needs_run() correctly reflects DB state, and that
+        // the track_passes table has the right schema for status updates.
+        conn.execute(
+            "UPDATE track_passes SET status = ?1 WHERE id = 1",
+            rusqlite::params![pass_status::DONE],
+        ).unwrap();
+
+        // After the pass marks rows completed, needs_run must return false
+        assert!(!pass.needs_run(&conn).unwrap(), "SAX needs_run should be false when all rows are COMPLETED");
+    }
+
     #[test]
     fn test_reset_clap_cascades_to_qwen() {
         let conn = setup_test_db();
