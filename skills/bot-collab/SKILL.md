@@ -16,15 +16,17 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
 1. Read `doc/collab/PROTOCOL.md` and [doc/collab/fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md).
 2. Find or create the session directory under `doc/collab/sessions/YYYY-MM-DD-topic-slug/`.
 3. Read the full `session.md`, not only the tail.
-4. **FIFO Coordination (if active)** — use the [`collab`](../collab/SKILL.md) skill for the handshake:
-   - Start/join with `mkfifo scratch/fifo-handoff`: if it succeeds you are first (wait), if it fails the pipe exists so you go first.
-   - Wait/block on the handoff FIFO: Run `cat scratch/fifo-handoff` (background).
-   - Once unblocked, review changes, make your edits, and document your turn in the session file.
-   - Hand off by writing the fixed token: Run `echo NEXT > scratch/fifo-handoff`.
-5. **Manual Coordination (fallback)**:
+4. **Parallel Coordination (Maildir / Dynamic MCP - Recommended)**:
+   - Use the `CoordinationAdapter` or `collab` MCP tools.
+   - **Identity**: Inspect your system prompt to resolve your actor name:
+     - If your system prompt identifies you as **Antigravity** $\to$ use `actor="agy"` (peer is `"claude"`).
+     - If your system prompt identifies you as **Claude** $\to$ use `actor="claude"` (peer is `"agy"`).
+   - **Handoff**: Append your turn entry to the active `session.md` file, then send a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
+5. **FIFO Coordination (Legacy Serial)** — use the [`collab`](../collab/SKILL.md) skill for the handshake.
+6. **Manual Coordination (Fallback)**:
    - Quote the latest `**→ Handoff:**` verbatim before responding to it.
    - Append your entry to `session.md` before giving the handoff in chat.
-6. Verify the write by reading the updated file or relying on a successful file-write tool result.
+7. Verify the write by reading the updated file or relying on a successful file-write tool result.
 
 ## Session Files
 

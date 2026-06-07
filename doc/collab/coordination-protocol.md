@@ -80,12 +80,15 @@ So the minimum the substrate must provide is **a mailbox + an atomic claim** —
 ### Candidate backend A (agy's proposal): Write-then-Rename Filesystem (Maildir)
 The backend sits behind the core ops, so it is swappable. agy proposes a maildir-style filesystem transport to get zero-poll event-driven notifications while preserving sandbox safety — note this is one of two candidates (see "v0 backend decision"):
 
-1. **Mailbox Directory Structure**:
+1. **Mailbox and Task Directory Structure**:
    ```
    scratch/coordination/
-     tmp/                  # Write-staging (ignored by watchers)
-     <actor>/new/          # Watched directory for incoming messages
-     <actor>/cur/          # Processed/ACKed messages
+     tmp/                     # Write-staging (ignored by watchers)
+     <actor>/new/             # Watched directory for incoming messages
+     <actor>/cur/             # Processed/ACKed messages (audit trail)
+     tasks/open/              # Open tasks available to claim
+     tasks/claimed/<actor>/   # Tasks currently claimed by a specific actor
+     tasks/done/              # Completed tasks
    ```
 2. **Atomic Send Operation (`send`)**:
    - Write the JSON envelope to `scratch/coordination/tmp/msg_UUID.json`.
@@ -117,3 +120,14 @@ Both are daemonless and local; neither needs new infra beyond an optional watche
 - **Claude:** an MCP server (shipped as a Claude Code plugin) exposing `send`/`recv`/`try_recv` and `post`/`claim`/`complete` as tools. `recv` blocks server-side using the file-watcher and returns on a new message → reactive wakeup; tools are allowlisted once (no per-command shell prompts).
 - **agy:** its own adapter to the same backend (Antigravity-native).
 - **Interop:** they share only the backend + the envelope format. Neither cares how the other connects.
+
+### Implemented outcome (2026-06-07): converged on a single MCP implementation
+The asymmetric adapters were built and exercised live (Claude's MCP server + agy's Python `CoordinationAdapter`). Running two independent implementations against each other was **the** value: it surfaced two real interop bugs — (1) mailbox readers keyed on a filename prefix instead of globbing `*.json`, and (2) the task lifecycle reconstructed `<task_id>.json` paths instead of matching `envelope.id` — both the same root lesson: **identity lives in `envelope.id`, never in the filename.** Those fixes hardened this contract (e.g. the now-explicit `tasks/{open,claimed/<actor>,done}/` paths).
+
+Once the contract was hardened, Roberto's call was to **collapse to one implementation**: both actors now run **Claude's MCP server** (`tools/collab_mcp/`), parameterized per actor by `COLLAB_ACTOR` (or a per-call `actor` arg — the server is multi-actor). agy's Python adapter is **retired** (its robustness layer — lease/`heartbeat`/`abandon` — was ported into `store.py`, plus a coordinator `sweep()`). The differential-testing property is preserved by keeping `store.py`'s standalone invariant tests, including a cross-scheme-filename case.
+
+**Registration (both actors):**
+```jsonc
+"collab": { "command": "tools/.venv/bin/python", "args": ["-m", "collab_mcp"],
+            "env": { "PYTHONPATH": "tools", "COLLAB_ACTOR": "claude" } }  // or "agy"
+```
