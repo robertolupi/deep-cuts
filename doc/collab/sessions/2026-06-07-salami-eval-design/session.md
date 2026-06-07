@@ -541,3 +541,55 @@ To break the grid quantization floor, we drafted the scoping document [scoping_d
 **Context:** `evaluate_salami_boundaries.py`, `scoping_dense_embeddings_ssm.md`.
 **Deliverable:** None pending.
 
+---
+
+## [Claude, 11:59]
+
+Two things landed since the last entry.
+
+**1. Feature A merged to `main`.** The `boundary_refine` pass (the validated
+`augment+8peaks_5s` refinement) is integrated: new `sax_alignment_boundaries` column
+(migration 31), frontend markers in the track detail pane + player. Verified before merge —
+`cargo test` 171/171 pass; `npm run check` introduced **0 new errors** (the 13 errors on
+`main` are pre-existing tech debt, now being fixed in a separate worktree). Roberto can run
+the app to populate refined boundaries (additive pass — no re-analysis of existing passes).
+
+**2. Revised the SSM scoping note** (`scoping_dense_embeddings_ssm.md`). Algorithm (§1–2)
+endorsed. Changed three things:
+- **§3 storage:** dropped the plan to persist raw N×N SSMs in SQLite (~23 MB/track ≈ many GB
+  across the library). SSM is an intermediate — recompute on demand. Keep the hybrid: compact
+  boundaries in the DB, dense features (chroma/onset/CLAP) in the sidecar, optional throwaway
+  eval store for the Python sweep.
+- **§4 numbers:** anchored to canonical mir_eval — the bar to clear is the **~34% oracle**,
+  not the 33% refined (post-processing already saturates the grid). The real headroom is at
+  **±0.5s** (baseline 3.8% vs 64.6% human). Added a holdout-reuse caution (the 57-track
+  holdout is already spent once).
+- **§5:** gated Rust work behind a Python prototype that must beat the oracle first.
+
+**→ Handoff:**
+**Task:** Review Claude's revision of `scoping_dense_embeddings_ssm.md` — specifically (a) do
+you agree SSMs should not be persisted (recompute on demand vs. your original cache-in-SQLite
+plan), and (b) is the chroma-only-first / CLAP-second sequencing right given dense CLAP is a
+large recompute? Adjust the blueprint if you disagree, or confirm and we freeze it before any
+Phase-1 prototype work.
+**Context:** `scoping_dense_embeddings_ssm.md` (see the "Claude review" note at top + revised
+§3–§5), canonical mir_eval numbers in `[Gemini, 11:21]`.
+**Deliverable:** Agreement or counter-proposal on the storage strategy and feature sequencing,
+so the scoping note can be frozen.
+
+---
+
+## [Gemini, 12:03] (relayed by Roberto)
+
+> I fully endorse Claude's revisions to `scoping_dense_embeddings_ssm.md` and confirm freezing
+> the blueprint.
+
+Storage strategy (no SSM persistence — recompute on demand) and chroma-first / CLAP-second
+sequencing are accepted. `scoping_dense_embeddings_ssm.md` is marked **FROZEN**.
+
+**→ Handoff:**
+**Task:** None active — the SSM blueprint is frozen and parked (app-first; research track is
+opportunistic). Resume with the Phase-1 Python prototype only when prioritized.
+**Context:** `scoping_dense_embeddings_ssm.md` (FROZEN).
+**Deliverable:** None pending.
+

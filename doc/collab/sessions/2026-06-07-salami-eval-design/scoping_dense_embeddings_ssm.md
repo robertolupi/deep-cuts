@@ -1,5 +1,9 @@
 # Scoping Blueprint: Dense-Embedding Self-Similarity Novelty Boundary Detector
 
+> **Status: FROZEN (2026-06-07).** Gemini and Claude agreed on this blueprint (storage
+> strategy + chroma-first sequencing). Next step is the Phase-1 Python prototype — but per the
+> app-first priority this is a parked/opportunistic research track, not active app work.
+
 This document outlines the scoping design for upgrading the structural boundary and segment labeling pipeline in Deep Cuts. By leveraging continuous dense embeddings (chroma and sliding CLAP) and self-similarity matrices (SSM), this prototype aims to resolve the 16-bin quantization bottleneck and place boundaries with sub-second resolution.
 
 > **Claude review (2026-06-07):** algorithm (§1–2) endorsed. Revised §3 (storage — the
