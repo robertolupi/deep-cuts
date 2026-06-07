@@ -1,0 +1,9 @@
+[mcp_servers.collab]
+command = "/Users/rlupi/src/deep-cuts/tools/.venv/bin/python"
+args = ["-m", "collab_mcp"]
+cwd = "/Users/rlupi/src/deep-cuts"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.collab.env]
+PYTHONPATH = "tools"
