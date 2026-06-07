@@ -61,3 +61,11 @@ When Roberto makes a direct contribution (e.g., providing design direction, runn
 * Explicitly credit and outline his steering decisions within the agent's own turn.
 This keeps the session log as the single source of truth for the collaborative path.
 
+## Recording Acknowledgements (ACKs)
+
+Agreement is signal worth keeping, not just handoffs and disagreements. When you endorse, confirm, verify, or accept another participant's work, record it in the session log — not only in chat:
+* A short ACK line inside your turn ("ACK: verified Gemini's mir_eval numbers, consistent on re-run"), OR
+* A one-line `## [X, HH:MM]` block when relaying someone else's ACK (e.g. Gemini endorsing a revision).
+
+This makes consensus — and who reached it — part of the durable record.
+

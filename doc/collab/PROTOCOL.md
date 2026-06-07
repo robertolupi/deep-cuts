@@ -77,6 +77,7 @@ The handoff line is optional if the session is just a log, not a turn-taking exc
 3. The receiving AI reads the session file, appends its response, and writes the next handoff.
 4. Either AI can pass back to Roberto instead of the other AI when human judgement is needed.
 5. **Documenting Roberto's Active Feedback**: When Roberto provides active direction, feedback, or manually runs commands/code (instead of just copy-pasting handoffs), the acting agent must document his contribution in the session log. This can be done by adding a dedicated `## [Roberto, HH:MM]` block or explicitly detailing his input in the agent's turn to ensure the log is a complete history.
+6. **Recording acknowledgements (ACKs)**: Agreement is signal, not noise — log it. When a participant endorses, confirms, verifies, or accepts another participant's work (e.g. "Claude ACKs Gemini's mir_eval numbers", "Gemini endorses Claude's revision and confirms freezing"), record it in the session log, not only in chat. A short ACK line in the acknowledging participant's turn (or a one-line `## [X, HH:MM]` block for a relayed ACK) is enough. This makes consensus — and who reached it — part of the durable record, not just the handoffs and disagreements.
 
 ### 5. Pre-flight verification (all AIs)
 Before appending, each AI must:
