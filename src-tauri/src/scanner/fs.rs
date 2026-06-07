@@ -44,7 +44,11 @@ pub fn walk_directory(
 
     let mut discovered = Vec::new();
 
-    for entry in WalkDir::new(root_path).into_iter().filter_map(|e| e.ok()) {
+    // Individual walk errors (permission denied, broken symlinks) are non-fatal
+    // for a best-effort scan — we log them and continue with accessible entries.
+    for entry in WalkDir::new(root_path).into_iter().filter_map(|e| {
+        e.map_err(|err| log::warn!("Scanner: skipping unreadable entry: {err}")).ok()
+    }) {
         let path = entry.path();
         if path.is_file() && is_supported_audio(path) {
             let abs_path = path.to_string_lossy().into_owned();

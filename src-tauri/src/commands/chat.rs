@@ -443,8 +443,7 @@ mod tests {
              WHERE chat_messages_fts MATCH 'muddy'",
         ).unwrap();
         let results: Vec<i64> = stmt.query_map([], |r| r.get(0)).unwrap()
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0], session_id);
