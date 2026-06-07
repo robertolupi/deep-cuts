@@ -86,14 +86,6 @@ Add:
 - `dispose()` that calls every unlisten function;
 - a dedicated track-refresh method that player/detail state can subscribe to or call explicitly.
 
-### 8. Bring component CSS back to tokens
-
-**CSS `<style>` blocks: done** (commits `feae60d`, `a2d1c03`). Two sub-tasks remain:
-
-**F4a — Add `--sg-data-b` token:** `StatisticsPanel.svelte` has 4 `#ff7c5c` (Set B data series, warm salmon) instances marked `TODO`. Add a `--sg-data-b` token to the design system and apply it here and in the D3 script block.
-
-**F4b — D3/canvas `getComputedStyle` pass:** Components that use D3.js (MusicMap, StatisticsPanel, MoodRadar, TrackDetailPane, AnalysisPanel) have hardcoded hex color literals in their TypeScript rendering code. Replace these with `getComputedStyle(document.documentElement).getPropertyValue('--sg-token').trim()` calls at render time so theme-switching works. Components must re-read colors on `html[data-theme]` attribute change.
-
 ## Testing Priorities
 
 1. Rust: pass registry/order/reset invariant tests.

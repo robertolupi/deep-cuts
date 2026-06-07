@@ -82,6 +82,15 @@ Two `filter_map(|r| r.ok())` hits found by `tools/lint_filter_map.py`:
 
 All 28 components with hardcoded colors in `<style>` blocks have been updated to use `var(--sg-*)` tokens. MoodRadar, RangeSlider, and `+layout.svelte` were already clean. 4 TODO comments remain in `StatisticsPanel.svelte` for `#ff7c5c` (Set B data series accent) which needs a new `--sg-data-b` design token. D3/canvas color literals in TypeScript remain for a separate pass using `getComputedStyle`.
 
+### Add --sg-data-b token and D3 getComputedStyle pass (F4a, F4b)
+
+**Completed:** 2026-06-07
+**Commits:** `43ae7bf` (F4a), `ae91d25` (F4b)
+
+F4a: Added `--sg-data-b` token to all three theme blocks in `src/app.css` (dark `#ff7c5c`, light `#c0522a`, accessible `var(--sg-on-surface)`). Replaced 4 TODO hex values in `StatisticsPanel.svelte` with `var(--sg-data-b)`, converted `COLOR_B` to a `$state` fed by `getComputedStyle`, and added a `$effect` to re-read on theme change.
+
+F4b: Added `getCssToken()` helper in MusicMap, MoodRadar, TrackDetailPane, and AnalysisPanel. Replaced hardcoded canvas/D3 hex literals with token lookups. `PASS_COLORS` dark/light pairs in AnalysisPanel replaced with a `PASS_TOKEN` map. Remaining TODOs: BPM gradient endpoints in MusicMap, grid opacity overlays in MoodRadar, some tag hues in TrackDetailPane — no clean `--sg-*` mapping exists for these.
+
 ### Fix library store lifecycle (F3)
 
 **Completed:** 2026-06-07  
