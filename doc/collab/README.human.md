@@ -20,21 +20,19 @@ reply land. If anything runs away, hit **🛑 Kill all agents** (or `collab-kill
 
 ## One-time setup (fish aliases)
 
-First tell fish where you cloned the repo (adjust the path), then save the aliases — they read
-`$DEEP_CUTS_DIR`, so nothing below is machine-specific:
+Point fish at your clone, then source the versioned helper file — nothing here is
+machine-specific:
 
 ```fish
 set -Ux DEEP_CUTS_DIR ~/src/deep-cuts   # <- your clone location
-
-alias --save collab-hub    '$DEEP_CUTS_DIR/tools/.venv/bin/streamlit run $DEEP_CUTS_DIR/tools/collab_hub.py'
-alias --save collab-kill   'python3 $DEEP_CUTS_DIR/tools/collab_agent.py kill'
-alias --save collab-claude 'python3 $DEEP_CUTS_DIR/tools/collab_agent.py run claude'
-alias --save collab-agy    'python3 $DEEP_CUTS_DIR/tools/collab_agent.py run agy'
+echo 'source $DEEP_CUTS_DIR/tools/collab.fish' >> ~/.config/fish/config.fish
+source $DEEP_CUTS_DIR/tools/collab.fish   # load it in the current shell too
 ```
 
-`set -Ux` is a *universal* fish variable — it persists across shells, and the saved aliases
-expand it at call time. (No `cd` needed — the tools find the repo and active session from their
-own path.)
+That defines `collab-hub`, `collab-claude`, `collab-agy`, `collab-status`, `collab-kill` (and
+back-compat `claude-catchup` / `agy-catchup`), all routed through the safe wrapper. `set -Ux` is
+a *universal* fish variable that persists across shells. (No `cd` needed — the tools find the
+repo and active session from their own path.)
 
 Binaries it expects: `claude` and `agy` on your `PATH`. If they're not, set the `CLAUDE_BIN` /
 `AGY_BIN` env vars to their full paths (e.g. `set -Ux CLAUDE_BIN ~/.local/bin/claude`).

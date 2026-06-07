@@ -36,9 +36,9 @@ RUN_DIR = REPO / ".collab_agents"            # pidfiles (gitignored)
 TIMEOUT_S = int(os.environ.get("COLLAB_AGENT_TIMEOUT", "900"))
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")  # on PATH, or set CLAUDE_BIN
 AGY_BIN = os.environ.get("AGY_BIN", "agy")           # on PATH, or set AGY_BIN
-# claude: file tools only, Bash DISALLOWED -> cannot spawn peers/loop. (Verified-safe config.)
-CLAUDE_ALLOWED = ["Read", "Edit", "Write", "Grep", "Glob"]
-CLAUDE_DISALLOWED = ["Bash"]
+# claude: file tools + ONLY the file_lock Bash command (so it can lock mutable shared files).
+# General Bash is NOT allowlisted -> denied in headless mode -> it cannot invoke a peer / loop.
+CLAUDE_ALLOWED = ["Read", "Edit", "Write", "Grep", "Glob", "Bash(python tools/file_lock.py:*)"]
 
 
 def active_session():
@@ -65,9 +65,11 @@ def bootstrap_prompt(session, sender):
 def build_cmd(agent, prompt):
     if agent == "claude":
         return [CLAUDE_BIN, "-p", prompt, "--output-format", "json",
-                "--allowedTools", *CLAUDE_ALLOWED, "--disallowedTools", *CLAUDE_DISALLOWED]
+                "--allowedTools", *CLAUDE_ALLOWED]
     if agent == "agy":  # current Gemini CLI (the deprecated one was `gemini`)
-        return [AGY_BIN, "--print", "--sandbox", prompt]
+        # --sandbox keeps terminal restrictions (no arbitrary shell -> no peer/loop);
+        # --add-dir grants access to the repo workspace (else agy is confined to its scratch dir).
+        return [AGY_BIN, "--print", "--sandbox", "--add-dir", str(REPO), prompt]
     raise SystemExit(f"unknown agent: {agent}")
 
 
