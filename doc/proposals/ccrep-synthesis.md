@@ -1,5 +1,5 @@
 ---
-status: need-human-review
+status: accepted
 owner: Roberto
 last_verified: 2026-06-08
 implemented_by:
