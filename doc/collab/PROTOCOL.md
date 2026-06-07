@@ -70,14 +70,18 @@ The handoff line is optional if the session is just a log, not a turn-taking exc
 
 ## Turn-taking rules
 
-1. An AI's turn ends when it appends its entry and writes a `**→ Handoff:**` line.
-2. The human relays the handoff to the next participant by pasting:
-   - The session file path
-   - The handoff line verbatim
-3. The receiving AI reads the session file, appends its response, and writes the next handoff.
-4. Either AI can pass back to Roberto instead of the other AI when human judgement is needed.
-5. **Documenting Roberto's Active Feedback**: When Roberto provides active direction, feedback, or manually runs commands/code (instead of just copy-pasting handoffs), the acting agent must document his contribution in the session log. This can be done by adding a dedicated `## [Roberto, HH:MM]` block or explicitly detailing his input in the agent's turn to ensure the log is a complete history.
-6. **Recording acknowledgements (ACKs)**: Agreement is signal, not noise — log it. When a participant endorses, confirms, verifies, or accepts another participant's work (e.g. "Claude ACKs Gemini's mir_eval numbers", "Gemini endorses Claude's revision and confirms freezing"), record it in the session log, not only in chat. A short ACK line in the acknowledging participant's turn (or a one-line `## [X, HH:MM]` block for a relayed ACK) is enough. This makes consensus — and who reached it — part of the durable record, not just the handoffs and disagreements.
+1. **Sequential FIFO Handoff (Recommended for 2-participant sessions)** — automated by the [`/collab`](file:///Users/rlupi/src/deep-cuts/skills/collab/SKILL.md) skill; see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) for the full design:
+   - Participants coordinate turns via a single fixed named pipe at `scratch/fifo-handoff`.
+   - **Handshake (who goes first):** run `mkfifo scratch/fifo-handoff` and branch on the result. If it **succeeds**, you are first — *wait* (`cat scratch/fifo-handoff`). If it **fails** because the pipe already exists, the peer is already waiting — *you go first*: edit, log your turn, then hand off. The atomic create-or-fail removes any cold-start ambiguity.
+   - To wait for a turn: Run `cat scratch/fifo-handoff` (as a background command). This blocks at the OS level until the other participant writes, triggering a reactive wakeup when the command completes.
+   - To hand off a turn: Edit files, append your entry to `session.md`, and then run `echo NEXT > scratch/fifo-handoff` (background). The fixed token keeps the command whitelist-able; the real handoff content lives in `session.md`.
+2. **Manual Handoff (Relayed by Roberto)**:
+   - An AI's turn ends when it appends its entry and writes a `**→ Handoff:**` line.
+   - The human relays the handoff to the next participant by pasting:
+     - The session file path
+     - The handoff line verbatim
+3. **Documenting Roberto's Active Feedback**: When Roberto provides active direction, feedback, or manually runs commands/code (instead of just copy-pasting handoffs), the acting agent must document his contribution in the session log. This can be done by adding a dedicated `## [Roberto, HH:MM]` block or explicitly detailing his input in the agent's turn to ensure the log is a complete history.
+4. **Recording acknowledgements (ACKs)**: Agreement is signal, not noise — log it. When a participant endorses, confirms, verifies, or accepts another participant's work, record it in the session log, not only in chat. A short ACK line in the acknowledging participant's turn (or a one-line `## [X, HH:MM]` block for a relayed ACK) is enough. This makes consensus — and who reached it — part of the durable record.
 
 ### 5. Pre-flight verification (all AIs)
 Before appending, each AI must:

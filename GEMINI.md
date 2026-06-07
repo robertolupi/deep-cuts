@@ -21,6 +21,7 @@ Read the matching `SKILL.md` before starting any task that touches the area desc
 | `add-tauri-sidecar` | How to bundle an external binary and its dylib dependencies with the Tauri app, patch rpaths, sign everything, and resolve the path at runtime |
 | `bot-collab` | Pattern for multi-agent collaboration sessions in the deep-cuts repository |
 | `bump-dev-version` | Bump the app version in Cargo.toml after a release to start the next dev cycle |
+| `collab` | Launch or join a two-party FIFO collaboration session (the /collab handshake). Use when the user says "collab", "/collab", or asks you to collaborate turn-by-turn with another agent on shared files via the scratch/fifo-handoff named pipe. |
 | `db-migration` | Safe pattern for adding SQLite schema migrations in the deep-cuts Rust/rusqlite_migration stack |
 | `dev-guidelines` | Guidelines to prevent development false starts, environment mismatches, and incorrect commands in the deep-cuts monorepo |
 | `git-commits` | Rules for writing commit messages in the deep-cuts repository — subject line format, body content, scope naming, and what to omit |

@@ -11,13 +11,19 @@ The canonical protocol is `doc/collab/PROTOCOL.md`. If this skill and the protoc
 
 ## Startup Checklist
 
-When the user mentions a multi-agent or 3-way session, or invokes a `/collab` command:
+When the user mentions a multi-agent or 2-way collaboration session, or invokes a `/collab` command:
 
-1. Read `doc/collab/PROTOCOL.md`.
+1. Read `doc/collab/PROTOCOL.md` and [doc/collab/fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md).
 2. Find or create the session directory under `doc/collab/sessions/YYYY-MM-DD-topic-slug/`.
 3. Read the full `session.md`, not only the tail.
-4. Quote the latest `**→ Handoff:**` verbatim before responding to it.
-5. Append your entry to `session.md` before giving the handoff in chat.
+4. **FIFO Coordination (if active)** — use the [`collab`](../collab/SKILL.md) skill for the handshake:
+   - Start/join with `mkfifo scratch/fifo-handoff`: if it succeeds you are first (wait), if it fails the pipe exists so you go first.
+   - Wait/block on the handoff FIFO: Run `cat scratch/fifo-handoff` (background).
+   - Once unblocked, review changes, make your edits, and document your turn in the session file.
+   - Hand off by writing the fixed token: Run `echo NEXT > scratch/fifo-handoff`.
+5. **Manual Coordination (fallback)**:
+   - Quote the latest `**→ Handoff:**` verbatim before responding to it.
+   - Append your entry to `session.md` before giving the handoff in chat.
 6. Verify the write by reading the updated file or relying on a successful file-write tool result.
 
 ## Session Files
