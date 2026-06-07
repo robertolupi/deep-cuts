@@ -37,3 +37,4 @@ tools/.venv/bin/pip list
 - `numpy`
 - `matplotlib`
 - `scikit-learn`
+- `mir_eval` — MIR evaluation metrics (SALAMI-standard boundary/segment scoring)
