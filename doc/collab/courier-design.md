@@ -109,13 +109,15 @@ file is still in `new/` → redelivered. The "offset" is implicit (what remains 
 Python's stdlib `mailbox` + `email`, so To/CC/From/threading/MIME-attachments come from the library,
 not from us.
 
+For Gemini, the Antigravity SDK can watch this directory natively via event-driven `on_file_change` file triggers (using the cross-platform `watchfiles` library) instead of blocking on raw FIFOs.
+
 ### 2. The courier program — `tools/collab_courier.py`
 
 ```
 courier send --from X --to Y[,Z] [--cc …] [--subject S] (--body … | --body-file f) [--attach file …]
 courier inbox <peer>           # list unread
 courier read <id>              # show one message
-courier loop <agent>           # block on doorbell → hand over new content → (agent replies) → re-block
+courier loop <agent>           # block on doorbell/watcher → hand over new content → (agent replies) → re-block
 ```
 
 `send` does three things atomically-ish: writes the MIME message into each recipient's `new/`, pings
@@ -135,62 +137,54 @@ Which validation split should I use for the SSM sweep?
 Plus `attachments/` (CSV, PNG, …). Reviewers on GitHub read this like any other doc. The transient
 maildir never enters git.
 
-### 4. The doorbell / warm loop
+### 4. The doorbell / warm loop (Symmetric Session Resumption)
 
-An agent runs `courier loop`: it **blocks** reading its `doorbell` FIFO (a free wait — verified: a
-foreground blocking read costs nothing until a write arrives, then wakes once), gets the new message
-content, handles it with **warm context** (no re-reading `PROTOCOL.md`/`session.md`), replies via
-`courier send`, moves the processed file to `cur/`, and re-blocks. `__STOP__` ends the loop. The
-human is woken by a lighter notification (or simply reads the transcript) and replies on their own clock.
+Keeping agent processes running as background daemons waiting on named pipes internally is not feasible due to interactive TTY requirements and strict tool execution timeouts. Instead, the loop is split between the host and the agents' native state-resume features:
+
+1. **Host-Side Loop**: The `courier loop` daemon runs on the host in a simple, zero-CPU Python runner process, blocking on the named pipe `doorbell` (or directory watcher).
+2. **Symmetric Warm-Restarts**: When a message lands, the host-side courier wakes up and executes a one-shot catchup invocation that resumes the agent's prior conversation state:
+   - **Claude**: Executed via the CLI with session resuming: `claude --session-id <uuid> -p "<prompt>"`
+   - **Gemini (`agy`)**: Instantiated directly in-process via the Python **Google Antigravity SDK** using `Agent` configured with:
+     - `save_dir`: Persists conversation databases outside the repository to enable fast, token-efficient context resume.
+     - `response_schema`: A Pydantic model (`CollabMessage`) enforcing structured JSON outputs for message routing, removing fragile text/markdown regex parsing.
+     - `policies`: Programmatic sandbox limits (e.g. `workspace_only()` and `deny("run_command")`) enforced at the SDK boundary instead of CLI wrappers.
+3. **Receipt and ACK**: Once the agent's turn finishes and it outputs its response (via `courier send`), the courier loop moves the incoming message file to `cur/` (ACK) and re-blocks on the doorbell.
+
+---
 
 ## Reliability & safety
 
 - **Delivery:** maildir `new/ → cur/` = durable spool + ACK + crash redelivery, standardized.
-- **No runaway loops:** an agent handles one delivered message and re-blocks; it does not auto-invoke
-  a peer. The existing kill-switch ([`tools/collab_agent.py kill`](../../tools/collab_agent.py))
-  SIGKILLs every running agent's process group; agents stay constrained (Claude: no general `Bash`;
-  `agy`: `--sandbox`).
-- **Shared-file edits:** the repo `session.md` is append-only here; for any concurrent mutable-file
-  edit the advisory lock still applies ([`tools/file_lock.py`](../../tools/file_lock.py),
-  [`PROTOCOL.md`](PROTOCOL.md)).
+- **No runaway loops:** an agent handles one delivered message and stops; it does not auto-invoke a peer. The existing kill-switch (`tools/collab_agent.py kill`) SIGKILLs running agent process groups; agents remain constrained (Claude: narrow-allowed `file_lock` only, no general `Bash`; Gemini: programmatic `deny("run_command")`).
+- **Shared-file edits:** the repo `session.md` is append-only here; for any concurrent mutable-file edit the advisory lock still applies (`tools/file_lock.py`, `PROTOCOL.md`).
 - **Locality:** everything is local files; nothing leaves the machine.
 
 ## What this deliberately is *not*
 
 - **Not a mail server.** No SMTP/IMAP daemon, no Apple Mail account, no ports.
 - **Not a broker.** No Redis/NATS/socket.
-- **Not a standing UI.** The transcript is the default surface; ad-hoc Streamlit only when a dataset
-  or image needs rendering.
+- **Not a standing UI.** The transcript is the default surface; ad-hoc Streamlit only when a dataset or image needs rendering.
 - **Not `.eml` in git.** Mail format on the wire; clean Markdown in the repo.
 
 The minimalism is the point — it is the smallest thing that satisfies all five constraints.
 
 ## Relationship to what exists
 
-- **Supersedes** the human-reading role of the Streamlit hub ([`tools/collab_hub.py`](../../tools/collab_hub.py));
-  the hub may be retired or kept as an occasional throwaway viewer.
-- **Keeps** `tools/collab_agent.py` (kill-switch, constrained headless runs) and
-  `tools/file_lock.py` (advisory locking).
-- **Extends** the [`PROTOCOL.md`](PROTOCOL.md) conventions (ARCHIVED tombstones, locking, ACK
-  logging) — the courier is the transport; the protocol is the etiquette.
+- **Supersedes** the human-reading role of the Streamlit hub (`tools/collab_hub.py`); the hub may be retired or kept as an occasional throwaway viewer.
+- **Keeps** `tools/collab_agent.py` (kill-switch, constrained headless runs) and `tools/file_lock.py` (advisory locking).
+- **Extends** the `PROTOCOL.md` conventions (ARCHIVED tombstones, locking, ACK logging) — the courier is the transport; the protocol is the etiquette.
 
 ## Open questions
 
-1. **The make-or-break: can `agy` stay warm?** The symmetric warm-loop assumes `agy` (the app, not
-   one-shot `--print`) can block on the doorbell and loop within `--sandbox --add-dir`. If it can't,
-   `agy` runs cold-but-routed (re-reads per message) while Claude stays warm — the design still works,
-   just asymmetrically. *Owner: Gemini to confirm.*
-2. **The clean-log generator.** Roberto plans to write a nicer transcript renderer later; the first
-   cut keeps it minimal (append a Markdown block per message).
-3. **Human notification.** Start with a terminal print / bell; a macOS notification is a later nicety.
-4. **Meta's lane.** Meta can't write files; Roberto pastes its messages into the spool on its behalf.
+1. **The clean-log generator.** Roberto plans to write a nicer transcript renderer later; the first cut keeps it minimal (append a Markdown block per message).
+2. **Human notification.** Start with a terminal print / bell; a macOS notification is a later nicety.
+3. **Meta's lane.** Meta can't write files; Roberto pastes its messages into the spool on its behalf.
 
 ## Decision log
 
 - **2026-06-07** — Chose filesystem-as-bus over a broker/server (sandbox constraint). *(Gemini, Claude)*
-- **2026-06-07** — Adopted mail *format + concepts* (maildir, To/CC, ack-by-move) via Python stdlib;
-  rejected running an actual mail daemon. *(Roberto, Claude)*
-- **2026-06-07** — Committed record is clean Markdown + attachments, **not** `.eml` (GitHub
-  rendering). Spool moved *outside* the repo. *(Roberto)*
-- **2026-06-07** — No standing UI; human reads the transcript and drives via the agents; throwaway
-  Streamlit on demand. N-way peer addressing (everyone can ask/answer everyone). *(Roberto)*
+- **2026-06-07** — Adopted mail *format + concepts* (maildir, To/CC, ack-by-move) via Python stdlib; rejected running an actual mail daemon. *(Roberto, Claude)*
+- **2026-06-07** — Committed record is clean Markdown + attachments, **not** `.eml` (GitHub rendering). Spool moved *outside* the repo. *(Roberto)*
+- **2026-06-07** — No standing UI; human reads the transcript and drives via the agents; throwaway Streamlit on demand. N-way peer addressing (everyone can ask/answer everyone). *(Roberto)*
+- **2026-06-07** — Resolved Open Question #1: Adopted one-shot session resuming (warm restarts) for both agents, driven by a host-side courier loop. Configured Gemini/agy via the Python Antigravity SDK with a Pydantic output schema, native file triggers, and programmatic safety policies. *(Roberto, Gemini)*
+
