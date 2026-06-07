@@ -2,23 +2,7 @@
 
 Date: 2026-06-06
 
-## 1. Separate research results from implementation decisions
-
-Several docs contain experiments, revised architecture, implementation sketches, and future ideas in one file. That is fine during exploration, but later agents need a clear "current decision" section.
-
-Recommended document shape:
-
-1. Status/frontmatter.
-2. Current decision.
-3. Accepted constraints.
-4. Rejected alternatives and why.
-5. Implementation plan.
-6. Validation plan.
-7. Historical experiment notes.
-
-This keeps valuable research while preventing stale early sections from driving implementation.
-
-## 2. Keep docs synchronized with implementation
+## 1. Keep docs synchronized with implementation
 
 Recent history shows docs and implementation moving fast around SAX/structure analysis. Add a lightweight "doc sync" checklist for feature commits:
 
@@ -28,16 +12,3 @@ Recent history shows docs and implementation moving fast around SAX/structure an
 - If a proposal was implemented differently than planned, add an "Implemented outcome" note.
 - If a feature was removed, mark the proposal or old approach as superseded.
 
-## 3. Add a short architecture map
-
-The repo would benefit from a maintained architecture map under `doc/` or `docs/tech.md` that connects:
-
-- scanner;
-- main DB and metrics DB;
-- analysis pass registry and execution order;
-- model manifest/download flow;
-- frontend stores and major surfaces;
-- IPC command domains;
-- sidecar export/restore.
-
-This would make future reviews and agent work faster, especially when changes span Rust, Svelte, migrations, and docs.

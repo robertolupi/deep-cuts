@@ -141,3 +141,17 @@ Added `## Acceptance Criteria` sections to: `music_map_improvements.md`, `playli
 **Commit:** `790be0d docs: acceptance criteria, session closings, protocol archive step`
 
 Added "mark session archived" step (with `## [Closed, YYYY-MM-DD]` format) to `doc/collab/PROTOCOL.md` closing checklist. Added closing entries to `2026-06-06-multi-agent-collab` and `2026-06-06-blog-post-multiagent-collab` sessions. Two sessions (`gemma-4-audio-evaluation`, `sax-transformer`) left open as they have unresolved handoffs.
+
+### Separate research/decisions in proposal docs (D2)
+
+**Completed:** 2026-06-07
+**Commit:** `00f580e docs: restructure proposal/research docs with Current State sections (D2)`
+
+Added Current State summaries and standard section shapes (Current State, Accepted Constraints, Rejected Alternatives, Implementation Plan, Validation Plan, Historical Notes) to `waveform_envelope_analysis.md`, `gemma4_evaluation.md`, `library_maintenance_utilities.md`, `playlist_view_enhancements.md`, and `feature_feasibility_analysis.md`. Priority targets (`sax_structure_learning`, `sax_structural_search`, `clap_window_selection`, `music_map_improvements`) were already restructured in prior sessions.
+
+### Add architecture map doc (D5)
+
+**Completed:** 2026-06-07
+**Commit:** `24e5e69 docs: add architecture map (D5)`
+
+Created `doc/architecture/tech.md` covering: top-level data flow, scanner, dual-DB setup (main + metrics), analysis pipeline (two pass traits, parallel vs sequential phases, crash recovery), IPC command domains, model manifest/download, frontend stores, IPC boundary and mock system, and sidecar export/restore.
