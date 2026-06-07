@@ -5,8 +5,9 @@ Single chokepoint for running collaboration agents headlessly — with a KILL SW
 Every headless agent turn (Collab Hub button, fish helpers, or by hand) should go through
 here, so that:
   * Constraints live in ONE place: claude runs with a file read/write allowlist and Bash
-    DISALLOWED (so it cannot shell out to invoke a peer -> no Claude<->Gemini loop); gemini
-    (`agy`) runs `--sandbox`. Never --dangerously-skip-permissions.
+    DISALLOWED (so it cannot shell out to invoke a peer -> no agent<->agent loop); `agy`
+    (the current Gemini CLI — NOT the deprecated `gemini`) runs `--sandbox`. Never
+    --dangerously-skip-permissions.
   * Every agent runs in its OWN process group with a pidfile under .collab_agents/, so
     `kill` can terminate ALL running agents AND their children instantly. That's the runaway /
     token kill switch.
@@ -14,7 +15,7 @@ here, so that:
 
 Usage:
   python tools/collab_agent.py run claude  [--session NAME] ["prompt"]
-  python tools/collab_agent.py run gemini  [--session NAME] ["prompt"]
+  python tools/collab_agent.py run agy     [--session NAME] ["prompt"]   # current Gemini CLI
   python tools/collab_agent.py kill        # STOP ALL running agents (kill switch)
   python tools/collab_agent.py status
 
@@ -65,7 +66,7 @@ def build_cmd(agent, prompt):
     if agent == "claude":
         return [CLAUDE_BIN, "-p", prompt, "--output-format", "json",
                 "--allowedTools", *CLAUDE_ALLOWED, "--disallowedTools", *CLAUDE_DISALLOWED]
-    if agent == "gemini":
+    if agent == "agy":  # current Gemini CLI (the deprecated one was `gemini`)
         return [AGY_BIN, "--print", "--sandbox", prompt]
     raise SystemExit(f"unknown agent: {agent}")
 
@@ -74,7 +75,7 @@ def run(agent, session, prompt):
     session = session or active_session()
     if not session:
         raise SystemExit("no active (non-archived) session under doc/collab/sessions/")
-    sender = "Claude" if agent == "claude" else "Gemini"
+    sender = "Claude" if agent == "claude" else "Gemini"  # `agy` posts as the Gemini participant
     prompt = prompt or bootstrap_prompt(session, sender)
     RUN_DIR.mkdir(exist_ok=True)
     cmd = build_cmd(agent, prompt)
@@ -141,7 +142,7 @@ def main():
     ap = argparse.ArgumentParser(description="Run/kill collaboration agents (kill switch).")
     sub = ap.add_subparsers(dest="action", required=True)
     r = sub.add_parser("run")
-    r.add_argument("agent", choices=["claude", "gemini"])
+    r.add_argument("agent", choices=["claude", "agy"])
     r.add_argument("prompt", nargs="?")
     r.add_argument("--session")
     sub.add_parser("kill")

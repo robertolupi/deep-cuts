@@ -9,7 +9,7 @@ If $ARGUMENTS contains "gemini" or "agy":
    wrapper enforces `--sandbox` and records a pidfile so `python tools/collab_agent.py kill`
    can stop it):
    ```bash
-   python tools/collab_agent.py run gemini --session <active_session_name>
+   python tools/collab_agent.py run agy --session <active_session_name>
    ```
    (The wrapper supplies the bootstrap "read protocol, append one reply" prompt; pass a custom
    prompt as the next argument if needed.)
