@@ -126,6 +126,21 @@
 
   const waveformPeak = $derived(Math.max(...waveformBins, 1e-6));
 
+  // ── Refined structure boundaries ──────────────────────────────────────────
+  // Parsed from sax_alignment_boundaries (JSON array of times in seconds),
+  // mapped into the waveform SVG x-coordinate space (0 .. waveformBins.length).
+  const boundaryMarkers = $derived<number[]>((() => {
+    const raw = track?.sax_alignment_boundaries;
+    const dur = track?.duration_seconds ?? 0;
+    if (!raw || dur <= 0 || waveformBins.length === 0) return [];
+    let times: unknown;
+    try { times = JSON.parse(raw); } catch { return []; }
+    if (!Array.isArray(times)) return [];
+    return (times as number[])
+      .filter((t) => typeof t === 'number' && t > 0 && t < dur)
+      .map((t) => (t / dur) * waveformBins.length);
+  })());
+
   /** Return the SAX letter for bin index j */
   function saxLetterForBin(sax: string | null | undefined, j: number, total: number): string {
     if (!sax || total === 0) return 'c';
@@ -283,6 +298,15 @@
                   {@const letter = saxLetterForBin(track?.waveform_sax, j, waveformBins.length)}
                   <rect x={j} y={64 - h} width="1" height={h} style="fill: var(--sax-{letter}, var(--sax-c))" />
                 {/if}
+              {/each}
+              {#each boundaryMarkers as bx}
+                <rect
+                  class="boundary-marker"
+                  x={Math.max(0, bx - 0.4)}
+                  y="0"
+                  width="0.8"
+                  height="64"
+                />
               {/each}
             </svg>
           </div>
@@ -1368,6 +1392,17 @@
     height: 56px;
     border-radius: 3px;
     background: rgba(0,0,0,0.25);
+  }
+
+  /* Refined structure-boundary markers overlaid on the waveform. */
+  .boundary-marker {
+    fill: var(--sg-primary);
+    opacity: 0.65;
+  }
+
+  html[data-theme="accessible"] .boundary-marker {
+    fill: var(--sg-on-surface);
+    opacity: 1;
   }
 
 </style>

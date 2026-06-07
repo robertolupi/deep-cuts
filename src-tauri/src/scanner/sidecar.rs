@@ -16,6 +16,7 @@ pub mod pass_version {
     pub const SAX: u32 = 3; // v3: batch pass (waveform_fingerprint removed)
     pub const SAX_ALIGNMENT: u32 = 3; // v3: alphabet form (IVPCBO…) replaces human-readable string
     pub const STRUCTURE_CLUSTER: u32 = 1;
+    pub const BOUNDARY_REFINE: u32 = 1; // augment+8peaks_5s novelty boundary refinement
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

@@ -23,6 +23,7 @@ The analysis pipeline lives in `src-tauri/src/analysis/` and offers **two pass s
 | `audio_analysis` | 10 | `AnalysisPass` | `analysis/audio.rs` |
 | `sax` | 12 | `BatchAnalysisPass` | `analysis/sax.rs` |
 | `sax_alignment` | 13 | `AnalysisPass` | `analysis/sax_alignment.rs` |
+| `boundary_refine` | 14 | `AnalysisPass` | `analysis/boundary_refine.rs` |
 | `bpm_correction` | 15 | `AnalysisPass` | `analysis/bpm_correction.rs` |
 | `clap` | 20 | `AnalysisPass` | `analysis/clap.rs` |
 | `essentia` | 30 | `AnalysisPass` | `analysis/essentia.rs` |
