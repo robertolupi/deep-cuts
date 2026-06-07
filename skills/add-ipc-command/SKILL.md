@@ -185,6 +185,7 @@ fn my_command(my_state: tauri::State<'_, MyState>) -> Result<(), String> { ... }
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` still passes
 
 **`src/lib/ipc.ts` + `src/lib/mock-data.ts`** (required — do not skip)
+- [ ] Entry added to `CommandMap` in `ipc.ts` with precise `args` and `result` types (use `Record<string, unknown>` / `unknown` with a `// TODO: tighten` comment only if the shape is truly unclear)
 - [ ] Fixture data for new entity types added to `mock-data.ts` as typed exported constants
 - [ ] Entry added to `MOCK_RESPONSES` in `ipc.ts` with a realistic return value for UI-affecting commands, or `null`/`undefined` for pure side-effects
 - [ ] No direct `@tauri-apps/api` imports added to app code
@@ -205,6 +206,7 @@ fn my_command(my_state: tauri::State<'_, MyState>) -> Result<(), String> { ... }
 | Forgetting `tauri::generate_handler![]` | Frontend call throws `"command not found"` at runtime; Rust compiles fine | Add the command to `generate_handler![]` in `lib.rs` |
 | Importing `invoke` directly from `@tauri-apps/api/core` | `?local_debug=1` mock mode silently falls through to real Tauri and errors | Import from `$lib/ipc` only |
 | No `MOCK_RESPONSES` entry for a UI-affecting command | `?local_debug=1` logs a console warning and resolves `undefined`; UI breaks in ways that are hard to debug | Add a realistic mock to `MOCK_RESPONSES` |
+| Missing `CommandMap` entry | `invoke` call is untyped; TypeScript won't catch wrong args or return type | Add entry to `CommandMap` in `ipc.ts` |
 | Mismatched command name string | Frontend call throws `"command not found"`; Rust compiles fine | The string must match the Rust function name exactly — Tauri does not rename handlers |
 | Push-event listener not cleaned up | Duplicate handlers accumulate across hot-reloads; events fire multiple times | Store the `unlisten` fn and call it in `onDestroy` |
 | Push-event payload type not documented | Future callers guess the shape from runtime logs | Add payload type, event name, emit source, lifecycle, and unlisten ownership as a comment at the listen site |

@@ -153,3 +153,4 @@ App components and stores should import `invoke` and `listen` from `$lib/ipc`. D
 | Store `init()` adds listeners every call | Make `init()` idempotent and keep unlisten functions for `dispose()` |
 | Hardcoded `#hex`, `rgb()`, or `rgba()` in `<style>` | Use `var(--sg-*)` design tokens; see `skills/ui-design/SKILL.md` for the full token reference |
 | Forgetting `lang="ts"` on `<script>` | Add it — the project is fully TypeScript |
+| New IPC command without a `CommandMap` entry | Add the command to `CommandMap` in `src/lib/ipc.ts` |
