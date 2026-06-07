@@ -152,3 +152,4 @@ App components and stores should import `invoke` and `listen` from `$lib/ipc`. D
 | Direct Tauri `invoke` / `listen` imports in app code | Import from `$lib/ipc` so mocks and typed wrappers stay centralized |
 | Store `init()` adds listeners every call | Make `init()` idempotent and keep unlisten functions for `dispose()` |
 | Forgetting `lang="ts"` on `<script>` | Add it — the project is fully TypeScript |
+| New IPC command without a `CommandMap` entry | Add the command to `CommandMap` in `src/lib/ipc.ts` |

@@ -117,14 +117,22 @@ fn my_command(my_state: tauri::State<'_, MyState>) -> Result<(), String> { ... }
 
 ## Checklist
 
+**Rust**
 - [ ] Handler decorated with `#[tauri::command]`
-- [ ] Added to `tauri::generate_handler![]`
-- [ ] Added to the frontend IPC wrapper/type map in `src/lib/ipc.ts`
-- [ ] Local-debug mock added when the command affects visible UI
-- [ ] Frontend call uses the correct snake_case command name as a string literal
-- [ ] Frontend imports `invoke` / `listen` from `$lib/ipc`
-- [ ] `Result<T, String>` return type (or `()` for fire-and-forget)
-- [ ] Push-event payload type, event name, lifecycle, and ownership documented
-- [ ] Push-event listeners cleaned up with `onDestroy` (if applicable)
-- [ ] Frontend test or store test added when the command drives user-visible behavior
+- [ ] Return type is `Result<T, String>` (or `Result<(), String>` for side-effects)
+- [ ] Heavy logic extracted into a helper function, not inline in the handler
+- [ ] Added to `tauri::generate_handler![]` in `lib.rs`
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` still passes
+
+**`src/lib/ipc.ts` + `src/lib/mock-data.ts`** (required — do not skip)
+- [ ] Entry added to `CommandMap` in `ipc.ts` with precise `args` and `result` types (use `Record<string, unknown>` / `unknown` with a `// TODO: tighten` comment only if the shape is truly unclear)
+- [ ] Fixture data for new entity types added to `mock-data.ts` as typed exported constants
+- [ ] Entry added to `MOCK_RESPONSES` in `ipc.ts` with a realistic return value for UI-affecting commands, or `null`/`undefined` for pure side-effects
+- [ ] No direct `@tauri-apps/api` imports added to app code
+
+**Frontend**
+- [ ] `invoke` / `listen` imported from `$lib/ipc` (not from `@tauri-apps/api` directly)
+- [ ] Command name string matches the Rust function name exactly (Tauri does not rename)
+- [ ] For push events: payload type, event name, emit source, lifecycle, and unlisten ownership documented at the listen site
+- [ ] Push-event `unlisten` stored and called in `onDestroy`
+- [ ] Frontend test or store test added when the command drives user-visible state
