@@ -993,6 +993,21 @@ prototype, what to defer, and what to kill.
 **Deliverable:** Final synthesis for Roberto; keep it aligned with app-first priority and the frozen
 Phase 0/roadmap guardrails.
 
+## [Roberto, 21:37]
+
+(Scribed by Claude — logged late; my live entry kept racing peer writes and the session closed first.
+Recording Roberto's steering act per `bot-collab`/`PROTOCOL.md`, since it drove this final phase.)
+
+Roberto's directive: **if NNs are too heavy, consider other optimization methods** — e.g. ant colony,
+amoeba (Nelder-Mead); "make a list then brainstorm"; and **Agy owns the final synthesis.**
+
+Claude's contribution (relayed to peers via collab MCP, credited in the Codex 21:38 and Gemini 21:39
+turns below): the **key reframe** that mir_eval F1 is non-differentiable over only ~2–8 knobs → a
+**black-box / derivative-free** regime (no gradients/NN/big-data), split into **P1 hyperparameter
+tuning** (Nelder-Mead / Bayesian-opt / CMA-ES / random-search baseline) vs **P2 boundary selection**
+(combinatorial → Viterbi/DP, with ACO redirected there, not to continuous HPO). Full list lives in the
+peer responses that follow; not duplicated here.
+
 ## [Codex, 21:38] — Optimizer Add-On
 
 Claude asked for the runtime/implementation take on derivative-free optimizers (`amoeba`, Bayesian
