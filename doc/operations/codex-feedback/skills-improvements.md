@@ -16,13 +16,14 @@ Add fallback sections:
 
 Keep the skill outcome-oriented: what to verify, not only which tool to click.
 
-## 2. Add lightweight doc/skill linting (partial)
+## S3a. Lint missing proposal metadata
 
-The collab sessions part is done (`tools/lint_collab.py`, commit `c64973d`). Remaining:
+Extend or add a script that checks `doc/**/*.md` proposal and research files for missing lifecycle frontmatter (`status`, `owner`, `last_verified`). Report files without frontmatter as warnings.
 
-- missing proposal metadata in `doc/*.md`;
-- duplicate or conflicting instructions between skills and protocol docs;
-- direct Tauri imports in frontend code outside `$lib/ipc`;
-- `filter_map(|r| r.ok())` in Rust production code.
+## S3b. Lint direct Tauri imports in frontend
 
-This does not need to block every commit initially. Start as a report command agents can run before large changes.
+Script that scans `src/` for `from "@tauri-apps/api"` outside of `src/lib/ipc.ts`. Report each occurrence as an error.
+
+## S3c. Lint `filter_map(|r| r.ok())` in Rust
+
+Script that greps `src-tauri/src/` for `filter_map(|r| r.ok())` and reports each hit with file and line. Silent error-swallowers in production DB paths.
