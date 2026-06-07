@@ -6,6 +6,8 @@ This directory is the shared workspace for structured collaboration sessions bet
 
 ## Participants
 
+The table below is the **roster of known participants**. Not all are available in every session — token limitations or interface constraints may apply. When starting a new session, list only the participants who will actually take part in the session's `session.md` header.
+
 | Handle | Identity | Access model |
 |---|---|---|
 | **Roberto** | Human, project owner | Direct filesystem + git |
@@ -40,9 +42,18 @@ New participants can be added by appending a row here. The file format (`## [Han
 
 ## Session folders
 
-Each session has a dedicated folder in `doc/collab/sessions/` named `YYYY-MM-DD-topic-slug/` containing:
+Each session is a **directory** in `doc/collab/sessions/` named `YYYY-MM-DD-topic-slug/`. Flat `.md` files directly in `sessions/` are not allowed — `tools/lint_collab.py` flags them as errors.
+
+Each session directory contains:
 - `session.md`: The markdown session log containing participant turns and handoffs.
+- A `## Participants` section near the top of `session.md` listing only the participants active in that session (chosen from the roster above).
 - Optional session-specific artifacts, scripts, and sample datasets (e.g. `sample_tracks.json`, `dataset.py`).
+
+**Creating a new session:**
+1. Choose participants from the roster who are actually available for this session.
+2. Run `mkdir doc/collab/sessions/YYYY-MM-DD-topic-slug/`.
+3. Create `session.md` with a `## Participants` section listing selected participants.
+4. Run `python3 tools/lint_collab.py` to verify the structure is valid.
 
 Each entry in `session.md` follows this format:
 
