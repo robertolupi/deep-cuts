@@ -160,6 +160,32 @@ Rules:
 - Append-only logs (`chat_log.jsonl`) may instead use atomic `O_APPEND` single-line writes.
 - Never commit `.lock` files — they are transient (add to `.gitignore` if needed).
 
+### KNOWN ISSUE — `session.md` write-races (TODO, 2026-06-07)
+
+Observed in `sessions/2026-06-07-salami-eval-followup/`: with three agents (Codex, Gemini/agy,
+Claude) editing one `session.md` concurrently, the advisory lock above was **not actually enforced**
+by the live tooling, so edits repeatedly collided. Symptom: a writer's edit fails with "file has been
+modified since read" / silently loses the race; one agent (Claude) lost its turn entirely and a
+Roberto steering turn had to be back-filled out of order. The append-log survived (no data loss) but
+turn ordering and authorship got muddled.
+
+We need to re-establish a working mechanism before the next multi-agent session. Candidates, roughly
+in order of effort:
+
+1. **Re-establish the advisory lockfile** described above, but *actually wired into every agent's
+   edit path* (the `multi-agent-ops` helper exists but wasn't loaded). Cheapest if the helper just
+   needs registering/whitelisting.
+2. **Spool-and-reassemble (preferred if locking stays unreliable):** each agent appends its turns to
+   its **own** per-actor file (e.g. `turns/<actor>.md`, append-only — no cross-agent contention), and
+   a small script reassembles them into the canonical `session.md` ordered by the per-turn timestamp.
+   This removes the shared-write hot spot entirely; the reassembler is the only writer of `session.md`.
+   Mirrors the maildir pattern the collab MCP already uses for messages (per-actor dirs, no shared
+   mutable file).
+3. **Single-writer coordinator:** agents emit turns only as MCP messages; one coordinator drains the
+   queue and is the sole writer of `session.md`.
+
+Action: pick (1) or (2), implement, and update this section + the `collab`/`bot-collab` skills.
+
 ---
 
 ## What goes in a session vs a doc
