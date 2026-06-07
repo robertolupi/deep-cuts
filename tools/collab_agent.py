@@ -34,8 +34,8 @@ REPO = Path(__file__).resolve().parent.parent
 SESSIONS_DIR = REPO / "doc" / "collab" / "sessions"
 RUN_DIR = REPO / ".collab_agents"            # pidfiles (gitignored)
 TIMEOUT_S = int(os.environ.get("COLLAB_AGENT_TIMEOUT", "900"))
-CLAUDE_BIN = os.environ.get("CLAUDE_BIN", os.path.expanduser("~/.local/bin/claude"))
-AGY_BIN = os.environ.get("AGY_BIN", os.path.expanduser("~/.local/bin/agy"))
+CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")  # on PATH, or set CLAUDE_BIN
+AGY_BIN = os.environ.get("AGY_BIN", "agy")           # on PATH, or set AGY_BIN
 # claude: file tools only, Bash DISALLOWED -> cannot spawn peers/loop. (Verified-safe config.)
 CLAUDE_ALLOWED = ["Read", "Edit", "Write", "Grep", "Glob"]
 CLAUDE_DISALLOWED = ["Bash"]
