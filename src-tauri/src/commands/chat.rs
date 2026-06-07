@@ -199,9 +199,6 @@ pub fn search_chats(
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
-trait PipeOk<T> { fn pipe_ok(self) -> Result<T, String>; }
-impl<T> PipeOk<T> for T { fn pipe_ok(self) -> Result<T, String> { Ok(self) } }
-
 #[tauri::command]
 pub async fn ask_qwen(
     app: tauri::AppHandle,
