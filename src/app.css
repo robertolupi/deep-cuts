@@ -29,6 +29,9 @@
   --sg-secondary:            #fe00fe;   /* Studio Pink — AI-generated content */
   --sg-on-secondary:         #380038;
 
+  /* — Data series — */
+  --sg-data-b:               #ff7c5c;   /* Set B comparison accent — warm salmon/coral */
+
   /* — Semantic — */
   --sg-error:                #ffb4ab;
   --sg-success:              #00dbe9;
@@ -89,6 +92,9 @@ html[data-theme="light"] {
   --sg-secondary:            #7c2d6b;   /* muted plum — 6.1:1 on white */
   --sg-on-secondary:         #ffffff;
 
+  /* — Data series — */
+  --sg-data-b:               #c0522a;   /* Set B — muted terracotta, AA-safe on light surfaces */
+
   /* — Semantic — */
   --sg-error:                #9b1c1c;
   --sg-success:              #0a5f63;
@@ -135,6 +141,9 @@ html[data-theme="accessible"] {
   --sg-primary-dim:          #009999;
   --sg-secondary:            #ff00ff;
   --sg-on-secondary:         #000000;
+
+  /* — Data series — */
+  --sg-data-b:               var(--sg-on-surface);   /* Set B — inherits high-contrast text color in accessible theme */
 
   /* — Semantic — */
   --sg-error:                #ff6b6b;

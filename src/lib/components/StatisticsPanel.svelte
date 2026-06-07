@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
   import { filters } from '$lib/stores/filters.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
   import MoodRadar, { type MoodValues } from '$lib/components/MoodRadar.svelte';
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
 
@@ -129,7 +130,18 @@
   // ── Set colours ────────────────────────────────────────────────────────────
 
   const COLOR_A = '#00f0ff';
-  const COLOR_B = '#ff7c5c';
+  let COLOR_B = $state(
+    typeof document !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--sg-data-b').trim() || '#ff7c5c'
+      : '#ff7c5c'
+  );
+
+  // Re-read --sg-data-b from the active theme whenever the resolved theme changes
+  $effect(() => {
+    void theme.resolvedTheme;
+    COLOR_B = getComputedStyle(document.documentElement).getPropertyValue('--sg-data-b').trim() || '#ff7c5c';
+  });
+
   const CHROMATIC_ORDER = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -914,7 +926,7 @@
   }
   .kpi-label { font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 3px; }
   .kpi-val-a { font-size: var(--sg-text-md); font-weight: 700; color: var(--sg-primary,#00f0ff); }
-  .kpi-val-b { font-size: var(--sg-text-sm); font-weight: 600; color: #ff7c5c; margin-top: 1px; } /* TODO: map to --sg-* token — Set B comparison accent (warm salmon) has no direct semantic equivalent */
+  .kpi-val-b { font-size: var(--sg-text-sm); font-weight: 600; color: var(--sg-data-b); margin-top: 1px; }
 
   /* ── Charts ── */
   .chart-svg { display: block; width: 100%; }
@@ -939,7 +951,7 @@
   }
 
   .scale-fill-a { height: 6px; background: var(--sg-primary,#00f0ff); opacity: 0.75; border-radius: 2px; }
-  .scale-fill-b { height: 6px; background: #ff7c5c; opacity: 0.75; border-radius: 2px; } /* TODO: map to --sg-* token — Set B data series color */
+  .scale-fill-b { height: 6px; background: var(--sg-data-b); opacity: 0.75; border-radius: 2px; }
 
   .scale-pct { font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495); width: 28px; text-align: right; }
 
@@ -958,7 +970,7 @@
   }
   .mood-fill { height: 6px; border-radius: 2px; }
   .mood-fill-a { background: var(--sg-primary,#00f0ff); opacity: 0.75; }
-  .mood-fill-b { background: #ff7c5c; opacity: 0.75; } /* TODO: map to --sg-* token — Set B data series color */
+  .mood-fill-b { background: var(--sg-data-b); opacity: 0.75; }
 
   .mood-val { font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495); width: 28px; text-align: right; }
 
@@ -973,7 +985,7 @@
   }
   .vocal-fill { height: 6px; border-radius: 2px; }
   .vocal-fill-a { background: var(--sg-primary,#00f0ff); opacity: 0.75; }
-  .vocal-fill-b { background: #ff7c5c; opacity: 0.75; } /* TODO: map to --sg-* token — Set B data series color */
+  .vocal-fill-b { background: var(--sg-data-b); opacity: 0.75; }
   .vocal-count { font-size: var(--sg-text-3xs); color: var(--sg-outline,#849495); width: 32px; text-align: right; }
 
   /* ── Horizontal bar chart ── */
