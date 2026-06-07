@@ -22,3 +22,6 @@ approval_mode = "approve"
 
 [mcp_servers.collab.tools.abandon]
 approval_mode = "approve"
+
+[mcp_servers.collab.tools.heartbeat]
+approval_mode = "approve"
