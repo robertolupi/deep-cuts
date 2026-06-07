@@ -18,7 +18,7 @@ impl AudioPass {
         owned_columns: &[
             "waveform_data", "bpm", "bpm_raw", "key", "scale",
             "key_strength", "loudness_lufs", "loudness_range",
-            "silence_regions", "has_long_silence"
+            "silence_regions", "has_long_silence", "onsets"
         ],
         owned_tables: &[],
         owned_tag_sources: &["audio_analysis"],
@@ -86,6 +86,12 @@ pub fn run_audio_analysis_phase(
                 };
                 match result {
                     Ok(analysis) => {
+                        // Compact onset peak list: parallel times/strengths arrays.
+                        let onsets_json = serde_json::json!({
+                            "times": analysis.onsets.iter().map(|&(t, _)| t).collect::<Vec<f32>>(),
+                            "strengths": analysis.onsets.iter().map(|&(_, s)| s).collect::<Vec<f32>>(),
+                        }).to_string();
+
                         let _ = conn.execute(
                             "UPDATE tracks SET
                                 duration_seconds = ?1,
@@ -98,8 +104,9 @@ pub fn run_audio_analysis_phase(
                                 loudness_lufs = ?7,
                                 loudness_range = ?8,
                                 silence_regions = ?9,
-                                has_long_silence = ?10
-                             WHERE id = ?11",
+                                has_long_silence = ?10,
+                                onsets = ?11
+                             WHERE id = ?12",
                             rusqlite::params![
                                 analysis.duration_seconds as i64,
                                 analysis.waveform_data,
@@ -111,6 +118,7 @@ pub fn run_audio_analysis_phase(
                                 analysis.loudness_range,
                                 analysis.silence_regions,
                                 if analysis.has_long_silence { 1 } else { 0 },
+                                onsets_json,
                                 job.track_id,
                             ],
                         );
@@ -156,7 +164,18 @@ pub fn run_audio_analysis_phase(
                             ],
                         );
                         if crate::commands::config::is_sidecar_enabled(&conn) {
-                            if let Err(e) = crate::scanner::sidecar::save(&conn, job.track_id) {
+                            // The chroma time-series is large, so it lives only in
+                            // the .dc.json sidecar (never a DB column).
+                            let mut extra = std::collections::HashMap::new();
+                            extra.insert(
+                                "dsp_features".to_string(),
+                                serde_json::json!({
+                                    "chroma_time_step": analysis.chroma_time_step,
+                                    "chroma_times": analysis.chroma_series.iter().map(|&(t, _)| t).collect::<Vec<f32>>(),
+                                    "chroma_series": analysis.chroma_series.iter().map(|&(_, c)| c).collect::<Vec<[f32; 12]>>(),
+                                }),
+                            );
+                            if let Err(e) = crate::scanner::sidecar::save_with_extra(&conn, job.track_id, extra) {
                                 log::error!("[audio_analysis] sidecar save failed for track {}: {}", job.track_id, e);
                             }
                         }

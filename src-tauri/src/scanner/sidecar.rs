@@ -6,7 +6,7 @@ pub const SUFFIX: &str = ".dc.json";
 
 /// Current algorithm/model version for each analysis pass.
 pub mod pass_version {
-    pub const AUDIO_ANALYSIS: u32 = 1;
+    pub const AUDIO_ANALYSIS: u32 = 2; // v2: cache onset peaks + chroma time-series
     pub const CLAP: u32 = 7;
     pub const ESSENTIA: u32 = 1;
     pub const BPM_CORRECTION: u32 = 1;
@@ -52,6 +52,17 @@ pub fn load(track_path: &str) -> Option<SidecarData> {
 
 /// Writes a sidecar file next to `track_id`'s audio file.
 pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+    save_with_extra(conn, track_id, HashMap::new())
+}
+
+/// Writes a sidecar file, merging `extra` ML fields (e.g. large DSP feature
+/// arrays that have no DB column, like the chroma time-series) on top of the
+/// dynamically-serialised, registry-driven fields.
+pub fn save_with_extra(
+    conn: &Connection,
+    track_id: i64,
+    extra: HashMap<String, serde_json::Value>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let path: String =
         conn.query_row("SELECT path FROM tracks WHERE id = ?1", [track_id], |row| {
             row.get(0)
@@ -159,6 +170,25 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
     let suppressed_tags: Vec<String> = suppressed_stmt
         .query_map([&path], |row| row.get(0))?
         .collect::<Result<Vec<_>, _>>()?;
+
+    // Merge caller-supplied extras (large DSP arrays with no DB column). When a
+    // plain save() carries no extras, preserve any such fields already on disk
+    // so an unrelated re-save does not discard them.
+    if extra.is_empty() {
+        if let Some(existing) = load(&path) {
+            for key in ["dsp_features"] {
+                if let Some(val) = existing.ml_metadata.get(key) {
+                    ml_metadata
+                        .entry(key.to_string())
+                        .or_insert_with(|| val.clone());
+                }
+            }
+        }
+    } else {
+        for (k, v) in extra {
+            ml_metadata.insert(k, v);
+        }
+    }
 
     let sidecar = SidecarData {
         version: 1,
@@ -676,8 +706,8 @@ mod tests {
         let run_time_epoch = parse_sqlite_timestamp(run_time_str).unwrap();
 
         let sidecar_content = format!(
-            r#"{{"version":1,"pass_versions":{{"audio_analysis":1}},"pass_run_times":{{"audio_analysis":"{}"}},"bpm":120.0}}"#,
-            run_time_str
+            r#"{{"version":1,"pass_versions":{{"audio_analysis":{}}},"pass_run_times":{{"audio_analysis":"{}"}},"bpm":120.0}}"#,
+            super::pass_version::AUDIO_ANALYSIS, run_time_str
         );
         std::fs::write(path_for(&track_path), sidecar_content).unwrap();
 
