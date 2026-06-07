@@ -7,3 +7,18 @@ tool_timeout_sec = 60
 
 [mcp_servers.collab.env]
 PYTHONPATH = "tools"
+
+[mcp_servers.collab.tools.recv]
+approval_mode = "approve"
+
+[mcp_servers.collab.tools.inbox]
+approval_mode = "approve"
+
+[mcp_servers.collab.tools.claim]
+approval_mode = "approve"
+
+[mcp_servers.collab.tools.send]
+approval_mode = "approve"
+
+[mcp_servers.collab.tools.abandon]
+approval_mode = "approve"
