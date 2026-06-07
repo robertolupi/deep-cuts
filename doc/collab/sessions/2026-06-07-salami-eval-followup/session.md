@@ -484,5 +484,548 @@ I will hand off to Codex and Claude to claim this task and implement the full fu
 **Context:** `tools/evaluate_salami_phase0.py`, `roadmap.md`, `session.md` (this log).
 **Deliverable:** Fully implemented and verified `tools/evaluate_salami_phase0.py` that runs all golden-number regression tests successfully in Legacy mode.
 
+## [Roberto, 21:10]
 
+(Scribed by Claude.) Decision on the deliverable and the Phase-0 follow-on:
+
+1. **The roadmap is the deliverable, and it is done.** `roadmap.md` is FROZEN and agreed by Codex,
+   Gemini/Agy, and Claude (amendments A–H), with Meta's design review. Roberto's stated task —
+   "agree on next steps and draft a roadmap" — is satisfied.
+2. **Phase-0 implementation: Codex implements; Claude reviews/verifies.** The open task to fill
+   the bodies of `tools/evaluate_salami_phase0.py` goes to **Codex**. Claude stays in
+   **review/verify** role (checks the implementation, golden-number regression, and statistical
+   contract A–H rather than writing the bodies). App-first priority: this research-track work is
+   opportunistic, not a commitment to ship.
+
+## [Claude, 21:11]
+
+Per Roberto's decision above, I am **not** claiming the Phase-0 task — routing it to Codex and
+moving to review/verify. When Codex's `tools/evaluate_salami_phase0.py` is implemented, I will
+verify against the frozen contract, specifically:
+
+- **Legacy mode reproduces the archived numbers** within the golden-number tolerances
+  (baseline 21.8% / refined 33.3% / human 71.5% @3 s, ±0.5%) — and **fails loudly without the
+  per-track crop offset** (amendment F, H).
+- **Windowed mode never compares crop predictions to full-track GT**, and recomputes its *own*
+  baseline/oracle/human ceilings on the central-90 s window (amendment H) — the archived full-track
+  33.3% is *not* a valid windowed anchor.
+- **P/R/F1 triple** at both tolerances (A), **pairwise/label metric** present as a regression guard
+  (B), **bootstrap CIs + paired Wilcoxon** wired into the gate (C), and **holdout IDs not loadable**
+  by the eval path (E).
+
+**→ Handoff:**
+**Task:** Codex — claim the open task and implement the bodies of `tools/evaluate_salami_phase0.py`
+to the frozen contract; ping Claude when it runs Legacy-mode golden-number tests green.
+**Context:** `tools/evaluate_salami_phase0.py` (skeleton), `roadmap.md` (FROZEN, amendments A–H),
+this log. Validation/holdout splits are the committed `*_tracks.json` in the archived design session.
+**Deliverable:** Implemented `tools/evaluate_salami_phase0.py` passing Legacy golden-number tests →
+Claude verifies before any windowed/Phase-1 numbers are trusted.
+
+## [Codex, 21:18]
+
+Quoting the handoff I picked up from Claude:
+> **Task:** Codex — claim the open task and implement the bodies of `tools/evaluate_salami_phase0.py`
+> to the frozen contract; ping Claude when it runs Legacy-mode golden-number tests green.
+> **Deliverable:** Implemented `tools/evaluate_salami_phase0.py` passing Legacy golden-number tests →
+> Claude verifies before any windowed/Phase-1 numbers are trusted.
+
+Claimed MCP task `627f20f4086249ecadaa681a910554a3` as `codex` and implemented
+`tools/evaluate_salami_phase0.py`.
+
+What is implemented:
+
+- Dual execution modes:
+  - `legacy`: reproduces archived full-track anchors.
+  - `windowed`: applies central-crop semantics and recomputes its own central-window anchors.
+- Track-dependent crop offset helper: `max(0, duration / 2 - window / 2)`.
+- Boundary scoring through `mir_eval.segment.detection`, reporting P/R/F1 at +-0.5 s and +-3.0 s.
+- Aligned dual-annotator aggregate reporting for baseline/refined/oracle/human comparisons.
+- Pairwise label F1 regression guard.
+- Bootstrap confidence intervals over tracks.
+- Paired Wilcoxon tests for refined-vs-baseline and refined-vs-oracle.
+- Structural holdout guard: normal CLI use rejects `holdout_tracks.json` unless `--allow-holdout`
+  is explicitly passed for a custodian run.
+- JSON artifact output via `--json-out`.
+
+Verification run:
+
+```text
+tools/.venv/bin/python tools/evaluate_salami_phase0.py --mode legacy --golden --n-bootstrap 100
+```
+
+Result: **golden-number regression PASSED** on the aligned dual-annotator subset (N=196):
+
+- Baseline F1@3s: 21.82%
+- Refined F1@3s: 33.26%
+- Human F1@3s: 71.53%
+
+Also ran:
+
+```text
+tools/.venv/bin/python tools/evaluate_salami_phase0.py --mode windowed --n-bootstrap 100
+```
+
+Result: windowed mode completed and produced separate central-window anchors (not comparable to
+the archived full-track 33.3% anchor), with aligned dual-annotator subset N=194.
+
+Holdout guard check:
+
+```text
+tools/.venv/bin/python tools/evaluate_salami_phase0.py --split-json doc/collab/sessions/2026-06-07-salami-eval-design/holdout_tracks.json --mode legacy --n-bootstrap 1
+```
+
+Result: exits with `error: holdout split is protected; pass --allow-holdout only for the custodian's frozen run`.
+
+Note from Roberto during implementation: re-analysis is currently running, so current DB-backed
+windowed numbers are smoke-test outputs, not authoritative research results.
+
+**→ Handoff:**
+**Task:** Claude — review/verify `tools/evaluate_salami_phase0.py` against your checklist and the
+frozen A-H roadmap contract.
+**Context:** `tools/evaluate_salami_phase0.py`, this session entry, and the commands/results above.
+**Deliverable:** Verification ACK or concrete fixes before the Phase 0 task is marked complete.
+
+## [Claude, 21:24] — VERIFICATION ACK
+
+Quoting the handoff I picked up:
+> **Task:** Claude — review/verify `tools/evaluate_salami_phase0.py` against your checklist and the frozen A-H roadmap contract.
+> **Deliverable:** Verification ACK or concrete fixes before the Phase 0 task is marked complete.
+
+I read the full implementation and **re-ran all three commands myself** (not just trusting Codex's
+report). **VERIFIED — Phase 0 is sound. ACK to mark the task complete.**
+
+### Independently reproduced
+
+- **Legacy `--golden`: PASSED.** baseline 21.82%, refined 33.26%, oracle 34.06%, human 71.53% @3 s;
+  refined 7.61% / baseline 3.76% @0.5 s; pairwise label F1 46.13%. Every value lands on the archived
+  canonical table within ±0.5 pp. N=229 (aligned dual-annotator subset N=196). ✅
+- **DB path** is the canonical `query-db` location, read-only. No CLAUDE.md violation.
+- **Holdout guard:** confirmed real exit code **2** with `error: holdout split is protected` (Codex's
+  pipe-masked exit was a measurement artifact; the guard genuinely hard-errors). I did **not** run
+  `--allow-holdout` — that single frozen pass is the custodian's, not a review run. ✅
+
+### Contract coverage (A–H)
+
+| | Status |
+|---|---|
+| **A** P/R/F1 triple, both tolerances | ✅ reported everywhere |
+| **B** pairwise/label regression guard | ✅ `pairwise_label_f1` aggregated with CI |
+| **C** bootstrap CIs + paired Wilcoxon gate | ✅ both wired; `refined_vs_oracle` + `refined_vs_baseline` |
+| **D** external Foote/MSAF baseline | ⏳ **Phase 1 scope, not Phase 0** — correctly deferred (flag, not a defect) |
+| **E** holdout custodian / IDs unloadable | ✅ `_reject_holdout` hard-errors by default |
+| **F** pre-registration + golden-number test | ✅ `_assert_golden_numbers` + `--golden` |
+| **G** committed split files | ✅ points at the archived `*_tracks.json` |
+| **H** crop offset + windowed anchors | ✅ track-dependent offset; windowed recomputes its own ceilings |
+
+### Two findings worth recording (not blockers)
+
+1. **The significance gate already earns its keep — it confirms saturation statistically.**
+   Legacy `refined vs oracle @3 s`: **p=0.989, mean_diff −0.008** → refined does **not**
+   significantly beat the grid oracle. This is amendment C turning the archived prose ("post-processing
+   saturated") into a *tested* claim. Good.
+
+2. **Windowed mode quantifies the resolution headroom — and a caveat to interpret it honestly.**
+   Windowed oracle jumps to **64.68% @3 s** (legacy 34.06%), near the windowed human ceiling 69.64%,
+   and `refined vs windowed-oracle` is now **p=1.2e-23, mean_diff −0.307** (refined far below).
+   *Why:* the windowed oracle projects GT to 16 bins over a ~90 s span instead of over a full ~5 min
+   track, so its effective bin size is much finer — that resolution boost is the whole point. **Caveat
+   for Phase 1:** this 64.68% is a fair target *only* for a detector that actually operates at
+   window/fine resolution (the dense 0.2 s SSM is exactly that), and windowed numbers must **never** be
+   compared to legacy 34%. The refined→windowed-oracle gap (34%→65%) **is** the resolution headroom the
+   roadmap predicted — now measured.
+
+Caveat noted (Roberto): re-analysis is running, so DB-backed numbers are smoke outputs. The `--golden`
+gate is the guardrail — re-run it before trusting any post-re-analysis number; if it ever fails, the
+DB state drifted from the archived anchors.
+
+### Optional polish (non-blocking, for whoever does Phase 1)
+
+- Add the **amendment D external baseline** (librosa/MSAF Foote) as a variant when Phase 1 starts.
+- Consider asserting golden at **±0.5 s** too (currently only @3 s is in `GOLDEN_LEGACY_DUAL_ANNOTATOR`).
+- A tiny **unit test** for `calculate_crop_offset` round-trip (t=10 s in crop → 70 s abs on a 300 s
+  track) would lock amendment H against regressions, per Meta's skeleton note.
+
+**→ Handoff:**
+**Task:** Codex — you're clear to mark task `627f20f4086249ecadaa681a910554a3` **complete**. Phase 0
+is verified. The optional polish items above are Phase-1 starters, not blockers. No further action
+needed from me unless Roberto re-prioritizes the research track.
+**Context:** `tools/evaluate_salami_phase0.py` (verified), `roadmap.md` (FROZEN), this log.
+**Deliverable:** Closed Phase-0 task; roadmap + verified eval harness stand as the session's output.
+
+## [Roberto, 21:21]
+
+Roberto asked whether Meta's participation was worth the coordination overhead, because including
+Meta requires pushing context to a public GitHub repo and slows the loop down to human relay speed.
+
+Process decision:
+
+- Meta was useful in this session for **milestone design review**: shaping the evaluation contract,
+  turning the frozen roadmap into concrete Phase 0 requirements, and drafting function signatures.
+- Meta should **not** be in every implementation/debugging loop. The public-repo relay is too
+  cumbersome when agents with local repo/runtime access can iterate faster.
+- Recommended pattern going forward: use Codex + Claude/Gemini for normal execution and verification;
+  invite Meta only for higher-level scientific framing, roadmap review, architecture critique, or
+  "are we fooling ourselves?" checks before committing to a research direction.
+
+## [Codex, 21:25] — Lay Summary of Phase 0 Results
+
+Roberto asked for an ELI5 explanation of the Phase 0 results. Summary:
+
+Think of the app trying to mark "this is where the song changes section."
+
+There are two different games now:
+
+### 1. Old full-song game
+
+The old system divides the whole song into only **16 big chunks**. For a 5-minute song, each
+chunk is around 19 seconds. That means the app can only place section changes on a very coarse
+grid.
+
+Results:
+
+- Basic 16-chunk model: about **22%**
+- Refined model with extra novelty peaks: about **33%**
+- Best possible 16-chunk grid: about **34%**
+- Human-vs-human agreement: about **72%**
+
+ELI5: the refined model is basically squeezing everything possible out of the old chunky ruler.
+It gets almost all the score that a 16-chunk ruler can get, but humans are using a much finer
+ruler.
+
+So the old approach is not "badly tuned"; it is **out of resolution**.
+
+### 2. New windowed game
+
+The audio features we currently cache only cover the **middle 90 seconds** of each song, not the
+whole song. So we must score only that middle window, otherwise we are asking the model to find
+boundaries in parts of the song it literally cannot see.
+
+When we score fairly inside that 90-second window:
+
+- Refined old model: about **34%**
+- Windowed grid/oracle ceiling: about **65%**
+- Human agreement: about **70%**
+
+ELI5: in the middle 90 seconds, the "best possible" score is much higher because the ruler is
+effectively finer. That shows there is real headroom if we build the dense chroma/onset SSM
+detector.
+
+Big takeaway:
+
+- The old 16-bin full-song method is maxed out.
+- The next improvement is not smarter post-processing.
+- The next improvement is **higher-resolution boundary detection**, starting with the central
+  90-second window.
+- The script now protects us from fooling ourselves: it checks old known numbers, blocks
+  accidental holdout use, reports precision/recall/F1, and uses statistical tests.
+
+Caveat: Roberto said re-analysis is running, so current DB-backed numbers are smoke-test results.
+The important part is that the evaluation harness now reproduces the archived golden numbers and
+separates old full-track scoring from new windowed scoring.
+
+## [Roberto, 21:26]
+
+Correction/clarification on the "re-analysis is running" caveat: the data was not merely
+mid-refresh. At the time Codex was ready to interpret the results, several relevant passes were
+still missing or incomplete:
+
+- Essentia
+- structure clustering
+- BPM refinement
+- Qwen audio LLM
+- description embedder
+
+So current DB-backed Phase 0/windowed numbers should be treated as harness smoke tests until those
+passes have finished and the golden checks are rerun against the final analysis state.
+
+## [Claude, 21:24] — Plain-language summary (ELI5, scribed at Roberto's request)
+
+Roberto asked for a layman explanation of the results. Recording it here so the session has a
+non-jargon version of what we found.
+
+**What the app is trying to do.** Automatically chop a song into its sections — intro / verse /
+chorus / bridge / outro — and mark *when* each starts. Like auto-generating chapter markers for a song.
+
+**How we score it.** The SALAMI dataset has section boundaries that real humans marked by hand. We
+compare where the app puts a boundary vs where humans put one. A hit = the app's marker lands within
+a few seconds of a human's. We use two difficulty levels: **±3 s** ("close enough") and **±0.5 s**
+("nearly perfect").
+
+**The key @3s numbers:**
+- Two **humans** vs each other: **~71%** — even trained people only agree 71% of the time, because
+  "where does the chorus *really* start?" is genuinely fuzzy. So ~71%, not 100%, is the realistic best.
+- The **app today**: **~33%** — roughly halfway to as-good-as-a-human. Not broken, but room to grow.
+- **Best the current design could ever do**: **~34%** — the app is already basically at its own ceiling.
+
+**Three takeaways:**
+1. **33% isn't as bad as it sounds** — the goalpost is ~71% (human agreement), not 100%.
+2. **We've squeezed out everything the current design can give, and now we can *prove* it.** The
+   significance test showed the clever post-processing tricks make no *real* difference vs the
+   design's ceiling — it's luck, not signal. So polishing this approach further is wasted effort; we
+   need a fundamentally different method.
+3. **We found *why* it's stuck, and it's fixable.** The current method uses a **coarse ruler** — it
+   can only place boundaries at 16 evenly-spaced slots (like folding the song into 16 equal pieces).
+   Real choruses rarely start exactly on a fold. When we re-ran the test with a **finer ruler** (the
+   windowed mode), the achievable ceiling jumped **34% → 65% @3s**, almost up to the human ~70%.
+
+**Headline:** the app's "brain" for grouping sections is actually decent — what holds it back is
+**measurement precision, not intelligence.** Don't build a bigger AI model; instead detect boundaries
+at fine time-resolution (the dense-SSM prototype). The numbers now tell us that's the lever worth
+pulling, and roughly how much it could gain.
+
+**Honest caveats:** measured on a YouTube-sourced SALAMI subset; the app is mid-re-analysis; and the
+finer-ruler **65% is a target to aim for, not a result achieved**. It's the prize, not the trophy.
+
+## [Roberto, 21:29]
+
+Two observations that reframe the bottleneck and the path forward (scribed by Claude, with Claude's
+analysis recorded under it):
+
+1. **The real gate is the *arbitrary resolution I set for `waveform_data`* (128 points), not only the
+   16-bin SAX grid.** There are two stacked resolution limits.
+2. **`128 → 16` looks like the layer widths of a neural network.** Two questions: (a) is this pipeline
+   really a neural network by other (less efficient) means? (b) can we do meta-parameter optimization
+   to find the sweet spot?
+
+### Claude's response — verified bottleneck
+
+Confirmed in code. Two stacked, hand-set resolution gates:
+- **Gate 1 — 16-bin SAX grid:** baseline boundaries are quantized to `duration/16` (~11–19 s/bin).
+- **Gate 2 — 128-pt `waveform_data`:** `dsp.rs:354` `downsample_profile(&rms_energies, 128)`. The
+  refinement's novelty peaks come from this 128-pt envelope (`refine_salami_boundaries.py:103`
+  `ranked_novelty_peaks`), so refined boundaries can't beat `duration/128` ≈ **1.4 s (3 min) / 1.9 s
+  (4 min) / 2.3 s (5 min)**. This is *exactly* why ±0.5 s is pinned at ~7% — you can't hit ±0.5 s on a
+  ~2 s candidate grid. The **65% windowed oracle is NOT gated by `waveform_data`** (it's a GT ceiling),
+  so the prize stands; only the current detector is stuck on the 128-pt grid.
+
+Already-cached features blow past both gates: **onsets ~23 ms** (~100× finer), **chroma 0.2 s** (~10×).
+
+### Claude's response — is it a neural network?
+
+Right intuition, precise name. A fixed cascade of *filter → nonlinearity → pool* at multiple scales is
+a **scattering transform** (Mallat/Andén) — provably "a CNN with untrained, hand-designed filters,"
+and a published audio technique. So structurally it IS a conv-net's early layers, built by hand. What
+makes it *not* a neural network is the defining property: **nothing is learned** — 128/16/RMS/FFT/cosine
+are all fixed and task-agnostic. (Nuance: 128 and 16 are partly *parallel* representations merged at the
+end, not a clean feedforward stack — the "two layers" is looser than it looks.)
+
+- **Less efficient?** Two opposite answers. *Task*-efficiency: yes, hand-designed averages aren't tuned
+  to boundary detection. *Data*-efficiency: no — with ~200–345 tracks a trained end-to-end net would
+  memorize (Meta's over-parameterization warning). The fixed pipeline is the data-poor-regime choice,
+  on purpose.
+
+### Claude's response — HPO sweet spot, with the trap
+
+Yes, but: **the hyperparameters ARE the parameters.** Sweeping `128`/`16`/kernel-width/peak-count/
+fusion-weights and picking the best is gradient-free optimization of a fixed architecture = *training
+the model by hand with a bad optimizer.* Consequences:
+- **Forking-paths in resolution-space (amendment C).** Every knob swept on validation is a DOF fitted
+  to validation; sweep many and the holdout collapses. HPO must be pre-registered, validation/dev only,
+  **report the number of configs tried**, one holdout pass at the end.
+- **It exposes the real decision.** Gradient descent beats grid/Bayesian search per-parameter, so the
+  moment many knobs need sweeping, that's the signal you've hit the data ceiling and should switch to a
+  *tiny trained* model (scattering features → small head). HPO over a fixed pipeline is the substitute
+  for training in the data-poor regime; it stops paying off exactly when you have enough data to train.
+- **Principled first sweep = the bottleneck's own axis:** novelty-source resolution
+  (`128` → `0.2 s` chroma → `23 ms` onset + intermediate downsamplings) × SAX bin count. Two axes, not a
+  6-knob free-for-all. The windowed-oracle result (16-bins-over-90 s = 65% vs over-full-track = 34%) is
+  already one point on that curve — we're extending a curve, not starting blind.
+
+### Proposed Phase-1a (cheapest experiment, smaller than the full SSM)
+
+**Swap the novelty source.** Feed `ranked_novelty_peaks` the cached 23 ms onset envelope / 0.2 s chroma
+instead of the 128-pt `waveform_data`; re-run on validation; measure ±0.5 s and ±3 s vs the recomputed
+windowed ceilings. Isolates Roberto's hypothesis with almost no new code. **Caveat:** finer resolution
+removes the *ceiling* but only pays off if novelty is *informative* at that scale — raw energy at 23 ms
+is jittery, which is why the SSM uses chroma self-similarity (harmonic change) rather than energy. So
+Phase-1a tests "does removing the 128-pt cap help at all," and the SSM (Phase 1) is what turns "can place
+precisely" into "places correctly."
+
+**→ Handoff:**
+**Task:** When the research track is prioritized, run **Phase-1a** (swap novelty source: 128-pt
+waveform → cached onsets/chroma) on validation before the full SSM, and frame any resolution/bin sweep
+as pre-registered HPO (report #configs, validation/dev only, one holdout pass). Fold these as a Phase-1
+amendment when `roadmap.md` is unfrozen. Note: Roberto's [21:26] caveat — several passes (Essentia,
+structure clustering, BPM refinement, Qwen, description embedder) were incomplete, so rerun the golden
+checks once the analysis state is final before trusting any Phase-1a numbers.
+**Context:** `src-tauri/src/dsp.rs:354` (128-pt downsample), `tools/refine_salami_boundaries.py:103`
+(`ranked_novelty_peaks`), `tools/evaluate_salami_phase0.py` (windowed ceilings), cached `onsets` +
+sidecar `chroma_series` from `dsp_caching_implemented.md`. App-first: parked/opportunistic.
+**Deliverable:** Phase-1a validation result (does escaping the 128-pt cap lift ±0.5 s?) + a pre-registered
+resolution×bin HPO plan, when prioritized.
+
+## [Claude, 21:34] — Brainstorm kickoff: "untrained-CNN" angle (with Codex + Agy)
+
+At Roberto's request, opening a brainstorm with Codex and Agy on the neural-network framing — including
+his example that **PyTorch / `ort` (ONNX Runtime, already shipped for CLAP) would be more efficient than
+our handcrafted code** at some of this. Seed sent to both via the collab MCP (`type: brainstorm`).
+
+**Framing.** The pipeline (`128`-pt waveform envelope → `16`-bin SAX, + cosine SSM + checkerboard novelty)
+is structurally a **scattering transform = an untrained, hand-designed CNN front-end**. So the question is
+sharper than "use a NN?": *how much hand-DSP should become tensor/learned ops, and where does it pay off
+vs over-engineer?*
+
+**Threads on the table:**
+1. **Efficiency** — SSM = `L2norm(X) @ L2norm(X).T`; novelty = a 1D conv. Tensor one-liners (torch
+   prototype / ONNX+`ort` deploy), BLAS-fast vs hand Rust loops. Or is per-track compute so small that
+   `ort` overhead loses and the real hotspot is CLAP forward passes? *Where is the hotspot?*
+2. **Data-efficient sweet spot** — keep the front-end fixed (no data to train it), replace the hand-tuned
+   readout (kernel width / threshold / fusion / 8-peaks-5s) with a **tiny differentiable head** trained
+   with sample weights = human agreement. "HPO done right" = gradient descent over a few params.
+3. **Differentiable HPO** — learnable kernel width/fusion + soft-NMS peak-picking → end-to-end
+   differentiable boundary loss ("the hyperparameters ARE parameters"). Fruitful or rabbit-hole?
+4. **Buy vs build** — pretrained ONNX structure models (All-in-One, beat-this, MSAF refs) we could just
+   *run* as the external baseline (amendment D), rather than train anything.
+
+**Guardrails:** tiny data (~200–345 tracks) → CV + holdout-custodian + must beat fixed-features+Foote;
+app-first → prototype/train in PyTorch, export ONNX, run via `ort` in Rust; don't conflate "tensors for
+speed" (low-risk, do now) with "train a model" (data-limited, gated).
+
+**Asks:** Codex = runtime/impl lens (where ort/torch beats hand Rust; minimal SSM-as-tensor prototype;
+droppable pretrained ONNX model). Agy/Gemini = modeling lens (is fixed-features+tiny-head the right
+data-efficient target; safe head + training protocol on this N). Both: kill bad ideas fast.
+
+**→ Handoff:**
+**Task:** Codex + Agy — respond to the brainstorm seed (sent via collab MCP, `type: brainstorm`) with
+your lens; flag what's fruitful vs over-engineering. Roberto is relaying the seed manually too.
+**Context:** this turn, the [Roberto, 21:29] analysis above, `scoping_dense_embeddings_ssm.md`.
+**Deliverable:** Each peer's take on the four threads → a short synthesis of which (if any) are worth a
+prototype, kept consistent with app-first + the frozen roadmap's experimental discipline.
+
+## [Codex, 21:37] — Brainstorm Response and Phase 0 Task Closure
+
+First, closing the previous implementation loop: Claude verified `tools/evaluate_salami_phase0.py`
+and cleared MCP task `627f20f4086249ecadaa681a910554a3`. I marked the task complete through the
+collab MCP.
+
+Codex runtime/implementation take on the "untrained CNN / scattering transform" brainstorm:
+
+### 1. Where tensors pay off
+
+For the dense SSM prototype, express the math as tensor operations in Python first:
+
+- `X = normalize(features)`
+- `SSM = X @ X.T`
+- novelty = diagonal scan / checkerboard correlation, expressible as convolution-like tensor ops
+
+That is the right prototype path because it makes the algorithm short, inspectable, and easy to
+compare across feature choices. It also avoids premature Rust complexity.
+
+Deployment via ONNX Runtime is **not automatically a win**. For a 90-second chroma window at 0.2 s
+steps, `N` is only about 450 frames, so an SSM is about 200k similarities. Rust `ndarray` or BLAS may
+already be plenty. `ort` setup/copy overhead could dominate unless the model also includes a larger
+learned head or dense CLAP. The real likely hotspot is dense CLAP forward passes, not SSM matrix math.
+
+Recommendation: prototype in PyTorch/NumPy; profile; deploy the smallest proven path. Do not choose
+`ort` just because the math resembles a neural net.
+
+### 2. Minimal prototype worth building
+
+The smallest useful prototype is **not** a trained model. It is:
+
+1. central-window chroma/onset feature loader,
+2. tensor SSM + novelty curve,
+3. fixed Foote/checkerboard peak picker,
+4. evaluation through `evaluate_salami_phase0.py` windowed mode,
+5. comparison against the 16-bin refined baseline, the windowed oracle, and an external Foote/MSAF
+   baseline.
+
+This proves whether the SSM-as-tensor path has signal before any training.
+
+### 3. Tiny trained head: maybe, but only after fixed SSM baseline
+
+Fixed features + tiny trained readout is the data-efficient sweet spot **if** the fixed SSM has
+signal but threshold/kernel/fusion tuning becomes the bottleneck.
+
+Safe parameter budget on ~200-345 tracks:
+
+- fusion weights over onset/chroma/(maybe CLAP),
+- one or two kernel/smoothing parameters,
+- threshold or top-k/boundary-count prior,
+- optional tiny logistic/MLP head over local novelty features.
+
+Keep it under tens of parameters, use grouped CV, report configs tried, and weight tracks by human
+agreement. Anything end-to-end over dense embeddings is likely overfit theater at this N.
+
+### 4. Differentiable HPO: mostly rabbit hole for now
+
+Soft-NMS / soft-argmax / differentiable peak picking is elegant, but likely too much machinery before
+we prove fixed SSM beats the external baseline. Use Optuna/grid search over a few pre-registered knobs
+first. Switch to differentiable HPO only if:
+
+- the fixed SSM clearly has signal,
+- the same few hyperparameters keep dominating,
+- and validation variance is under control.
+
+### 5. Buy vs build
+
+For amendment D, first run an off-the-shelf baseline rather than hunt for a deployable ONNX model:
+
+- MSAF/Foote-style novelty segmentation if available in the Python environment,
+- otherwise a small local Foote implementation over chroma.
+
+Pretrained ONNX structure-boundary models may exist, but they are a research scan item, not a blocker.
+Even if found, they must run under the same Phase 0 harness and beat fixed-features+Foote before they
+matter.
+
+### Codex recommendation
+
+Fruitful:
+
+1. Phase-1a: swap novelty source from 128-pt waveform to cached onset/chroma.
+2. Phase-1b: tensor SSM prototype in Python.
+3. Add external Foote/MSAF baseline.
+4. Profile before deciding Rust `ndarray` vs ONNX Runtime.
+
+Likely over-engineering now:
+
+- ONNX deployment of the SSM before profiling,
+- differentiable peak picking before fixed SSM works,
+- any medium/large trained model on this dataset size,
+- end-to-end training over CLAP/chroma without a much larger dataset.
+
+Per Roberto's decision, agy/Gemini should do the final synthesis after peer responses.
+
+**→ Handoff:**
+**Task:** Agy/Gemini — synthesize the brainstorm responses into a short recommendation: what to
+prototype, what to defer, and what to kill.
+**Context:** Claude's brainstorm seed, Codex's runtime take above, and any Gemini/modeling response.
+**Deliverable:** Final synthesis for Roberto; keep it aligned with app-first priority and the frozen
+Phase 0/roadmap guardrails.
+
+---
+
+## [Gemini, 21:39] — Final Brainstorm Synthesis: Untrained CNN & Optimization
+
+Quoting the handoff I picked up:
+> **Task:** Agy/Gemini — synthesize the brainstorm responses into a short recommendation: what to prototype, what to defer, and what to kill.
+> **Deliverable:** Final synthesis for Roberto; keep it aligned with app-first priority and the frozen Phase 0/roadmap guardrails.
+
+Having reviewed the contributions from Claude (categorization of HPO vs Boundary Selection) and Codex (runtime performance and scaling constraints), here is the agreed-upon synthesis and recommendation.
+
+### 1. What to PROTOTYPE (Immediate Phase 1 Scope)
+
+* **Phase 1a (Novelty Source Swap)**: Run the cheapest resolution check by swapping the novelty source in `refine_salami_boundaries.py` from the 128-pt `waveform_data` to the cached 23 ms onsets / 0.2 s chroma. This isolates the resolution ceiling hypothesis with minimal code changes.
+* **Phase 1b (Tensor SSM in Python)**: Build the PyTorch/NumPy-based offline SSM prototype. Python tensor operations are the correct environment to verify the Foote checkerboard kernel algorithm before writing any Rust code.
+* **External Foote Baseline (Amendment D)**: Implement or run a standard MSAF/Librosa Foote baseline to serve as our anchor comparison, ensuring our custom SSM beats a stock off-the-shelf detector.
+* **Optuna (TPE) for P1 (Hyperparameter Optimization)**: Use Bayesian Optimization via **Optuna** (TPE sampler) on validation-only cross-validation. It handles mixed continuous/discrete spaces (e.g., SAX bin size vs kernel width) and is highly sample-efficient, which directly minimizes validation-set overfitting (amendment C/forking paths).
+* **Viterbi/Dynamic Programming for P2 (Boundary Selection)**: Use exact 1D DP sequence segmentation with transition/duration priors (the original Approach B Viterbi search) to select final boundaries from candidate peaks.
+
+### 2. What to DEFER (Post-Validation Gate)
+
+* **Rust ndarray Porting**: Do not write any Rust code for the SSM until the Python prototype clears the validation gate (beating the 16-bin oracle significantly).
+* **Tiny Trained Head**: Defer replacing the hand-tuned readout with a differentiable head (e.g., logistic regression/MLP) until we have established a solid fixed-feature SSM baseline. If we do train one, keep it under 10 parameters to prevent memorization on our small $N$ (~200–345 tracks).
+* **Ant Colony Optimization (ACO) for P2**: Defer ACO. While a natural fit for graph-based pathfinding, 1D sequence segmentation is solved exactly and more cheaply by Viterbi/DP. Revisit ACO only if we move to multi-modal 2D structural graphs.
+
+### 3. What to KILL (Over-engineering / High Risk)
+
+* **SSM ONNX/`ort` Compilation**: Kill the plan to compile the SSM itself into ONNX. For a 90 s crop at 0.2 s steps ($N \approx 450$), the matrix operations are tiny. Setup and copy overhead in ONNX Runtime would likely dominate. The hotspot is the CLAP forward pass, not the SSM.
+* **Differentiable Peak-Picking (End-to-End HPO)**: Kill differentiable NMS / soft-argmax. It adds extreme complexity to the optimization graph for little practical return compared to Optuna sweeps.
+* **Medium/Large Trained Models**: Kill any neural sequence models trained end-to-end on CLAP/chroma inputs due to severe data limitations. Keep the untrained CNN front-end fixed.
+
+---
+
+## [Closed, 2026-06-07]
+
+This follow-up session has reached consensus and is closed. The Phase 0 script has been verified, the roadmap is frozen, and the brainstorm synthesis stands as the guide for Phase 1.
 
