@@ -245,3 +245,142 @@ They didn't leave it vague:
 
 Bottom line: the collaboration loop worked — in ~10 minutes they went from "we're saturated" to a frozen, statistically-rigorous plan that explicitly protects you from the multi-agent failure modes (peeking at holdout, comparing crop predictions to full-track GT, and chasing noise).
 
+---
+
+## [Meta, 21:05]
+
+The three-agent convergence gave you a frozen contract, not just ideas. I pulled all five docs you linked and extracted the exact numbers they agreed to treat as ground truth. Here's the Phase 0 design pattern Meta would hand to Codex/Claude for implementation — architecture first, code second.
+
+### Phase 0 eval script — design skeleton
+
+**Purpose:** one reproducible entry point that reproduces the archived SALAMI numbers *exactly*, then adds the statistical rigor from amendments A–H.
+
+#### 1. Input contract
+
+- Read `validation_tracks.json` and `holdout_tracks.json` as frozen splits (no seed regeneration)
+- For each track load:
+  - duration from DB (needed for offset)
+  - JAMS annotations (absolute track time)
+  - model predictions (initially the 16-bin SAX boundaries from `sax_alignment_boundaries`)
+  - sidecar `dsp_features.onsets` and `chroma_series` if present
+
+#### 2. Track-dependent crop offset — the bug Gemini caught
+
+Both cached features are timed from the centre 90s analysis window, not track start: "seconds from the start of the analysis window (the centre 90 s crop)"
+
+Claude verified the exact formula in `dsp.rs:358-368`: `start = max(0, len/2 − 45 s)`
+
+Implement as:
+```python
+offset = max(0.0, duration/2 - 45.0) # seconds
+pred_abs = [t + offset for t in pred_crop]
+chroma_times_abs = [t + offset for t in chroma_times_crop]
+```
+Do **not** use a constant 45s — tracks ≤90s have offset 0, a 5-min track has offset 60s. Add a unit test that a synthetic boundary at t=10s in the crop round-trips to 70s absolute on a 300s track.
+
+#### 3. Option A — windowed evaluation (enforced)
+
+Because cached features only cover the central ≤90s, you must never compare crop predictions to full-track GT. Roadmap mandates: "restrict both predictions *and* GT to the central-90 s window"
+
+Implementation:
+- window_start = offset
+- window_end = offset + 90.0
+- gt_windowed = [b for b in gt if window_start <= b <= window_end]
+- pred_windowed = [b for b in pred_abs if window_start <= b <= window_end]
+- Recompute *all* ceilings on this same window — baseline, grid oracle, human agreement. Do not reuse the full-track 29.36% number.
+
+#### 4. mir_eval core
+
+Use `mir_eval.segment.detection` as canonical scorer. For each track compute:
+- P, R, F1 at ±0.5s and ±3.0s (amendment A — report triple, not F1 alone)
+- pairwise clustering F1 for label regression guard (amendment B)
+
+Aggregate by mean over tracks, but keep per-track vectors for statistics.
+
+#### 5. Bootstrap 95% CI resampling
+
+Amendment C requires: "Bootstrap 95% CIs over tracks for every headline number (resample tracks with replacement, ≥1000 draws)"
+
+Pattern:
+```python
+def bootstrap_ci(scores, n_boot=2000):
+    boots = [np.mean(resample(scores)) for _ in range(n_boot)]
+    return np.percentile(boots, [2.5, 97.5])
+```
+Report as `33.3% [30.1, 36.5]`, never bare point.
+
+#### 6. Paired Wilcoxon significance gate
+
+"The gate is a *significant* improvement, not a numerically higher one... paired test: per-track paired bootstrap or Wilcoxon signed-rank"
+
+Pattern:
+```python
+diffs = ssm_f1_per_track - refined_f1_per_track
+stat, p = wilcoxon(diffs)
+pass_gate = (p < 0.05) and (mean_diff > 0)
+```
+This prevents a +0.5pp noise win from clearing the ~34% oracle.
+
+#### 7. Golden numbers for regression test
+
+Pulling the exact validation values from the 2026-06-07 design session (mir_eval canonical, dual-annotator N=196):
+
+From the scoping doc table:
+- **Baseline (16-bin)**: 21.8% @3s, 3.8% @0.5s
+- **Refined augment+8peaks_5s**: 33.3% @3s, 7.6% @0.5s
+- **Grid/oracle ceiling**: ~34% @3s, ~6.6% @0.5s
+- **Human ceiling**: 71.5% @3s, 64.6% @0.5s
+
+From the original greedy run (for backward compatibility check):
+- Baseline: 3.18% @0.5s, 18.04% @3s
+- Refined: 6.52% @0.5s, 28.99% @3s
+- Holdout refined: 4.65% @0.5s, 29.00% @3s
+- Human consensus (greedy): 61.61% @3s, 55.74% @0.5s
+
+Claude's recomputed normalized set (same 196 tracks):
+- Baseline 18.11%, Refined 28.87%, Grid 28.29%, Human 61.74% @3s
+
+**Regression test spec (Phase 0 gate):**
+- Run script on frozen validation split with windowed GT
+- Assert |mir_eval_baseline_3s - 0.218| < 0.005
+- Assert |mir_eval_refined_3s - 0.333| < 0.005
+- Assert |mir_eval_human_3s - 0.715| < 0.005
+- Fail loudly if offset not applied (test will drift by ~30-60s)
+
+This implements amendment F — "golden-number regression test" — so environment drift fails before any experiment runs.
+
+#### 8. Output artifact
+
+Emit one JSON per run with:
+- manifest (code hash, DB path, split files, params, seed)
+- per-track: duration, offset, window, P/R/F1@0.5, P/R/F1@3, boundary count, human_F1
+- aggregates with CIs
+- significance test results vs baseline and vs oracle
+
+---
+
+**→ Handoff:**
+**Task:** Want me to turn this into the actual `tools/evaluate_salami_phase0.py` function signatures next, or should we first confirm the windowed ceilings need to be recomputed from scratch (since the archived 33.3% was full-track)?
+
+---
+
+## [Gemini, 21:06]
+
+Quoting the handoff I picked up from Meta:
+> Want me to turn this into the actual `tools/evaluate_salami_phase0.py` function signatures next, or should we first confirm the windowed ceilings need to be recomputed from scratch (since the archived 33.3% was full-track)?
+
+### Decision: Recomputing Windowed Ceilings and Dual-Mode Execution
+Yes, **the windowed ceilings must be recomputed from scratch**. Since the archived results (like 33.3% refined @3s) were scored on the full track without applying crop offsets or filtering predictions, restricting evaluation to the central-90s crop window changes the baseline boundaries. 
+
+To solve this cleanly, we decide that the Phase 0 script should support two execution modes:
+1. **Full-Track (Legacy Mode)**: Evaluates predictions without the crop offset or window filtering. This mode will be used to run the golden-number regression tests and verify that our `mir_eval` harness exactly reproduces the archived session's aggregate baselines (e.g. F1 of 21.8% baseline, 33.3% refined).
+2. **Windowed (Corrected Mode)**: Applies the track-dependent crop offset and filters both JAMS and predicted boundaries to the central 90s window. This will establish our *new* windowed ceilings (baseline, oracle, human) that will act as the true anchors for Phase 1.
+
+I endorse the design skeleton and ask Meta AI to draft the function signatures for `tools/evaluate_salami_phase0.py` next, incorporating this dual-mode logic.
+
+**→ Handoff:**
+**Task:** Meta: Draft the function signatures for `tools/evaluate_salami_phase0.py` incorporating the dual-mode execution (Legacy vs Windowed), offset calculation, window filtering, bootstrap resampling, and Wilcoxon testing.
+**Context:** `roadmap.md`, `session.md` (this log), and the design skeleton.
+**Deliverable:** Function signatures draft for `tools/evaluate_salami_phase0.py`.
+
+
