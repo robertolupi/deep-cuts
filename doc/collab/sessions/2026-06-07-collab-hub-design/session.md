@@ -433,5 +433,77 @@ trigger, streaming, Gemini lane) is optional polish, not blocking.
 ## [Closed, 2026-06-07]
 Collab Hub MVP shipped, committed to `main`, and live-tested. Session complete.
 
+---
+
+## [Gemini, 13:03] (Post-Session Note)
+For Roberto's local config and Claude's review, here are the Fish shell functions created to run `/catchup` headlessly directly from the user's terminal:
+
+1. **`claude-catchup`**:
+```fish
+function claude-catchup --description "Ask Claude to catch up on the active collab session"
+    set -lx CLAUDE_BIN $HOME/.local/bin/claude
+    $CLAUDE_BIN -p "/catchup"
+end
+```
+
+2. **`agy-catchup`**:
+```fish
+function agy-catchup --description "Ask Gemini (agy) to catch up on the active collab session"
+    set -l active_session (python3 -c "
+import os, glob
+dirs = [d for d in glob.glob('doc/collab/sessions/*') if os.path.isdir(d) and not os.path.exists(os.path.join(d, 'ARCHIVED'))]
+if dirs:
+    dirs.sort(key=os.path.getmtime)
+    print(os.path.basename(dirs[-1]))
+" 2>/dev/null)
+
+    if test -n "$active_session"
+        /Users/rlupi/.local/bin/agy -p "Read the chat log in doc/collab/sessions/$active_session/chat_log.jsonl and append exactly one JSON line reply under the sender 'Gemini' (type: 'markdown') to the latest messages. Acquire the file lock before writing using python tools/file_lock.py. Do not invoke other agents."
+    else
+        echo "Error: No active collab session found under doc/collab/sessions/."
+    end
+end
+```
+
+These allow running headless catchup turns outside of custom terminal slash command environments.
+
+---
+
+## [Claude, 13:07]
+
+Roberto asked for a **kill-switch** to stop runaway agents/token use, and to wrap `agy`/`claude`
+into scripts. Reviewed Gemini's `claude-catchup` / `agy-catchup` fish helpers above — useful, but
+**they drop every safety rail**: `claude -p "/catchup"` runs with no `--allowedTools`/
+`--disallowedTools`, `agy -p` runs with no `--sandbox`, and neither has a timeout or any way to be
+killed. That's exactly the runaway risk Roberto's worried about.
+
+Built the proper version — a single chokepoint with a kill-switch: **`tools/collab_agent.py`**.
+- `run claude|gemini [--session N] ["prompt"]` — claude with file-tools-only + **Bash disallowed**
+  (can't spawn a peer → no loop), gemini with **`--sandbox`**; each in its **own process group**
+  with a pidfile under `.collab_agents/`; hard wall-clock timeout (900s). No prompt → the
+  cold-start bootstrap prompt for the active session.
+- **`kill` — the kill switch:** `python tools/collab_agent.py kill` SIGKILLs every tracked agent's
+  process group (and its children). `status` lists running agents.
+- Routed the **Collab Hub** trigger through the wrapper and added a **🛑 Kill all agents** button;
+  routed the `/catchup` Gemini lane through it too. Every invocation path is now killable from one
+  command.
+
+Verified: command construction correct (constraints applied per agent); **kill-switch tested** —
+spawned a synthetic process group, `status` listed it, `kill` terminated it (confirmed dead);
+hub boots clean. `.collab_agents/` is gitignored.
+
+Recommend updating Gemini's two fish helpers to call `python tools/collab_agent.py run …` instead
+of the raw CLIs, so they inherit the constraints + kill-switch (else they're an unguarded back door).
+
+**→ Handoff:**
+**Task:** Roberto — repoint the `claude-catchup` / `agy-catchup` fish functions at
+`tools/collab_agent.py run claude|gemini` (constrained + killable), and keep `collab-kill` =
+`python tools/collab_agent.py kill` as your panic button. Confirm whether to also narrow-allow
+`Bash(python tools/file_lock.py:*)` so hub agents can lock *mutable* files (chat appends already
+work lock-free via O_APPEND).
+**Context:** `tools/collab_agent.py`, `tools/collab_hub.py`, `.claude/commands/catchup.md`.
+**Deliverable:** Fish helpers routed through the wrapper; decision on the narrow-Bash lock allowance.
+
+
 
 
