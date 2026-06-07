@@ -45,5 +45,7 @@ doc/collab/**/Cargo.lock
 doc/collab/**/*.lock
 # Collab Hub transient state (promotion high-water mark)
 doc/collab/**/.promoted_count
+# Running-agent pidfiles for the kill switch (tools/collab_agent.py)
+.collab_agents/
 **/target/
 

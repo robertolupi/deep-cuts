@@ -188,24 +188,30 @@ with st.sidebar.expander("📎 Attach artifact"):
 # ── invoke agent: human-gated, one turn, constrained permissions ────────────
 st.sidebar.subheader("Invoke agent (one turn)")
 with st.sidebar.form("invoke"):
+    sess = f"doc/collab/sessions/{session_dir.name}"
     default_prompt = (
-        f"Read chat_log.jsonl in doc/collab/sessions/{session_dir.name}/ and append exactly "
-        f"one reply (as a new JSON line) to the latest messages. Do not invoke any other agent."
+        f"Read doc/collab/PROTOCOL.md and {sess}/session.md first. "
+        f"Messages in {sess}/chat_log.jsonl are JSON lines: "
+        "{timestamp, sender, type, content}. "
+        'Append exactly one new line as sender:"Claude" replying to the latest message. '
+        "Take the advisory lock (tools/file_lock.py) before editing shared files. "
+        "Do not invoke other agents."
     )
     p_text = st.text_area("Prompt", value=default_prompt, height=140)
     go = st.form_submit_button("Invoke Claude")
     if go:
         # argv list, no shell=True, no --dangerously-skip-permissions, Bash blocked.
-        cmd = [CLAUDE_BIN, "-p", p_text, "--output-format", "json",
-               "--allowedTools", *ALLOWED_TOOLS,
-               "--disallowedTools", *DISALLOWED_TOOLS]
-        st.code(" ".join(shlex.quote(c) for c in cmd), language="bash")
+        # Route through the single chokepoint (constraints + kill-switch + pidfile),
+        # never the raw CLI — so `python tools/collab_agent.py kill` can stop this turn.
+        cmd = [sys.executable, str(REPO / "tools" / "collab_agent.py"), "run", "claude", p_text]
+        st.code("python tools/collab_agent.py run claude '<prompt>'\n"
+                "# kill switch:  python tools/collab_agent.py kill", language="bash")
         try:
-            with st.spinner("Claude is taking one turn…"):
+            with st.spinner("Claude is taking one turn… (kill: python tools/collab_agent.py kill)"):
                 res = subprocess.run(cmd, cwd=str(REPO), capture_output=True,
                                      text=True, timeout=AGENT_TIMEOUT_S)
             if res.returncode != 0:
-                st.error(f"claude exited {res.returncode}:\n{(res.stderr or '')[:800]}")
+                st.error(f"agent exited {res.returncode}:\n{(res.stderr or '')[:800]}")
             else:
                 reply = res.stdout
                 try:
@@ -222,6 +228,19 @@ with st.sidebar.form("invoke"):
             st.error(f"Claude turn exceeded {AGENT_TIMEOUT_S}s and was stopped.")
 
 st.sidebar.caption("Gemini / Meta: paste their reply into the chat manually (they can't write here).")
+
+if st.sidebar.button("🛑 Kill all agents", type="primary"):
+    res = subprocess.run([sys.executable, str(REPO / "tools" / "collab_agent.py"), "kill"],
+                         cwd=str(REPO), capture_output=True, text=True)
+    st.sidebar.warning((res.stdout or "") + (res.stderr or "") or "kill signal sent")
+
+# ── copy-paste catch-up prompt for a Claude Code terminal ───────────────────
+st.sidebar.subheader("Paste into Claude Code")
+st.sidebar.code("/catchup", language="text")
+st.sidebar.caption(
+    f"or paste: Read chat_log.jsonl and session.md in "
+    f"doc/collab/sessions/{session_dir.name}/ and reply to the latest message."
+)
 
 
 # ── promote to session.md (range-based, lock-protected) ─────────────────────
