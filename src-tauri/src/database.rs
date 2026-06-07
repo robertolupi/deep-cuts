@@ -371,6 +371,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/28_structure_cluster.sql")),
         M::up(include_str!("../migrations/29_drop_waveform_fingerprint.sql")),
         M::up(include_str!("../migrations/30_structure_clusters.sql")),
+        M::up(include_str!("../migrations/32_dsp_onsets.sql")),
     ])
 }
 

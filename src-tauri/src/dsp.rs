@@ -27,6 +27,18 @@ pub struct AudioAnalysisResult {
     pub loudness_range: f64,
     pub silence_regions: String,
     pub has_long_silence: bool,
+    /// Picked spectral-flux onset peaks (NOT beats — tempo comes from
+    /// autocorrelation, which has no phase). Times are seconds from the start
+    /// of the analysis window (the centre crop used for key/BPM), paired with
+    /// the normalised flux strength at each peak. Empty when analysis fails.
+    pub onsets: Vec<(f32, f32)>,
+    /// Short-hop chroma time-series. One 12-d pitch-class vector per
+    /// `chroma_time_step` seconds, each paired with its window start time
+    /// (seconds from the start of the analysis window). Large — persisted to
+    /// the `.dc.json` sidecar, never a DB column.
+    pub chroma_series: Vec<(f32, [f32; 12])>,
+    /// Time step (seconds) between consecutive `chroma_series` frames.
+    pub chroma_time_step: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -359,13 +371,22 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
         return Err("Audio too short for analysis".to_string());
     }
 
-    let (key, scale, key_strength, bpm) = match analyze_key_and_bpm_joint(cropped, sample_rate) {
-        Ok((k, s, ks, b)) => (Some(k), Some(s), Some(ks), Some(b)),
-        Err(e) => {
-            log::warn!("[run_audio_analysis] Joint key/BPM analysis failed: {}. Setting fields to NULL.", e);
-            (None, None, None, None)
-        }
-    };
+    let (key, scale, key_strength, bpm, onsets, chroma_series, chroma_time_step) =
+        match analyze_key_and_bpm_joint(cropped, sample_rate) {
+            Ok(j) => (
+                Some(j.key),
+                Some(j.scale),
+                Some(j.key_strength),
+                Some(j.bpm),
+                j.onsets,
+                j.chroma_series,
+                j.chroma_time_step,
+            ),
+            Err(e) => {
+                log::warn!("[run_audio_analysis] Joint key/BPM analysis failed: {}. Setting fields to NULL.", e);
+                (None, None, None, None, Vec::new(), Vec::new(), 0.2)
+            }
+        };
 
     Ok(AudioAnalysisResult {
         duration_seconds,
@@ -378,6 +399,9 @@ pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
         loudness_range,
         silence_regions: silence.silence_regions,
         has_long_silence: silence.has_long_silence,
+        onsets,
+        chroma_series,
+        chroma_time_step,
     })
 }
 
@@ -399,10 +423,24 @@ fn downsample_profile(raw: &[f32], target: usize) -> Vec<f32> {
         .collect()
 }
 
+/// Result of joint key/BPM analysis plus the cached intermediate DSP features.
+pub struct JointAnalysis {
+    pub key: String,
+    pub scale: String,
+    pub key_strength: f64,
+    pub bpm: f64,
+    /// Peak-picked onsets: (time_seconds, normalised_strength).
+    pub onsets: Vec<(f32, f32)>,
+    /// Chroma time-series: (time_seconds, 12-d L1-normalised pitch-class vector).
+    pub chroma_series: Vec<(f32, [f32; 12])>,
+    /// Time step (seconds) between consecutive chroma frames.
+    pub chroma_time_step: f32,
+}
+
 fn analyze_key_and_bpm_joint(
     samples: &[f32],
     sample_rate: u32,
-) -> Result<(String, String, f64, f64), String> {
+) -> Result<JointAnalysis, String> {
     const FFT_SIZE: usize = 4096;
     const HOP_SIZE: usize = 1024;
 
@@ -421,16 +459,26 @@ fn analyze_key_and_bpm_joint(
     let mut fft_buf = vec![Complex::new(0.0, 0.0); FFT_SIZE];
 
     let block_len = 10 * sample_rate as usize;
+    let frame_dt = HOP_SIZE as f32 / sample_rate as f32;
 
-    let mut run_analysis_loop = |apply_filter: bool| -> (usize, [f64; 12], Vec<f64>) {
+    // Per-frame timelines collected across all retained blocks. Times are
+    // absolute seconds from the start of `samples` (the analysis window).
+    // `(time, flux)` for the onset envelope and `(time, chroma12)` for the
+    // chroma time-series. Only filled on the retained (non-skipped) pass.
+    type FrameTimelines = (Vec<(f32, f32)>, Vec<(f32, [f32; 12])>);
+
+    let mut run_analysis_loop = |apply_filter: bool| -> (usize, [f64; 12], Vec<f64>, FrameTimelines) {
         let mut active_count = 0;
         let mut global_chroma = [0.0f64; 12];
         let mut global_ac = Vec::new();
+        let mut flux_timeline: Vec<(f32, f32)> = Vec::new();
+        let mut chroma_timeline: Vec<(f32, [f32; 12])> = Vec::new();
 
-        for block in samples.chunks(block_len) {
+        for (block_idx, block) in samples.chunks(block_len).enumerate() {
             if block.len() < FFT_SIZE {
                 continue;
             }
+            let block_time0 = (block_idx * block_len) as f32 / sample_rate as f32;
 
             // Cheap RMS check
             let sum_sq: f32 = block.iter().map(|&x| x * x).sum();
@@ -443,6 +491,10 @@ fn analyze_key_and_bpm_joint(
             let mut onset = Vec::new();
             let mut prev_mag = vec![0.0f32; FFT_SIZE / 2];
             let mut block_chroma = [0.0f64; 12];
+            // Per-frame chroma (raw magnitudes, unnormalised) collected for the
+            // chroma time-series. Committed to `chroma_timeline` only if the
+            // block survives all downstream filters.
+            let mut frame_chromas: Vec<[f32; 12]> = Vec::new();
             let mut spectral_flatness_sum = 0.0f64;
             let mut frame_count = 0;
 
@@ -460,6 +512,7 @@ fn analyze_key_and_bpm_joint(
                 let mut log_sum = 0.0f64;
                 let mut mag_sum = 0.0f64;
                 let num_bins = FFT_SIZE / 2;
+                let mut frame_chroma = [0.0f32; 12];
 
                 for k in 1..num_bins {
                     let mag = (fft_buf[k].re as f64).hypot(fft_buf[k].im as f64);
@@ -482,10 +535,12 @@ fn analyze_key_and_bpm_joint(
                         let semitone = 12.0 * (freq / 440.0).log2() + 69.0;
                         let pc = (semitone.round() as i64).rem_euclid(12) as usize;
                         block_chroma[pc] += mag;
+                        frame_chroma[pc] += mag_f;
                     }
                 }
 
                 onset.push(flux);
+                frame_chromas.push(frame_chroma);
 
                 let arithmetic_mean = mag_sum / (num_bins - 1) as f64;
                 let geometric_mean = (log_sum / (num_bins - 1) as f64).exp();
@@ -512,6 +567,18 @@ fn analyze_key_and_bpm_joint(
                 if var_onset < 0.01 || avg_flatness > 0.75 {
                     continue;
                 }
+            }
+
+            // Commit per-frame onset envelope and chroma to the timelines now
+            // that the block has survived all filters. Times are absolute
+            // seconds from the start of the analysis window.
+            for (frame_idx, &flux) in onset.iter().enumerate() {
+                let t = block_time0 + frame_idx as f32 * frame_dt;
+                flux_timeline.push((t, flux));
+            }
+            for (frame_idx, chroma) in frame_chromas.iter().enumerate() {
+                let t = block_time0 + frame_idx as f32 * frame_dt;
+                chroma_timeline.push((t, *chroma));
             }
 
             // Autocorrelation accumulation
@@ -542,10 +609,11 @@ fn analyze_key_and_bpm_joint(
             active_count += 1;
         }
 
-        (active_count, global_chroma, global_ac)
+        (active_count, global_chroma, global_ac, (flux_timeline, chroma_timeline))
     };
 
-    let (mut active_block_count, mut global_chroma, mut global_ac) = run_analysis_loop(true);
+    let (mut active_block_count, mut global_chroma, mut global_ac, mut timelines) =
+        run_analysis_loop(true);
 
     if active_block_count == 0 {
         // Fallback: Run without block filtering
@@ -553,6 +621,7 @@ fn analyze_key_and_bpm_joint(
         active_block_count = res.0;
         global_chroma = res.1;
         global_ac = res.2;
+        timelines = res.3;
     }
 
     if active_block_count == 0 || global_ac.is_empty() {
@@ -656,12 +725,123 @@ fn analyze_key_and_bpm_joint(
         }
     }
 
-    Ok((
-        KEY_NAMES[best_key].to_string(),
-        best_scale.to_string(),
-        (best_corr * 10000.0).round() / 10000.0,
+    // Post-process the cached intermediate features.
+    let (flux_timeline, chroma_timeline) = timelines;
+    let onsets = pick_onset_peaks(&flux_timeline);
+    let chroma_time_step = 0.2f32;
+    let chroma_series = bin_chroma_series(&chroma_timeline, chroma_time_step);
+
+    Ok(JointAnalysis {
+        key: KEY_NAMES[best_key].to_string(),
+        scale: best_scale.to_string(),
+        key_strength: (best_corr * 10000.0).round() / 10000.0,
         bpm,
-    ))
+        onsets,
+        chroma_series,
+        chroma_time_step,
+    })
+}
+
+/// Peak-pick a per-frame spectral-flux envelope into a compact list of onsets.
+///
+/// Uses an adaptive-threshold local-maximum picker: a frame is an onset peak
+/// when it is the maximum within a small neighbourhood AND exceeds a local mean
+/// (over a wider window) plus a fraction of the global flux scale. Strengths are
+/// normalised to the peak flux (0..1) and rounded for compact storage.
+fn pick_onset_peaks(flux_timeline: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    let n = flux_timeline.len();
+    if n == 0 {
+        return Vec::new();
+    }
+
+    let flux: Vec<f32> = flux_timeline.iter().map(|&(_, f)| f).collect();
+    let max_flux = flux.iter().cloned().fold(0.0f32, f32::max);
+    if max_flux <= 0.0 {
+        return Vec::new();
+    }
+    let mean_flux = flux.iter().sum::<f32>() / n as f32;
+
+    // ~0.05 s @ 23 ms/frame => +/-2 frames local-max window;
+    // ~0.5 s mean window => +/-11 frames for the adaptive threshold.
+    let local_win = 2usize;
+    let mean_win = 11usize;
+    let delta = 0.10 * max_flux; // minimum prominence above local mean
+
+    let mut peaks: Vec<(f32, f32)> = Vec::new();
+    let mut last_peak_idx: Option<usize> = None;
+    for i in 0..n {
+        let v = flux[i];
+        if v < mean_flux {
+            continue;
+        }
+        // Local maximum check.
+        let lo = i.saturating_sub(local_win);
+        let hi = (i + local_win + 1).min(n);
+        if flux[lo..hi].iter().cloned().fold(0.0f32, f32::max) > v {
+            continue;
+        }
+        // Adaptive threshold: exceed local mean + delta.
+        let mlo = i.saturating_sub(mean_win);
+        let mhi = (i + mean_win + 1).min(n);
+        let local_mean = flux[mlo..mhi].iter().sum::<f32>() / (mhi - mlo) as f32;
+        if v < local_mean + delta {
+            continue;
+        }
+        // Minimum spacing of ~0.05 s to avoid double-counting plateaus.
+        if let Some(p) = last_peak_idx {
+            if i - p < local_win {
+                continue;
+            }
+        }
+        let t = (flux_timeline[i].0 * 1000.0).round() / 1000.0;
+        let strength = (v / max_flux * 1000.0).round() / 1000.0;
+        peaks.push((t, strength));
+        last_peak_idx = Some(i);
+    }
+    peaks
+}
+
+/// Bin a per-frame chroma timeline into a fixed-hop time-series.
+///
+/// Frames falling within each `step` window are averaged and L1-normalised so
+/// each emitted vector sums to 1 (or all-zero for silent windows). The emitted
+/// time is the window start (seconds from the analysis-window start).
+fn bin_chroma_series(chroma_timeline: &[(f32, [f32; 12])], step: f32) -> Vec<(f32, [f32; 12])> {
+    if chroma_timeline.is_empty() || step <= 0.0 {
+        return Vec::new();
+    }
+    let t_end = chroma_timeline.last().unwrap().0;
+    let num_bins = (t_end / step).floor() as usize + 1;
+
+    let mut sums = vec![[0.0f64; 12]; num_bins];
+    let mut counts = vec![0u32; num_bins];
+    for &(t, chroma) in chroma_timeline {
+        let bin = (t / step).floor() as usize;
+        if bin >= num_bins {
+            continue;
+        }
+        for i in 0..12 {
+            sums[bin][i] += chroma[i] as f64;
+        }
+        counts[bin] += 1;
+    }
+
+    let mut series = Vec::with_capacity(num_bins);
+    for bin in 0..num_bins {
+        if counts[bin] == 0 {
+            continue;
+        }
+        let total: f64 = sums[bin].iter().sum();
+        let mut vec12 = [0.0f32; 12];
+        if total > 0.0 {
+            for i in 0..12 {
+                vec12[i] = ((sums[bin][i] / total) as f32 * 10000.0).round() / 10000.0;
+            }
+        }
+        let t = bin as f32 * step;
+        series.push((t, vec12));
+    }
+    series
 }
 
 fn pearson_with_rotation(chroma: &[f64; 12], profile: &[f64; 12], root: usize) -> f64 {
@@ -763,6 +943,51 @@ mod tests {
         assert_eq!(base64_encode(b"hello"), "aGVsbG8=");
         assert_eq!(base64_encode(b"world!"), "d29ybGQh");
         assert_eq!(base64_encode(b""), "");
+    }
+
+    #[test]
+    fn test_pick_onset_peaks_empty_and_silent() {
+        assert!(pick_onset_peaks(&[]).is_empty());
+        let silent: Vec<(f32, f32)> = (0..50).map(|i| (i as f32 * 0.023, 0.0)).collect();
+        assert!(pick_onset_peaks(&silent).is_empty());
+    }
+
+    #[test]
+    fn test_pick_onset_peaks_finds_spikes() {
+        // Flat low envelope with two clear spikes; expect both to be picked.
+        let mut env: Vec<(f32, f32)> = (0..60).map(|i| (i as f32 * 0.023, 0.1)).collect();
+        env[20].1 = 5.0;
+        env[45].1 = 4.0;
+        let peaks = pick_onset_peaks(&env);
+        assert_eq!(peaks.len(), 2, "expected two onset peaks, got {:?}", peaks);
+        // Strength is normalised to the max flux (5.0) -> peak at idx20 == 1.0.
+        assert!((peaks[0].1 - 1.0).abs() < 1e-3);
+        // Times are the frame times of the spikes.
+        assert!((peaks[0].0 - 20.0 * 0.023).abs() < 1e-3);
+        assert!((peaks[1].0 - 45.0 * 0.023).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_bin_chroma_series_bins_and_normalises() {
+        let step = 0.2f32;
+        // Two frames inside bin 0, one in bin 1. C (pc 0) dominant.
+        let mut a = [0.0f32; 12];
+        a[0] = 3.0;
+        a[7] = 1.0;
+        let mut b = [0.0f32; 12];
+        b[0] = 1.0;
+        let series = bin_chroma_series(&[(0.0, a), (0.05, a), (0.25, b)], step);
+        assert_eq!(series.len(), 2);
+        // Each emitted vector is L1-normalised.
+        for (_, v) in &series {
+            let sum: f32 = v.iter().sum();
+            assert!((sum - 1.0).abs() < 1e-3, "vector not normalised: {:?}", v);
+        }
+        // Bin 0 starts at t=0, bin 1 at t=0.2.
+        assert!((series[0].0 - 0.0).abs() < 1e-6);
+        assert!((series[1].0 - 0.2).abs() < 1e-6);
+        // Bin 1 is pure C.
+        assert!((series[1].1[0] - 1.0).abs() < 1e-3);
     }
 
     #[test]
