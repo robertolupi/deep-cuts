@@ -134,8 +134,7 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
     )?;
     let rows: Vec<(String, u32, Option<String>)> = stmt
         .query_map([track_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     for (pass_name, version, last_run) in rows {
         pass_versions.insert(pass_name.clone(), version);
         if let Some(t) = last_run {
@@ -151,16 +150,14 @@ pub fn save(conn: &Connection, track_id: i64) -> Result<(), Box<dyn std::error::
     )?;
     let user_tags: Vec<String> = user_tags_stmt
         .query_map([track_id], |row| row.get(0))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let mut suppressed_stmt = conn.prepare(
         "SELECT tag_name FROM user_suppressed_tags WHERE track_path = ?1",
     )?;
     let suppressed_tags: Vec<String> = suppressed_stmt
         .query_map([&path], |row| row.get(0))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let sidecar = SidecarData {
         version: 1,
@@ -351,8 +348,7 @@ pub fn export_all(conn: &Connection) -> Result<usize, Box<dyn std::error::Error>
     let mut stmt = conn.prepare("SELECT id FROM tracks")?;
     let ids: Vec<i64> = stmt
         .query_map([], |row| row.get(0))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let mut count = 0;
     for id in ids {

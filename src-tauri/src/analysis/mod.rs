@@ -678,8 +678,8 @@ impl PipelineManager {
                     })
                 })
                 .map_err(|e| e.to_string())?
-                .filter_map(|r| r.ok())
-                .collect();
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
 
             for job in &rows {
                 let _ = conn.execute(
@@ -704,8 +704,8 @@ impl PipelineManager {
                 .map_err(|e| e.to_string())?
                 .query_map([pass_status::PENDING], |row| Ok((row.get(0)?, row.get(1)?)))
                 .map_err(|e| e.to_string())?
-                .filter_map(|r| r.ok())
-                .collect();
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
             log::info!("[pipeline] pending counts: {:?}", pending_counts);
             !pending_counts.is_empty()
         };

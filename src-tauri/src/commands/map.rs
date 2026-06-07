@@ -373,7 +373,9 @@ pub fn search_similar_tracks_audio(
             })
             .map_err(|e| e.to_string())?;
         mapped
-            .filter_map(|r| r.ok())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
+            .into_iter()
             .filter(|r| r.distance.is_finite())
             .collect()
     } else {
@@ -417,7 +419,9 @@ pub fn search_similar_tracks_audio(
             })
             .map_err(|e| e.to_string())?;
         mapped
-            .filter_map(|r| r.ok())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
+            .into_iter()
             .filter(|r| r.distance.is_finite())
             .collect()
     };
@@ -485,7 +489,7 @@ pub async fn find_duplicate_pairs(
                 ))
             })
             .map_err(|e| e.to_string())?;
-        rows.filter_map(|r| r.ok()).collect()
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
     };
 
     struct TrackEmb {
@@ -732,7 +736,7 @@ fn compute_harmonic_layout(
     let mut bpms: Vec<Option<f64>> = Vec::new();
     let mut keys: Vec<Option<String>> = Vec::new();
     let mut scales: Vec<Option<String>> = Vec::new();
-    for r in rows.filter_map(|r| r.ok()) {
+    for r in rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())? {
         ids.push(r.0); genres.push(r.1); bpms.push(r.2); keys.push(r.3); scales.push(r.4);
     }
 
@@ -802,7 +806,7 @@ fn compute_essentia_layout(
     let mut ids = Vec::new();
     let mut genres = Vec::new();
     let mut moods: Vec<[f64; 7]> = Vec::new();
-    for r in rows.filter_map(|r| r.ok()) {
+    for r in rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())? {
         ids.push(r.0); genres.push(r.1); moods.push(r.2);
     }
 
@@ -872,7 +876,7 @@ fn compute_genre_wheel_layout(
     let mut bpms: Vec<Option<f64>> = Vec::new();
     let mut keys: Vec<Option<String>> = Vec::new();
     let mut scales: Vec<Option<String>> = Vec::new();
-    for r in rows.filter_map(|r| r.ok()) {
+    for r in rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())? {
         ids.push(r.0); genres.push(r.1); bpms.push(r.2); keys.push(r.3); scales.push(r.4);
     }
 
@@ -952,7 +956,7 @@ fn compute_hybrid_layout(
 
     let mut ids = Vec::new();
     let mut blended_vectors = Vec::new();
-    for (id, clap_blob, desc_blob_opt) in rows.filter_map(|r| r.ok()) {
+    for (id, clap_blob, desc_blob_opt) in rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())? {
         let clap_embed = bytes_to_floats(&clap_blob);
         let desc_embed_opt = desc_blob_opt.map(|b| bytes_to_floats(&b));
         let blended = blended_projection_vector(&clap_embed, desc_embed_opt.as_deref(), clap_weight);

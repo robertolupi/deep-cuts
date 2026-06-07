@@ -491,8 +491,8 @@ pub async fn search_semantic_tracks(
         .map_err(AppError::Database)?;
 
     let results: Vec<SemanticSearchResult> = rows
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(AppError::Database)?;
 
     Ok(results)
 }
@@ -569,8 +569,8 @@ pub async fn search_clap_tracks(
         .map_err(AppError::Database)?;
 
     let mut results: Vec<SemanticSearchResult> = rows
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(AppError::Database)?;
 
     // Sort by score descending
     results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));

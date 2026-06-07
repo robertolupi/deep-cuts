@@ -30,7 +30,7 @@ fn query_all(conn: &Connection, sql: &str, params: &[&dyn rusqlite::ToSql]) -> V
     };
     let col_count = stmt.column_count();
     let result: Vec<Value> = match stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| Ok(row_to_json(row, col_count))) {
-        Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+        Ok(iter) => iter.filter_map(|r| r.map_err(|e| log::warn!("[debug] row error: {e}")).ok()).collect(),
         Err(e)   => { log::warn!("[debug] execute failed: {}", e); vec![] }
     };
     result
@@ -72,7 +72,7 @@ pub fn debug_track_raw(
             "SELECT tag_name FROM user_suppressed_tags WHERE track_path = ?1"
         ).unwrap_or_else(|_| conn.prepare("SELECT 1 WHERE 0").unwrap());
         stmt.query_map([p], |r| r.get(0))
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .map(|rows| rows.filter_map(|r| r.map_err(|e| log::warn!("[debug] row error: {e}")).ok()).collect())
             .unwrap_or_default()
     } else {
         vec![]

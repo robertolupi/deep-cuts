@@ -517,8 +517,8 @@ pub async fn enrich_all_pending(app: &AppHandle) -> Result<u64, String> {
         let ids: Vec<i64> = stmt
             .query_map([], |row| row.get(0))
             .map_err(|e| e.to_string())?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
         ids
     };
 

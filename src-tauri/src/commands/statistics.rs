@@ -88,8 +88,8 @@ fn fetch_f64s(conn: &Connection, sql: &str) -> Result<Vec<f64>, String> {
     let rows: Vec<f64> = stmt
         .query_map([], |r| r.get(0))
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 
@@ -98,8 +98,8 @@ fn fetch_label_counts(conn: &Connection, sql: &str) -> Result<Vec<LabelCount>, S
     let rows: Vec<LabelCount> = stmt
         .query_map([], |r| Ok(LabelCount { label: r.get(0)?, count: r.get(1)? }))
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 
@@ -108,8 +108,8 @@ fn fetch_strings(conn: &Connection, sql: &str) -> Result<Vec<String>, String> {
     let rows: Vec<String> = stmt
         .query_map([], |r| r.get(0))
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 

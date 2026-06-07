@@ -310,8 +310,8 @@ impl super::BatchAnalysisPass for StructureClusterPass {
             Ok(TrackRow { id: row.get(0)?, alignment: row.get(1)? })
         })
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
         drop(stmt);
 

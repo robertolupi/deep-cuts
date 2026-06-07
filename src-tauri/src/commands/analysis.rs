@@ -72,8 +72,8 @@ pub fn get_pass_stats(
             ))
         })
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     let mut errors_stmt = conn
         .prepare(
@@ -97,8 +97,8 @@ pub fn get_pass_stats(
                 ))
             })
             .map_err(|e| e.to_string())?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
 
     // Query historical averages from metrics database
     let historical_averages = {
@@ -116,9 +116,10 @@ pub fn get_pass_stats(
                     Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
                 })
                 .ok()
-                .map(|rows| {
-                    rows.filter_map(|r| r.ok())
-                        .collect::<std::collections::HashMap<String, f64>>()
+                .and_then(|rows| {
+                    rows.collect::<Result<std::collections::HashMap<String, f64>, _>>()
+                        .map_err(|e| log::warn!("[analysis] metrics averages row error: {e}"))
+                        .ok()
                 })
                 .unwrap_or_default()
             } else {

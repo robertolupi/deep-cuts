@@ -62,7 +62,7 @@ pub fn get_playlists(
         })
     })?;
     
-    let playlists: Vec<Playlist> = rows.filter_map(|r| r.ok()).collect();
+    let playlists: Vec<Playlist> = rows.collect::<Result<Vec<_>, _>>()?;
     Ok(playlists)
 }
 
@@ -174,7 +174,7 @@ pub fn get_playlist_tracks(
         })
     })?;
     
-    let tracks: Vec<PlaylistTrack> = rows.filter_map(|r| r.ok()).collect();
+    let tracks: Vec<PlaylistTrack> = rows.collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
 }
 
@@ -301,9 +301,9 @@ pub fn reorder_playlist_track(
             })
         })?;
         
-        rows.filter_map(|r| r.ok()).collect()
+        rows.collect::<Result<Vec<_>, _>>()?
     };
-    
+
     if from_pos < 0 || from_pos >= tracks.len() as i32 || to_pos < 0 || to_pos >= tracks.len() as i32 {
         return Err(AppError::Generic("Invalid reorder index bounds".to_string()));
     }
@@ -367,7 +367,7 @@ pub fn get_saved_searches(
         })
     })?;
     
-    let searches: Vec<SavedSearch> = rows.filter_map(|r| r.ok()).collect();
+    let searches: Vec<SavedSearch> = rows.collect::<Result<Vec<_>, _>>()?;
     Ok(searches)
 }
 
@@ -461,7 +461,7 @@ pub fn get_playlists_for_track(
         })
     })?;
     
-    let playlists: Vec<Playlist> = rows.filter_map(|r| r.ok()).collect();
+    let playlists: Vec<Playlist> = rows.collect::<Result<Vec<_>, _>>()?;
     Ok(playlists)
 }
 
@@ -483,9 +483,9 @@ pub fn remove_track_from_playlist_by_id(
             "SELECT position FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2 ORDER BY position DESC"
         )?;
         let rows = stmt.query_map(rusqlite::params![playlist_id, track_id], |row| row.get(0))?;
-        rows.filter_map(|r| r.ok()).collect()
+        rows.collect::<Result<Vec<_>, _>>()?
     };
-    
+
     for pos in positions {
         tx.execute(
             "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND position = ?2",

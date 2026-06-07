@@ -79,8 +79,8 @@ pub fn get_metrics_summary(
             count: row.get(4)?,
         })
     }).map_err(AppError::Database)?
-    .filter_map(|r| r.ok())
-    .collect();
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(AppError::Database)?;
 
     let mut stmt = conn.prepare(
         "SELECT id, run_id, track_id, pass_name, status, duration_ms, started_at, ended_at, audio_duration_sec, error_message
@@ -104,8 +104,8 @@ pub fn get_metrics_summary(
             error_message: row.get(9)?,
         })
     }).map_err(AppError::Database)?
-    .filter_map(|r| r.ok())
-    .collect();
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(AppError::Database)?;
 
     Ok(MetricsSummary {
         latencies,
@@ -138,8 +138,8 @@ pub fn get_raw_metrics_payload(
             error_message: row.get(9)?,
         })
     }).map_err(AppError::Database)?
-    .filter_map(|r| r.ok())
-    .collect();
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(AppError::Database)?;
 
     let mut stmt = conn.prepare(
         "SELECT id, event_type, details, duration_ms, created_at
@@ -156,8 +156,8 @@ pub fn get_raw_metrics_payload(
             created_at: row.get(4)?,
         })
     }).map_err(AppError::Database)?
-    .filter_map(|r| r.ok())
-    .collect();
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(AppError::Database)?;
 
     Ok(RawMetricsPayload {
         pipeline_metrics,
@@ -194,8 +194,8 @@ pub fn get_pipeline_run_traces(
             failed: row.get(6)?,
         })
     }).map_err(AppError::Database)?
-    .filter_map(|r| r.ok())
-    .collect();
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(AppError::Database)?;
 
     Ok(spans)
 }

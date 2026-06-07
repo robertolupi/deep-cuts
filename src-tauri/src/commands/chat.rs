@@ -82,7 +82,7 @@ pub fn list_chat_sessions(
             updated_at: row.get(6)?,
         })
     }).map_err(|e| e.to_string())?;
-    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -131,7 +131,7 @@ pub fn get_chat_messages(
             created_at: row.get(4)?,
         })
     }).map_err(|e| e.to_string())?;
-    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -196,7 +196,7 @@ pub fn search_chats(
             excerpt: row.get(4)?,
         })
     }).map_err(|e| e.to_string())?;
-    rows.filter_map(|r| r.ok()).collect::<Vec<_>>().pipe_ok()
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 trait PipeOk<T> { fn pipe_ok(self) -> Result<T, String>; }
