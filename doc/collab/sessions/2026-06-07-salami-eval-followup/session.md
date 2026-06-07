@@ -993,6 +993,68 @@ prototype, what to defer, and what to kill.
 **Deliverable:** Final synthesis for Roberto; keep it aligned with app-first priority and the frozen
 Phase 0/roadmap guardrails.
 
+## [Codex, 21:38] — Optimizer Add-On
+
+Claude asked for the runtime/implementation take on derivative-free optimizers (`amoeba`, Bayesian
+optimization, CMA-ES, ant colony, nevergrad, random search), with agy owning final synthesis.
+
+Installed-package check:
+
+- `scipy` is installed.
+- `optuna` is not installed.
+- `nevergrad` is not installed.
+
+Recommendation for the first optimizer bake-off: **use SciPy + random search**, not a new optimizer
+dependency yet.
+
+Why:
+
+- The first useful tuning space should be tiny: novelty source, smoothing/kernel width, threshold or
+  top-k, min boundary spacing, and maybe one fusion weight. That is about 2-6 knobs.
+- `mir_eval` F1 is noisy and non-differentiable, so gradients are not useful.
+- Each eval is cheap enough once features are cached, but validation-set reuse is the real risk. The
+  optimizer must be pre-registered and the number of trials reported.
+- SciPy gives `optimize.differential_evolution` and `optimize.minimize(method="Nelder-Mead")` without
+  adding dependencies. Random search is the required baseline that any fancy optimizer must beat.
+
+Suggested first bake-off:
+
+1. Random search: 50 trials.
+2. SciPy differential evolution: about 60-100 function evaluations.
+3. Optional Nelder-Mead local polish from the best random/DE point: <=30 evaluations.
+
+Budget: keep the whole bake-off under about **150 validation evaluations**. If 150 evals are not enough
+to find a stable win over the fixed baseline, the search surface is probably too noisy or the features
+are not informative enough. Do not keep increasing trials until validation improves.
+
+When to add Optuna:
+
+- Add Optuna only if we need conditional/categorical search spaces and want study persistence/pruning.
+- It is a good later choice, but for the first pass the dependency cost and extra machinery are not
+  needed.
+
+Ant colony:
+
+- Not worth it for continuous HPO.
+- For boundary selection, formulate it as a dynamic-programming/Viterbi path problem instead. If the
+  objective decomposes over candidate boundaries with transition/duration costs, DP/Viterbi is exact
+  and easier to test. Ant colony is heuristic machinery where we likely have an exact structured
+  solution.
+
+Codex synthesis input:
+
+- Prototype fixed SSM first.
+- Add random search + SciPy DE as the first optimizer layer.
+- Keep trial counts small and pre-registered.
+- Use DP/Viterbi for combinatorial boundary selection, not ant colony.
+- Defer Optuna/nevergrad/differentiable HPO until a fixed-feature baseline has proven signal.
+
+**→ Handoff:**
+**Task:** Agy/Gemini — include this optimizer recommendation in the final brainstorm synthesis.
+**Context:** Claude's optimizer add-on, Codex package check, and the Phase 0 guardrails.
+**Deliverable:** Final synthesis: optimizer path should be random-search baseline + SciPy first;
+Optuna later if needed; DP/Viterbi instead of ant colony for boundary selection.
+
 ---
 
 ## [Gemini, 21:39] — Final Brainstorm Synthesis: Untrained CNN & Optimization
@@ -1001,18 +1063,21 @@ Quoting the handoff I picked up:
 > **Task:** Agy/Gemini — synthesize the brainstorm responses into a short recommendation: what to prototype, what to defer, and what to kill.
 > **Deliverable:** Final synthesis for Roberto; keep it aligned with app-first priority and the frozen Phase 0/roadmap guardrails.
 
-Having reviewed the contributions from Claude (categorization of HPO vs Boundary Selection) and Codex (runtime performance and scaling constraints), here is the agreed-upon synthesis and recommendation.
+Having reviewed the contributions from Claude (categorization of HPO vs Boundary Selection) and Codex (package check and runtime constraints), here is the finalized synthesis and recommendation.
 
 ### 1. What to PROTOTYPE (Immediate Phase 1 Scope)
 
 * **Phase 1a (Novelty Source Swap)**: Run the cheapest resolution check by swapping the novelty source in `refine_salami_boundaries.py` from the 128-pt `waveform_data` to the cached 23 ms onsets / 0.2 s chroma. This isolates the resolution ceiling hypothesis with minimal code changes.
 * **Phase 1b (Tensor SSM in Python)**: Build the PyTorch/NumPy-based offline SSM prototype. Python tensor operations are the correct environment to verify the Foote checkerboard kernel algorithm before writing any Rust code.
 * **External Foote Baseline (Amendment D)**: Implement or run a standard MSAF/Librosa Foote baseline to serve as our anchor comparison, ensuring our custom SSM beats a stock off-the-shelf detector.
-* **Optuna (TPE) for P1 (Hyperparameter Optimization)**: Use Bayesian Optimization via **Optuna** (TPE sampler) on validation-only cross-validation. It handles mixed continuous/discrete spaces (e.g., SAX bin size vs kernel width) and is highly sample-efficient, which directly minimizes validation-set overfitting (amendment C/forking paths).
+* **SciPy + Random Search for P1 (Hyperparameter Optimization)**: 
+  * Codex verified that `optuna` and `nevergrad` are **not** installed in our environment, while `scipy` is. 
+  * **Recommendation**: Start with a 50-trial **Random Search** baseline, followed by **SciPy's `differential_evolution`** (60-100 evals), and optionally local **Nelder-Mead** polishing (<=30 evals). Keep the total optimization budget under **150 evaluations** to control validation-set overfitting (amendment C).
 * **Viterbi/Dynamic Programming for P2 (Boundary Selection)**: Use exact 1D DP sequence segmentation with transition/duration priors (the original Approach B Viterbi search) to select final boundaries from candidate peaks.
 
 ### 2. What to DEFER (Post-Validation Gate)
 
+* **Optuna / Nevergrad Dependency**: Defer adding new dependencies like `optuna` or `nevergrad` until a fixed-feature SSM baseline has proven signal, and we require conditional/categorical search spaces or study persistence.
 * **Rust ndarray Porting**: Do not write any Rust code for the SSM until the Python prototype clears the validation gate (beating the 16-bin oracle significantly).
 * **Tiny Trained Head**: Defer replacing the hand-tuned readout with a differentiable head (e.g., logistic regression/MLP) until we have established a solid fixed-feature SSM baseline. If we do train one, keep it under 10 parameters to prevent memorization on our small $N$ (~200–345 tracks).
 * **Ant Colony Optimization (ACO) for P2**: Defer ACO. While a natural fit for graph-based pathfinding, 1D sequence segmentation is solved exactly and more cheaply by Viterbi/DP. Revisit ACO only if we move to multi-modal 2D structural graphs.
@@ -1020,7 +1085,7 @@ Having reviewed the contributions from Claude (categorization of HPO vs Boundary
 ### 3. What to KILL (Over-engineering / High Risk)
 
 * **SSM ONNX/`ort` Compilation**: Kill the plan to compile the SSM itself into ONNX. For a 90 s crop at 0.2 s steps ($N \approx 450$), the matrix operations are tiny. Setup and copy overhead in ONNX Runtime would likely dominate. The hotspot is the CLAP forward pass, not the SSM.
-* **Differentiable Peak-Picking (End-to-End HPO)**: Kill differentiable NMS / soft-argmax. It adds extreme complexity to the optimization graph for little practical return compared to Optuna sweeps.
+* **Differentiable Peak-Picking (End-to-End HPO)**: Kill differentiable NMS / soft-argmax. It adds extreme complexity to the optimization graph for little practical return compared to SciPy/Random search sweeps.
 * **Medium/Large Trained Models**: Kill any neural sequence models trained end-to-end on CLAP/chroma inputs due to severe data limitations. Keep the untrained CNN front-end fixed.
 
 ---
