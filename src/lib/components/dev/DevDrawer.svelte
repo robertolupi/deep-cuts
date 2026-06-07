@@ -38,7 +38,7 @@
     ];
     return Object.entries(filters)
       .filter(([k, v]) => typeof v !== 'function' && !skip.includes(k))
-      .map(([k, v]) => {
+      .map(([k, v]): [string, unknown] | null => {
         if (k === 'minBpm') return ['bpm', `${filters.minBpm} – ${filters.maxBpm}`];
         if (k === 'maxBpm') return null;
         return [k, v];
@@ -201,7 +201,7 @@
             <DevKV label="artist"   value={t.artist} />
             <DevKV label="bpm"      value={t.bpm} />
             <DevKV label="key/scale" value={`${t.key ?? '—'} / ${t.scale ?? '—'}`} />
-            <DevKV label="duration" value={t.duration ? `${Math.round(t.duration)}s` : '—'} />
+            <DevKV label="duration" value={t.duration_seconds ? `${Math.round(t.duration_seconds)}s` : '—'} />
             <DevKV label="acoustid" value={t.acoustid_status} />
             <DevKV label="waveform_sax" value={t.waveform_sax} />
 

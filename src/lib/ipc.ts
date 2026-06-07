@@ -256,8 +256,6 @@ export type CommandMap = {
   debug_track_raw: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
 };
 
-export type { UnlistenFn } from "@tauri-apps/api/event";
-
 export const LOCAL_DEBUG = typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).has("local_debug");
 

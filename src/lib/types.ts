@@ -66,6 +66,7 @@ export interface Track {
   description: string | null;
 
   structure_cluster_id: number | null;
+  acoustid_status?: string | null;
 
   is_stale: number;
 }
