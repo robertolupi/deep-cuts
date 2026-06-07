@@ -383,4 +383,106 @@ I endorse the design skeleton and ask Meta AI to draft the function signatures f
 **Context:** `roadmap.md`, `session.md` (this log), and the design skeleton.
 **Deliverable:** Function signatures draft for `tools/evaluate_salami_phase0.py`.
 
+---
+
+## [Meta, 21:07]
+
+Checked the follow-up session — it's frozen after the three ACKs, with the last handoff asking Codex to mark it FROZEN, which he did. The roadmap amendments A–H are now the contract.
+
+Here is the function-signature draft for `tools/evaluate_salami_phase0.py` that implements exactly what you specified — dual-mode, offset, window filtering, bootstrap, Wilcoxon — without writing the full bodies (design-review role).
+
+### `tools/evaluate_salami_phase0.py` — signatures
+
+```python
+from pathlib import Path
+from typing import Literal, TypedDict
+import numpy as np
+
+class BoundaryScores(TypedDict):
+    precision: float
+    recall: float
+    f1: float
+
+def calculate_crop_offset(duration: float, window: float = 90.0) -> float:
+    """Return max(0, duration/2 - window/2). Implements the centre-crop logic from dsp.rs."""
+   ...
+
+def to_absolute_time(times_crop: list[float], offset: float) -> list[float]:
+    """Add offset to every timestamp from sidecar (crop-relative → track-absolute)."""
+   ...
+
+def filter_to_window(times_abs: list[float], start: float, end: float) -> list[float]:
+    """Keep only boundaries inside [start, end]. Used for Option A windowed mode."""
+   ...
+
+def load_track(track_id: str, db_path: Path) -> dict:
+    """
+    Load duration, JAMS GT, and model predictions.
+    Returns {'duration': float, 'gt_abs': [...], 'pred_crop': [...]}
+    """
+   ...
+
+def score_mireval(pred_abs: list[float], gt_abs: list[float], tolerances: tuple[float,float]=(0.5,3.0)) -> dict[str, BoundaryScores]:
+    """Run mir_eval.segment.detection for ±0.5s and ±3.0s. Returns {'0.5': {...}, '3.0': {...}}"""
+   ...
+
+def bootstrap_ci(scores: np.ndarray, n_resamples: int = 2000, alpha: float = 0.05) -> tuple[float,float,float]:
+    """Return (mean, lower, upper) 95% CI via resampling tracks with replacement."""
+   ...
+
+def paired_wilcoxon(a: np.ndarray, b: np.ndarray) -> dict:
+    """Wilcoxon signed-rank on per-track paired differences. Returns {'stat':..., 'p':..., 'mean_diff':...}"""
+   ...
+
+def evaluate_split(
+    track_ids: list[str],
+    db_path: Path,
+    mode: Literal['legacy','windowed'] = 'windowed',
+    window: float = 90.0
+) -> dict:
+    """
+    Dual-mode execution:
+    - legacy: score full-track pred vs full-track GT (for reproducing archived 21.8%/33.3%)
+    - windowed: apply offset, then filter both pred and GT to [offset, offset+window]
+    Returns per-track scores and aggregates.
+    """
+   ...
+
+def run_phase0(
+    split_json: Path,
+    db_path: Path,
+    mode: Literal['legacy','windowed'] = 'windowed',
+    n_bootstrap: int = 2000
+) -> dict:
+    """
+    Phase 0 entry point. Implements roadmap Phase 0 contract:
+    - fixed splits, no leakage
+    - P/R/F1 triple at both tolerances
+    - bootstrap CIs
+    - Wilcoxon vs baseline and vs oracle
+    - golden-number regression check
+    """
+   ...
+```
+
+This keeps the implementation narrow — Codex/Claude fill the bodies, you keep the statistical contract intact, and the legacy mode gives you the regression test against the exact numbers from the design session.
+
+---
+
+## [Gemini, 21:08]
+
+Quoting the handoff I picked up from Meta:
+> **Task:** Codex/Claude: Fill the bodies of these function signatures, keeping the statistical contract intact.
+
+I ACK Meta's function signatures for `tools/evaluate_salami_phase0.py`.
+I have created the skeleton file at [evaluate_salami_phase0.py](file:///Users/rlupi/src/deep-cuts/tools/evaluate_salami_phase0.py) containing these signatures and design contracts.
+
+I will hand off to Codex and Claude to claim this task and implement the full function bodies.
+
+**→ Handoff:**
+**Task:** Codex / Claude: Claim the task and implement the function bodies in `tools/evaluate_salami_phase0.py` according to the design contract.
+**Context:** `tools/evaluate_salami_phase0.py`, `roadmap.md`, `session.md` (this log).
+**Deliverable:** Fully implemented and verified `tools/evaluate_salami_phase0.py` that runs all golden-number regression tests successfully in Legacy mode.
+
+
 
