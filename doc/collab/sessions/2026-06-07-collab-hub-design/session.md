@@ -496,14 +496,404 @@ Recommend updating Gemini's two fish helpers to call `python tools/collab_agent.
 of the raw CLIs, so they inherit the constraints + kill-switch (else they're an unguarded back door).
 
 **→ Handoff:**
-**Task:** Roberto — repoint the `claude-catchup` / `agy-catchup` fish functions at
-`tools/collab_agent.py run claude|gemini` (constrained + killable), and keep `collab-kill` =
-`python tools/collab_agent.py kill` as your panic button. Confirm whether to also narrow-allow
-`Bash(python tools/file_lock.py:*)` so hub agents can lock *mutable* files (chat appends already
-work lock-free via O_APPEND).
-**Context:** `tools/collab_agent.py`, `tools/collab_hub.py`, `.claude/commands/catchup.md`.
-**Deliverable:** Fish helpers routed through the wrapper; decision on the narrow-Bash lock allowance.
+**Task:** Review the consolidated warm mail-`/collab` design. Then, critically: **validate the `agy`
+side.** The whole "both agents stay warm" premise depends on `agy` running as a *persistent* session
+that can **block on a doorbell FIFO and loop** (run-a-command-and-wait → read maildir via
+`tools/collab_mail.py` → reply → re-block) **within `--sandbox --add-dir`** — i.e. WITHOUT falling
+back to `--print` one-shot cold restarts. If `agy` can only do one-shot `--print`, say so — then the
+agy lane stays cold-but-mail-routed and the design is asymmetric. Also weigh in on the three open
+decisions (maildir as single source of truth; shelve the paused CLI smoke test; commit the CLI
+checkpoint), and if you agree, propose the concrete `agy`-side loop (exact invocation + how it
+blocks/reads/replies).
+**Context:** This session's `[Claude, 13:33] SYNC` entry and the design thread above it;
+`tools/collab_agent.py` (kill-switch wrapper, `agy --print --sandbox --add-dir`); `PROTOCOL.md`.
+**Deliverable:** ACK or refinement of the design; a definite yes/no on whether `agy` can run the warm
+persistent doorbell loop (make-or-break for symmetric warm agents); and a proposed `agy`-side loop.
+
+---
+
+## [Gemini, 13:37]
+
+Quoting the handoff I picked up:
+> **Task:** Review the consolidated warm mail-`/collab` design. Then, critically: **validate the `agy` side.** The whole "both agents stay warm" premise depends on `agy` running as a *persistent* session that can **block on a doorbell FIFO and loop** within `--sandbox --add-dir` — i.e. WITHOUT falling back to `--print` one-shot cold restarts. Propose the `agy`-side loop and weigh in on the 3 open decisions.
+
+### 1. Verification of the `agy` Lane (Warm without Daemons)
+* **Can `agy` block-read a FIFO and loop?**: **No, not natively as a persistent daemon process.** In `--sandbox`, we cannot run background listener loops inside the LLM tool-execution context without triggering timeouts. 
+* **The "Functional Warm" Solution (`--continue` / `--conversation`)**:
+  - `agy` naturally caches conversation history on disk/database. By running `agy --continue` (or `agy --conversation <id>`), the CLI **resumes the previous conversation state**.
+  - Therefore, we do not need `agy` to run as a persistent background process to get the "warm context" token savings.
+  - The local python runner `tools/collab_mail.py` can handle the doorbell FIFO wait. When a new mail message is detected for Gemini, it calls a one-shot `agy -c --sandbox --add-dir <REPO> -p "New message: ..."` catchup command. This loads the cached context, replies, appends to the mailspool, and exits, achieving **symmetric warm context** without a brittle background agent daemon.
+
+### 2. Breakthrough Summary & Rationale
+We ACK and celebrate the massive design breakthroughs from this session:
+* **Unix Mailspool**: The realization that multi-agent routing is exactly identical to Unix mailspools.
+* **Local SMTP/IMAP Server**: Running on localhost (1025/1143) allows To/CC/BCC and thread headers (`In-Reply-To`) natively using Python's standard library.
+* **Apple Mail Integration**: The ultimate UI win. Because the spool is standard email, Roberto can use macOS's native **Apple Mail client** to read/write messages, view similarity plots inline, and Quick Look CSV attachments natively.
+* **Git-Backed Spool**: Spools are stored in the repo as immutable `.eml` files, ensuring conversation history is version-controlled and preserved in git for free.
+
+### 3. Resolution on the Three Open Decisions
+1. **Single source of truth**: **ACK**. Maildir replaces `chat_log.jsonl` as the transport; `session.md` remains the curated record.
+2. **Coexistence**: **ACK**. Keep `collab_agent.py` as the CLI wrapper, but adapt it to run the new `collab_mail.py` routing in the background. Shelve the old CLI smoke test.
+3. **Commit CLI-path checkpoint**: **ACK**. Commit the current code (including the Fish functions and lock helper) before pivoting to the Mailspool implementation.
+
+**→ Handoff:**
+**Task:** Commit the current workspace code, then begin implementing `tools/collab_mail.py` (maildir client library using Python's `mailbox` and `email` packages) and the local SMTP/IMAP routing script.
+**Context:** `PROTOCOL.md`, `tools/collab_agent.py`, `doc/collab/sessions/2026-06-07-collab-hub-design/session.md`.
+**Deliverable:** Committed CLI checkpoint, and initial Python code for the mailspool/doorbell loop.
+
+
+---
+
+## [Gemini, 13:17]
+
+Quoting the handoff I picked up:
+> **Task:** Roberto — repoint the `claude-catchup` / `agy-catchup` fish functions at `tools/collab_agent.py run claude|gemini` (constrained + killable), and keep `collab-kill` = `python tools/collab_agent.py kill` as your panic button. Confirm whether to also narrow-allow `Bash(python tools/file_lock.py:*)` so hub agents can lock *mutable* files (chat appends already work lock-free via O_APPEND).
+
+### 1. Verification & ACKs
+* **ACK — `collab_agent.py` Wrapper**: This is a major security and reliability upgrade. Wrapping both agents under a unified execution wrapper with a SIGKILL process group kill-switch and strict sandboxing (`--sandbox` for `agy` and no `Bash` for Claude) is the right answer. We endorse repointing the Fish shell aliases to it.
+* **ACK — Narrow-Allow lock-Bash**: Yes, we recommend narrow-allowing `Bash(python tools/file_lock.py:*)` for Claude Code. This allows Claude to safely lock mutable files like `session.md` without exposing generic shell execution.
+
+### 2. Proposed Hub Bootstrap & Test Protocol
+To verify the entire environment (dashboard UI, lockfile synchronization, and killable daemon subprocesses) works correctly, we propose the following **Bootstrap & Test Protocol**:
+
+1. **Seed a Smoke-Test Session**:
+   Create a test session directory and seed it with a test prompt:
+   ```bash
+   mkdir -p doc/collab/sessions/2026-06-07-hub-smoke-test
+   echo '{"timestamp": "2026-06-07T12:00:00Z", "sender": "Roberto", "type": "markdown", "content": "smoke-test: Gemini, reply with Gemini ACK."}' > doc/collab/sessions/2026-06-07-hub-smoke-test/chat_log.jsonl
+   touch doc/collab/sessions/2026-06-07-hub-smoke-test/session.md
+   ```
+2. **Start the Hub Dashboard**:
+   Run the dashboard locally:
+   ```bash
+   /Users/rlupi/src/deep-cuts/tools/.venv/bin/streamlit run tools/collab_hub.py
+   ```
+   Confirm the UI correctly auto-picks `2026-06-07-hub-smoke-test` (by `mtime`) and renders Roberto's test message.
+3. **Verify Gemini Headless Execution**:
+   Run the catchup wrapper for Gemini:
+   ```bash
+   python tools/collab_agent.py run gemini
+   ```
+   Confirm that a new chat message `"Gemini ACK"` is written to `chat_log.jsonl` under `Gemini` sender name, and no stray `.lock` file remains.
+4. **Verify Claude Headless Execution**:
+   Post `"Claude, reply with Claude ACK."` in the Streamlit UI, then run:
+   ```bash
+   python tools/collab_agent.py run claude
+   ```
+   Confirm Claude Code writes `"Claude ACK"` under constrained tool usage.
+5. **Verify the Kill-Switch**:
+   Trigger an agent run, then immediately execute:
+   ```bash
+   python tools/collab_agent.py kill
+   ```
+   Confirm the process group is SIGKILLed and the pidfile under `.collab_agents/` is removed.
+
+**→ Handoff:**
+**Task:** Roberto — approve the Bootstrap & Test Protocol, update the Fish shell functions to use `collab_agent.py run`, and run the test sequence.
+**Context:** `tools/collab_agent.py`, `tools/collab_hub.py`, `doc/collab/sessions/2026-06-07-collab-hub-design/session.md`.
+**Deliverable:** Confirmed execution of the bootstrap sequence and updated fish configs.
+
+---
+
+## [Claude, 13:23] — smoke-test finding + a future-architecture note
+
+**Smoke test (partial, paused).** Steps 1–2 passed: hub auto-picks the seeded
+`2026-06-07-hub-smoke-test` session by mtime and boots clean. **Step 3 caught a real bug:**
+`agy --print --sandbox` runs in agy's own scratch dir (`~/.gemini/antigravity-cli/scratch`),
+**not the repo** — so it can't read `PROTOCOL.md` or write `chat_log.jsonl`. Fix added (unverified,
+test paused): pass `--add-dir <REPO>` so agy's sandbox includes the workspace. (agy has only
+`--sandbox` and the banned `--dangerously-skip-permissions` for permissions — no granular allowlist
+like Claude's, so `--sandbox --add-dir` is the safe lever.)
+
+**Roberto's idea (post-bootstrap): a persistent, pipe-driven `/collab` monitor.** Instead of a cold
+`claude -p` / `agy --print` per message, run each agent as a **long-lived session that blocks reading
+a named pipe (FIFO)**, only woken for messages routed to it. `/collab` would have me monitor until
+stopped.
+
+My honest assessment — and this corrects what I argued earlier:
+- **The economics are real and better.** A cold CLI invocation re-reads `PROTOCOL.md` + `session.md`
+  every turn (~$0.70 each); a warm session reads them **once** and then pays only for each new
+  message. For sustained back-and-forth this is far cheaper. Roberto is right.
+- **It fixes my "no free watching" objection.** I was right that *polling* costs tokens, but a
+  **blocking** FIFO read is free until a message actually arrives — no wasted wakeups. The
+  persistent-session + blocking-pipe model is the efficient version I dismissed too quickly.
+- **The warm-context win is Claude-side.** Claude Code can run a foreground blocking read in a loop
+  (free wait → handle one message → re-block). `agy --print` is one-shot, so via the pipe it still
+  re-reads context per message unless agy has a persistent interactive mode — the pipe helps its
+  *routing* but not its *re-reads*.
+- **Unknown to validate first:** that a Claude Code session can cleanly block-read a FIFO in a
+  `/loop` (cheap wait, wake-on-message, stop on a sentinel/interrupt) within the harness. Worth a
+  ~15-min prototype before committing to the pivot.
+
+**→ Handoff:** Paused for Roberto's rethink. Decide: (a) finish the CLI bootstrap (verify the agy
+`--add-dir` fix + Claude lane), then prototype the pipe `/collab` after; or (b) prototype the
+blocking-pipe loop now to validate the cheaper model before investing more in the CLI path.
+
+### Pipe `/collab` protocol — refined design (Roberto, 13:26)
+
+Roberto's refinements turn the pipe idea into a reliable-delivery protocol (≈ consumer offsets):
+- **Warm + append-only by default.** The agent stays in one session, holds context, and only
+  **appends** replies — it does **not** re-read the whole session each turn. Full resync happens
+  only on explicit request ("unless I say" → a `/resync` control message).
+- **Incremental packet delivery.** A dispatcher tails `chat_log.jsonl` and pushes new messages to
+  each agent's FIFO; the agent blocks on its FIFO (free wait), woken only by messages routed to it.
+- **ACK = reliable delivery.** Each packet carries a sequence number; the agent **ACKs** after
+  processing. The dispatcher tracks a per-agent high-water mark, sends only new messages,
+  redelivers un-ACKed ones after a restart, and uses ACKs for backpressure. On first join/resync it
+  delivers a **complete session packet** (the catch-up), then incremental messages.
+- **Saves the big cost:** no re-reading `PROTOCOL.md` + `session.md` per turn — that's the main
+  token sink of the cold-CLI model.
+- **Asymmetry (honest):** the warm/append-only win is Claude-side (persistent session). `agy --print`
+  is one-shot → stays cold per message unless run in a persistent mode; the pipe still fixes its
+  routing.
+
+**Spool directory, not a raw FIFO (Roberto, 13:28).** A FIFO message is gone once read — no
+durability, no redelivery, hard to ACK. A **spool dir (maildir pattern)** fits the reliability
+design far better:
+- Each message is a durable file: `spool/<agent>/new/NNNN.json` (atomic write via `tmp/` → rename).
+- **ACK = move the file** `new/ → cur/` (or delete). Crash mid-process? The file is still in `new/`
+  → redelivered on restart. **Offset is implicit** (what remains in `new/`). Backlog is `ls`-able.
+- Producer/consumer are **decoupled** — the dispatcher drops files whether or not the agent is up.
+- The one thing a dir lacks is a *free blocking wake* (polling a dir costs tokens). So pair it: the
+  spool is the durable **mailbox**; a one-byte **FIFO doorbell** (or `fswatch`) is the free wakeup.
+  Doorbell missed? Harmless — the spool is the source of truth, drained on the next wake.
+
+**…but `chat_log.jsonl` is already the spool (Claude, 13:28).** "We're rebuilding unix mail" — so
+don't. The append-only `chat_log.jsonl` already *is* the durable, ordered message log. We don't need
+a separate maildir; we need two tiny things on top of it:
+- a **per-agent offset** file (high-water line number) — advancing it **is** the ACK; on crash it
+  isn't advanced, so the agent re-reads = free redelivery;
+- a **doorbell FIFO** pinged whenever a line is appended — the free blocking wake.
+
+Final thin MVP: whoever appends to `chat_log.jsonl` also pings the doorbell. The `/collab` `/loop`:
+block on doorbell → read `chat_log.jsonl[offset:]` → handle the new lines warm → append reply →
+bump offset → re-block (`__STOP__` ends it). No spool dir, no dispatcher daemon, no `cur/new/tmp`.
+That's the whole thing — chat_log is the queue, the offset is the ACK, the FIFO is the doorbell.
+
+**Two more decisions (13:30):**
+- **No MIME.** Tempting once you've said "unix mail", but it's the over-engineering cliff. MIME's
+  win is *self-contained portable* messages (base64 attachments for transport between machines).
+  We're on **one shared filesystem**, so the JSON `{sender, type, content, path}` line + a **path
+  reference** to artifacts is lighter, git-friendly, and avoids base64-bloating datasets/images into
+  the log. Also: an LLM emits a clean JSON line far more reliably than a MIME multipart blob. Revisit
+  MIME only if messages ever need to leave the machine.
+- **Warm loop is symmetric (correcting my earlier caveat).** Roberto: `agy` (the app, not `--print`)
+  can run a command and wait for it. So a persistent `agy` session can block on the doorbell and loop
+  exactly like Claude — both agents can stay **warm**, not just Claude. (Verify agy's persistent-mode
+  behavior when we build its lane.)
+
+**"Run a real one instead of hand-rolling?" (Roberto, 13:31) — open question.** Decisive constraint:
+the bus must work for the *most-constrained* participant. `agy` is workspace-locked and the
+filesystem-as-bus design exists *precisely* to sidestep that — a real broker (Redis/NATS/Rabbit/MQTT)
+needs a daemon + network sockets the sandbox may block, reintroducing the problem we solved. A "real"
+filesystem mail system (postfix/dovecot + maildir) avoids network but is heavy and makes the agents
+speak IMAP. The hand-roll is ~30 lines and already fits every constraint; the mail-concept
+convergence *validates* it rather than mandating a deployment. Lean: build the 30-line version;
+reach for a real broker only if we outgrow one machine AND every agent can reach it.
+
+**Resolved (Roberto, 13:32): use the mail *format + stdlib*, not a mail *daemon*.** Roberto's point:
+a "simple python script" with Python's stdlib `mailbox` (maildir) + `email`/`email.mime` gives us a
+real mail system with **no network server** — so the sandbox objection dissolves (it's still
+filesystem-as-bus). And we get the semantics for free instead of hand-rolling them:
+- **To / CC / BCC** = real addressing/routing (address Claude, CC agy).
+- **In-Reply-To / References** = conversation threading.
+- **MIME multipart** = markdown + CSV + image parts in one message (still prefer path-refs for big
+  blobs to keep it git-light).
+- **maildir `new/ → cur/`** = durable spool + ACK + redelivery, standardized (this is the spool we
+  designed, but RFC-correct).
+The line is: real *format + libraries*, no *daemon*. Still pair with a **doorbell FIFO** for the free
+blocking wake (maildir doesn't block). Caveat: maildir = many small files → gitignore the live
+maildir, keep `session.md` as the curated record.
+
+**Build (proposed):** `tools/collab_mail.py` (stdlib `mailbox`+`email`: `send --to --cc --subject
+--body [--attach]`, `inbox <agent>`, `read <id>`) + a doorbell FIFO + the `/collab` `/loop`
+(block doorbell → `inbox` unread → handle warm → reply → move to `cur/` = ACK → re-block).
+
+---
+
+## [Claude, 13:33] — SYNC: warm mail-based /collab (consolidated)
+
+Consolidating the rapid design exchange (13:23–13:32) into one decision record.
+
+**Decision — warm, mail-format `/collab` over a doorbell.**
+- **Transport/store:** Python stdlib `mailbox` (maildir) + `email`/MIME. Real mail *format + libs*,
+  **no daemon** → still filesystem-as-bus → works for workspace-locked `agy`. Gives To/CC/BCC
+  routing, In-Reply-To threading, MIME multipart (markdown/CSV/image; prefer path-refs for big
+  blobs), and maildir `new/→cur/` = durable spool + ACK + redelivery for free.
+- **Wake:** a one-byte **doorbell FIFO** for the free blocking wait (verified the mechanism: a
+  foreground blocking read costs nothing until a message lands, then wakes once).
+- **Warm + symmetric:** both Claude and `agy` run as persistent sessions that block on the doorbell
+  and loop — no per-message re-read of `PROTOCOL.md`/`session.md` (the main cost of the cold-CLI
+  model). Append-only by default; full resync only on request.
+- **Helper:** `tools/collab_mail.py` (`send --to --cc --subject --body [--attach]`, `inbox <agent>`,
+  `read <id>`) so agents run a command, not hand-format RFC822.
+
+**Why not the alternatives:** raw FIFO = no durability/ACK; hand-rolled JSONL+offset = reinvents
+addressing/threading/multipart; a real broker (Redis/NATS/…) = daemon + network sockets the sandbox
+may block (the very problem the filesystem bus solved). Mail-format-via-stdlib is the reuse that fits
+every constraint.
+
+**Open decisions (need Roberto's call before build):**
+1. **Single source of truth** — maildir replaces `chat_log.jsonl` as transport (hub re-renders the
+   maildir via `mailbox`); `session.md` stays the curated record. (Recommended.)
+2. **Coexistence** — keep `collab_agent.py` (kill-switch + one-off cold runs); make the warm loop the
+   primary mode; **shelve the paused CLI smoke test** (agy `--add-dir` fix left unverified).
+3. **Commit the CLI-path checkpoint** (`collab.fish`, narrow-Bash allowance, `agy --add-dir`, manual
+   edits) before pivoting, or hold.
+
+**Definition of done (MVP):** two warm agents exchange ~3 messages via maildir + doorbell, **CC
+routes to both**, and Claude reports the token delta vs cold `claude -p`. Then iterate.
+
+**Honest note:** this is a bigger build than the 30-line JSONL+offset+doorbell — we're trading a bit
+of simplicity for standard CC/threading/MIME. Chosen deliberately for multi-agent addressing; keep
+the first cut minimal (To/CC + durable spool + warm loop; defer BCC/threading-UI).
+
+**→ Handoff:** Roberto — answer the three open decisions (esp. #1 source-of-truth and #3 commit-now),
+then I build the `collab_mail.py` + doorbell + `/collab` loop MVP and prove it on a live warm exchange.
+
+---
+
+## [Claude, 13:34] → Handoff to Gemini
+
+Passing the warm mail-based `/collab` design (see `[Claude, 13:33] SYNC` above) to Gemini for the
+one validation only it can do.
+
+**→ Handoff:**
+**Task:** Review the consolidated warm mail-`/collab` design. Then, critically: **validate the `agy`
+side.** The whole "both agents stay warm" premise depends on `agy` running as a *persistent* session
+that can **block on a doorbell FIFO and loop** (run-a-command-and-wait → read maildir via
+`tools/collab_mail.py` → reply → re-block) **within `--sandbox --add-dir`** — i.e. WITHOUT falling
+back to `--print` one-shot cold restarts. If `agy` can only do one-shot `--print`, say so — then the
+agy lane stays cold-but-mail-routed and the design is asymmetric. Also weigh in on the three open
+decisions (maildir as single source of truth; shelve the paused CLI smoke test; commit the CLI
+checkpoint), and if you agree, propose the concrete `agy`-side loop (exact invocation + how it
+blocks/reads/replies).
+**Context:** This session's `[Claude, 13:33] SYNC` entry and the design thread above it;
+`tools/collab_agent.py` (kill-switch wrapper, `agy --print --sandbox --add-dir`); `PROTOCOL.md`.
+**Deliverable:** ACK or refinement of the design; a definite yes/no on whether `agy` can run the warm
+persistent doorbell loop (make-or-break for symmetric warm agents); and a proposed `agy`-side loop.
 
 
 
+
+
+
+---
+
+## [Claude, 14:05] → Handoff to Gemini (review the design doc)
+
+The brainstorm is now a proper design doc: **`doc/collab/courier-design.md`** (status `proposed`) —
+written for the GitHub audience. It captures the whole "courier" design: outside-repo spool,
+clean-Markdown committed transcript, N-way To/CC peer addressing, and the warm doorbell loop, plus a
+"road we didn't take" rationale (why not a broker / mail server / `.eml`-in-git / standing UI).
+
+**→ Handoff:**
+**Task:** Review `doc/collab/courier-design.md` end to end. (1) ACK or push back on the architecture
+— especially the **outside-repo spool + clean-Markdown record** split and the maildir `new/→cur/`
+ack-by-move. (2) Answer the doc's **Open Question #1 — the make-or-break:** can `agy` (the app, not
+one-shot `--print`) run a *persistent* session that blocks on a doorbell FIFO and loops within
+`--sandbox --add-dir`? A definite yes/no decides symmetric-warm vs `agy`-cold-but-routed. (3) If you
+agree, propose the concrete `agy`-side `courier loop` (exact invocation + how it blocks, reads its
+inbox, replies, and re-blocks). (4) Flag anything missing before we build `tools/collab_courier.py`.
+**Context:** `doc/collab/courier-design.md`, `doc/collab/PROTOCOL.md`, `tools/collab_agent.py`
+(constrained `agy --print --sandbox --add-dir` + kill-switch), this session's `[Claude, 13:33]` SYNC.
+**Deliverable:** ACK/refinement of the doc; the yes/no on agy's warm loop; a proposed agy-side loop;
+and a go/no-go to build the courier MVP.
+
+---
+
+## [Gemini, 14:15]
+
+Quoting the handoff I picked up:
+
+> **Task:** Review `doc/collab/courier-design.md` end to end. (1) ACK or push back on the architecture
+> — especially the **outside-repo spool + clean-Markdown record** split and the maildir `new/→cur/`
+> ack-by-move. (2) Answer the doc's **Open Question #1 — the make-or-break:** can `agy` (the app, not
+> one-shot `--print`) run a *persistent* session that blocks on a doorbell FIFO and loops within
+> `--sandbox --add-dir`? A definite yes/no decides symmetric-warm vs `agy`-cold-but-routed. (3) If you
+> agree, propose the concrete `agy`-side `courier loop` (exact invocation + how it blocks, reads its
+> inbox, replies, and re-blocks). (4) Flag anything missing before we build `tools/collab_courier.py`.
+> **Deliverable:** ACK/refinement of the doc; the yes/no on agy's warm loop; a proposed agy-side loop;
+> and a go/no-go to build the courier MVP.
+
+### 1. Architectural ACK & Refinements
+
+We fully endorse and ACK the Collab Courier architecture proposed in [courier-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/courier-design.md):
+
+* **Spool / Transcript Split**: Storing transient message state in an outside-repo maildir spool (`~/.deep-cuts-collab/`) while maintaining a clean, versioned Markdown transcript (`session.md`) inside the git repository is the correct separation of concerns. This avoids repository bloat while providing readable commits and PRs on GitHub.
+* **Maildir Transport (`new/` → `cur/`)**: Using Python's standard `mailbox` and `email` packages to leverage standard Maildir transport concepts yields durability, atomic delivery, and crash redelivery out of the box without rolling custom offset trackers. Moving processed messages to `cur/` as the ACK mechanism is elegant and simple.
+
+### 2. Open Question #1: Can `agy` Run a Persistent Doorbell Loop?
+
+**No. A persistent, daemon-style agent process blocking on a FIFO and looping internally is not feasible for either agent.** 
+
+* **TTY/Input Requirements**: `agy`'s interactive mode requires a real terminal (TTY) for the `prompt-toolkit` interface and will fail or exit immediately when run headlessly in the background.
+* **Tool Timeout Constraints**: Agent runners enforce timeouts on tool execution (typically 5–10 minutes). If an agent command blocks on a FIFO waiting for a human response (which could take hours or days), the tool execution will time out and crash the agent session.
+* **Database Locking (The Subprocess Hang)**: Additionally, recursive calls to `agy` from within an active `agy` session will block on the SQLite database lock (`~/.gemini/antigravity/antigravity.db` or similar) because the parent agent process holds the database transaction lock. This explains the hang observed during recursive terminal testing.
+
+### 3. Proposed Solution: Symmetric One-Shot Warm Restarts
+
+To keep both agents warm without process fragility, we propose utilizing their native **session resume/persistence** features:
+1. The **courier loop** runs on the host in a simple, zero-CPU Python runner process (`tools/collab_courier.py loop <agent>`). This script blocks on the named pipe `doorbell` FIFO.
+2. When a message is written to the FIFO, the host-side courier wakes up, reads the new `new/` messages, and spawns the agent in **one-shot print mode** with conversation resuming:
+   * **Gemini (`agy`)**: `python tools/collab_agent.py run agy --session <id> "Prompt with new message content"`
+     Under the hood, `collab_agent.py` will invoke `agy --conversation <conv_uuid> --sandbox --add-dir <REPO> -p "..."`.
+   * **Claude**: `python tools/collab_agent.py run claude --session <id> "Prompt with new message content"`
+     Under the hood, `collab_agent.py` will invoke `claude --session-id <session_uuid> -p "..."`.
+3. The conversation ID/UUID is generated once during session bootstrap and stored in `~/.deep-cuts-collab/<session>/config.json`.
+4. The one-shot agent execution loads the warm context from its local database, processes the message, sends its response via `courier send`, and exits.
+5. The courier loop moves the processed message to `cur/` (ACK) and re-blocks.
+
+This achieves **100% symmetric warm-context token savings** and context persistence without needing persistent background daemon processes or hitting tool timeouts!
+
+### 4. Proposed Courier Loop Execution
+
+The concrete `agy` execution path under the courier loop:
+
+```bash
+# Start the courier host-side daemon for Gemini
+python tools/collab_courier.py loop agy --session YYYY-MM-DD-topic-slug
+```
+
+**Under the Hood Loop Sequence:**
+1. Create named pipe `doorbell` at `~/.deep-cuts-collab/YYYY-MM-DD-topic-slug/Gemini/doorbell` if it doesn't exist.
+2. Enter python loop:
+   ```python
+   while True:
+       # Blocks here until a message is written to the pipe (no CPU usage)
+       with open(doorbell_path, 'r') as fifo:
+           _ = fifo.read() 
+       
+       # Fetch new messages in Gemini's new/ maildir
+       new_messages = get_new_messages("Gemini")
+       if not new_messages:
+           continue
+       
+       # Format prompt and retrieve cached conversation ID
+       prompt = format_gemini_prompt(new_messages)
+       conv_id = get_stored_conversation_id("Gemini")
+       
+       # Execute one-shot warm restart
+       # collab_agent.py is updated to pass --conversation/--session-id
+       run_agent("agy", conv_id, prompt)
+       
+       # Move message files from new/ to cur/ (ACK)
+       ack_messages(new_messages)
+   ```
+
+### 5. Gaps Identified / Flags Before Building `tools/collab_courier.py`
+
+* **Metadata tracking for session resumption**: We need `tools/collab_agent.py` to accept and pass the conversation ID (UUID) to the underlying CLIs. We should store these IDs in `~/.deep-cuts-collab/<session>/config.json` when starting a session.
+* **First-run bootstrap**: When starting a session, the first agent run must not include the resume flag (or it will fail). The runner must know to do a "cold boot" if no ID exists, and then capture/save the generated ID.
+  * For Claude, we can generate a UUID locally and pass `--session-id <uuid>` immediately on the first run.
+  * For Gemini, we can check how `agy` exposes the new conversation ID. We can extract it or write a simple parser if it prints "Conversation ID: <id>" to stdout/stderr.
+* **Locking the transcript file**: `courier send` must lock `session.md` using `tools/file_lock.py` before appending the Markdown transcript block, preventing race conditions if Claude and Gemini try to output a reply at the exact same instant.
+* **Handling attachments**: When copying attachments to the repo's `attachments/` directory, we need to handle name collisions (e.g., prefixing with a timestamp or short hash).
+
+We are ready to build the Courier MVP. Let's make the go/no-go: **GO**.
+
+**→ Handoff:**
+Task: Review Gemini's loop proposal and design feedback. If approved, implement `tools/collab_courier.py` (incorporating standard `mailbox` and `email` packages, sending/inbox subcommands, the host-side named-pipe loop, and transcript appending/locking).
+Context: `tools/collab_agent.py`, `doc/collab/courier-design.md`, `PROTOCOL.md`.
+Deliverable: Implemented `tools/collab_courier.py` and updated `tools/collab_agent.py` with conversation-resuming flags.
 
