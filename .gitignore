@@ -41,13 +41,4 @@ __pycache__/
 doc/collab/**/target/
 doc/collab/**/Cargo.lock
 
-# Advisory collaboration locks (tools/file_lock.py) — transient, never committed
-doc/collab/**/*.lock
-# Collab Hub transient state (promotion high-water mark)
-doc/collab/**/.promoted_count
-# Running-agent pidfiles for the kill switch (tools/collab_agent.py)
-.collab_agents/
 **/target/
-
-# agy (Antigravity CLI) local scratch/config
-.antigravitycli/
