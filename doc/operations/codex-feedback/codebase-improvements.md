@@ -88,18 +88,11 @@ Add:
 
 ### 8. Bring component CSS back to tokens
 
-**Progress (2026-06-07, commit `feae60d`):** 18 of 32 components fixed. 14 remaining: CollapsiblePane, DuplicatesPanel, FilterSidebar, MoodRadar, MusicMap, NetworkSettingsCard, PlayerBar, RangeSlider, SettingsCard, StatisticsPanel, DevKV, DevPane, +layout.svelte.
+**CSS `<style>` blocks: done** (commits `feae60d`, `a2d1c03`). Two sub-tasks remain:
 
-The Sonic Glitch token system is strong, but components still contain hardcoded hex/RGBA colors and inline styles. This undermines light and accessible themes.
+**F4a — Add `--sg-data-b` token:** `StatisticsPanel.svelte` has 4 `#ff7c5c` (Set B data series, warm salmon) instances marked `TODO`. Add a `--sg-data-b` token to the design system and apply it here and in the D3 script block.
 
-Update code and skills so new UI work requires:
-
-- no inline color styles;
-- no component-specific hardcoded color literals unless explicitly mapped to a design token;
-- canvas palettes read from computed CSS variables;
-- high-contrast checks for new controls.
-
-**D3.js caveat:** D3 canvas/SVG rendering cannot consume `var(--sg-*)` CSS variables directly. The correct workaround is to resolve tokens at render time via `getComputedStyle(document.documentElement).getPropertyValue('--sg-primary').trim()`. Do not replace D3 hex literals with raw hex — replace them with `getComputedStyle` lookups so theme-switching still works. This also means canvas components must re-read colors on theme change (listen for `html[data-theme]` attribute mutations or re-render on a theme store change).
+**F4b — D3/canvas `getComputedStyle` pass:** Components that use D3.js (MusicMap, StatisticsPanel, MoodRadar, TrackDetailPane, AnalysisPanel) have hardcoded hex color literals in their TypeScript rendering code. Replace these with `getComputedStyle(document.documentElement).getPropertyValue('--sg-token').trim()` calls at render time so theme-switching works. Components must re-read colors on `html[data-theme]` attribute change.
 
 ## Testing Priorities
 

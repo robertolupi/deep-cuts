@@ -75,6 +75,13 @@ Two `filter_map(|r| r.ok())` hits found by `tools/lint_filter_map.py`:
 
 `src-tauri/src/lib.rs` now shows a native `rfd` dialog with an explanatory message ("Deep Cuts could not open its database. Check that the application data directory is writable. Error: {detail}") and calls `process::exit(1)` on main DB init failure, instead of silently panicking via Tauri's generic wrapper. Metrics DB remains optional.
 
+### Bring component CSS back to tokens — style blocks (F4, partial)
+
+**Completed:** 2026-06-07
+**Commits:** `feae60d` (18 components), `a2d1c03` (10 more components)
+
+All 28 components with hardcoded colors in `<style>` blocks have been updated to use `var(--sg-*)` tokens. MoodRadar, RangeSlider, and `+layout.svelte` were already clean. 4 TODO comments remain in `StatisticsPanel.svelte` for `#ff7c5c` (Set B data series accent) which needs a new `--sg-data-b` design token. D3/canvas color literals in TypeScript remain for a separate pass using `getComputedStyle`.
+
 ### Fix library store lifecycle (F3)
 
 **Completed:** 2026-06-07  
