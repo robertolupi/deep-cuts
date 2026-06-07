@@ -68,8 +68,8 @@
 
   .collapsible-pane.collapsed { width: 32px; }
 
-  .pane-left  { border-right: 1px solid rgba(255,255,255,0.08); }
-  .pane-right { border-left:  1px solid rgba(255,255,255,0.08); }
+  .pane-left  { border-right: 1px solid var(--sg-surface-high); }
+  .pane-right { border-left:  1px solid var(--sg-surface-high); }
 
   /* ── Expand strip (collapsed state) ── */
   .expand-strip {
@@ -87,7 +87,7 @@
 
   .expand-strip:hover {
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.05);
+    background: color-mix(in srgb, var(--sg-on-surface) 5%, transparent);
   }
 
   .indicator-dot {
@@ -112,20 +112,20 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    scrollbar-color: color-mix(in srgb, var(--sg-on-surface) 10%, transparent) transparent;
     z-index: 200;
     pointer-events: auto;
   }
 
   .pane-left  .preview-overlay {
     left: 32px;
-    border-right: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 6px 0 24px rgba(0,0,0,0.4);
+    border-right: 1px solid var(--sg-surface-high);
+    box-shadow: 6px 0 24px color-mix(in srgb, var(--sg-surface) 40%, transparent);
   }
 
   .pane-right .preview-overlay {
     right: 32px;
-    border-left: 1px solid rgba(255,255,255,0.08);
-    box-shadow: -6px 0 24px rgba(0,0,0,0.4);
+    border-left: 1px solid var(--sg-surface-high);
+    box-shadow: -6px 0 24px color-mix(in srgb, var(--sg-surface) 40%, transparent);
   }
 </style>

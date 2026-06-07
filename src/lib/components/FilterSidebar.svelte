@@ -622,7 +622,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     overflow-x: hidden;
     padding: 1rem 0.75rem;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    scrollbar-color: color-mix(in srgb, var(--sg-on-surface) 10%, transparent) transparent;
   }
 
   /* ── Header ── */
@@ -671,13 +671,13 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .collapse-btn:hover {
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.05);
+    background: color-mix(in srgb, var(--sg-on-surface) 5%, transparent);
   }
 
   /* ── Sections ── */
   .sidebar-section {
     padding: 0.65rem 0;
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
   }
 
   .section-label {
@@ -738,7 +738,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .search-input {
     width: 100%;
     background: var(--sg-surface-container, #1e1f25);
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--sg-surface-high);
     border-radius: 4px;
     padding: 0.4rem 0.5rem 0.4rem 2rem;
     font-family: var(--sg-font-mono);
@@ -775,13 +775,13 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     max-height: 200px;
     overflow-y: auto;
     background: var(--sg-surface-container, #1e1f25);
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     border-radius: 4px;
     z-index: 100;
     display: flex;
     flex-direction: column;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    scrollbar-color: color-mix(in srgb, var(--sg-on-surface) 10%, transparent) transparent;
   }
 
   .genre-suggestion-item {
@@ -797,7 +797,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .genre-suggestion-item:hover {
-    background: rgba(0,240,255,0.08);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -815,9 +815,9 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     width: 100%;
     text-align: left;
     padding: 5px 7px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
     border-radius: 3px;
-    background: rgba(255,255,255,0.02);
+    background: color-mix(in srgb, var(--sg-on-surface) 2%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     font-family: var(--sg-font-mono);
@@ -826,14 +826,14 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .dir-btn:hover {
-    border-color: rgba(0,240,255,0.3);
+    border-color: color-mix(in srgb, var(--sg-primary) 30%, transparent);
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(0,240,255,0.04);
+    background: color-mix(in srgb, var(--sg-primary) 4%, transparent);
   }
 
   .dir-btn.dir-active {
     border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.1);
+    background: color-mix(in srgb, var(--sg-primary) 10%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -859,12 +859,12 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .semantic-search-input {
-    border-color: rgba(0, 240, 255, 0.15) !important;
+    border-color: color-mix(in srgb, var(--sg-primary) 15%, transparent) !important;
   }
 
   .semantic-search-input:focus {
     border-color: var(--sg-primary, #00f0ff) !important;
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.15);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--sg-primary) 15%, transparent);
   }
 
   /* Spinner Animation */
@@ -887,12 +887,12 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .clap-search-input {
-    border-color: rgba(254, 0, 254, 0.15) !important;
+    border-color: color-mix(in srgb, var(--sg-secondary) 15%, transparent) !important;
   }
 
   .clap-search-input:focus {
     border-color: var(--sg-secondary, #fe00fe) !important;
-    box-shadow: 0 0 8px rgba(254, 0, 254, 0.15);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--sg-secondary) 15%, transparent);
   }
 
   .ai-spinner-clap {
@@ -913,8 +913,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     font-size: var(--sg-text-xs);
     padding: 5px 2px;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--sg-surface-high);
+    background: color-mix(in srgb, var(--sg-on-surface) 2%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     border-radius: 2px;
@@ -922,14 +922,14 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .key-btn:hover {
-    border-color: rgba(0,240,255,0.3);
+    border-color: color-mix(in srgb, var(--sg-primary) 30%, transparent);
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(0,240,255,0.05);
+    background: color-mix(in srgb, var(--sg-primary) 5%, transparent);
   }
 
   .key-active {
     border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.12);
+    background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -945,8 +945,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     font-size: var(--sg-text-xs);
     padding: 5px 4px;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--sg-surface-high);
+    background: color-mix(in srgb, var(--sg-on-surface) 2%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     border-radius: 2px;
@@ -955,12 +955,12 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .scale-btn:hover {
     color: var(--sg-on-surface, #e3e1e9);
-    border-color: rgba(0,240,255,0.3);
+    border-color: color-mix(in srgb, var(--sg-primary) 30%, transparent);
   }
 
   .scale-active {
     border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.12);
+    background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -976,8 +976,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-2xs);
     padding: 3px 7px;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.03);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 10%, transparent);
+    background: color-mix(in srgb, var(--sg-on-surface) 3%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     border-radius: 3px;
@@ -988,7 +988,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .preset-btn.active {
     border-color: var(--sg-primary, #00f0ff);
     color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
   }
 
   /* ── Music only toggle ── */
@@ -1004,8 +1004,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     width: 32px;
     height: 18px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.06);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 15%, transparent);
+    background: color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
     cursor: pointer;
     padding: 0;
     transition: background 0.2s, border-color 0.2s;
@@ -1013,7 +1013,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .toggle-btn.toggle-on {
-    background: rgba(0,240,255,0.2);
+    background: color-mix(in srgb, var(--sg-primary) 20%, transparent);
     border-color: var(--sg-primary, #00f0ff);
   }
 
@@ -1045,8 +1045,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   /* ── Tabbed Sidebar ── */
   .sidebar-tabs {
     display: flex;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: color-mix(in srgb, var(--sg-on-surface) 3%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
     border-radius: 6px;
     padding: 2px;
     margin: 0.5rem 0.75rem 0.25rem 0.75rem;
@@ -1073,13 +1073,13 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
 
   .tab-btn:hover {
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255, 255, 255, 0.04);
+    background: color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
   }
 
   .tab-btn.active {
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--sg-on-surface) 8%, transparent);
     color: var(--sg-primary, #00f0ff);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--sg-surface) 30%, transparent);
   }
 
   /* ── Playlist Autocomplete Suggestions ── */
@@ -1091,13 +1091,13 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     max-height: 200px;
     overflow-y: auto;
     background: var(--sg-surface-container, #1e1f25);
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     border-radius: 4px;
     z-index: 100;
     display: flex;
     flex-direction: column;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    scrollbar-color: color-mix(in srgb, var(--sg-on-surface) 10%, transparent) transparent;
   }
 
   .playlist-suggestion-item {
@@ -1113,7 +1113,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .playlist-suggestion-item:hover {
-    background: rgba(0, 240, 255, 0.08);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 
@@ -1134,8 +1134,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 999px;
-    border: 1px solid rgba(0,240,255,0.35);
-    background: rgba(0,240,255,0.08);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     color: var(--sg-primary, #00f0ff);
     cursor: pointer;
     transition: filter 0.12s;
@@ -1169,7 +1169,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .tag-input-wrap:focus-within {
-    border-color: rgba(0,240,255,0.4);
+    border-color: color-mix(in srgb, var(--sg-primary) 40%, transparent);
   }
 
   .tag-input-icon { color: var(--sg-outline, #849495); flex-shrink: 0; }
@@ -1189,7 +1189,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .tag-search-input::placeholder { color: var(--sg-outline, #849495); }
 
   /* ── Structure filter ── */
-  .structure-icon { color: var(--sax-d, #e8a020); }
+  .structure-icon { color: var(--sg-warning); }
 
   .structure-similar-badge {
     display: flex;
@@ -1199,17 +1199,17 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     padding: 4px 8px;
     margin-bottom: 4px;
     border-radius: 4px;
-    border: 1px solid rgba(232,160,32,0.4);
-    background: rgba(232,160,32,0.08);
+    border: 1px solid color-mix(in srgb, var(--sg-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--sg-warning) 8%, transparent);
     font-family: var(--sg-font-mono);
     font-size: 10px;
     font-weight: 700;
-    color: var(--sax-d, #e8a020);
+    color: var(--sg-warning);
     letter-spacing: 0.04em;
   }
 
   .structure-similar-badge .clear-x {
-    color: var(--sax-d, #e8a020);
+    color: var(--sg-warning);
     opacity: 0.7;
   }
 
@@ -1218,12 +1218,12 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   }
 
   .structure-search-input {
-    border-color: rgba(232, 160, 32, 0.15) !important;
+    border-color: color-mix(in srgb, var(--sg-warning) 15%, transparent) !important;
   }
 
   .structure-search-input:focus {
-    border-color: rgba(232, 160, 32, 0.5) !important;
-    box-shadow: 0 0 8px rgba(232, 160, 32, 0.12);
+    border-color: color-mix(in srgb, var(--sg-warning) 50%, transparent) !important;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--sg-warning) 12%, transparent);
   }
 
   .structure-help {
@@ -1250,8 +1250,8 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
   .structure-examples code {
     font-family: var(--sg-font-mono);
     font-size: 10px;
-    color: var(--sax-d, #e8a020);
-    background: rgba(232, 160, 32, 0.08);
+    color: var(--sg-warning);
+    background: color-mix(in srgb, var(--sg-warning) 8%, transparent);
     padding: 0 3px;
     border-radius: 2px;
   }

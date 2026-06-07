@@ -93,9 +93,9 @@
     appearance: none;
     width: 14px;
     height: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 15%, transparent);
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.03);
+    background: color-mix(in srgb, var(--sg-on-surface) 3%, transparent);
     cursor: pointer;
     display: grid;
     place-content: center;
@@ -104,13 +104,13 @@
   }
 
   .update-checkbox:hover {
-    border-color: rgba(0, 240, 255, 0.4);
-    background: rgba(0, 240, 255, 0.03);
+    border-color: color-mix(in srgb, var(--sg-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--sg-primary) 3%, transparent);
   }
 
   .update-checkbox:checked {
     border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0, 240, 255, 0.1);
+    background: color-mix(in srgb, var(--sg-primary) 10%, transparent);
   }
 
   .update-checkbox:checked::before {
@@ -119,7 +119,7 @@
     height: 6px;
     background: var(--sg-primary, #00f0ff);
     border-radius: 1px;
-    box-shadow: 0 0 4px rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--sg-primary) 50%, transparent);
   }
 
   .checkbox-text {

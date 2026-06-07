@@ -79,8 +79,8 @@
   .kv-action {
     font-family: var(--sg-font-mono);
     font-size: 9px;
-    background: rgba(0,240,255,0.08);
-    border: 1px solid rgba(0,240,255,0.2);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 20%, transparent);
     border-radius: 3px;
     color: var(--sg-primary, #00f0ff);
     padding: 0 4px;
@@ -91,6 +91,6 @@
   }
 
   .kv-action:hover {
-    background: rgba(0,240,255,0.16);
+    background: color-mix(in srgb, var(--sg-primary) 16%, transparent);
   }
 </style>

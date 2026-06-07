@@ -26,7 +26,7 @@
 
 <style>
   .pane {
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
   }
 
   .pane-header {
@@ -50,7 +50,7 @@
 
   .pane-header:hover {
     color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.03);
+    background: color-mix(in srgb, var(--sg-on-surface) 3%, transparent);
   }
 
   .chevron {

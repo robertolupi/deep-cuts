@@ -229,7 +229,7 @@
     gap: 1rem;
     padding: 0.6rem 1rem;
     background: var(--sg-surface-slate, #161b22);
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid var(--sg-surface-high);
     flex-wrap: wrap;
   }
 
@@ -278,16 +278,16 @@
     font-size: var(--sg-text-xs);
     font-weight: 600;
     padding: 5px 14px;
-    border: 1px solid rgba(0,240,255,0.35);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 35%, transparent);
     border-radius: 4px;
-    background: rgba(0,240,255,0.08);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     color: var(--sg-primary, #00f0ff);
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
   }
 
   .dup-scan-btn:hover:not(:disabled) {
-    background: rgba(0,240,255,0.15);
+    background: color-mix(in srgb, var(--sg-primary) 15%, transparent);
     border-color: var(--sg-primary, #00f0ff);
   }
 
@@ -311,7 +311,7 @@
   .dup-progress-bar {
     flex-shrink: 0;
     height: 2px;
-    background: rgba(255,255,255,0.06);
+    background: color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
   }
 
   .dup-progress-fill {
@@ -356,7 +356,7 @@
   }
 
   .dup-table thead tr {
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid var(--sg-surface-high);
     position: sticky;
     top: 0;
     background: var(--sg-surface-slate, #161b22);
@@ -373,11 +373,11 @@
   }
 
   .dup-row {
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
     transition: background 0.1s;
   }
 
-  .dup-row:hover { background: rgba(255,255,255,0.03); }
+  .dup-row:hover { background: color-mix(in srgb, var(--sg-on-surface) 3%, transparent); }
 
   .dup-sim {
     padding: 8px 12px;
@@ -390,8 +390,8 @@
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 999px;
-    background: rgba(0,240,255,0.1);
-    border: 1px solid rgba(0,240,255,0.3);
+    background: color-mix(in srgb, var(--sg-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
     color: var(--sg-primary, #00f0ff);
   }
 

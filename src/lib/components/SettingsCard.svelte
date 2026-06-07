@@ -20,7 +20,7 @@
 <style>
   .sg-card {
     background: var(--sg-surface-slate, #161b22);
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid var(--sg-surface-high);
     border-radius: 6px;
     padding: 1rem;
     display: flex;
@@ -33,7 +33,7 @@
     flex-direction: column;
     gap: 3px;
     padding-bottom: 0.65rem;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
   }
 
   .card-title {
