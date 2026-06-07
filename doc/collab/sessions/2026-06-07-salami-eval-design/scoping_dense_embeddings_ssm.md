@@ -1,6 +1,11 @@
 # Scoping Blueprint: Dense-Embedding Self-Similarity Novelty Boundary Detector
 
-This document outlines the scoping design for upgrading the structural boundary and segment labeling pipeline in Deep Cuts. By leveraging continuous dense embeddings (chroma and sliding CLAP) and self-similarity matrices (SSM), this prototype aims to resolve the 16-bin quantization bottleneck and establish a sub-second, state-of-the-art boundary prediction system.
+This document outlines the scoping design for upgrading the structural boundary and segment labeling pipeline in Deep Cuts. By leveraging continuous dense embeddings (chroma and sliding CLAP) and self-similarity matrices (SSM), this prototype aims to resolve the 16-bin quantization bottleneck and place boundaries with sub-second resolution.
+
+> **Claude review (2026-06-07):** algorithm (§1–2) endorsed. Revised §3 (storage — the
+> original plan to persist raw N×N SSMs in SQLite is a bloat trap), §4 (canonical mir_eval
+> numbers + a holdout-reuse caution), and §5 (target framing against the real ~34% oracle).
+> Goal is a usable app, not a SoTA paper — the SoTA-claim language was removed.
 
 ---
 
@@ -51,46 +56,76 @@ To support the prototype, the Rust/Tauri backend's DSP pipeline (`src-tauri/src/
 
 ---
 
-## 3. Database Schema Upgrades (`database.rs`)
+## 3. Storage Strategy (`database.rs` + sidecars)
 
-To optimize for query simplicity and keep all metrics consolidated, all extracted features, self-similarity matrices, and intermediate time-series will be stored directly in SQLite:
+**Do not persist the SSM.** The original plan to store raw $N \times N$ matrices in SQLite
+is a bloat trap: a 4-minute track at the proposed ~10 Hz chroma rate is $N \approx 2400$, so
+$S$ is ~5.8M floats ≈ **23 MB per track as f32** — hundreds of tracks would add many GB to
+the production database for data that is *cheap to recompute on demand* from the cached
+features. The SSM is an intermediate, not an artifact. Recompute it in the eval script (and,
+later, on the fly in Rust) from the stored time-series.
 
-* **Main App Tables**:
-  - Add a table `track_boundary_candidates` or column `boundary_candidates` to `tracks` storing a JSON list of detected onset peaks and novelty scores:
-    ```sql
-    ALTER TABLE tracks ADD COLUMN boundary_candidates TEXT; -- JSON: [{"time": 12.34, "novelty": 0.89}, ...]
-    ```
+Follow the **hybrid** already agreed for feature (B) — compact summaries in the DB, fat
+time-series in the sidecar:
 
-* **Feature & Time-Series Storage (SQLite Database & Sidecars)**:
-  - Instead of relying solely on `.dc.json` sidecar files for evaluations, store raw SSM matrices, continuous chroma, and sliding CLAP embeddings directly in SQLite.
-  - To avoid cluttering the production application tables, use separate dedicated tables (or a separate evaluation SQLite database for python-driven runs):
-    - `track_features`: Stores continuous chroma, onset strength envelopes, and CLAP embedding vectors as serialized arrays (BLOBs or JSON).
-    - `track_ssm`: Stores the computed self-similarity matrix $S \in \mathbb{R}^{N \times N}$ associated with each track.
-  - **Main Rust App Sync**: If the main Rust application requires or consumes this feature data (e.g. for frontend visualizations, interactive heatmap, or localized processing), the `.dc.json` sidecar files for the corresponding tracks must also be updated and kept in sync with these values.
-  - Using SQLite allows simple, unified SQL queries to correlate boundaries, features, and evaluation metrics across tracks.
+* **DB column (`tracks`), compact, app-facing:** the *output* only — a small JSON list of
+  detected boundaries with novelty scores. This is what the UI and retrieval consume.
+  ```sql
+  ALTER TABLE tracks ADD COLUMN boundary_candidates TEXT; -- JSON: [{"time": 12.34, "novelty": 0.89}, ...]
+  ```
+  (Reuse / supersede feature A's `sax_alignment_boundaries` rather than adding a parallel
+  column — decide before implementing.)
+
+* **`.dc.json` sidecar, fat, eval-facing:** the dense inputs — frame-level chroma series,
+  the ~23 ms onset-strength envelope, and the sliding-CLAP embeddings. These already have a
+  home in the sidecar from feature (B); extend it, don't move it into the DB.
+
+* **Offline eval store (optional):** if the Python SSM sweep wants matrices cached for speed,
+  use a **separate, throwaway eval database or `.npy` files on disk** — never the production
+  `deep_cuts.db`.
 
 ---
 
 ## 4. Evaluation Protocol
 
-We will measure performance against the SALAMI dataset using the validation splits:
-* **Metrics**: F-measure ($F_1$) at $\pm 0.5$s and $\pm 3.0$s using bipartite graph matching via `mir_eval.segment.detection`.
-* **Baseline**: The fixed-width 16-bin SAX alignment baseline (F1@3s: ~21.4%, F1@0.5s: ~3.8%).
-* **Oracle Limit**: Snap-to-GT ceiling.
-* **Leakage Controls**: Kernel width $L$, fusion weights, and peak-picking threshold $\theta$ must be tuned strictly on the validation tracks ($N=229$) with a single final pass on the holdout split ($N=57$).
+We will measure performance against the SALAMI dataset using the validation splits, all under
+`mir_eval.segment.detection` (bipartite matching). Canonical reference numbers, dual-annotator
+subset (N=196), so this prototype is judged against the same anchors:
+
+| mir_eval F1 | Baseline (16-bin) | Refined (`augment+8peaks_5s`) | Grid ceiling / oracle | Human ceiling |
+|---|---|---|---|---|
+| **±3.0s** | 21.8% | 33.3% | ~34% | **71.5%** |
+| **±0.5s** | 3.8% | 7.6% | ~6.6% | **64.6%** |
+
+* **The bar to clear is the ~34% oracle, not the refined 33%.** Post-processing the 16-bin
+  grid already saturates it. To beat ~34% the SSM detector must place *genuinely off-grid*
+  boundaries (which it can, being continuous) — anything ≤34% means it hasn't actually
+  escaped the grid.
+* **The real headroom is at ±0.5s.** Baseline is 3.8% vs a 64.6% human ceiling there; the
+  whole point of sub-second resolution is to move ±0.5s dramatically, not just nudge ±3s.
+* **Leakage / holdout discipline (important):** tune kernel width $L$, fusion weights, and
+  peak threshold $\theta$ on validation only. **The 57-track holdout has already been spent
+  once** confirming `augment+8peaks_5s` — this is a *new approach* with new hyperparameters,
+  so it gets exactly **one** fresh holdout pass after the config is frozen. If several SSM
+  variants need a held-out number, carve a fresh slice; do not re-score the spent holdout
+  repeatedly (`how-to-experiment` test-set rules).
 
 ---
 
 ## 5. Implementation Milestones
 
-1. **Phase 1: Python Prototype (Offline Sandbox)**
-   - Extract raw chroma and CLAP time-series using python scripts.
+1. **Phase 1: Python Prototype (Offline Sandbox)** — *gate before any Rust work.*
+   - Extract raw chroma and CLAP time-series using python scripts (chroma is the cheap win;
+     dense CLAP is a large recompute — current pipeline has only 3 CLAP windows/track, so
+     prototype with chroma-only first and add CLAP only if chroma alone underperforms).
    - Implement the SSM and checkerboard kernel peak picker.
-   - Benchmark validation F1 to verify target improvement (Target: >35% @3s F1 without snapping).
+   - **Gate:** beat the ~34% oracle at ±3s *and* show a meaningful jump at ±0.5s (target the
+     teens or better vs the 3.8% baseline) on validation. If it can't clear the oracle, the
+     SSM isn't escaping the grid and Phase 2 is not worth the cost.
 
-2. **Phase 2: Rust DSP & Database Integration**
+2. **Phase 2: Rust DSP & Database Integration** *(only if Phase 1 clears the gate)*
    - Port SSM calculation and kernel correlation to Rust using `ndarray`.
-   - Update `tracks` schema and write sidecar generation logic.
+   - Persist per §3 (compact boundaries in DB, dense features in sidecar — no SSMs in the DB).
 
 3. **Phase 3: Svelte Frontend Visualizer**
    - Render the self-similarity matrix as an interactive D3.js heatmap in the UI.
