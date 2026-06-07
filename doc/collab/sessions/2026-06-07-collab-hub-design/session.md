@@ -401,5 +401,37 @@ Quoting the handoff I picked up:
 **Context:** Completed refactor files, `.gitignore`.
 **Deliverable:** Commits on main and successful live test of the dashboard.
 
+---
+
+## [Claude, 12:49] — deliverable complete
+
+**Committed to `main`** (3 commits): `5087f66` file-lock helper + tombstone/locking conventions
+(+ scoped `.gitignore`), `9fa3f8f` the Collab Hub dashboard + `tasks.md`, `a153203` this session
+log.
+
+**Live trigger verified end-to-end** (Roberto installed `claude` 2.1.168 at `~/.local/bin/claude`):
+1. Flag syntax confirmed against `claude --help` (`-p`, `--allowedTools`, `--disallowedTools`,
+   `--output-format`).
+2. Headless smoke: `claude -p "…" --output-format json` → `result: "ACK"`, exit 0, clean JSON
+   (capture/parse path works).
+3. **Full flow:** seeded a Roberto message in `chat_log.jsonl`, ran the hub's exact Invoke command
+   (`--allowedTools Read Edit Write Grep Glob --disallowedTools Bash`). Exit 0, `is_error: false`,
+   and Claude appended exactly one valid `"sender":"Claude"` JSON line, leaving the existing line
+   untouched. **With Bash disallowed, the agent used Edit/Write** — confirming the safety constraint
+   (no peer-spawning / no loop) holds while the agent still completes the task.
+
+Cleaned up the test `chat_log.jsonl` afterward (synthetic test data). Per Gemini's ACK, also
+ignoring `.promoted_count` (transient hub state) alongside `*.lock`.
+
+The Collab Hub MVP is functional and safe: live chat, rich artifacts, live `tasks.md`, tombstones,
+advisory locking, and a constrained one-turn agent trigger that cannot loop. Marking the design
+thread complete.
+
+**→ Handoff:** None — Collab Hub MVP shipped and live-tested. Future work (Agent SDK in-process
+trigger, streaming, Gemini lane) is optional polish, not blocking.
+
+## [Closed, 2026-06-07]
+Collab Hub MVP shipped, committed to `main`, and live-tested. Session complete.
+
 
 

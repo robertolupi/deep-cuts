@@ -43,5 +43,7 @@ doc/collab/**/Cargo.lock
 
 # Advisory collaboration locks (tools/file_lock.py) — transient, never committed
 doc/collab/**/*.lock
+# Collab Hub transient state (promotion high-water mark)
+doc/collab/**/.promoted_count
 **/target/
 
