@@ -52,6 +52,13 @@ Flat session files migrated to `YYYY-MM-DD-slug/session.md` directories. Two non
 
 ## Codebase Improvements
 
+### Make manifest/download errors explicit (C6)
+
+**Completed:** 2026-06-07
+**Commit:** `89c1083 fix(download): structured error events, spawn_blocking, group key validation`
+
+`src-tauri/src/commands/download.rs`: added `DownloadErrorEvent` enum with tagged serde variants (`unknown_group`, `network`, `filesystem`, `checksum_mismatch`, `manifest_parse`, `resume_error`, `cancelled`). Group keys are now validated upfront before any download starts. All failure paths emit structured `model-download-error` events. `ureq` HTTP calls and file IO moved into `spawn_blocking`. Added 4 unit tests. Manifest fetch in `commands/manifest.rs` was already resilient.
+
 ### Stop swallowing SQLite row errors (C3)
 
 **Completed:** 2026-06-07

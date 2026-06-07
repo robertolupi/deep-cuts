@@ -49,20 +49,9 @@ Recommended path:
 
 This reduces the risk that a new analysis column breaks unrelated queries or silently disappears at the frontend boundary.
 
-### 5. Make manifest/download errors explicit
-
-Manifest and model download code swallows or collapses several failure modes into generic errors. Downloads also run blocking `ureq` IO inside async flow.
-
-Improve this by:
-
-- validating requested model group keys before download starts;
-- emitting structured event payloads for network, cache, parse, resume, checksum, and filesystem failures;
-- moving large blocking IO into `spawn_blocking` or a dedicated blocking worker;
-- adding tests for cache write failure, invalid group key, interrupted resume, and manifest parse fallback.
-
 ## Frontend and IPC
 
-### 6. Route all Tauri calls through `$lib/ipc`
+### 5. Route all Tauri calls through `$lib/ipc`
 
 `src/lib/ipc.ts` provides mock/local-debug support, but many components import `@tauri-apps/api/core` directly. That weakens browser-only UI debugging and tests.
 
@@ -74,7 +63,7 @@ Next step:
 - Type `invoke` as `invoke<K extends keyof CommandMap>(cmd: K, args: CommandMap[K]["args"])`.
 - Require each new IPC command to update the wrapper, mock response when applicable, and at least one frontend test or store test.
 
-### 7. Split oversized UI surfaces
+### 6. Split oversized UI surfaces
 
 The largest Svelte files mix data fetching, derivation, rendering, canvas/SVG logic, styling, and IPC:
 
@@ -87,7 +76,7 @@ The largest Svelte files mix data fetching, derivation, rendering, canvas/SVG lo
 
 Start with `FilterSidebar` and `filters.svelte.ts`. Extract pure modules for filter application, saved-search serialization, structure matching, sorting, and semantic/CLAP result reduction. Pure modules are cheaper to test and reduce Svelte rune coupling.
 
-### 8. Fix store lifecycle coupling
+### 7. Fix store lifecycle coupling
 
 `library.init()` registers listeners but does not retain unlisten functions. Repeated init calls can duplicate event handlers. The library store also mutates `player.selectedTrack` after enrichment, which creates hidden cross-store coupling.
 
@@ -97,7 +86,9 @@ Add:
 - `dispose()` that calls every unlisten function;
 - a dedicated track-refresh method that player/detail state can subscribe to or call explicitly.
 
-### 9. Bring component CSS back to tokens
+### 8. Bring component CSS back to tokens
+
+**Progress (2026-06-07, commit `feae60d`):** 18 of 32 components fixed. 14 remaining: CollapsiblePane, DuplicatesPanel, FilterSidebar, MoodRadar, MusicMap, NetworkSettingsCard, PlayerBar, RangeSlider, SettingsCard, StatisticsPanel, DevKV, DevPane, +layout.svelte.
 
 The Sonic Glitch token system is strong, but components still contain hardcoded hex/RGBA colors and inline styles. This undermines light and accessible themes.
 
