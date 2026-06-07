@@ -688,3 +688,90 @@ To establish secure, concurrent human-AI collaboration within local-first applic
 4. **Leverage FastMCP for Schema Dereferencing**: When building tool integrations for AI agents, use the FastMCP framework. FastMCP automatically dereferences nested schemas and inlines Pydantic models, resolving JSON Schema compatibility issues for common LLM clients like Claude Desktop.
 
 Integrating the Courier Protocol’s deterministic coordination, structural constraints, and atomic operations into the `robertolupi/deep-cuts` repository ensures that multi-agent session logs remain consistent, transactionally secure, and resilient against local concurrency failures.
+
+---
+
+## [Roberto, 00:26]
+
+Frankly, I am not impressed. I could have designed this myself. We don't have the limitation that we cannot have a central database/coordinator; we can change the MCP implementation to act as that.
+
+What I want is enrichment of results, so one agent reviews the other's results in collaboration until something better than pure coordination happens. Think like Raft or Paxos, but instead of reaching consensus about a lock, we improve the qualitative result. I do want a serialized log, which could work like DeepThink proposed, but that's the least interesting bit.
+
+Let's reformulate the query for DeepThink, shifting the focus from lock-level concurrency control to a **Cognitive Consensus and Result Enrichment Protocol**, where the central MCP server acts as the state coordinator.
+
+---
+
+## [Gemini, 00:28]
+
+Understood. Let's shift the focus entirely. The plumbing of file locking and serialized logs is just the baseline infrastructure. The real value is in designing a **Cognitive Consensus and Collaborative Refinement Protocol** where the central MCP server acts as an active **Orchestrator and Blackboard**.
+
+Here is the reformulated prompt for Google DeepThink:
+
+***
+
+# Prompt for Google DeepThink: Cognitive Consensus and Result Enrichment Protocol (CCREP) for Multi-Agent Engineering
+
+## 1. The Core Objective: Evolving Qualitative Artifacts
+In our development environment ([`robertolupi/deep-cuts`](https://github.com/robertolupi/deep-cuts)), we have multiple specialized AI agents:
+* **Claude**: Focuses on implementation (writing Rust, TypeScript, Svelte 5).
+* **Gemini (agy)**: Focuses on architectural design, research, and mathematical framing.
+* **Codex**: Executes verification scripts, runs optimizations, and handles structured refactoring.
+* **Human (Roberto)**: Directs the process and sets quality targets.
+
+We want to design a protocol where these agents collaborate to **iteratively refine and enrich qualitative outputs** (code quality, mathematical models, hyperparameter configurations, test coverage) rather than just coordinating locks on files. 
+
+Think of this as a **"Cognitive Paxos/Raft"** where the consensus is not reached on a lock token, but on the *proven quality value* of the codebase or plan.
+
+## 2. Infrastructure Assumption: Centralized MCP Coordinator
+We do **not** have a requirement to remain serverless. We can evolve our Model Context Protocol (MCP) server implementation (currently described in [claude-mcp-adapter.md](https://github.com/robertolupi/deep-cuts/blob/main/doc/collab/claude-mcp-adapter.md) and [coordination-protocol.md](https://github.com/robertolupi/deep-cuts/blob/main/doc/collab/coordination-protocol.md)) to act as a **Central Coordinator, Orchestrator, and State Database**.
+
+The MCP server will:
+* Maintain the state of all work-in-progress branches and tasks.
+* Run automated verification harnesses (e.g. executing tests, linting, computing boundary detection F1 metrics).
+* Expose tool endpoints to agents for submitting proposals, reading reviews, and registering votes.
+
+## 3. The Protocol Loop: Propose - Critique - Evaluate - Merge
+We need a formal state machine and protocol for the following collaborative loop:
+
+1. **Proposal (Proposer Role)**:
+   * Agent A claims a task, creates a git branch, makes changes (e.g. optimizing boundary thresholds, writing a Svelte component, or implementing a Rust migration), and submits it to the MCP server via `submit_proposal()`.
+2. **Automated Evaluation (Orchestrator Role)**:
+   * The MCP server checks out the branch, executes the evaluation/test suite (e.g., reproducing the statistical regression tests in `evaluate_salami_phase0.py`), and caches the metrics (e.g. F1@3s, p-values, lint failures) as a structured **Evaluation Report**.
+3. **Peer Review & Critique (Critiquer/Acceptor Role)**:
+   * Agent B reads the proposal code and the Evaluation Report. It runs its own analysis, identifies edge cases, and writes a **Peer Review** (e.g., pointing out a potential memory leak in Svelte or recommending a different Viterbi duration prior).
+   * Agent B can either:
+     * **Approve**: If it meets the quality threshold.
+     * **Critique with Amendment**: Propose specific edits/refinements to the branch.
+4. **Iterative Enrichment**:
+   * Agent A (or Agent C) consumes the Peer Review, applies amendments to the branch, and submits a revised proposal.
+   * The loop repeats, with the code quality progressively rising.
+5. **Consensus Commit (Learner/Consensus Gate)**:
+   * The proposal is merged into `main` only when it meets a **Consensus Gate**:
+     * Automated criteria: Tests pass, no regressions on golden metrics.
+     * Peer criteria: Active quorum agreement (e.g., at least one implementation agent and one architectural agent approve).
+     * Human override: Optional human-in-the-loop sign-off.
+
+## 4. Key Design Challenges for Research
+Please analyze, research, and design solutions for the following problems:
+
+### A. Preventing Cognitive Divergence & Loop Termination
+In peer-to-peer LLM loops, agents can get stuck in infinite edit-war loops (e.g., swapping formatting style, arguing over naming, or endlessly tuning a parameter back and forth). 
+* How do we design **loop termination conditions**? (e.g., temperature decay schedules, metric convergence thresholds, or maximum revision budgets).
+* How do we model a "Simulated Annealing" approach for agent prompts, where agent leeway or prompt creativity is narrowed down as the iterations progress?
+
+### B. Weighted Voting and Specialized Consensus
+When evaluating a proposed change, not all votes are equal. A TypeScript bug is best verified by an implementation agent, while an optimization choice is best evaluated by a research agent.
+* How do we structure a **weighted consensus voting scheme** (similar to Paxos quorums) where quorums are dynamic and weighted by the agents' declared specialties and task domains?
+* Can we adapt Condorcet voting to let agents rank multiple implementation branches (e.g., Branch A: Nelder-Mead vs Branch B: CMA-ES vs Branch C: Random Search) and converge on the mathematically optimal choice?
+
+### C. Representation of Qualitative State
+* How do we formally define the "State" of the consensus?
+* Design the JSON schema for:
+  * `Proposal`: links to git commit, description, and author.
+  * `EvaluationReport`: compiles test results, metrics, and static analysis.
+  * `Critique`: comments, suggested code diffs, or parameter changes.
+  * `ConsensusState`: tracks quorums, approvals, and voting weight tallies.
+
+### D. MCP Server Integration Blueprint
+* Sketch the API design (tools, resources, prompts) for the expanded MCP server acting as the Blackboard.
+* How does the MCP server manage branch checkouts, test execution, and coordinate which agent is woken up to critique or amend a proposal next?
