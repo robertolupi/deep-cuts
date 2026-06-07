@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { invoke } from "$lib/ipc";
+  import { listen } from "$lib/ipc";
   import { onMount, onDestroy } from "svelte";
   import { theme } from "$lib/stores/theme.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";

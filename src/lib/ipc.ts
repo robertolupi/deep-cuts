@@ -1,6 +1,8 @@
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke, convertFileSrc as tauriConvertFileSrc } from "@tauri-apps/api/core";
 import { listen as tauriListen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getVersion as tauriGetVersion } from "@tauri-apps/api/app";
+import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
 import {
   MOCK_DIRECTORIES,
   MOCK_TRACKS,
@@ -9,6 +11,8 @@ import {
   MOCK_PLAYLISTS,
   MOCK_SAVED_SEARCHES,
 } from "$lib/mock-data";
+
+export type { UnlistenFn } from "@tauri-apps/api/event";
 
 export const LOCAL_DEBUG = typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).has("local_debug");
@@ -51,4 +55,19 @@ export function listen<T>(
     return Promise.resolve(() => {});
   }
   return tauriListen<T>(event, handler);
+}
+
+export function convertFileSrc(filePath: string, protocol?: string): string {
+  if (LOCAL_DEBUG) return filePath;
+  return tauriConvertFileSrc(filePath, protocol);
+}
+
+export async function getVersion(): Promise<string> {
+  if (LOCAL_DEBUG) return "0.0.0-dev";
+  return tauriGetVersion();
+}
+
+export async function openUrl(url: string): Promise<void> {
+  if (LOCAL_DEBUG) return;
+  return tauriOpenUrl(url);
 }

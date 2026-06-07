@@ -10,7 +10,7 @@
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invoke } from "$lib/ipc";
   import { openUrl } from "@tauri-apps/plugin-opener";
 
   const selectedTrack = $derived(player.selectedTrack);

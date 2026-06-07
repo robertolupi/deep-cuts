@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { invoke, convertFileSrc } from '$lib/ipc';
+  import { listen, type UnlistenFn } from '$lib/ipc';
   import { onMount, onDestroy, tick } from 'svelte';
   import WaveSurfer from 'wavesurfer.js';
   import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';

@@ -8,7 +8,7 @@ import ActiveFilterChips from "./ActiveFilterChips.svelte";
 import MoodSection from "./MoodSection.svelte";
 import SavedSearchList from "./SavedSearchList.svelte";
 import { onMount } from "svelte";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "$lib/ipc";
 import GenreAutocomplete from "./GenreAutocomplete.svelte";
 import TagsAutocomplete from "./TagsAutocomplete.svelte";
 import Autocomplete from "./Autocomplete.svelte";

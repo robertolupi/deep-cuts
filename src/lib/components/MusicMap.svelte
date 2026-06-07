@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
+  import { invoke } from '$lib/ipc';
+  import { listen } from '$lib/ipc';
   import * as d3 from 'd3';
   import { library } from '$lib/stores/library.svelte';
   import { filters } from '$lib/stores/filters.svelte';

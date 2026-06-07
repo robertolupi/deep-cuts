@@ -2,7 +2,7 @@ import type { Track } from "$lib/types";
 import { library } from "$lib/stores/library.svelte";
 import { ui } from "$lib/stores/ui.svelte";
 import { curation } from "$lib/stores/curation.svelte";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "$lib/ipc";
 import { generateSmartName } from "$lib/utils/naming";
 
 export type ScaleFilter = "all" | "major" | "minor";

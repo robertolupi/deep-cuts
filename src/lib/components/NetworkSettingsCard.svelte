@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  import { invoke } from "$lib/ipc";
   import { ui } from "$lib/stores/ui.svelte";
   import SettingsCard from "./SettingsCard.svelte";
 

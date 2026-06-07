@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getVersion } from "@tauri-apps/api/app";
+  import { getVersion } from "$lib/ipc";
   import { library } from "$lib/stores/library.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
   import { onMount } from "svelte";

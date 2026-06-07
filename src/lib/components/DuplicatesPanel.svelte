@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
+  import { invoke } from '$lib/ipc';
+  import { listen } from '$lib/ipc';
   import { onDestroy } from 'svelte';
   import { library } from '$lib/stores/library.svelte';
   import { player } from '$lib/stores/player.svelte';

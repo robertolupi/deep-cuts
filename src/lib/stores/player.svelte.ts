@@ -5,7 +5,7 @@
  * a $effect, so WaveSurfer can find them once the DOM nodes exist.
  */
 import { invoke } from "$lib/ipc";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc } from "$lib/ipc";
 import { tick } from "svelte";
 import WaveSurfer from "wavesurfer.js";
 import Spectrogram from "wavesurfer.js/dist/plugins/spectrogram.esm.js";

@@ -2,8 +2,8 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { library } from "$lib/stores/library.svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { invoke } from "$lib/ipc";
+  import { listen } from "$lib/ipc";
   import { devInspector } from "$lib/stores/devInspector.svelte";
 
   const analysisActive = $derived(library.analysisRunning && !library.analysisPaused);

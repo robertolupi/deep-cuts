@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  import { invoke } from "$lib/ipc";
   import { library } from "$lib/stores/library.svelte";
   import Autocomplete from "./Autocomplete.svelte";
 
