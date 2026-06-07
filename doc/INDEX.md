@@ -72,12 +72,17 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 | Doc | Status | Confidence | Evidence / Notes |
 |---|---|---:|---|
 | [README.md](README.md) | implemented | High | This doc's local overview and conventions are current. |
+| [claude-feedback/README.md](operations/claude-feedback/README.md) | implemented | High | Review output from Claude session. |
+| [claude-feedback/project-assessment-2026-06-07.md](operations/claude-feedback/project-assessment-2026-06-07.md) | implemented | High | Claude's project opinion and SWOT analysis. |
 | [codex-feedback/README.md](operations/codex-feedback/README.md) | implemented | High | Review output from Codex cleanup pass. |
 | [codex-feedback/codebase-improvements.md](operations/codex-feedback/codebase-improvements.md) | need-human-review | High | Recommendation backlog, not implementation commitment. |
 | [codex-feedback/completed-improvements.md](operations/codex-feedback/completed-improvements.md) | implemented | High | Completion log for feedback items moved out of active backlog docs. |
 | [codex-feedback/docs-approach-improvements.md](operations/codex-feedback/docs-approach-improvements.md) | partially-implemented | High | This index implements part of the recommendation; file reorganization remains phase 2. |
 | [codex-feedback/project-opinion-swot.md](operations/codex-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and product-spine recommendation from the Codex review. |
 | [codex-feedback/skills-improvements.md](operations/codex-feedback/skills-improvements.md) | partially-implemented | High | Active skills/process backlog after completed items were moved to `completed-improvements.md`. |
+| [gemini-feedback/README.md](operations/gemini-feedback/README.md) | implemented | High | Review output from Gemini session. |
+| [gemini-feedback/project-opinion-swot.md](operations/gemini-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and product-spine recommendation from Gemini review. |
+| [gemini-feedback/technical-observations.md](operations/gemini-feedback/technical-observations.md) | implemented | High | Technical debt and recommendations from Gemini review. |
 | [collab/PROTOCOL.md](collab/PROTOCOL.md) | protected | High | Publicly linked protocol. Do not move casually. |
 
 ## Private / Blog / Outreach Notes
