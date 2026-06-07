@@ -1,3 +1,13 @@
+---
+status: proposed
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Music Map Improvements
 
 ## 1. Fix Map Cramping: Percentile-Clipped Normalization

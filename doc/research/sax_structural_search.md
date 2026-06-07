@@ -1,3 +1,13 @@
+---
+status: active
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # SAX Structural Search — Design & Experiments
 
 ## Current State

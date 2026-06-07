@@ -34,6 +34,16 @@ skills/          — project-specific agent playbooks
 
 Always run `cargo test --manifest-path src-tauri/Cargo.toml` after Rust changes. **Never commit — wait for the user to explicitly say so after manual testing.**
 
+## Doc Sync
+
+Before marking a feature complete, check each item that applies:
+
+- [ ] **Migration changed** → update related design docs in `doc/`.
+- [ ] **Analysis pass changed** → update `skills/add-analysis-pass/SKILL.md`.
+- [ ] **IPC command changed** → update mock responses in `src/lib/mock-data.ts` and `src/lib/ipc.ts`.
+- [ ] **Implemented differently than planned** → add an "Implemented outcome" note to the proposal doc.
+- [ ] **Feature removed** → set `status: superseded` in the proposal doc's frontmatter.
+
 ## File System Rules
 
 **Never search in global directories** (`~/Library`, `~/Documents`, `/`, etc.). All project files live under `/Users/rlupi/src/deep-cuts/`. For database access, always use the `skills/query-db/SKILL.md` skill — it specifies the correct DB path.

@@ -1,3 +1,13 @@
+---
+status: active
+owner: Roberto
+last_verified: 2026-06-07
+implemented_by:
+superseded_by:
+related_code:
+related_skills:
+---
+
 # Playlist & Saved Search View Enhancements
 
 This document details user interface and layout improvements for playlist and saved search views in Deep Cuts, focusing on transition analysis, reordering, and smart suggestions.
