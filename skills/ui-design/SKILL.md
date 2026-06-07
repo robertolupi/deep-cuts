@@ -85,3 +85,5 @@ Before finishing UI work:
 - For canvas/SVG palettes, read colors from CSS variables via `getComputedStyle()` instead of duplicating literals in TypeScript.
 - Confirm focus, hover, active, disabled, loading, empty, and error states are legible.
 - If layout or styling changed materially, follow `skills/ui-debug/SKILL.md` for browser verification.
+- **IPC imports**: any `invoke`/`listen` calls must come from `$lib/ipc`, not directly from `@tauri-apps/api/*`. See `skills/svelte-component/SKILL.md` §"IPC access".
+- **Store idempotency**: stores that register Tauri listeners must keep an `initialized` flag, retain unlisten handles, and expose a `dispose()`. See `skills/svelte-component/SKILL.md` §"Tauri event listeners in components".

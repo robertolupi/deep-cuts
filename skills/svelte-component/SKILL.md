@@ -151,4 +151,5 @@ App components and stores should import `invoke` and `listen` from `$lib/ipc`. D
 | `import { get } from 'svelte/store'` | Not needed — access store properties directly |
 | Direct Tauri `invoke` / `listen` imports in app code | Import from `$lib/ipc` so mocks and typed wrappers stay centralized |
 | Store `init()` adds listeners every call | Make `init()` idempotent and keep unlisten functions for `dispose()` |
+| Hardcoded `#hex`, `rgb()`, or `rgba()` in `<style>` | Use `var(--sg-*)` design tokens; see `skills/ui-design/SKILL.md` for the full token reference |
 | Forgetting `lang="ts"` on `<script>` | Add it — the project is fully TypeScript |
