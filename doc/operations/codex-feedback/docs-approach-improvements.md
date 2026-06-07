@@ -52,13 +52,7 @@ Before implementing proposal docs, require an "Acceptance Criteria" section cove
 
 Good candidates: `music_map_improvements.md`, `playlist_view_enhancements.md`, `statistics_page.md`, `user_edit_song.md`, and structural search docs.
 
-## 4. Normalize collaboration session storage
-
-`doc/collab/PROTOCOL.md` says each session should live in a directory with `session.md`, but `doc/collab/sessions/` still has older flat session markdown files.
-
-Move or archive old flat sessions into directories, or update the protocol to explicitly support both. The directory convention is better for sessions with artifacts, sample data, and scripts.
-
-## 5. Promote durable decisions out of session logs
+## 4. Promote durable decisions out of session logs
 
 The collaboration logs are useful, but they are not maintained design docs. Add a closing step to collaboration sessions:
 
@@ -70,7 +64,7 @@ The collaboration logs are useful, but they are not maintained design docs. Add 
 
 This would reduce repeated rediscovery in future agent runs.
 
-## 6. Keep docs synchronized with implementation
+## 5. Keep docs synchronized with implementation
 
 Recent history shows docs and implementation moving fast around SAX/structure analysis. Add a lightweight "doc sync" checklist for feature commits:
 
@@ -80,7 +74,7 @@ Recent history shows docs and implementation moving fast around SAX/structure an
 - If a proposal was implemented differently than planned, add an "Implemented outcome" note.
 - If a feature was removed, mark the proposal or old approach as superseded.
 
-## 7. Make command examples executable from one place
+## 6. Make command examples executable from one place
 
 Command examples should state the working directory and avoid mixed `cd` plus repo-root paths. Prefer repo-root examples unless a subdirectory is truly required.
 
@@ -99,7 +93,7 @@ tools/.venv/bin/python tools/script.py
 
 This matches the skills guidance and is more reliable for agents.
 
-## 8. Add a short architecture map
+## 7. Add a short architecture map
 
 The repo would benefit from a maintained architecture map under `doc/` or `docs/tech.md` that connects:
 
