@@ -54,6 +54,7 @@ Read the matching `SKILL.md` before starting any task that touches the area desc
 | `bump-dev-version` | Bump the app version in Cargo.toml after a release to start the next dev cycle |
 | `db-migration` | Safe pattern for adding SQLite schema migrations in the deep-cuts Rust/rusqlite_migration stack |
 | `dev-guidelines` | Guidelines to prevent development false starts, environment mismatches, and incorrect commands in the deep-cuts monorepo |
+| `git-commits` | Rules for writing commit messages in the deep-cuts repository — subject line format, body content, scope naming, and what to omit |
 | `how-to-experiment` | Experimental protocol for Deep Cuts research, prototypes, model evaluations, threshold tuning, ablations, metric comparisons, and claims about accuracy or quality. Use before running or interpreting experiments so bots preserve train/validation/test boundaries, avoid leakage, compare against baselines, and report results honestly. |
 | `query-db` | How to locate and query the deep-cuts production SQLite database |
 | `query-metrics-db` | How to locate and query the deep-cuts pipeline metrics SQLite database |
