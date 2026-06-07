@@ -40,5 +40,8 @@ __pycache__/
 # Rust target directories & locks inside session/collab folders
 doc/collab/**/target/
 doc/collab/**/Cargo.lock
+
+# Advisory collaboration locks (tools/file_lock.py) — transient, never committed
+doc/collab/**/*.lock
 **/target/
 

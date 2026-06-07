@@ -126,6 +126,44 @@ See the session file `2026-06-06-multi-agent-collab/session.md` for the full dis
 
 ---
 
+## Session archiving (tombstones)
+
+Roberto controls which sessions are *active*. A session directory containing a file named
+`ARCHIVED` is **archived**: agents must not actively work on it, and tools (the Collab Hub)
+exclude it from the active list and never auto-select it.
+
+- **Archive:** create an `ARCHIVED` file in the session dir (any contents — a date is nice).
+- **Unarchive:** delete the `ARCHIVED` file.
+- The marker is **committed to git**, so archive state is shared across all participants.
+- Picking "the active session" means: among non-archived session dirs, the most recently
+  modified. Never resume or append to an archived session unless Roberto unarchives it first.
+
+## File locking ("I temporarily own this file")
+
+When concurrent agents (Claude, Gemini) and Roberto can all edit the same file, take an
+**advisory lock** before editing a shared file — `session.md`, `chat_log.jsonl`, `tasks.md`,
+`PROTOCOL.md`, or any shared doc.
+
+Use `tools/file_lock.py` (a `<path>.lock` sidecar with `{owner, pid, ts}`; stale locks are
+reclaimed after 120 s so a crashed agent never wedges a file):
+
+```bash
+python tools/file_lock.py acquire doc/collab/sessions/<id>/session.md --owner claude
+#   ... make your edits ...
+python tools/file_lock.py release doc/collab/sessions/<id>/session.md --owner claude
+```
+
+Or natively in Python: `from file_lock import file_lock; with file_lock(path, owner="claude"): ...`
+
+Rules:
+- It is **advisory** — it only works if every writer checks it first. Always acquire before
+  editing a shared file; always release after (the context manager does this automatically).
+- If `acquire` reports `LOCKED`, do **not** edit — wait, or coordinate via the handoff.
+- Append-only logs (`chat_log.jsonl`) may instead use atomic `O_APPEND` single-line writes.
+- Never commit `.lock` files — they are transient (add to `.gitignore` if needed).
+
+---
+
 ## What goes in a session vs a doc
 
 - Session files are **ephemeral working logs** — thinking out loud, proposals, back-and-forth
