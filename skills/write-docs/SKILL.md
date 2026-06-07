@@ -25,7 +25,7 @@ Use the current folders consistently:
 | `doc/proposals/` | Brainstorms and unimplemented or review-needed product/technical ideas. |
 | `doc/operations/` | Process docs, reviews, cleanup notes, and maintenance guidance. |
 | `doc/collab/` | Multi-agent collaboration protocol and session logs. |
-| `doc/private/` | Private/blog/outreach notes; do not reorganize without explicit direction. |
+| `doc/private/` | Private/blog/outreach notes; do not reorganize without explicit direction. **Separate git repo** — gitignored from the main repo. After writing any file here, run `git -C doc/private status` and commit separately if needed. |
 
 When a proposal, research note, or architecture doc mixes categories, prefer preserving it and adding status/context over splitting it immediately.
 

@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
-"""Generate skills/INDEX.md from SKILL.md frontmatter."""
+"""Generate skills/INDEX.md from SKILL.md frontmatter, and stamp the skill
+table into AGENTS.md, CLAUDE.md, and GEMINI.md between sentinel comments."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = ROOT / "skills"
 INDEX_PATH = SKILLS_DIR / "INDEX.md"
+
+# Files to stamp with the injected skill table
+AGENT_FILES = [
+    ROOT / "AGENTS.md",
+    ROOT / "CLAUDE.md",
+    ROOT / "GEMINI.md",
+]
+
+SENTINEL_START = "<!-- SKILLS-START (auto-generated, do not edit) -->"
+SENTINEL_END = "<!-- SKILLS-END -->"
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -52,14 +64,17 @@ def markdown_escape(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ").strip()
 
 
-def main() -> None:
+def build_rows() -> list[tuple[str, str, Path, Path]]:
     rows: list[tuple[str, str, Path, Path]] = []
     for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
         meta = parse_frontmatter(skill_file)
         name = meta.get("name") or skill_file.parent.name
         description = meta.get("description") or "(no description)"
         rows.append((name, description, skill_file.relative_to(ROOT), skill_file.relative_to(SKILLS_DIR)))
+    return rows
 
+
+def write_index(rows: list[tuple[str, str, Path, Path]]) -> None:
     lines = [
         "# Skill Index",
         "",
@@ -76,8 +91,56 @@ def main() -> None:
             f"| `{markdown_escape(name)}` | [{display_path.as_posix()}]({link_path.as_posix()}) | {markdown_escape(description)} |"
         )
     lines.append("")
-
     INDEX_PATH.write_text("\n".join(lines), encoding="utf-8")
+
+
+def build_injected_block(rows: list[tuple[str, str, Path, Path]]) -> str:
+    """Compact name+description table for injection into agent instruction files."""
+    lines = [
+        SENTINEL_START,
+        "",
+        "## Available Skills",
+        "",
+        "Read the matching `SKILL.md` before starting any task that touches the area described.",
+        "",
+        "| Skill | Description |",
+        "|---|---|",
+    ]
+    for name, description, _display, _link in rows:
+        lines.append(f"| `{markdown_escape(name)}` | {markdown_escape(description)} |")
+    lines.append("")
+    lines.append(SENTINEL_END)
+    return "\n".join(lines)
+
+
+def stamp_agent_file(path: Path, block: str) -> None:
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        re.escape(SENTINEL_START) + r".*?" + re.escape(SENTINEL_END),
+        re.DOTALL,
+    )
+    if pattern.search(text):
+        new_text = pattern.sub(block, text)
+    else:
+        # Append at end if sentinels not yet present
+        new_text = text.rstrip("\n") + "\n\n" + block + "\n"
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
+        print(f"  stamped {path.relative_to(ROOT)}")
+    else:
+        print(f"  unchanged {path.relative_to(ROOT)}")
+
+
+def main() -> None:
+    rows = build_rows()
+    write_index(rows)
+    print(f"Wrote {INDEX_PATH.relative_to(ROOT)}")
+
+    block = build_injected_block(rows)
+    for agent_file in AGENT_FILES:
+        stamp_agent_file(agent_file, block)
 
 
 if __name__ == "__main__":
