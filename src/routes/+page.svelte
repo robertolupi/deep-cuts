@@ -124,8 +124,8 @@
   /* ── Update Banner Card ── */
   .update-banner-card {
     padding: 1rem;
-    background: rgba(0, 240, 255, 0.05);
-    border: 1px solid rgba(0, 240, 255, 0.2);
+    background: color-mix(in srgb, var(--sg-primary) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 20%, transparent);
     border-left: 3px solid var(--sg-primary, #00f0ff);
     border-radius: 6px;
     display: flex;
@@ -173,41 +173,41 @@
     font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 5px 12px;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     border-radius: 4px;
-    background: rgba(255,255,255,0.04);
+    background: color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: all 0.12s;
   }
 
   .action-btn:hover:not(:disabled) {
-    border-color: rgba(255,255,255,0.25);
-    color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-on-surface) 25%, transparent);
+    color: var(--sg-on-surface);
+    background: color-mix(in srgb, var(--sg-on-surface) 8%, transparent);
   }
 
   .action-btn-primary {
-    border-color: rgba(0,240,255,0.35);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-primary) 35%, transparent);
+    color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
   }
 
   .action-btn-primary:hover {
-    background: rgba(0,240,255,0.14) !important;
-    border-color: var(--sg-primary, #00f0ff) !important;
-    color: var(--sg-primary, #00f0ff) !important;
+    background: color-mix(in srgb, var(--sg-primary) 14%, transparent) !important;
+    border-color: var(--sg-primary) !important;
+    color: var(--sg-primary) !important;
   }
 
   .action-btn-danger {
-    border-color: rgba(255, 80, 80, 0.3) !important;
-    color: #ff6b6b !important;
-    background: rgba(255, 80, 80, 0.05) !important;
+    border-color: color-mix(in srgb, var(--sg-error) 30%, transparent) !important;
+    color: var(--sg-error) !important;
+    background: color-mix(in srgb, var(--sg-error) 5%, transparent) !important;
   }
 
   .action-btn-danger:hover {
-    background: rgba(255, 80, 80, 0.12) !important;
-    border-color: #ff6b6b !important;
+    background: color-mix(in srgb, var(--sg-error) 12%, transparent) !important;
+    border-color: var(--sg-error) !important;
   }
 
   .update-close {

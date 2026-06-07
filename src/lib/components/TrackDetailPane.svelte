@@ -1191,9 +1191,9 @@
   }
 
   .reset-btn:hover {
-    border-color: rgba(255,80,80,0.45);
-    color: #ff6060;
-    background: rgba(255,60,60,0.07);
+    border-color: color-mix(in srgb, var(--sg-error) 45%, transparent);
+    color: var(--sg-error);
+    background: color-mix(in srgb, var(--sg-error) 7%, transparent);
   }
 
   .reset-menu {
@@ -1223,8 +1223,8 @@
   }
 
   .reset-menu-item:hover {
-    background: rgba(255,60,60,0.07);
-    color: #ff6060;
+    background: color-mix(in srgb, var(--sg-error) 7%, transparent);
+    color: var(--sg-error);
   }
 
   /* ── Lyrics ── */
@@ -1291,8 +1291,8 @@
     letter-spacing: 0.06em;
     padding: 2px 7px;
     border-radius: 999px;
-    border: 1px solid rgba(232,160,32,0.4);
-    background: rgba(232,160,32,0.07);
+    border: 1px solid rgba(232,160,32,0.4); /* TODO: map to --sg-* token */
+    background: rgba(232,160,32,0.07); /* TODO: map to --sg-* token */
     color: var(--sax-d, #e8a020);
     cursor: pointer;
     transition: all 0.15s;
@@ -1300,21 +1300,21 @@
   }
 
   .structure-filter-pill:hover {
-    background: rgba(232,160,32,0.16);
-    border-color: rgba(232,160,32,0.7);
+    background: rgba(232,160,32,0.16); /* TODO: map to --sg-* token */
+    border-color: rgba(232,160,32,0.7); /* TODO: map to --sg-* token */
   }
 
   .structure-filter-pill--cluster {
-    border-color: rgba(0,240,255,0.35);
-    background: rgba(0,240,255,0.06);
-    color: var(--sg-primary, #00f0ff);
+    border-color: color-mix(in srgb, var(--sg-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--sg-primary) 6%, transparent);
+    color: var(--sg-primary);
     text-transform: none;
     letter-spacing: 0.02em;
   }
 
   .structure-filter-pill--cluster:hover {
-    background: rgba(0,240,255,0.13);
-    border-color: rgba(0,240,255,0.65);
+    background: color-mix(in srgb, var(--sg-primary) 13%, transparent);
+    border-color: color-mix(in srgb, var(--sg-primary) 65%, transparent);
   }
 
   /* ── Fingerprint click-to-filter button ── */

@@ -104,7 +104,7 @@
     height: 280px;
     object-fit: contain;
     opacity: 0.9;
-    filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.25));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sg-primary) 25%, transparent));
     margin-left: 16px;
     margin-bottom: 8px;
   }
@@ -130,7 +130,7 @@
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
-    text-decoration-color: rgba(132, 148, 149, 0.4);
+    text-decoration-color: color-mix(in srgb, var(--sg-on-surface-muted) 40%, transparent);
     transition: color 0.15s, text-decoration-color 0.15s;
   }
   .about-link:hover {
@@ -151,7 +151,7 @@
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 2px;
-    text-decoration-color: rgba(0, 240, 255, 0.4);
+    text-decoration-color: color-mix(in srgb, var(--sg-primary) 40%, transparent);
     transition: opacity 0.15s, text-decoration-color 0.15s;
   }
   .about-license:hover {
@@ -165,7 +165,7 @@
     gap: 12px;
     margin-top: 8px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
     animation: fade-in 0.2s ease-out;
   }
 
@@ -204,21 +204,21 @@
   }
 
   .badge-apache {
-    border: 1px solid rgba(0, 240, 255, 0.3);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0, 240, 255, 0.05);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
+    color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 5%, transparent);
   }
 
   .badge-cc {
-    border: 1px solid rgba(255, 170, 0, 0.3);
-    color: #ffaa00;
-    background: rgba(255, 170, 0, 0.05);
+    border: 1px solid rgba(255, 170, 0, 0.3); /* TODO: map to --sg-* token */
+    color: #ffaa00; /* TODO: map to --sg-* token */
+    background: rgba(255, 170, 0, 0.05); /* TODO: map to --sg-* token */
   }
 
   .badge-mit {
-    border: 1px solid rgba(188, 19, 254, 0.35);
-    color: #bc13fe;
-    background: rgba(188, 19, 254, 0.05);
+    border: 1px solid rgba(188, 19, 254, 0.35); /* TODO: map to --sg-* token */
+    color: #bc13fe; /* TODO: map to --sg-* token */
+    background: rgba(188, 19, 254, 0.05); /* TODO: map to --sg-* token */
   }
 
   .credit-desc {
@@ -242,7 +242,7 @@
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
-    text-decoration-color: rgba(132, 148, 149, 0.3);
+    text-decoration-color: color-mix(in srgb, var(--sg-on-surface-muted) 30%, transparent);
     transition: color 0.15s, text-decoration-color 0.15s;
   }
 
@@ -262,7 +262,7 @@
   .credit-warning {
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-3xs);
-    color: rgba(255, 170, 0, 0.8);
+    color: rgba(255, 170, 0, 0.8); /* TODO: map to --sg-* token */
     margin-top: 2px;
     line-height: 1.3;
   }

@@ -66,7 +66,7 @@
 
   .seg.hot      { color: var(--sg-primary, #00f0ff); }
   .seg.track    { color: var(--sg-on-surface, #e3e1e9); }
-  .seg.pending  { color: #f0a500; }
+  .seg.pending  { color: var(--sg-warning); }
   .seg.scanning { color: var(--sg-primary, #00f0ff); animation: blink 1.4s ease-in-out infinite; }
 
   @keyframes blink {

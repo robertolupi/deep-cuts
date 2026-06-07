@@ -155,7 +155,7 @@
   }
 
   .action-section {
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid color-mix(in srgb, var(--sg-on-surface) 6%, transparent);
     padding-top: 0.85rem;
     margin-top: 0.25rem;
     display: flex;
@@ -171,9 +171,9 @@
     font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 6px 12px;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     border-radius: 4px;
-    background: rgba(255,255,255,0.04);
+    background: color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     white-space: nowrap;
@@ -182,21 +182,21 @@
   }
 
   .sg-btn:hover:not(:disabled) {
-    border-color: rgba(255,255,255,0.25);
-    color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-on-surface) 25%, transparent);
+    color: var(--sg-on-surface);
+    background: color-mix(in srgb, var(--sg-on-surface) 8%, transparent);
   }
 
   .sg-btn-primary {
-    border-color: rgba(0,240,255,0.35);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-primary) 35%, transparent);
+    color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
   }
 
   .sg-btn-primary:hover:not(:disabled) {
-    background: rgba(0,240,255,0.14);
-    border-color: var(--sg-primary, #00f0ff);
-    color: var(--sg-primary, #00f0ff);
+    background: color-mix(in srgb, var(--sg-primary) 14%, transparent);
+    border-color: var(--sg-primary);
+    color: var(--sg-primary);
   }
 
   .action-btn {

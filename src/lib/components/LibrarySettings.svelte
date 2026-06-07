@@ -202,7 +202,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.6); /* TODO: map to --sg-* token */
     backdrop-filter: blur(4px);
     z-index: 1000;
     display: flex;
@@ -216,7 +216,7 @@
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); /* TODO: map to --sg-* token */
     animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
@@ -284,8 +284,8 @@
     line-height: 1.6;
     color: var(--sg-on-surface, #e3e1e9);
     white-space: pre-wrap;
-    background: rgba(0, 0, 0, 0.22);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.22); /* TODO: map to --sg-* token */
+    border: 1px solid var(--sg-glass-border);
     border-radius: 4px;
     padding: 1rem;
     margin: 0;

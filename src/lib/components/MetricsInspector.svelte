@@ -566,12 +566,12 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
-  .pass-badge.audio_analysis { color: #00f0ff; border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.06); }
-  .pass-badge.sax { color: #5ba3c9; border-color: rgba(91,163,201,0.3); background: rgba(91,163,201,0.06); }
-  .pass-badge.clap { color: #ff007f; border-color: rgba(255,0,127,0.3); background: rgba(255,0,127,0.06); }
-  .pass-badge.essentia { color: #00f5d4; border-color: rgba(0,245,212,0.3); background: rgba(0,245,212,0.06); }
-  .pass-badge.qwen { color: #ff9f1c; border-color: rgba(255,159,28,0.3); background: rgba(255,159,28,0.06); }
-  .pass-badge.description_embed { color: #00bbf9; border-color: rgba(0,187,249,0.3); background: rgba(0,187,249,0.06); }
+  .pass-badge.audio_analysis { color: var(--sg-primary); border-color: color-mix(in srgb, var(--sg-primary) 30%, transparent); background: color-mix(in srgb, var(--sg-primary) 6%, transparent); }
+  .pass-badge.sax { color: #5ba3c9; border-color: rgba(91,163,201,0.3); background: rgba(91,163,201,0.06); } /* TODO: map to --sg-* token */
+  .pass-badge.clap { color: #ff007f; border-color: rgba(255,0,127,0.3); background: rgba(255,0,127,0.06); } /* TODO: map to --sg-* token */
+  .pass-badge.essentia { color: #00f5d4; border-color: rgba(0,245,212,0.3); background: rgba(0,245,212,0.06); } /* TODO: map to --sg-* token */
+  .pass-badge.qwen { color: #ff9f1c; border-color: rgba(255,159,28,0.3); background: rgba(255,159,28,0.06); } /* TODO: map to --sg-* token */
+  .pass-badge.description_embed { color: #00bbf9; border-color: rgba(0,187,249,0.3); background: rgba(0,187,249,0.06); } /* TODO: map to --sg-* token */
 
   .count-badge {
     font-family: var(--sg-font-mono);

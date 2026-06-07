@@ -195,7 +195,7 @@
     letter-spacing: 0.18em;
     color: var(--sg-primary, #00f0ff);
     flex-shrink: 0;
-    text-shadow: 0 0 12px rgba(0,240,255,0.4);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--sg-primary) 40%, transparent);
   }
 
   /* ── Dev status badge ── */
@@ -221,10 +221,10 @@
     margin: 0;
     padding: 4px 0;
     min-width: 220px;
-    background: #1a1f2e;
-    border: 1px solid rgba(0,240,255,0.25);
+    background: var(--sg-surface-low);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 25%, transparent);
     border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6); /* TODO: map to --sg-* token */
   }
 
   .dev-menu-header {
@@ -308,18 +308,18 @@
   }
 
   .vt-analysis-active {
-    color: var(--sg-primary, #00f0ff);
-    text-shadow: 0 0 8px rgba(0,240,255,0.6);
+    color: var(--sg-primary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--sg-primary) 60%, transparent);
     animation: analysis-glow-pulse 2.4s ease-in-out infinite;
   }
 
   .vt-analysis-active svg {
-    filter: drop-shadow(0 0 4px rgba(0,240,255,0.7));
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--sg-primary) 70%, transparent));
   }
 
   @keyframes analysis-glow-pulse {
-    0%, 100% { text-shadow: 0 0 6px rgba(0,240,255,0.4); }
-    50%       { text-shadow: 0 0 14px rgba(0,240,255,0.85); }
+    0%, 100% { text-shadow: 0 0 6px color-mix(in srgb, var(--sg-primary) 40%, transparent); }
+    50%       { text-shadow: 0 0 14px color-mix(in srgb, var(--sg-primary) 85%, transparent); }
   }
 
   /* ── Theme picker ── */

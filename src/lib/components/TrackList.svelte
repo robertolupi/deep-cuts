@@ -273,11 +273,11 @@
 
   /* SAX letter colours: a=very quiet … e=very loud */
   :global(:root) {
-    --sax-a: #4a7fa5;
-    --sax-b: #5ba3c9;
-    --sax-c: #00f0ff;
-    --sax-d: #f0a030;
-    --sax-e: #ff5533;
+    --sax-a: #4a7fa5; /* TODO: map to --sg-* token */
+    --sax-b: #5ba3c9; /* TODO: map to --sg-* token */
+    --sax-c: var(--sg-primary);
+    --sax-d: #f0a030; /* TODO: map to --sg-* token */
+    --sax-e: #ff5533; /* TODO: map to --sg-* token */
   }
 
   .waveform-bar {
@@ -367,8 +367,8 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1rem;
-    background: rgba(255, 200, 0, 0.07);
-    border-bottom: 1px solid rgba(255, 200, 0, 0.2);
+    background: color-mix(in srgb, var(--sg-warning) 7%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--sg-warning) 20%, transparent);
     font-size: 0.8rem;
     color: var(--sg-on-surface-variant, #a0a0b0);
   }
@@ -383,8 +383,8 @@
   .outside-filter-clear {
     flex-shrink: 0;
     background: none;
-    border: 1px solid rgba(255, 200, 0, 0.35);
-    color: rgba(255, 200, 0, 0.85);
+    border: 1px solid color-mix(in srgb, var(--sg-warning) 35%, transparent);
+    color: color-mix(in srgb, var(--sg-warning) 85%, transparent);
     border-radius: 4px;
     padding: 0.2rem 0.6rem;
     font-size: 0.75rem;
@@ -393,7 +393,7 @@
   }
 
   .outside-filter-clear:hover {
-    background: rgba(255, 200, 0, 0.12);
+    background: color-mix(in srgb, var(--sg-warning) 12%, transparent);
   }
 
   .semantic-score-badge {
@@ -402,9 +402,9 @@
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 999px;
-    border: 1px solid rgba(0, 240, 255, 0.3);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
+    color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
     margin-left: 6px;
     vertical-align: middle;
     display: inline-block;
@@ -416,9 +416,9 @@
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 999px;
-    border: 1px solid rgba(254, 0, 254, 0.3);
-    color: var(--sg-secondary, #fe00fe);
-    background: rgba(254, 0, 254, 0.08);
+    border: 1px solid color-mix(in srgb, var(--sg-secondary) 30%, transparent);
+    color: var(--sg-secondary);
+    background: color-mix(in srgb, var(--sg-secondary) 8%, transparent);
     margin-left: 6px;
     vertical-align: middle;
     display: inline-block;

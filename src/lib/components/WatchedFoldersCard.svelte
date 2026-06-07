@@ -307,9 +307,9 @@
   }
 
   .delete-btn:hover {
-    color: #ff6b6b;
-    border-color: rgba(255,107,107,0.3);
-    background: rgba(255,107,107,0.07);
+    color: var(--sg-error);
+    border-color: color-mix(in srgb, var(--sg-error) 30%, transparent);
+    background: color-mix(in srgb, var(--sg-error) 7%, transparent);
   }
 
   .empty-dirs {

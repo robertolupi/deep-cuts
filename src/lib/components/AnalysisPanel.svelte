@@ -695,12 +695,12 @@
   /* ── Error banner ── */
   .error-banner {
     padding: 0.6rem 1rem;
-    border: 1px solid rgba(255,80,80,0.3);
+    border: 1px solid color-mix(in srgb, var(--sg-error) 30%, transparent);
     border-radius: 4px;
-    background: rgba(255,80,80,0.08);
+    background: color-mix(in srgb, var(--sg-error) 8%, transparent);
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-xs);
-    color: #ff6b6b;
+    color: var(--sg-error);
   }
 
 
@@ -708,9 +708,9 @@
   /* ── Model warning ── */
   .model-warning {
     padding: 1rem;
-    background: rgba(200,120,0,0.06);
-    border: 1px solid rgba(200,120,0,0.25);
-    border-left: 3px solid #c87800;
+    background: color-mix(in srgb, var(--sg-warning) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-warning) 25%, transparent);
+    border-left: 3px solid var(--sg-warning);
     border-radius: 6px;
     display: flex;
     flex-direction: column;
@@ -727,7 +727,7 @@
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-sm);
     font-weight: 700;
-    color: #c87800;
+    color: var(--sg-warning);
     flex: 1;
   }
 
@@ -963,7 +963,7 @@
 
   .progress-done    { height: 100%; transition: width 0.3s ease; }
   .progress-running { height: 100%; transition: width 0.3s ease; }
-  .progress-failed  { height: 100%; background: #ff6b6b; transition: width 0.3s ease; }
+  .progress-failed  { height: 100%; background: var(--sg-error); transition: width 0.3s ease; }
 
   /* ── Counts ── */
   .pass-counts {
@@ -978,7 +978,7 @@
   }
 
   .cnt-progress { color: var(--sg-outline, #849495); }
-  .cnt-failed   { color: #ff6b6b; }
+  .cnt-failed   { color: var(--sg-error); }
   .cnt-pending  { color: var(--sg-outline, #849495); opacity: 0.6; }
   .cnt-total    { color: var(--sg-outline, #849495); opacity: 0.4; }
 
@@ -991,7 +991,7 @@
   .error-details summary {
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-2xs);
-    color: #ff6b6b;
+    color: var(--sg-error);
     cursor: pointer;
     padding: 2px 0;
   }
@@ -1024,7 +1024,7 @@
   .error-log {
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-2xs);
-    color: #ff6b6b;
+    color: var(--sg-error);
     flex: 1;
   }
 
@@ -1038,8 +1038,8 @@
   /* ── Update Banner Card ── */
   .update-banner-card {
     padding: 1rem;
-    background: rgba(0, 240, 255, 0.05);
-    border: 1px solid rgba(0, 240, 255, 0.2);
+    background: color-mix(in srgb, var(--sg-primary) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 20%, transparent);
     border-left: 3px solid var(--sg-primary, #00f0ff);
     border-radius: 6px;
     display: flex;
@@ -1065,14 +1065,14 @@
   }
 
   .action-btn-danger {
-    border-color: rgba(255, 80, 80, 0.3) !important;
-    color: #ff6b6b !important;
-    background: rgba(255, 80, 80, 0.05) !important;
+    border-color: color-mix(in srgb, var(--sg-error) 30%, transparent) !important;
+    color: var(--sg-error) !important;
+    background: color-mix(in srgb, var(--sg-error) 5%, transparent) !important;
   }
 
   .action-btn-danger:hover {
-    background: rgba(255, 80, 80, 0.12) !important;
-    border-color: #ff6b6b !important;
+    background: color-mix(in srgb, var(--sg-error) 12%, transparent) !important;
+    border-color: var(--sg-error) !important;
   }
 
   .update-close {

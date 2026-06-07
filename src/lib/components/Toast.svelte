@@ -50,15 +50,15 @@
   }
 
   .toast-success {
-    background: rgba(0,240,255,0.12);
-    border: 1px solid rgba(0,240,255,0.3);
-    color: var(--sg-primary, #00f0ff);
+    background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
+    color: var(--sg-primary);
   }
 
   .toast-error {
-    background: rgba(255,107,107,0.12);
-    border: 1px solid rgba(255,107,107,0.35);
-    color: #ff6b6b;
+    background: color-mix(in srgb, var(--sg-error) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-error) 35%, transparent);
+    color: var(--sg-error);
   }
 
   @keyframes slide-up {

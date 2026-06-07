@@ -393,7 +393,7 @@
     position: fixed;
     inset: 0;
     z-index: 490;
-    background: rgba(0,0,0,0.3);
+    background: rgba(0,0,0,0.3); /* TODO: map to --sg-* token */
   }
 
   .drawer {
@@ -403,11 +403,11 @@
     bottom: 0;
     width: 420px;
     z-index: 500;
-    background: #111520;
-    border-left: 1px solid rgba(0,240,255,0.15);
+    background: var(--sg-surface-dim);
+    border-left: 1px solid color-mix(in srgb, var(--sg-primary) 15%, transparent);
     display: flex;
     flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0,0,0,0.5);
+    box-shadow: -8px 0 32px rgba(0,0,0,0.5); /* TODO: map to --sg-* token */
   }
 
   .drawer-header {
@@ -437,15 +437,15 @@
     font-family: var(--sg-font-mono);
     font-size: 10px;
     padding: 3px 9px;
-    background: rgba(0,240,255,0.08);
-    border: 1px solid rgba(0,240,255,0.2);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 20%, transparent);
     border-radius: 4px;
-    color: var(--sg-primary, #00f0ff);
+    color: var(--sg-primary);
     cursor: pointer;
     transition: background 0.12s;
   }
 
-  .hdr-btn:hover { background: rgba(0,240,255,0.16); }
+  .hdr-btn:hover { background: color-mix(in srgb, var(--sg-primary) 16%, transparent); }
 
   .hdr-close {
     background: none;
@@ -472,8 +472,8 @@
   }
 
   .highlight-block {
-    background: rgba(0,240,255,0.03);
-    border-left: 2px solid rgba(0,240,255,0.3);
+    background: color-mix(in srgb, var(--sg-primary) 3%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
     padding: 4px 8px;
     margin-bottom: 6px;
     border-radius: 0 3px 3px 0;
@@ -490,7 +490,7 @@
   .error {
     font-family: var(--sg-font-mono);
     font-size: 10px;
-    color: #ff6b6b;
+    color: var(--sg-error);
     margin: 4px 0;
   }
 
@@ -521,7 +521,7 @@
   .pass-table tr.dim-row td { opacity: 0.35; }
   .pass-table td.pass-name { color: var(--sg-outline, #849495); opacity: 1; }
   .pass-table td.hot  { color: var(--sg-primary, #00f0ff); opacity: 1; }
-  .pass-table td.err  { color: #ff6b6b; opacity: 1; }
+  .pass-table td.err  { color: var(--sg-error); opacity: 1; }
   .pass-table td.raw-result { opacity: 0.5; font-size: 9px; }
 
   /* Raw SQL sections */
@@ -574,10 +574,10 @@
     font-family: var(--sg-font-mono);
     font-size: 9px;
     padding: 1px 6px;
-    background: rgba(255,80,80,0.1);
-    border: 1px solid rgba(255,80,80,0.2);
+    background: color-mix(in srgb, var(--sg-error) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-error) 20%, transparent);
     border-radius: 10px;
-    color: #ff9999;
+    color: var(--sg-error);
     margin: 2px 2px 2px 0;
   }
 </style>

@@ -294,42 +294,42 @@
   }
 
   .dl-btn-primary:hover {
-    background: rgba(0, 240, 255, 0.14);
-    border-color: var(--sg-primary, #00f0ff);
-    color: var(--sg-primary, #00f0ff);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    background: color-mix(in srgb, var(--sg-primary) 14%, transparent);
+    border-color: var(--sg-primary);
+    color: var(--sg-primary);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--sg-primary) 20%, transparent);
   }
 
   .dl-btn-cancel {
-    border-color: rgba(255, 107, 107, 0.3);
-    color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.07);
+    border-color: color-mix(in srgb, var(--sg-error) 30%, transparent);
+    color: var(--sg-error);
+    background: color-mix(in srgb, var(--sg-error) 7%, transparent);
     margin-top: 8px;
     align-self: flex-start;
   }
 
   .dl-btn-cancel:hover {
-    background: rgba(255, 107, 107, 0.15);
-    border-color: #ff6b6b;
+    background: color-mix(in srgb, var(--sg-error) 15%, transparent);
+    border-color: var(--sg-error);
   }
 
   .dl-btn-retry {
-    border-color: rgba(200, 120, 0, 0.3);
-    color: #c87800;
-    background: rgba(200, 120, 0, 0.07);
+    border-color: color-mix(in srgb, var(--sg-warning) 30%, transparent);
+    color: var(--sg-warning);
+    background: color-mix(in srgb, var(--sg-warning) 7%, transparent);
   }
 
   .dl-btn-retry:hover {
-    background: rgba(200, 120, 0, 0.15);
-    border-color: #c87800;
+    background: color-mix(in srgb, var(--sg-warning) 15%, transparent);
+    border-color: var(--sg-warning);
   }
 
   /* ── Error Banner ── */
   .error-banner {
     padding: 0.85rem;
-    border: 1px solid rgba(255, 107, 107, 0.25);
+    border: 1px solid color-mix(in srgb, var(--sg-error) 25%, transparent);
     border-radius: 5px;
-    background: rgba(255, 107, 107, 0.05);
+    background: color-mix(in srgb, var(--sg-error) 5%, transparent);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -342,7 +342,7 @@
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-sm);
     font-weight: 700;
-    color: #ff6b6b;
+    color: var(--sg-error);
   }
 
   .error-text {
@@ -356,9 +356,9 @@
   /* ── Success Banner ── */
   .success-banner {
     padding: 0.85rem;
-    border: 1px solid rgba(0, 240, 255, 0.25);
+    border: 1px solid color-mix(in srgb, var(--sg-primary) 25%, transparent);
     border-radius: 5px;
-    background: rgba(0, 240, 255, 0.05);
+    background: color-mix(in srgb, var(--sg-primary) 5%, transparent);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -456,9 +456,9 @@
 
   .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #00c3ff, #00f0ff);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--sg-primary) 80%, #0000ff), var(--sg-primary));
     border-radius: 2px;
-    box-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--sg-primary) 50%, transparent);
     transition: width 0.15s ease-out;
   }
 
@@ -486,10 +486,10 @@
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-2xs);
     font-weight: 700;
-    color: #c87800;
+    color: var(--sg-warning);
     padding: 3px 8px;
-    background: rgba(200, 120, 0, 0.07);
-    border: 1px solid rgba(200, 120, 0, 0.25);
+    background: color-mix(in srgb, var(--sg-warning) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-warning) 25%, transparent);
     border-radius: 4px;
   }
 </style>

@@ -263,8 +263,8 @@
     font-size: var(--sg-text-xs);
     padding: 3px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
+    background: color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: all 0.15s;
@@ -272,26 +272,26 @@
   }
 
   .chip:hover {
-    border-color: rgba(0,240,255,0.4);
-    color: var(--sg-on-surface, #e3e1e9);
+    border-color: color-mix(in srgb, var(--sg-primary) 40%, transparent);
+    color: var(--sg-on-surface);
   }
 
   .chip-active {
-    border-color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.1);
-    color: var(--sg-primary, #00f0ff);
+    border-color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 10%, transparent);
+    color: var(--sg-primary);
   }
 
   .chip-clear {
-    border-color: rgba(255,255,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-on-surface) 8%, transparent);
     color: var(--sg-outline, #849495);
     font-style: italic;
   }
 
   .chip-similar {
-    border-color: rgba(254,0,254,0.45) !important;
-    background: rgba(254,0,254,0.08) !important;
-    color: var(--sg-secondary, #fe00fe) !important;
+    border-color: color-mix(in srgb, var(--sg-secondary) 45%, transparent) !important;
+    background: color-mix(in srgb, var(--sg-secondary) 8%, transparent) !important;
+    color: var(--sg-secondary) !important;
     max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -299,9 +299,9 @@
   }
 
   .chip-semantic {
-    border-color: rgba(0, 240, 255, 0.45) !important;
-    background: rgba(0, 240, 255, 0.08) !important;
-    color: var(--sg-primary, #00f0ff) !important;
+    border-color: color-mix(in srgb, var(--sg-primary) 45%, transparent) !important;
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent) !important;
+    color: var(--sg-primary) !important;
     max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -309,9 +309,9 @@
   }
 
   .chip-clap {
-    border-color: rgba(254, 0, 254, 0.45) !important;
-    background: rgba(254, 0, 254, 0.08) !important;
-    color: var(--sg-secondary, #fe00fe) !important;
+    border-color: color-mix(in srgb, var(--sg-secondary) 45%, transparent) !important;
+    background: color-mix(in srgb, var(--sg-secondary) 8%, transparent) !important;
+    color: var(--sg-secondary) !important;
     max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -348,30 +348,30 @@
     font-size: var(--sg-text-xs);
     font-weight: 700;
     padding: 5px 12px;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     border-radius: 4px;
-    background: rgba(255,255,255,0.04);
+    background: color-mix(in srgb, var(--sg-on-surface) 4%, transparent);
     color: var(--sg-outline, #849495);
     cursor: pointer;
     transition: all 0.12s;
   }
 
   .action-btn:hover:not(:disabled) {
-    border-color: rgba(255,255,255,0.25);
-    color: var(--sg-on-surface, #e3e1e9);
-    background: rgba(255,255,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-on-surface) 25%, transparent);
+    color: var(--sg-on-surface);
+    background: color-mix(in srgb, var(--sg-on-surface) 8%, transparent);
   }
 
   .action-btn-primary {
-    border-color: rgba(0,240,255,0.35);
-    color: var(--sg-primary, #00f0ff);
-    background: rgba(0,240,255,0.08);
+    border-color: color-mix(in srgb, var(--sg-primary) 35%, transparent);
+    color: var(--sg-primary);
+    background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
   }
 
   .action-btn-primary:hover {
-    background: rgba(0,240,255,0.14) !important;
-    border-color: var(--sg-primary, #00f0ff) !important;
-    color: var(--sg-primary, #00f0ff) !important;
+    background: color-mix(in srgb, var(--sg-primary) 14%, transparent) !important;
+    border-color: var(--sg-primary) !important;
+    color: var(--sg-primary) !important;
   }
 
   .search-input {

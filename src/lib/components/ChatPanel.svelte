@@ -659,13 +659,13 @@
 
   /* Override wavesurfer region handle colours */
   :global(.waveform-wrap .wavesurfer-region) {
-    border-left:  2px solid rgba(0, 240, 255, 0.7) !important;
-    border-right: 2px solid rgba(0, 240, 255, 0.7) !important;
+    border-left:  2px solid color-mix(in srgb, var(--sg-primary) 70%, transparent) !important;
+    border-right: 2px solid color-mix(in srgb, var(--sg-primary) 70%, transparent) !important;
   }
 
   :global(html[data-theme="light"] .waveform-wrap .wavesurfer-region) {
-    border-left:  2px solid rgba(13, 115, 119, 0.7) !important;
-    border-right: 2px solid rgba(13, 115, 119, 0.7) !important;
+    border-left:  2px solid rgba(13, 115, 119, 0.7) !important; /* TODO: map to --sg-* token */
+    border-right: 2px solid rgba(13, 115, 119, 0.7) !important; /* TODO: map to --sg-* token */
   }
 
   .region-hint {
@@ -803,9 +803,9 @@
     padding: 8px 10px;
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-xs);
-    color: #ff6b6b;
-    background: rgba(255, 80, 80, 0.08);
-    border: 1px solid rgba(255, 80, 80, 0.25);
+    color: var(--sg-error);
+    background: color-mix(in srgb, var(--sg-error) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-error) 25%, transparent);
     border-radius: 4px;
     word-break: break-word;
   }
@@ -816,9 +816,9 @@
     padding: 8px 10px;
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-xs);
-    color: #f0a030;
-    background: rgba(240, 160, 48, 0.08);
-    border: 1px solid rgba(240, 160, 48, 0.25);
+    color: var(--sg-warning);
+    background: color-mix(in srgb, var(--sg-warning) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sg-warning) 25%, transparent);
     border-radius: 4px;
     word-break: break-word;
   }
@@ -918,9 +918,9 @@
   }
 
   .session-delete-btn:hover {
-    border-color: rgba(255,80,80,0.4);
-    color: #ff6060;
-    background: rgba(255,60,60,0.07);
+    border-color: color-mix(in srgb, var(--sg-error) 40%, transparent);
+    color: var(--sg-error);
+    background: color-mix(in srgb, var(--sg-error) 7%, transparent);
   }
 
   .session-input {

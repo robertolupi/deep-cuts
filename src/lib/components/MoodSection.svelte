@@ -129,7 +129,7 @@
   }
 
   .clear-link:hover {
-    color: #ff6060;
+    color: var(--sg-error);
   }
 
   .section-label {
@@ -170,7 +170,7 @@
     flex: 1;
     height: 3px;
     border-radius: 2px;
-    background: rgba(255,255,255,0.12);
+    background: color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
     outline: none;
     cursor: pointer;
   }
@@ -181,9 +181,9 @@
     width: 11px;
     height: 11px;
     border-radius: 50%;
-    background: #bc13fe;
+    background: #bc13fe; /* TODO: map to --sg-* token */
     cursor: pointer;
-    box-shadow: 0 0 4px rgba(188,19,254,0.5);
+    box-shadow: 0 0 4px rgba(188,19,254,0.5); /* TODO: map to --sg-* token */
   }
 
   .tol-slider::-moz-range-thumb {
@@ -191,20 +191,20 @@
     height: 11px;
     border-radius: 50%;
     border: none;
-    background: #bc13fe;
+    background: #bc13fe; /* TODO: map to --sg-* token */
     cursor: pointer;
   }
 
   .tol-slider::-moz-range-track {
     height: 3px;
     border-radius: 2px;
-    background: rgba(255,255,255,0.12);
+    background: color-mix(in srgb, var(--sg-on-surface) 12%, transparent);
   }
 
   .tol-value {
     font-family: var(--sg-font-mono);
     font-size: var(--sg-text-3xs);
-    color: #bc13fe;
+    color: #bc13fe; /* TODO: map to --sg-* token */
     width: 32px;
     text-align: right;
     flex-shrink: 0;
