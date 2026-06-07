@@ -139,3 +139,4 @@ When a collaboration session reaches a stable conclusion:
 3. Link any implementation commits, PRs, or follow-up docs.
 4. Promote durable instructions into a normal `doc/` file, a `skills/` file, or code comments.
 5. Mark the final handoff as complete or explicitly hand back remaining work to Roberto.
+6. Mark the session archived by appending a `## [Closed, YYYY-MM-DD]` entry. This signals to any future reader that the session reached a conclusion and requires no further action.

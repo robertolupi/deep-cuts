@@ -135,3 +135,21 @@ No open questions. Protocol is ready to use.
 For Roberto: commit these files and we can use /collab on the next task.
 ```
 
+---
+
+## [Closed, 2026-06-06]
+
+**Accepted decisions:**
+- File-based collaboration over a single markdown file per session; no JSON, no Python scripts, no MCP server.
+- All sessions (including meta-sessions) live in `doc/collab/sessions/` — `~/collab/` rejected because Gemini's sandbox cannot reliably access paths outside the project workspace.
+- Human-in-the-loop relay is the correct turn-taking model; strict automated queuing adds no value.
+
+**Rejected alternatives:**
+- `session.json` + `inbox.jsonl` two-file approach (Gemini's initial proposal) — collapsed into a single markdown file per Claude's simplification.
+- Neutral `~/collab/` directory for meta-sessions — rejected due to Gemini sandboxing constraints.
+- SQLite MCP server — deferred; file-based approach sufficient for current needs.
+
+**Durable instructions promoted:**
+- `doc/collab/PROTOCOL.md` — created this session, now the live protocol.
+- `skills/bot-collab/SKILL.md` — created this session, covers `/collab check`, `new`, and `handoff` workflows.
+

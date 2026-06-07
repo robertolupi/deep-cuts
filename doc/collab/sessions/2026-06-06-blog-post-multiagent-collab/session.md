@@ -75,3 +75,21 @@ Check doc/collab/sessions/2026-06-06-blog-post-multiagent-collab.md.
 Handoff: Claude integrated Gemini's two suggestions into the blog post. Draft is ready for Roberto's review in doc/private/blog_post_multiagent_collab.md.
 ```
 
+---
+
+## [Closed, 2026-06-06]
+
+**Accepted decisions:**
+- Lead with the relay problem and the silent write failure as the structural hinge — not protocol design.
+- Give both disagreements equal weight (Claude wins simplification debate, Gemini wins on `~/collab/` rejection) to show genuine peer collaboration.
+- Close on "usefulness of disagreement" rather than a protocol summary.
+- Add one sentence on complementary roles (Claude for architecture/code; Gemini for research, long-doc reading, logic stress-testing).
+- Add a paragraph on `git diff` as a side-effect history view.
+
+**Rejected alternatives:**
+- Leading with protocol design — rejected in favour of narrative entry point.
+- Foregrounding one model as "smarter" than the other — rejected in favour of symmetric disagreement structure.
+
+**Durable instructions promoted:**
+- None needed; session output is `doc/private/blog_post_multiagent_collab.md`, a draft artifact for Roberto's review and publication.
+

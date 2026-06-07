@@ -10,6 +10,22 @@ related_skills:
 
 # Music Map Improvements
 
+## Acceptance Criteria
+
+- **User-visible:** Map no longer compresses the main library cluster; outlying tracks are soft-clamped to canvas edges rather than dominating the bounding box. Hovering over edge-stacked dots reveals distinct tracks via micro-jitter offsets.
+- **User-visible (deferred):** A settings panel exposes algorithm choice (PCA/t-SNE/Diffusion/UMAP) and per-algorithm tunable parameters; outlier tracks appear in a pinned HUD mini-map inset that can be expanded or dismissed.
+- **User-visible:** A "Show non-music content" sidebar toggle (off by default) hides audiobooks, podcasts, and jingles from the map; those tracks remain accessible in the table view.
+- **User-visible:** CLAP embeddings are computed from the highest-energy non-silent windows, so similarity clusters reflect characteristic musical moments rather than silent intros/outros.
+- **Data model:** `tracks` table gains `is_map_outlier BOOLEAN DEFAULT 0`, `is_non_music BOOLEAN DEFAULT 0`, `silence_regions TEXT`, and `has_long_silence BOOLEAN DEFAULT 0` columns via new migrations.
+- **Data model (deferred):** Settings schema entries `map_algorithm`, `map_tsne_perplexity`, `map_tsne_epochs`, `map_tsne_theta`, `map_diffusion_steps`, `map_diffusion_epsilon`, and `map_normalization_percentile` are persisted in app config/DB.
+- **IPC / frontend boundary:** `recompute_projection` command honours algorithm and parameter arguments that were previously silently ignored; `track_coords` or `tracks` rows include `is_map_outlier` and `is_non_music` flags consumed by the Svelte map component.
+- **Analysis pipeline:** Silence-detection pre-pass runs before CLAP; energy-based window selection uses its output; re-analysis of existing tracks is triggered when pass versions change.
+- **Tests:** Rust unit tests for `standardize_to_100` with p1/p99 clipping, soft-boundary squashing, and micro-jitter determinism; rule-based non-music classifier tested against known-good and known-bad fixtures; silence detection tested against synthetic waveforms with known silent segments.
+- **Local verification:** After `recompute_projection`, confirm in SQLite that `is_map_outlier` is set for extreme tracks; visually verify main cluster fills canvas and outlier dot is still hoverable.
+- **Theme / accessibility:** Satellite inset and outlier dots must be distinguishable without relying on color alone (dashed border or label); map dot tooltips remain keyboard-accessible.
+
+---
+
 ## 1. Fix Map Cramping: Percentile-Clipped Normalization
 
 **Problem:** `standardize_to_100` in `commands/map.rs` maps the absolute min/max of UMAP output coordinates to `[0, 100]`. A handful of acoustically extreme tracks (early ragtime, heavy metal) sit far from the main cluster and define the bounding box, compressing 96%+ of the library into a small region of the canvas.

@@ -4,6 +4,22 @@ This document outlines the design for allowing users to manually edit track meta
 
 ---
 
+## Acceptance Criteria
+
+- **User-visible:** An "Edit Tags" button in `TrackDetailPane` opens `EditTrackModal.svelte`; all core metadata fields (title, artist, album, BPM, key, scale, genre, year, description, lyrics, composer, etc.) are editable in the modal with a scrollable form matching the dark glassmorphic theme.
+- **User-visible:** Overridden fields are visually distinguished with an accent highlight and a pencil indicator in `TrackDetailPane`; hovering shows the original auto-detected value; a revert button (↺) restores the field to its auto-detected value.
+- **User-visible:** Automatic tags shown in the detail pane can be suppressed via right-click context menu; suppressed tags render with strikethrough; a restore action re-enables them. Custom user tags can be added and removed.
+- **User-visible:** All overrides survive a full library rescan and analysis re-run without being overwritten.
+- **Data model:** Migration `23_user_track_overrides.sql` creates `user_track_overrides` (keyed on `track_path`, one nullable column per overridable field) and `user_suppressed_tags` (composite PK on `track_path` + `tag_name`) tables. `Track::find_all` / `Track::find` LEFT JOIN `user_track_overrides` using COALESCE and return per-field `is_*_overridden` boolean flags.
+- **IPC / frontend boundary:** New Tauri commands `save_track_override`, `remove_track_override`, `add_user_tag`, `remove_user_tag`, `suppress_tag`, and `unsuppress_tag` are registered and typed on the TypeScript side; `Track` interface gains `is_*_overridden` boolean fields.
+- **Sidecar round-trip:** `SidecarData` gains `user_overrides`, `user_tags`, and `suppressed_tags` fields; sidecar save and restore logic reads/writes these tables so overrides survive folder moves and are portable across machines.
+- **Analysis pipeline behavior:** Overrides stored in `user_track_overrides` are not cleared by the scanner upsert or by analysis pass resets; suppression rows in `user_suppressed_tags` persist across all pipeline runs.
+- **Tests:** Rust integration test confirms that a rescan does not overwrite an existing `user_track_overrides` row; unit tests for `save_track_override` and `suppress_tag` commands; test that sidecar round-trip preserves overrides and suppressions.
+- **Local verification:** Edit a track's BPM, trigger a rescan, confirm the custom value is still shown; suppress a tag, re-run analysis, confirm the tag remains suppressed; export and reimport sidecar, confirm overrides are restored.
+- **Theme / accessibility:** Edit modal must be keyboard-navigable (focus trap, Esc closes, Tab cycles fields); pencil and revert icons carry `aria-label` attributes.
+
+---
+
 ## Current State
 
 This proposal is partially implemented, but the shipped shape is narrower than the full override design below.

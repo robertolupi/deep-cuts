@@ -14,6 +14,22 @@ This document details user interface and layout improvements for playlist and sa
 
 ---
 
+## Acceptance Criteria
+
+- **User-visible:** Tracks in a playlist can be reordered by drag-and-drop with smooth animated transitions (`animate:flip`); the new order persists after closing and reopening the playlist.
+- **User-visible:** A continuous energy sparkline stitched from 128-bin waveform envelopes is displayed below the playlist track list, showing the energy narrative arc of the set.
+- **User-visible:** BPM and key-compatibility badges appear between consecutive tracks; green badges for harmonic-compatible transitions, red for incompatible key changes; tempo slope indicators show BPM changes step-by-step.
+- **User-visible:** An "Optimize Transitions" action reorders selected tracks in a playlist using TSP over the structural similarity sub-matrix, returning a smoothed sequence.
+- **User-visible:** When saving a search, an auto-suggested name is pre-filled based on the active filter state (genre, BPM range, mood); the user can accept or override it.
+- **User-visible:** A "Suggested Additions" sidebar panel recommends library tracks based on the CLAP embedding centroid, mood vector, and BPM/key profile of the current playlist/saved search.
+- **Data model:** No new tables required; relies on existing `playlists`, `playlist_tracks`, `map_coordinates` (embeddings), and `tracks` (BPM, key, waveform_data) columns.
+- **IPC / frontend boundary:** Drag-to-reorder persists via the existing playlist reorder command; a new or updated IPC endpoint is needed to expose the TSP optimizer result; recommendation surface requires a new `suggest_playlist_tracks` command returning ranked `Track` objects.
+- **Tests:** Unit test for auto-naming logic covering genre+BPM+mood combinations; integration test for the TSP optimizer confirming it returns a valid permutation; Rust test that CLAP centroid computation returns the correct mean vector for a small fixture set.
+- **Local verification:** Drag a track in a playlist, restart the app, confirm order is preserved; open saved-search save dialog and confirm auto-name is populated; click "Optimize Transitions" and verify badge colors change.
+- **Theme / accessibility:** Drag handles must be operable via keyboard (arrow-key reorder); transition badges must carry accessible labels/tooltips, not just color.
+
+---
+
 ## Implementation Status
 
 This page mixes shipped playlist infrastructure with UI ideas that still need design review.

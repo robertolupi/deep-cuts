@@ -10,6 +10,22 @@ related_skills:
 
 # SAX Structural Search — Design & Experiments
 
+## Acceptance Criteria
+
+- **User-visible:** A block composer panel (palette of named blocks: Intro, Verse, Pre-Chorus, Chorus, Drop, Bridge, Outro, `[···]` wildcard) lets users build a structural query by clicking or dragging blocks into a horizontal lane; a live result count and ranked result list (sorted by match cost) updates as the query changes.
+- **User-visible:** Each result in the list shows two badges — Structural Match % (normalised Viterbi/DTW cost) and Sonic Match % (CLAP cosine similarity) — and a slider controls the blend weight between them.
+- **User-visible:** A waveform overlay on each result track displays inferred section labels (`[I][V][C]` etc.) color-coded by SAX assignment, so the user can see why a track matched.
+- **User-visible:** The `[···]` wildcard block acts as an explicit "don't care" gap between two blocks; strict adjacency is the default (no implicit wildcards between specified blocks).
+- **Data model:** Migration `25_waveform_repetition.sql` adds `waveform_repetition TEXT` (JSON array of 16 floats) and `waveform_labels TEXT` (JSON array of 16 label strings) to the `tracks` table; computed atomically inside the `audio_analysis` pass alongside `waveform_sax`, eliminating the separate SaxPass I/O round-trip.
+- **IPC / frontend boundary:** New command `search_by_structure(blocks: string[], tolerance: number) → { track: Track, cost: number }[]` is exposed and typed on the TypeScript side; integrated into the filter sidebar alongside CLAP/semantic search.
+- **Analysis pipeline behavior:** SAX string, repetition vector, and label sequence are all written in a single `audio_analysis` UPDATE; bumping the `audio_analysis` pass version triggers a re-run for all tracks and populates the new columns.
+- **Migration/reset behavior:** Resetting the `audio_analysis` pass clears and recomputes `waveform_sax`, `waveform_repetition`, and `waveform_labels` together; no partial-column state should exist after a reset completes.
+- **Tests:** Rust unit test for centroid-label assignment using the 7 known centroids against fixture (energy, repetition) pairs; unit test for edit-distance cost function with centroid-weighted substitutions; integration test that `search_by_structure([I, V, C])` returns at least one result and all results are sorted by ascending cost.
+- **Local verification:** Trigger re-analysis on a small library, query `SELECT waveform_labels FROM tracks LIMIT 5` in SQLite and confirm JSON arrays of 16 label strings; open block composer, build `[Intro → Chorus]`, confirm result list is non-empty and waveform label overlay is visible on the first result.
+- **Theme / accessibility:** Block palette items are keyboard-operable (Tab + Enter to append); block lane supports keyboard reorder (arrow keys); result list cost badges carry accessible labels.
+
+---
+
 ## Current State
 
 This is active research with several supporting pieces now in production. Treat the UI and model-training sections as design input, not as the current app contract.

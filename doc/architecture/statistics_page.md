@@ -6,6 +6,21 @@ A dedicated statistics page lets you understand the structure, character, and co
 
 ---
 
+## Acceptance Criteria
+
+- **User-visible:** A Statistics page is accessible from the main navigation; up to 2 track sets (full library, saved search, playlist, or current filter) can be loaded and compared side-by-side, each rendered in a distinct color throughout all charts.
+- **User-visible:** Summary KPI cards show track count, total duration, average BPM ± std dev, most common key, % vocals, % analysed, average loudness, and a mood-radar thumbnail per set; delta indicators (↑↓) compare sets against the first.
+- **User-visible:** Charts include overlaid BPM histograms, chromatic key frequency bars, major/minor stacked bars, mood radar overlays, mood dimension histograms, genre top-12 grouped bars, instrument frequency horizontal bars, vocal breakdown, duration histogram, loudness distribution, bitrate/sample-rate breakdown, and color-coded analysis coverage bars.
+- **User-visible (deferred):** 3-set comparison, Venn track-overlap counts, embedding centroid distance, nearest-neighbor cross-set histograms, genre treemaps, Mood×BPM heatmap, Camelot wheel density, and listening history section.
+- **Data model:** No new tables or migrations required; all metrics are derived from existing `tracks`, `embeddings`, `track_tags`, and related columns.
+- **IPC / frontend boundary:** A `get_statistics` (or equivalent) Tauri command accepts a track-set definition (full library, saved-search ID, or playlist ID) and returns pre-aggregated statistics; heavy computations (centroid distances, nearest-neighbor distributions) stream back progressively.
+- **Performance:** Summary KPIs and histograms render within one second for libraries up to 2,000 tracks; an in-memory LRU cache on the backend invalidates when `updated_at` changes; high-density histograms use HTML5 Canvas, sparse/interactive charts use SVG.
+- **Tests:** Rust unit tests for KPI aggregation functions (mean BPM, mood centroid, key mode); test that cache invalidates correctly on track update; frontend component test that correct chart data is passed when two sets are loaded.
+- **Local verification:** Open Statistics page, load "Full Library" as Set A and a saved search as Set B; confirm all KPI cards populate, BPM histograms overlay correctly, analysis coverage bars reflect actual pass completion, and mood radars reflect distinct set profiles.
+- **Theme / accessibility:** All charts carry accessible axis labels and legends; color differentiation between sets is supplemented by pattern or shape encoding; chart tooltips are keyboard-reachable.
+
+---
+
 ## Comparison Model
 
 The page is built around **track sets**. A track set is any of:
