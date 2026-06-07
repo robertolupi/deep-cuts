@@ -32,6 +32,9 @@ except Exception:  # pragma: no cover - optional dependency
     _watch = None
 
 
+LEASE_TTL_DEFAULT = 120.0  # seconds; a claimed task auto-returns via sweep() after this
+
+
 def _now_ns() -> int:
     return time.time_ns()
 
@@ -143,7 +146,7 @@ class MailStore:
         self._atomic_write(self.root / "tasks" / "open" / _new_filename(env["id"]), env)
         return env
 
-    def claim(self) -> Optional[dict]:
+    def claim(self, lease_ttl: Optional[float] = LEASE_TTL_DEFAULT) -> Optional[dict]:
         claimed_dir = self.root / "tasks" / "claimed" / self.actor
         claimed_dir.mkdir(parents=True, exist_ok=True)
         for p in sorted((self.root / "tasks" / "open").glob("*.json")):
@@ -152,23 +155,91 @@ class MailStore:
                 os.rename(p, dest)  # atomic: exactly one worker wins
             except (FileNotFoundError, OSError):
                 continue  # lost the race
+            now = time.time()
             env = self._read(dest) or {}
-            env.update(status="claimed", owner=self.actor, claimed_at=time.time())
+            env.update(status="claimed", owner=self.actor, claimed_at=now)
+            if lease_ttl:
+                env["lease_expires_at"] = now + lease_ttl
             self._atomic_write(dest, env)
             return env
         return None
 
-    def complete(self, task_id: str, result: Any) -> Optional[dict]:
+    def _find_claimed(self, task_id: str) -> tuple[Optional[Path], Optional[dict]]:
+        """Locate a task in this actor's claimed/ dir by envelope id, not filename.
+
+        Identity lives in env["id"]; filenames vary across adapters, so never
+        reconstruct a path from task_id.
+        """
         claimed_dir = self.root / "tasks" / "claimed" / self.actor
         for p in claimed_dir.glob("*.json"):
             env = self._read(p)
-            if env is None or env.get("id") != task_id:
+            if env is not None and env.get("id") == task_id:
+                return p, env
+        return None, None
+
+    def complete(self, task_id: str, result: Any) -> Optional[dict]:
+        p, env = self._find_claimed(task_id)
+        if env is None:
+            return None
+        env.update(status="done", result=result, completed_at=time.time())
+        self._atomic_write(self.root / "tasks" / "done" / p.name, env)
+        p.unlink(missing_ok=True)
+        return env
+
+    def heartbeat(self, task_id: str, lease_ttl: float = LEASE_TTL_DEFAULT) -> Optional[dict]:
+        """Extend the lease on a task this actor holds, so sweep() won't reclaim it."""
+        p, env = self._find_claimed(task_id)
+        if env is None:
+            return None
+        env["lease_expires_at"] = time.time() + lease_ttl
+        self._atomic_write(p, env)
+        return env
+
+    def abandon(self, task_id: str, reason: str) -> Optional[dict]:
+        """Release a task this actor holds back to open/ with a diagnostic reason."""
+        p, env = self._find_claimed(task_id)
+        if env is None:
+            return None
+        env["status"] = "open"
+        for k in ("owner", "claimed_at", "lease_expires_at"):
+            env.pop(k, None)
+        env["abandoned_by"] = self.actor
+        env["abandoned_reason"] = reason
+        env["abandoned_at"] = time.time()
+        self._atomic_write(self.root / "tasks" / "open" / p.name, env)
+        p.unlink(missing_ok=True)
+        return env
+
+    def sweep(self) -> list[dict]:
+        """Coordinator op: return tasks whose lease has expired back to open/.
+
+        Scans every actor's claimed/ dir (not just this one), so a coordinator can
+        reclaim work abandoned by a crashed worker. Returns the reclaimed envelopes.
+        """
+        now = time.time()
+        reclaimed: list[dict] = []
+        claimed_root = self.root / "tasks" / "claimed"
+        if not claimed_root.exists():
+            return reclaimed
+        for actor_dir in sorted(claimed_root.glob("*")):
+            if not actor_dir.is_dir():
                 continue
-            env.update(status="done", result=result, completed_at=time.time())
-            self._atomic_write(self.root / "tasks" / "done" / p.name, env)
-            p.unlink(missing_ok=True)
-            return env
-        return None
+            for p in actor_dir.glob("*.json"):
+                env = self._read(p)
+                if env is None:
+                    continue
+                expires = env.get("lease_expires_at")
+                if expires is None or expires > now:
+                    continue  # no lease or still valid
+                env["status"] = "open"
+                env["swept_from"] = env.pop("owner", None)
+                env.pop("claimed_at", None)
+                env.pop("lease_expires_at", None)
+                env["swept_at"] = now
+                self._atomic_write(self.root / "tasks" / "open" / p.name, env)
+                p.unlink(missing_ok=True)
+                reclaimed.append(env)
+        return reclaimed
 
     # -- tracing ----------------------------------------------------------
     def inbox(self, actor: Optional[str] = None) -> dict:

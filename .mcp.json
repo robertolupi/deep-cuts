@@ -4,8 +4,7 @@
       "command": "tools/.venv/bin/python",
       "args": ["-m", "collab_mcp"],
       "env": {
-        "PYTHONPATH": "tools",
-        "COLLAB_ACTOR": "claude"
+        "PYTHONPATH": "tools"
       }
     }
   }

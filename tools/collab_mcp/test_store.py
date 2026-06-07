@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import tempfile
 import time
+import uuid
 
 from .store import MailStore
 
@@ -57,6 +58,44 @@ def main() -> None:
     assert done["result"]["branch"] == "feat/x", "result is recorded"
     assert any((claude.root / "tasks" / "done").glob("*.json")), "task moved to done/"
     assert w1.claim() is None, "no open tasks remain"
+
+    # lease: claim stamps an expiry; heartbeat extends it
+    leased = claude.post({"job": "leased"})
+    held = w1.claim(lease_ttl=100.0)
+    assert held["id"] == leased["id"] and held["lease_expires_at"] > time.time(), "claim sets a lease"
+    before = held["lease_expires_at"]
+    time.sleep(0.01)
+    beat = w1.heartbeat(leased["id"], lease_ttl=200.0)
+    assert beat is not None and beat["lease_expires_at"] > before, "heartbeat extends the lease"
+    assert w2.heartbeat(leased["id"]) is None, "cannot heartbeat a task you don't hold"
+
+    # abandon: returns the task to open/ with a reason, reclaimable by anyone
+    ab = w1.abandon(leased["id"], "bad environment")
+    assert ab is not None and ab["status"] == "open" and ab["abandoned_reason"] == "bad environment"
+    assert "owner" not in ab and "lease_expires_at" not in ab, "claim fields stripped on abandon"
+    re = w2.claim()
+    assert re is not None and re["id"] == leased["id"], "abandoned task is re-claimable"
+    w2.complete(leased["id"], {"ok": True})
+
+    # sweep: a coordinator reclaims an expired lease across actors
+    swept_task = claude.post({"job": "will-expire"})
+    w1.claim(lease_ttl=0.01)  # tiny lease
+    time.sleep(0.02)  # let it expire
+    coordinator = MailStore(root, "coordinator")
+    reclaimed = coordinator.sweep()
+    assert any(r["id"] == swept_task["id"] for r in reclaimed), "sweep reclaims expired lease"
+    assert reclaimed[0]["swept_from"] == "w1", "sweep records the previous owner"
+    assert w2.claim()["id"] == swept_task["id"], "reclaimed task is back in open/"
+    w2.complete(swept_task["id"], {"ok": True})
+
+    # cross-scheme filename: complete locates a claimed task by env id, not filename
+    import json
+    foreign = {"id": uuid.uuid4().hex, "from": "agy", "type": "task", "payload": {}, "status": "open"}
+    (claude.root / "tasks" / "open" / f"foreign-prefix-{foreign['id']}.json").write_text(json.dumps(foreign))
+    fc = w1.claim()
+    assert fc is not None and fc["id"] == foreign["id"], "claims a foreign-named task file"
+    fdone = w1.complete(foreign["id"], {"ok": True})
+    assert fdone is not None and fdone["status"] == "done", "completes by env id despite odd filename"
 
     # tracing snapshot
     snap = claude.inbox("agy")
