@@ -86,6 +86,7 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 | [meta-feedback/README.md](operations/meta-feedback/README.md) | implemented | High | Review output from Meta AI (Muse Spark) session. |
 | [meta-feedback/project-opinion-swot.md](operations/meta-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and sequence modeling recommendations from Meta AI review. |
 | [collab/PROTOCOL.md](collab/PROTOCOL.md) | protected | High | Publicly linked protocol. Do not move casually. |
+| [collab/courier-design.md](collab/courier-design.md) | proposed | High | Design for the filesystem message bus (the "courier"): outside-repo spool, clean-Markdown transcript, warm doorbell delivery. Not yet built. |
 
 ## Private / Blog / Outreach Notes
 
