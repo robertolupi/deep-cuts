@@ -23,6 +23,9 @@ scratch/
 scratch
 *.egg-info/
 
+# Claude Code git worktrees (isolated working copies)
+.claude/worktrees/
+
 # Private planning docs
 doc/private/
 
