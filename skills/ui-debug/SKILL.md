@@ -51,14 +51,119 @@ When working in Codex with the Browser plugin available:
 3. Use screenshots and DOM inspection to verify the changed surface at desktop and narrow widths.
 4. If a component depends on real Tauri APIs not represented by local-debug mocks, add or update the mock in `src/lib/ipc.ts` before judging the UI.
 
-## Manual fallback
+## Fallback A — Codex / no-MCP browser
 
-If no browser automation is available, still perform a structured manual check:
+Use this when no Chrome MCP extension is connected but a browser can be opened
+(e.g. the Codex environment with its in-app Browser plugin).
 
-- run the app or Vite dev server;
-- open `http://localhost:1420/?local_debug=1`;
-- verify the changed state in dark, light, and accessible themes;
-- record what you checked and any unverified states in the final response.
+**Start the dev server:**
+```bash
+# Full Tauri stack (required for Rust IPC commands):
+npm run tauri
+
+# Frontend only (sufficient for CSS / Svelte component work):
+npm run dev
+```
+
+**Navigate to the mock-data URL:**
+```
+http://localhost:1420/?local_debug=1   # Tauri dev server default port
+http://localhost:5173/?local_debug=1   # Vite-only (npm run dev)
+```
+
+The `?local_debug=1` flag activates built-in mock IPC data (5 fixture tracks,
+2 playlists) so the full UI renders without a running Tauri backend.
+
+**What to verify:**
+- The five mock tracks appear in the track list with correct title / artist / duration.
+- Selecting a track populates the right detail pane (cover art, metadata fields).
+- The player bar renders at the bottom with transport controls visible.
+- No red error banners or "Library is empty" placeholder are shown.
+- Repeat at a narrow viewport (~900 px) to confirm panels don't overflow.
+- Check that the theme (dark / light) matches what was changed — the CSS custom
+  properties in `src/app.css` drive all colours; a single token regression shows
+  everywhere.
+
+If a component depends on a Tauri API not yet covered by local-debug mocks, add
+or update the fixture in `src/lib/ipc.ts` before judging the UI.
+
+---
+
+## Fallback B — Playwright screenshot / DOM assertion
+
+Use this when no interactive browser MCP is available but Node.js is present.
+
+**One-shot screenshot** (no config file needed):
+```bash
+npx --yes playwright@latest screenshot \
+  --browser chromium \
+  "http://localhost:1420/?local_debug=1" \
+  /tmp/deep-cuts-ui.png
+```
+
+Read the resulting image with the `Read` tool to inspect it visually.
+
+**Inline script for DOM assertions** (save as `/tmp/check-ui.mjs`, run once):
+```js
+import { chromium } from 'playwright';
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.goto('http://localhost:1420/?local_debug=1');
+await page.waitForSelector('.track-row', { timeout: 5000 });
+
+const trackCount  = await page.locator('.track-row').count();
+const detailPane  = await page.locator('[data-region="detail"]').isVisible();
+const playerBar   = await page.locator('[data-region="player"]').isVisible();
+const consoleErrs = [];
+page.on('console', m => { if (m.type() === 'error') consoleErrs.push(m.text()); });
+
+console.log({ trackCount, detailPane, playerBar, consoleErrs });
+await browser.close();
+```
+
+```bash
+node /tmp/check-ui.mjs
+```
+
+**What to verify:**
+- `trackCount` equals the number of fixture tracks (5 for the default mock set).
+- `detailPane` and `playerBar` are both `true`.
+- `consoleErrs` is empty — any entry is a regression worth investigating.
+- The screenshot shows correct theme colours and no layout overflow.
+
+---
+
+## Fallback C — Manual verification checklist
+
+Use this when no automation tooling is available at all (pure reasoning pass or
+restricted sandbox). Open a browser manually and work through this list:
+
+**Load check**
+- [ ] Dev server starts without errors (`npm run dev` or `npm run tauri`).
+- [ ] `http://localhost:1420/?local_debug=1` (or `:5173`) loads without a blank
+      screen or spinner that never resolves.
+
+**Layout check**
+- [ ] Left sidebar (filter/playlist panel) is visible and not collapsed.
+- [ ] Track list in the centre shows mock tracks — not "Library is empty".
+- [ ] Player bar is pinned to the bottom of the window.
+- [ ] Right detail pane appears after clicking a track row.
+
+**Console check**
+- [ ] Open DevTools (F12 → Console); no red errors on initial load.
+- [ ] Interacting with the feature under test does not produce new errors.
+
+**Feature-under-test check**
+- [ ] The changed component renders as designed (correct text, spacing, colours).
+- [ ] Interactive states (hover, focus, active) look correct.
+- [ ] The change does not break adjacent components in the same view.
+
+**Theme check**
+- [ ] Verify in the active theme (dark or light) that CSS custom properties
+      resolve to expected values (inspect element → Computed styles).
+
+Record which items pass / fail and any unverified states in the final response.
 
 ## Reading the DOM
 
