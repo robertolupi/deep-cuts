@@ -63,6 +63,8 @@ export interface Track {
   ai_instruments: string | null;
   description: string | null;
 
+  structure_cluster_id: number | null;
+
   is_stale: number;
 }
 

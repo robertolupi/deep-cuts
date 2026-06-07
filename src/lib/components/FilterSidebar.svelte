@@ -125,6 +125,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     filters.semanticQuery !== "" ||
     filters.clapQuery !== "" ||
     filters.structureFilter !== "" ||
+    filters.structureClusterFilter !== null ||
     filters.structureSimilarToTrack !== null ||
     filters.genreFilter !== "" ||
     filters.selectedDirectoryIds.length > 0 ||
@@ -150,6 +151,7 @@ import CollapsiblePane from "./CollapsiblePane.svelte";
     filters.semanticQuery    = "";
     filters.clapQuery        = "";
     filters.structureFilter  = "";
+    filters.structureClusterFilter = null;
     filters.clearStructureSimilar();
     filters.genreFilter   = "";
     filters.clearDirectories();

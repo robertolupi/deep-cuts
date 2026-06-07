@@ -3,6 +3,7 @@
   import { library } from "$lib/stores/library.svelte";
   import { curation } from "$lib/stores/curation.svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { structureClusters } from "$lib/stores/structureClusters.svelte";
 
   let { hasActiveFilters, clearAll }: { hasActiveFilters: boolean; clearAll: () => void } = $props();
 
@@ -11,6 +12,12 @@
   let saveToPlaylistOpen = $state(false);
   let saveToNewPlaylistName = $state("");
   let saveToNewPlaylistMode = $state(false);
+
+  $effect(() => {
+    if (filters.structureClusterFilter !== null) {
+      structureClusters.load();
+    }
+  });
 
   function getSerializedFilterState(): string {
     return JSON.stringify({
@@ -94,6 +101,17 @@
       {#if filters.clapQuery}
         <button class="chip chip-active chip-clap" onclick={() => filters.clapQuery = ""}>
           🎵 {filters.clapQuery} ×
+        </button>
+      {/if}
+      {#if filters.structureFilter}
+        <button class="chip chip-active" onclick={() => filters.structureFilter = ""}>
+          Regex: {filters.structureFilter} ×
+        </button>
+      {/if}
+      {#if filters.structureClusterFilter !== null}
+        {@const cluster = structureClusters.byId[filters.structureClusterFilter]}
+        <button class="chip chip-active" onclick={() => filters.structureClusterFilter = null}>
+          Archetype: {cluster?.label ?? `Cluster ${filters.structureClusterFilter}`} ×
         </button>
       {/if}
       {#each filters.selectedKeys as k}
