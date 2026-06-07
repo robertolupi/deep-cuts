@@ -1,17 +1,3 @@
 {
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "mockup",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "7788", "--directory", "tools"],
-      "port": 7788
-    },
-    {
-      "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 1420
-    }
-  ]
+  "version": "0.0.1"
 }
