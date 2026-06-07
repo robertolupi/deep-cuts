@@ -89,21 +89,31 @@
 
   const hasMoods = $derived(trackMood != null && Object.values(trackMood).some(v => v != null));
 
+  function getCssToken(token: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  }
+
   // Map a tag's namespace prefix to a { color, bg, border } theme
   function tagTheme(tag: string): { color: string; bg: string; border: string } {
     const prefix = tag.split(':')[0];
+    // Helper: produce a consistent bg/border pair from a resolved color hex
+    const tint = (c: string, bgA: number, bdA: number) => ({
+      color: c,
+      bg: `color-mix(in srgb, ${c} ${Math.round(bgA * 100)}%, transparent)`,
+      border: `color-mix(in srgb, ${c} ${Math.round(bdA * 100)}%, transparent)`,
+    });
     switch (prefix) {
-      case 'genre':     return { color: '#fe00fe', bg: 'rgba(254,0,254,0.08)',   border: 'rgba(254,0,254,0.35)' };
-      case 'mood':      return { color: '#c87800', bg: 'rgba(200,120,0,0.10)',   border: 'rgba(200,120,0,0.40)' };
-      case 'inst':      return { color: '#00f0ff', bg: 'rgba(0,240,255,0.07)',   border: 'rgba(0,240,255,0.30)' };
-      case 'vibe':      return { color: '#ff9f1c', bg: 'rgba(255,159,28,0.08)',  border: 'rgba(255,159,28,0.35)' };
-      case 'vocal':     return { color: '#9b5de5', bg: 'rgba(155,93,229,0.08)', border: 'rgba(155,93,229,0.35)' };
-      case 'context':   return { color: '#00bbf9', bg: 'rgba(0,187,249,0.07)',  border: 'rgba(0,187,249,0.30)' };
-      case 'bpm':       return { color: '#fee440', bg: 'rgba(254,228,64,0.07)', border: 'rgba(254,228,64,0.30)' };
-      case 'key':       return { color: '#00f5d4', bg: 'rgba(0,245,212,0.07)',  border: 'rgba(0,245,212,0.30)' };
-      case 'mastering': return { color: '#849495', bg: 'rgba(132,148,149,0.07)', border: 'rgba(132,148,149,0.25)' };
-      case 'len':       return { color: '#849495', bg: 'rgba(132,148,149,0.07)', border: 'rgba(132,148,149,0.25)' };
-      default:          return { color: '#fe00fe', bg: 'rgba(254,0,254,0.08)',   border: 'rgba(254,0,254,0.35)' };
+      case 'genre':     return tint(getCssToken('--sg-secondary'), 0.08, 0.35); // AI metadata → --sg-secondary
+      case 'mood':      return tint(getCssToken('--sg-warning'),   0.10, 0.40); // mood/emotion → --sg-warning
+      case 'inst':      return tint(getCssToken('--sg-primary'),   0.07, 0.30); // instrument → --sg-primary (cyan)
+      case 'vibe':      return { color: '#ff9f1c', bg: 'rgba(255,159,28,0.08)',  border: 'rgba(255,159,28,0.35)' }; // TODO: map to --sg-* token
+      case 'vocal':     return { color: '#9b5de5', bg: 'rgba(155,93,229,0.08)', border: 'rgba(155,93,229,0.35)' }; // TODO: map to --sg-* token
+      case 'context':   return { color: '#00bbf9', bg: 'rgba(0,187,249,0.07)',  border: 'rgba(0,187,249,0.30)' };  // TODO: map to --sg-* token
+      case 'bpm':       return { color: '#fee440', bg: 'rgba(254,228,64,0.07)', border: 'rgba(254,228,64,0.30)' }; // TODO: map to --sg-* token
+      case 'key':       return tint(getCssToken('--sg-success'),   0.07, 0.30); // key / tonal → --sg-success (green/teal)
+      case 'mastering': return tint(getCssToken('--sg-outline'),   0.07, 0.25); // muted metadata → --sg-outline
+      case 'len':       return tint(getCssToken('--sg-outline'),   0.07, 0.25); // muted metadata → --sg-outline
+      default:          return tint(getCssToken('--sg-secondary'), 0.08, 0.35);
     }
   }
   const ext      = $derived(track?.path.split('.').pop()?.toUpperCase() ?? '');

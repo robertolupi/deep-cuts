@@ -54,16 +54,20 @@
     'description_embed',
   ];
 
-  // Dark / light color pairs per pass role
-  const PASS_COLORS: Record<string, { dark: string; light: string }> = {
-    audio:       { dark: '#00f0ff', light: '#0284c7' },  // cyan → sky blue
-    neural_pink: { dark: '#fe00fe', light: '#9333ea' },  // magenta → purple
-    amber:       { dark: '#c87800', light: '#b45309' },  // amber stays, slightly darker
-    green:       { dark: '#76ff03', light: '#16a34a' },  // lime → forest green
-    muted:       { dark: '#849495', light: '#64748b' },
+  function getCssToken(token: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  }
+
+  // Semantic token mapping per pass role — resolved at render time via getCssToken
+  const PASS_TOKEN: Record<string, string> = {
+    audio:       '--sg-primary',    // audio analysis passes → primary cyan
+    neural_pink: '--sg-secondary',  // neural/AI passes → secondary pink/magenta
+    amber:       '--sg-warning',    // description embedding → warning amber
+    green:       '--sg-success',    // classifier / clustering → success green
+    muted:       '--sg-outline',    // muted / low-emphasis passes
   };
 
-  const PASS_ROLE: Record<string, keyof typeof PASS_COLORS> = {
+  const PASS_ROLE: Record<string, keyof typeof PASS_TOKEN> = {
     audio_analysis:    'audio',
     bpm_correction:    'audio',
     sax:               'audio',
@@ -93,7 +97,7 @@
 
   function passColor(name: string): string {
     const role = PASS_ROLE[name] ?? 'muted';
-    return isLight ? PASS_COLORS[role].light : PASS_COLORS[role].dark;
+    return getCssToken(PASS_TOKEN[role]);
   }
 
   function passMeta(name: string) {

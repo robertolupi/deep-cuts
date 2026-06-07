@@ -36,6 +36,10 @@
     { key: 'acoustic',   label: 'Acoustic'   },
   ];
 
+  function getCssToken(token: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  }
+
   let svgEl: SVGSVGElement;
   let ghostAxis: number | null = null;
   let ghostValue: number = 0;
@@ -113,14 +117,19 @@
 
     const isLight = theme.resolvedTheme === 'light';
 
-    const resolvedColorA  = colorA ?? (isLight ? '#0284c7' : '#00f0ff');
-    const resolvedColorB  = colorB ?? (isLight ? '#dc4e2a' : '#ff7c5c');
-    const threshColor     = isLight ? '#7c3aed' : '#bc13fe';
+    const primary    = getCssToken('--sg-primary');
+    const secondary  = getCssToken('--sg-secondary');
+    const onSurface  = getCssToken('--sg-on-surface');
+    const outline    = getCssToken('--sg-outline');
+
+    const resolvedColorA  = colorA ?? primary;
+    const resolvedColorB  = colorB ?? secondary; // TODO: no dedicated --sg-* token for secondary contrast color; using --sg-secondary
+    const threshColor     = secondary; // threshold / interactive filter polygon → --sg-secondary
     const gridStroke      = isLight ? 'rgba(0,0,0,0.10)'  : 'rgba(255,255,255,0.08)';
     const axisStroke      = isLight ? 'rgba(0,0,0,0.14)'  : 'rgba(255,255,255,0.12)';
     const axisActiveStroke= isLight ? 'rgba(0,0,0,0.28)'  : 'rgba(255,255,255,0.28)';
-    const labelFill       = isLight ? '#475569'            : '#849495';
-    const labelActiveFill = isLight ? '#1e293b'            : '#e3e1e9';
+    const labelFill       = outline;
+    const labelActiveFill = onSurface;
 
     const N  = AXES.length;
     const { cx, cy, R } = getGeometry();
@@ -220,7 +229,7 @@
           .attr('cy', cy + R * val * Math.sin(angle))
           .attr('r', 4)
           .attr('fill', threshColor)
-          .attr('stroke', isLight ? '#fff' : '#161b22')
+          .attr('stroke', getCssToken('--sg-surface-slate')) // vertex dot border: surface background for contrast ring
           .attr('stroke-width', 1.5)
           .style('cursor', 'pointer');
         // value label

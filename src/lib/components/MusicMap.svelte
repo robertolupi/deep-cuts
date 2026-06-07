@@ -14,6 +14,10 @@
   import type { MappedTrackPoint } from '$lib/utils/mapMath';
   import { structureClusters } from '$lib/stores/structureClusters.svelte';
 
+  function getCssToken(token: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  }
+
   // Optional prop: when set, the map will pan to and select this track
   let { focusTrackId = $bindable(null) }: { focusTrackId?: number | null } = $props();
 
@@ -116,20 +120,32 @@
   });
 
   const themeColors = $derived.by(() => {
+    const primary   = getCssToken('--sg-primary');   // e.g. #00f0ff
+    const surface   = getCssToken('--sg-surface');   // canvas background
+    const onSurface = getCssToken('--sg-on-surface');
     if (currentThemeStr === 'accessible') return {
+      // Accessible: high-contrast yellow selection halo, white hover halo
       selectedHalo: '#ffff00', selectedHaloOuter: 'rgba(255,255,0,0.3)',
-      hoveredHalo: '#ffffff', dotBorder: '#ffffff', dotBorderWidth: 0.8,
-      canvasBg: '#000000', bpmCool: '#00ffff', bpmHot: '#ff00ff',
+      hoveredHalo: onSurface || '#ffffff', dotBorder: onSurface || '#ffffff', dotBorderWidth: 0.8,
+      canvasBg: surface || '#000000',
+      bpmCool: primary || '#00ffff', // TODO: no dedicated --sg-* token for BPM cool end
+      bpmHot: '#ff00ff',             // TODO: no dedicated --sg-* token for BPM hot end
     };
     if (currentThemeStr === 'light') return {
-      selectedHalo: '#6366f1', selectedHaloOuter: 'rgba(99,102,241,0.25)',
-      hoveredHalo: '#0f172a', dotBorder: '#ffffff', dotBorderWidth: 0.6,
-      canvasBg: '#f8fafc', bpmCool: '#0284c7', bpmHot: '#db2777',
+      // Light: use primary token for selection halo
+      selectedHalo: primary || '#6366f1', selectedHaloOuter: `color-mix(in srgb, ${primary || '#6366f1'} 25%, transparent)`,
+      hoveredHalo: onSurface || '#0f172a', dotBorder: '#ffffff', dotBorderWidth: 0.6,
+      canvasBg: surface || '#f8fafc',
+      bpmCool: '#0284c7', // TODO: no dedicated --sg-* cool-blue token; closest is --sg-primary (teal/cyan in light)
+      bpmHot: '#db2777',  // TODO: no dedicated --sg-* hot-pink token for BPM gradient
     };
     return {
-      selectedHalo: '#00F2FE', selectedHaloOuter: 'rgba(0,242,254,0.25)',
-      hoveredHalo: '#ffffff', dotBorder: 'rgba(10,11,16,0.4)', dotBorderWidth: 0.5,
-      canvasBg: '#0a0b10', bpmCool: '#00B0FF', bpmHot: '#ff007f',
+      // Dark: use primary token for selection halo
+      selectedHalo: primary || '#00F2FE', selectedHaloOuter: `color-mix(in srgb, ${primary || '#00F2FE'} 25%, transparent)`,
+      hoveredHalo: onSurface || '#ffffff', dotBorder: 'rgba(10,11,16,0.4)', dotBorderWidth: 0.5,
+      canvasBg: surface || '#0a0b10',
+      bpmCool: '#00B0FF', // TODO: no dedicated --sg-* cool-blue token for BPM gradient
+      bpmHot: '#ff007f',  // TODO: no dedicated --sg-* hot-pink token for BPM gradient
     };
   });
 
