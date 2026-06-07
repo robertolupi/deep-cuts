@@ -616,3 +616,62 @@ keeping, not just handoffs):
 
 **→ Handoff:** None — recording ACKs only. Session remains parked.
 
+---
+
+## [Meta, 20:15]
+
+This session is parked in a good place, but as the design-review voice, three architectural moves and two hygiene items stand out:
+
+### 1. Stop tuning the 16-bin grid — it's saturated
+- Refined / GRID ceiling = **97.7% @3s** and **115.9% @0.5s**. Claude's decomposition was right: you've extracted all the signal the grid can express.
+- The decision to park integration (A) and defer DSP (B) matches the data. No post-processing will move the 33% mir_eval number meaningfully.
+
+### 2. Normalize to human ceiling the right way
+- Switching to mir_eval (human ceiling 71.53% @3s, 64.55% @0.5s) is the correct benchmark-credible move.
+- Going forward, report **three numbers**, not one:
+  1. `Refined/GRID` (detector quality — now ~98%)
+  2. `GRID/HUMAN` (quantization debt — now 47.6%)
+  3. per-track normalized mean (48.7% @3s)
+  This decomposition prevents the "47% of human" headline from hiding where the loss lives.
+
+### 3. Next experiment should raise resolution, not model size
+Per the design review role for Approach B:
+- **Don't** put a transformer on the 16×3 SAX input yet. The 7.6% @0.5s mir_eval score is pure quantization — a bigger classifier cannot move boundaries.
+- **Do** test resolution first: 32-bin and beat-synchronous SAX, and measure how `GRID/HUMAN` lifts toward 62%. Finer resolution is the primary lever here.
+- When adding a neural sequence model later, keep it tiny: 2-layer bidirectional GRU or transformer with relative positional bias, trained with sample weights corresponding to human agreement (down-weight Track 79 at 0% and Track 218 at 28.6%). With only 229 tracks, over-parameterization will result in memorization rather than generalization.
+
+### 4. Evaluation hygiene before the SSM prototype
+- The 57-track holdout has already been spent once for `augment+8peaks_5s`. Do not tune the dense-embedding SSM on these same tracks. Carve a fresh holdout slice before developing the Python prototype.
+- Freeze the difficulty CSV (containing per-track human F1, model F1, and normalized scores) model-independently to allow reporting on well-defined subsets without cherry-picking.
+
+### 5. Final closeout recommendations
+Close this session formally by writing a `## [Closed, 2026-06-07]` entry documenting the accepted decisions, rejected alternatives, and links to keep the session log clean and archive-ready.
+
+**→ Handoff:**
+**Task:** Append the final closeout entry `## [Closed, 2026-06-07]` summarizing these accepted/rejected points and close the session.
+**Context:** [session.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-07-salami-eval-design/session.md), [scoping_dense_embeddings_ssm.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-07-salami-eval-design/scoping_dense_embeddings_ssm.md)
+**Deliverable:** A closed and archived session log.
+
+---
+
+## [Closed, 2026-06-07]
+
+This session has reached consensus and is formally closed.
+
+### Accepted Decisions
+1. **Canonical Scorer**: Adopted bipartite optimal matching via `mir_eval` as the canonical boundary/label evaluation engine.
+2. **Refinement Saturation**: Confirmed that post-processing refinement (`augment+8peaks_5s`) has saturated the 16-bin grid boundaries (Refined/GRID F1 at 97.7% @3s).
+3. **Resolution Bottleneck**: Pinned down quantization as the primary performance bottleneck (GRID/HUMAN at 47.6% @3s). Any future sub-second precision requires caching dense onset/chroma features to align off the fixed-width grid.
+4. **SSM Blueprint Frozen**: Froze the dense-embedding SSM blueprint, specifying that raw $N \times N$ matrices will not be persisted in SQLite (recompute on demand) and prioritizing chroma-first over CLAP features.
+
+### Rejected Alternatives
+1. **Merging Adjacent Bins**: Discarded as it decreased boundary recall by reducing boundary counts.
+2. **Beat-Snapping with Phase 0**: Beat-snapping with uniform grids without true downbeat phase hurt precision and was rejected.
+3. **Persisting Raw SSMs**: Rejected to prevent database bloat (saving ~23MB per track).
+4. **Immediate Rust/DSP Integration**: Deferring integration and Rust/DSP caching until a Python prototype successfully beats the oracle benchmark on validation.
+
+### Links
+- Evaluation Scripts: [evaluate_salami_boundaries.py](file:///Users/rlupi/src/deep-cuts/tools/evaluate_salami_boundaries.py)
+- Scoping Document: [scoping_dense_embeddings_ssm.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-07-salami-eval-design/scoping_dense_embeddings_ssm.md) (FROZEN)
+
+
