@@ -63,6 +63,7 @@ export const MOCK_TRACKS: Track[] = [
     mood_party: 0.3, mood_acoustic: 0.1, mood_electronic: 0.9,
     is_music: 1, ai_genre: "Downtempo / Trip-Hop", ai_mood: "Melancholic, Atmospheric",
     ai_instruments: "Piano, Bass, Drums, Strings", description: "Lush downtempo track with cinematic strings and a driving bassline.",
+    structure_cluster_id: null,
     is_stale: 0,
   },
   {
@@ -81,6 +82,7 @@ export const MOCK_TRACKS: Track[] = [
     mood_party: 0.5, mood_acoustic: 0.05, mood_electronic: 0.95,
     is_music: 1, ai_genre: "House / Electronica", ai_mood: "Euphoric, Dreamy",
     ai_instruments: "Synth pads, Sampled vocals, Drums", description: "Hypnotic house track built on looped vocal samples and shimmering pads.",
+    structure_cluster_id: null,
     is_stale: 0,
   },
   {
@@ -99,6 +101,7 @@ export const MOCK_TRACKS: Track[] = [
     mood_party: 0.2, mood_acoustic: 0.3, mood_electronic: 0.85,
     is_music: 1, ai_genre: "Jazz-influenced Electronic", ai_mood: "Intense, Complex",
     ai_instruments: "Synth, Live drums, Bass, Piano", description: "Intricate layered electronic piece blending jazz harmony with dense rhythmic patterns.",
+    structure_cluster_id: null,
     is_stale: 0,
   },
   {
@@ -117,6 +120,7 @@ export const MOCK_TRACKS: Track[] = [
     mood_party: 0.7, mood_acoustic: 0.2, mood_electronic: 0.75,
     is_music: 1, ai_genre: "Psychedelic Pop / Electronic", ai_mood: "Euphoric, Summery",
     ai_instruments: "Drums, Bass, Guitar, Synth, Vocals", description: "Bright psychedelic pop with propulsive drums and layered vocals.",
+    structure_cluster_id: null,
     is_stale: 0,
   },
   {
@@ -135,6 +139,7 @@ export const MOCK_TRACKS: Track[] = [
     mood_party: 0.6, mood_acoustic: 0.0, mood_electronic: 0.99,
     is_music: 1, ai_genre: "Techno / Ambient Techno", ai_mood: "Driving, Hypnotic",
     ai_instruments: "Synthesizers, Drum machine, Sub bass", description: "Relentless techno build over ten minutes with intricate hi-hat patterns and heavy sub bass.",
+    structure_cluster_id: null,
     is_stale: 0,
   },
 ];
