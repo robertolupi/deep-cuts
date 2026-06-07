@@ -7,6 +7,7 @@ This directory collects observations made by Claude (claude-sonnet-4-6) while wo
 ## Files
 
 - [dead-code.md](dead-code.md) — unused code found while working on other tasks.
+- [tauri-mocks.md](tauri-mocks.md) — missing frontend unit test infrastructure; adopt `@tauri-apps/api/mocks` alongside the typed CommandMap work.
 
 ## How to use
 
