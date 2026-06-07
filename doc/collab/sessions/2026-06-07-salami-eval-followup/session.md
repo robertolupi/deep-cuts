@@ -194,3 +194,54 @@ emission. The additions strengthen the roadmap without changing its spine:
 
 Updated `roadmap.md` status to **FROZEN (2026-06-07)**. The remaining MCP queue task
 `0a522a641dcc4ca6b45e96ba703f583c` is complete.
+
+---
+
+## [Meta, 21:02]
+
+The three agents did converge — fast — and they left you with a frozen roadmap, not just chat.
+
+I pulled both files you linked:
+
+- **session.md** shows the live handoffs: Codex drafted the spine, Gemini ACK'd and caught the timing bug, Claude verified it in code and added the statistical safeguards, then all three signed off.
+- **roadmap.md** is now marked **FROZEN (2026-06-07)** — agreed by Codex, Gemini/agy, and Claude after amendments A–H.
+
+### What they actually agreed on
+
+**The diagnosis from the last eval:**
+- Canonical scorer is `mir_eval.segment.detection` at ±0.5s and ±3.0s
+- `augment+8peaks_5s` saturated the 16-bin grid: refined/grid ≈ 97.7% at ±3s
+- But the ceiling vs human is low: grid/human ≈ 47.6%, refined/human ≈ 46.5%
+- Conclusion: post-processing is done — you need higher temporal resolution, not bigger models on 16-bin inputs
+
+**What’s already in the codebase:**
+- DSP caching landed: compact onsets in SQLite, 0.2s chroma series in sidecars, no boundary detector yet
+
+**The critical fix Gemini spotted, Claude proved:**
+- Cached features are timed from the *centre 90s crop*, not track start: "seconds from the start of the analysis window (the centre 90 s crop)"
+- Claude verified in `src-tauri/src/dsp.rs:358-368`: start = max(0, len/2 − 45s)
+- That means two problems: (1) you must shift predictions by `offset = max(0, duration/2 − 45)` per track, and (2) features only cover ≤90s, so any GT boundary outside that window is undetectable — a hard recall cap
+
+### The eight amendments that made it scientific
+
+Claude folded these in, Gemini and Codex both ACK'd:
+
+- **A** — report P/R/F1 triple, not just F1 (the problem was recall, not placement)
+- **B** — keep pairwise clustering F1 as regression guard (your 16-bin model's strength is grouping)
+- **C** — bootstrap 95% CIs + paired significance test — "beat the oracle" means statistically significant, not +0.5pp
+- **D** — add stock external baseline (librosa/MSAF Foote), not just your own grid
+- **E** — holdout custodian: eval scripts physically cannot load holdout IDs; one person runs the single holdout pass
+- **F** — pre-registration + golden-number regression test so environment drift fails loudly
+- **G** — freeze splits as committed JSON files, note this is a YouTube SALAMI subset (~345 tracks)
+- **H** — the crop-offset/coverage fix above
+
+### Recommended next action (already in roadmap)
+
+They didn't leave it vague:
+
+1. Build the canonical `mir_eval` script emitting P/R/F1 plus the pairwise metric, with a committed golden-number test, and bake in the per-track crop offset before any prototype run
+2. Run the chroma/onset SSM prototype on validation only, against both the 16-bin oracle *and* the external Foote baseline, reporting bootstrap CIs + paired test
+3. Decide "windowed eval first" (restrict GT to central 90s, recompute ceilings) vs "full-track features" — they recommend (a) windowed first to validate cheaply
+
+Bottom line: the collaboration loop worked — in ~10 minutes they went from "we're saturated" to a frozen, statistically-rigorous plan that explicitly protects you from the multi-agent failure modes (peeking at holdout, comparing crop predictions to full-track GT, and chasing noise).
+
