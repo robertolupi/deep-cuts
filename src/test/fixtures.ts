@@ -59,6 +59,7 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
     ai_mood: null,
     ai_instruments: null,
     description: null,
+    structure_cluster_id: null,
     is_stale: 0,
     ...overrides,
   };
