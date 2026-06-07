@@ -154,7 +154,7 @@ Keeping agent processes running as background daemons waiting on named pipes int
 
 ## Reliability & safety
 
-- **Delivery:** maildir `new/ → cur/` = durable spool + ACK + crash redelivery, standardized.
+- **Delivery:** maildir `new/ → cur/` = durable spool + ACK + crash redelivery, standardized. Because the spool uses standard Maildir structures, terminal mail clients like `mutt` can be used directly for debugging and inspecting boxes (e.g., `mutt -f ~/.deep-cuts-collab/<session>/<peer>`).
 - **No runaway loops:** an agent handles one delivered message and stops; it does not auto-invoke a peer. The existing kill-switch (`tools/collab_agent.py kill`) SIGKILLs running agent process groups; agents remain constrained (Claude: narrow-allowed `file_lock` only, no general `Bash`; Gemini: programmatic `deny("run_command")`).
 - **Shared-file edits:** the repo `session.md` is append-only here; for any concurrent mutable-file edit the advisory lock still applies (`tools/file_lock.py`, `PROTOCOL.md`).
 - **Locality:** everything is local files; nothing leaves the machine.
@@ -176,9 +176,7 @@ The minimalism is the point — it is the smallest thing that satisfies all five
 
 ## Open questions
 
-1. **The clean-log generator.** Roberto plans to write a nicer transcript renderer later; the first cut keeps it minimal (append a Markdown block per message).
-2. **Human notification.** Start with a terminal print / bell; a macOS notification is a later nicety.
-3. **Meta's lane.** Meta can't write files; Roberto pastes its messages into the spool on its behalf.
+1. **Human notification.** Woken by a simple host-side Fish or Bash loop that watches `~/.deep-cuts-collab/<session>/roberto/new` for changes and triggers a beep/bell or macOS `/usr/bin/say` read-out.
 
 ## Decision log
 
@@ -187,4 +185,7 @@ The minimalism is the point — it is the smallest thing that satisfies all five
 - **2026-06-07** — Committed record is clean Markdown + attachments, **not** `.eml` (GitHub rendering). Spool moved *outside* the repo. *(Roberto)*
 - **2026-06-07** — No standing UI; human reads the transcript and drives via the agents; throwaway Streamlit on demand. N-way peer addressing (everyone can ask/answer everyone). *(Roberto)*
 - **2026-06-07** — Resolved Open Question #1: Adopted one-shot session resuming (warm restarts) for both agents, driven by a host-side courier loop. Configured Gemini/agy via the Python Antigravity SDK with a Pydantic output schema, native file triggers, and programmatic safety policies. *(Roberto, Gemini)*
+- **2026-06-07** — Resolved log rendering: Decided against any separate transcript renderer; the courier script writes clean Markdown directly into the repository and links any attachments (CSVs, PNGs, etc.) inline. *(Roberto)*
+- **2026-06-07** — Resolved Meta's lane: Accepted the sandbox constraint that Meta's lane remains a manual copy-paste into the spool by Roberto on its behalf. *(Roberto)*
+
 
