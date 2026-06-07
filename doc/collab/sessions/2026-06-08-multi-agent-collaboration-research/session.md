@@ -775,3 +775,81 @@ When evaluating a proposed change, not all votes are equal. A TypeScript bug is 
 ### D. MCP Server Integration Blueprint
 * Sketch the API design (tools, resources, prompts) for the expanded MCP server acting as the Blackboard.
 * How does the MCP server manage branch checkouts, test execution, and coordinate which agent is woken up to critique or amend a proposal next?
+
+---
+
+## [Codex, 00:35]
+
+(Scribed by Codex.) I have conducted research on the Cognitive Consensus and Result Enrichment Protocol (CCREP). The complete design is available in the dedicated document: [codex-ccrep-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-08-multi-agent-collaboration-research/codex-ccrep-design.md).
+
+Here is the Executive Summary of the proposed consensus and improvement protocol:
+
+### CCREP Executive Summary
+
+* **Decoupling from Paxos/Raft Replication**: Instead of solving network partition replication, CCREP adapts Paxos/Raft concepts to a centralized coordinator model. Consensus is reached not on a lock, but on the *proven quality* of a code/design change. A consensus value is represented as an immutable tuple: `(task_id, commit_sha, evaluation_report, critique_set, vote_set, gate_policy_version)`.
+* **Dual State Machines**: The protocol tracks both the overall **Task Lifecycle** (`OPEN` $\rightarrow$ `CLAIMED` $\rightarrow$ `HAS_PROPOSALS` $\rightarrow$ `CANDIDATE_SELECTION` $\rightarrow$ `MERGED`) and the lifecycle of each individual **Proposal Revision** (`SUBMITTED` $\rightarrow$ `EVALUATING` $\rightarrow$ `REVIEWING` $\rightarrow$ `APPROVED` $\rightarrow$ `MERGED`).
+* **Anti-Divergence & Simulated Annealing**: To prevent infinite "taste loops" (arguments over formatting, naming, etc.), CCREP introduces:
+  1. A **revision budget** (max 5 revisions) and a **minimum metric delta** threshold (e.g. F1 change must be $\ge 0.002$ to trigger a re-eval).
+  2. **Critique Admissibility**: Only specific, actionable, and evidence-linked findings block merges.
+  3. **Simulated Annealing**: As the revision round increases, a temperature parameter decays, narrowing the allowed prompt freedom and search space (e.g., Round 0 = high temp, creative architecture exploration; Round 3+ = low temp, minimal bug-fixes only).
+* **Weighted Dynamic Consensus**: Votes are weighted by agent capabilities relative to the task domains. An agent with high Rust/ML capabilities has a higher vote weight on Viterbi model adjustments, but lower weight on Svelte UI files. Quorums are calculated dynamically by dot-multiplying the agent's capability vector with the task's domain vector.
+* **Condorcet Voting for Competing Branches**: When multiple optimization strategies exist (e.g. Branch A: Nelder-Mead vs Branch B: CMA-ES), agents rank the branches, and a weighted pairwise matrix is constructed to identify the Condorcet winner.
+* **Centralized MCP Orchestration**: The MCP server acts as the central coordinator (the Blackboard), executing automated evaluation suites (lints, tests, boundary evaluation scripts) in isolated local worktrees, maintaining a database of consensus states, and assigning the next agent's action through a pull-based task queue.
+
+---
+
+## [Gemini, 00:40]
+
+(Scribed by Gemini.) I have processed the Google DeepThink research output on CCREP. The complete protocol design from Google DeepThink has been placed in a dedicated file: [google-ccrep-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-08-multi-agent-collaboration-research/google-ccrep-design.md).
+
+Here is the Executive Summary of the Google DeepThink CCREP design:
+
+### Google DeepThink CCREP Executive Summary
+
+* **Centralized MCP Orchestration (The Blackboard)**: Validates that the manual asynchronous coordination pattern ("Two AIs, One Notepad") should be automated by an active MCP server managing git workspaces, testing processes, and agent scheduling.
+* **Topological Task Scheduling via CIG**: Tasks and agent communication are coordinated using a **Causal Interaction Graph (CIG)**—a directed acyclic graph $G_{CIG} = (A, M, C)$ mapping triggering messages to agent responses. Primitives $\text{get\_parents}(v)$ and $\text{get\_descendants}(v)$ allow tracing dependencies to isolate test failures and target review requests to affected peers.
+* **Textual Simulated Annealing (TSA) & Textual Learning Rate Decay (TLRD)**:
+  1. Let $T_k = T_0 \cdot \gamma^k$ control agent prompts, decaying from high $T$ (exploratory, system-wide refactoring) to low/terminal $T$ (restricted, linter-guided syntax fixes only).
+  2. TLRD decays the physical volume of characters allowed to change per commit as iterations progress.
+* **Quorum Weight Calibration via Bayes-Optimal Log-Odds**: Domain weight $w_{i,D}$ is computed based on historical accuracy, peer corroboration, and domain matching. It maps through a log-odds transformation:
+  $$w_{i,D}^* = \ln\left( \frac{\beta_{i,D}}{1 - \beta_{i,D}} \right)$$
+  ensuring specialized domain experts override generalist models on target issues.
+* **Concordance Tracking via Kendall's W**: Rates agent agreement on a Consensus Matrix $M \in \mathbb{R}^{N \times K}$ using Kendall's concordance $W$. The coordinator maps $W$ to Friedman's chi-square distribution ($\chi^2 = N(K - 1)W$) to determine statistical significance. If agreement falls below $0.65$, it isolates the most discordant agent to supply targeted feedback.
+* **Pairwise Preference Resolution via Schulze Method**: Employs a Condorcet-consistent graph-based path-strength calculation (Schulze method) using a Floyd-Warshall variant to resolve circular preferences among multiple competing branches without deadlock.
+
+## [Meta, 00:45]
+
+(Scribed by Meta.) I have provided my detailed proposal for the Cognitive Consensus and Result Enrichment Protocol (CCREP), focusing on establishing a dynamic "quality lock" framework rather than a basic file guard. The full document is available at: [meta-ccrep-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-08-multi-agent-collaboration-research/meta-ccrep-design.md).
+
+Here is the Executive Summary of the Meta CCREP design:
+
+### Meta CCREP Executive Summary
+
+* **Dual-Loop State Machine**: Tracks both overall Task Lifecycles and individual Proposal Revisions through a structured pipeline (`IDLE` $\rightarrow$ `PROPOSED` $\rightarrow$ `EVALUATING` $\rightarrow$ `REVIEWING` $\rightarrow$ `AMENDING` $\rightarrow$ `VOTING` $\rightarrow$ `MERGE_READY` $\rightarrow$ `MERGED`).
+* **Multi-Layered Termination Levers**:
+  1. **Plateau Detection**: Terminates if revision metrics ($\Delta$F1@3s $< 0.001$ and $\Delta$lint_errors $= 0$) do not improve for two consecutive runs, or if the `max_revisions = 5` budget is exceeded.
+  2. **Simulated Annealing prompt controls**: Decays temperature ($T_n = T_0 \cdot 0.7^n$) over revision rounds to shift model instructions from broad architectural revisions to target-only bug fixes.
+  3. **Edit-War Detector**: Monitors Levenshtein distance between revision $n$ and $n-2$ to flag alternating author style-flapping. Automatically initiates Codex compromise diffs when oscillations are flagged.
+* **Domain-Specific Weighted Quorum**: Computes quorum dynamically based on the task domain and agent capabilities (e.g., Claude carries 0.6 implementation weight; Gemini carries 0.6 architectural weight; Codex carries 0.6 verification weight; Human holds absolute veto).
+* **Schulze Method Path Strengths**: Resolves cyclical branch preferences (e.g., when choosing between multiple optimization branches) using a Floyd-Warshall path strength algorithm to determine Condorcet winners.
+* **Log Scribe Isolation**: Agents never edit `session.md` directly. All messages route through spool directories, and the MCP server scribe appends a linearized summary only when a proposal is successfully merged.
+
+---
+
+## [Antigravity, 00:50]
+
+I have synthesized the proposals from Codex, Google DeepThink, and Meta AI into a unified and improved coordination model: **Unified CCREP 2.1**. 
+
+This protocol addresses real-world sandboxing constraints and execution limits on macOS/Unix (specifically removing the unhonored prompt temperature limits in favor of hard physical constraints). The complete design is available in: [unified-ccrep-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-08-multi-agent-collaboration-research/unified-ccrep-design.md).
+
+Here is the Executive Summary of the Unified CCREP 2.1 design:
+
+### Unified CCREP 2.1 Executive Summary
+
+* **Programmatic AST & Line-Diff Gatekeeping**: Since LLM agents cannot dynamically self-adjust their inference temperature mid-session and clients frequently ignore API temperature settings, CCREP 2.1 physically enforces limits. The MCP server parses files using AST and diff checks, programmatically rejecting modifications that exceed strict line budgets or structural templates (e.g. blocking function signature modifications in late rounds, allowing only linter-suggested edits in terminal rounds).
+* **Git Worktree Isolation & Test Orchestration**: To prevent compilation and test runs from polluting the developer's active directory, all evaluations run in isolated, detached git worktrees under `.ccrep/worktrees/prop-{proposal_id}` which are automatically created and pruned via OS-level git calls.
+* **SQLite WAL with POSIX Directory Locks**: Solves database contention and mounting errors on WSL2/DrvFS and BTRFS filesystems by wrapping SQLite transactions with atomic directory-creation lock barriers (`mkdir .ccrep/locks/db.lock`).
+* **Daemonless Doorbell Signaling**: Initiates agent execution without active background daemons using a maildir spool directory (`spool/<agent>/new/`) coupled with POSIX named pipes (FIFOs) for event notification.
+* **Multi-Objective Optimization Vector (MOOV)**: Evaluates quality on a multi-dimensional Pareto vector tracking test pass rates, code coverage, cyclomatic complexity, and domain performance rather than a single metric.
+* **Laplacian-Smoothed Log-Odds Weighting**: Fixes division-by-zero boundary conditions in weighted voting calculations by applying Laplace smoothing to historical accuracy values.
+* **Elite Branch Cross-Pollination**: Automatically hybridizes competing branches that represent different Pareto quality trade-offs (e.g., high coverage vs high performance) using a three-way git merge.
