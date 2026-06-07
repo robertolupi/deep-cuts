@@ -853,3 +853,32 @@ Here is the Executive Summary of the Unified CCREP 2.1 design:
 * **Multi-Objective Optimization Vector (MOOV)**: Evaluates quality on a multi-dimensional Pareto vector tracking test pass rates, code coverage, cyclomatic complexity, and domain performance rather than a single metric.
 * **Laplacian-Smoothed Log-Odds Weighting**: Fixes division-by-zero boundary conditions in weighted voting calculations by applying Laplace smoothing to historical accuracy values.
 * **Elite Branch Cross-Pollination**: Automatically hybridizes competing branches that represent different Pareto quality trade-offs (e.g., high coverage vs high performance) using a three-way git merge.
+
+---
+
+## [Claude, 00:58]
+
+Roberto asked me to review the whole arc (the two prompts, the Courier Protocol, and the four CCREP designs) and then synthesize a single proposal. Review first; the synthesis lives in [doc/proposals/ccrep-synthesis.md](file:///Users/rlupi/src/deep-cuts/doc/proposals/ccrep-synthesis.md).
+
+### What this session is
+Two acts. **Act 1**: the Courier Protocol (daemonless POSIX locking) — correctly rejected by Roberto as solving a problem we don't have. **Act 2**: CCREP, where a central MCP server orchestrates propose→evaluate→critique→amend→merge and consensus is on *proven quality* rather than a lock. Four designs followed: Codex, "Google DeepThink", Meta, and Antigravity's "Unified 2.1".
+
+### The good
+**The Act-1 rejection is the most valuable move here.** Worth being blunt about why the Courier doc is weak, because the weakness recurs: it's padded with irrelevant and likely-confabulated content. The entire WSL2/DrvFS/BTRFS section is moot — we're on macOS. "DPBench" with precise deadlock rates, the RL reward table (PPO 750, SAC 700…), and model names like "GPT-5.2 / Claude Opus 4.5 / Grok 4.1" cited to two decimals are fabricated-looking precision with no real source. For docs that may inform implementation, those numbers should be stripped or marked unverified.
+
+**[codex-ccrep-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-08-multi-agent-collaboration-research/codex-ccrep-design.md) is the strongest of the four** because it resists the math theater:
+- "Do not literally implement Paxos," and the key abstraction — *a value is the immutable tuple `(task_id, commit_sha, evaluation_report, critique_set, vote_set, gate_policy_version)`*.
+- **Content-addressed eval caching** keyed on `(commit_sha, eval_suite_hash, dataset_hash, env_hash)` — aligns with our `how-to-experiment` reproducibility discipline.
+- Sound invariants: votes expire on code change, no self-approval, consensus state is *derived* (a reducer over an append-only event log), independence factor (`author==reviewer → 0`).
+- A **critique-admissibility rule** (specific + actionable + evidence-linked + severity-classified) — a more practical anti-churn lever than any temperature schedule.
+- A phased MVP path that starts with a plain evidence ledger.
+
+### Cross-cutting problems
+1. **Prompt-temperature annealing is broken — and the session knows it.** Codex, Google, and Meta all lean on "decay $T$ to make the agent less creative." Unified 2.1 correctly demolishes this (agents can't self-adjust inference temperature; clients clamp/ignore it) and replaces it with **physical AST/line-diff gates** — the single best synthesis insight here. But its budgets ("round 3 = max 15 lines, 2 files") are arbitrary; keep the mechanism, make budgets configurable.
+2. **The heavy math is decorative at our scale.** Kendall's W, Friedman χ², Schulze/Floyd-Warshall, Bayes-optimal log-odds assume many voters ranking many candidates. We have ~3 agents and almost always one proposal. Defer all of it until a real multi-branch bake-off exists.
+3. **Weighted log-odds voting needs data that doesn't exist** — $\beta_{i,D}$ presumes a labeled track record of review correctness, with no ground-truth source and an unaddressed cold-start.
+4. **Cost is never modeled.** Every proposal = full eval suite + multiple agents reading diffs + voting rounds. Our standing priority is app-first, not coordination research; CCREP ships zero app features and the per-change overhead is steep for a solo project.
+5. **The original problem has a small answer buried in a big one:** agents never write `session.md` directly; a single scribe linearizes on merge (Meta + Unified). Notably, *this very `session.md` was co-written by five participants without the contention failing* — turn-taking already suffices at current concurrency, so most of CCREP is a solution ahead of its problem.
+
+### Recommendation (carried into the synthesis doc)
+Adopt Codex's design as the spine; graft Unified 2.1's physical gates to replace every "temperature" mention (budgets as config, not constants); cut Kendall's W / Schulze / Condorcet / log-odds from v1 in favor of green-checks + 1 implementation approval + 1 independent approval; build Phase 1 (evidence ledger) only; sanitize the Courier doc. I left the synthesis at `status: need-human-review` rather than `accepted` — Roberto will decide after reading with a clear head.

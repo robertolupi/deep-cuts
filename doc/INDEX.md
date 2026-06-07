@@ -48,6 +48,7 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 
 | Doc | Status | Confidence | Evidence / Notes |
 |---|---|---:|---|
+| [ccrep-synthesis.md](proposals/ccrep-synthesis.md) | need-human-review | High | Synthesis of the four 2026-06-08 CCREP designs into one buildable quality-ratchet protocol. Recommends a phased build starting with an evidence ledger; awaiting Roberto's decision. |
 | [feature_feasibility_analysis.md](proposals/feature_feasibility_analysis.md) | need-human-review | High | Mixed matrix: one item marked done, others still proposals. Good candidate for phase-2 split into implemented notes vs backlog. |
 | [library_maintenance_utilities.md](proposals/library_maintenance_utilities.md) | need-human-review | Medium | Short brainstorm; unclear commitment or implementation status. |
 | [map_layouts.md](proposals/map_layouts.md) | partially-implemented | High | Projection modes and transitions are implemented; persisted layout catalog, staleness tracking, and coordinate-stability ideas still need review. |
