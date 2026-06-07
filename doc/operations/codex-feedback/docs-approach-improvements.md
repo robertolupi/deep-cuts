@@ -2,27 +2,7 @@
 
 Date: 2026-06-06
 
-## 1. Add proposal lifecycle metadata
-
-Many docs are strong research notes but weak lifecycle records. Some have clear status, while others read like current direction without saying whether they are active, implemented, superseded, or exploratory.
-
-Add frontmatter to proposal docs:
-
-```yaml
----
-status: proposed | active | implemented | superseded | deferred | rejected
-owner: Roberto
-last_verified: 2026-06-06
-implemented_by:
-superseded_by:
-related_code:
-related_skills:
----
-```
-
-This is especially useful for docs such as `sax_structure_learning.md`, `sax_structural_search.md`, `music_map_improvements.md`, `playlist_view_enhancements.md`, and `feature_feasibility_analysis.md`.
-
-## 2. Separate research results from implementation decisions
+## 1. Separate research results from implementation decisions
 
 Several docs contain experiments, revised architecture, implementation sketches, and future ideas in one file. That is fine during exploration, but later agents need a clear "current decision" section.
 
@@ -38,7 +18,7 @@ Recommended document shape:
 
 This keeps valuable research while preventing stale early sections from driving implementation.
 
-## 3. Add acceptance criteria to feature docs
+## 2. Add acceptance criteria to feature docs
 
 Before implementing proposal docs, require an "Acceptance Criteria" section covering:
 
@@ -52,7 +32,7 @@ Before implementing proposal docs, require an "Acceptance Criteria" section cove
 
 Good candidates: `music_map_improvements.md`, `playlist_view_enhancements.md`, `statistics_page.md`, `user_edit_song.md`, and structural search docs.
 
-## 4. Promote durable decisions out of session logs
+## 3. Promote durable decisions out of session logs
 
 The collaboration logs are useful, but they are not maintained design docs. Add a closing step to collaboration sessions:
 
@@ -64,7 +44,7 @@ The collaboration logs are useful, but they are not maintained design docs. Add 
 
 This would reduce repeated rediscovery in future agent runs.
 
-## 5. Keep docs synchronized with implementation
+## 4. Keep docs synchronized with implementation
 
 Recent history shows docs and implementation moving fast around SAX/structure analysis. Add a lightweight "doc sync" checklist for feature commits:
 
@@ -74,26 +54,7 @@ Recent history shows docs and implementation moving fast around SAX/structure an
 - If a proposal was implemented differently than planned, add an "Implemented outcome" note.
 - If a feature was removed, mark the proposal or old approach as superseded.
 
-## 6. Make command examples executable from one place
-
-Command examples should state the working directory and avoid mixed `cd` plus repo-root paths. Prefer repo-root examples unless a subdirectory is truly required.
-
-Fix examples that do:
-
-```bash
-cd tools
-python tools/script.py
-```
-
-Prefer:
-
-```bash
-tools/.venv/bin/python tools/script.py
-```
-
-This matches the skills guidance and is more reliable for agents.
-
-## 7. Add a short architecture map
+## 5. Add a short architecture map
 
 The repo would benefit from a maintained architecture map under `doc/` or `docs/tech.md` that connects:
 

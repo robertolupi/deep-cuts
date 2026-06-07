@@ -49,3 +49,51 @@ This file archives completed items from the Codex feedback backlog so active rec
 **Commit:** `c64973d chore(collab): normalize session layout, add linter, update protocol`
 
 Flat session files migrated to `YYYY-MM-DD-slug/session.md` directories. Two non-dated design files moved to `doc/architecture/`. `tools/lint_collab.py` added (errors on flat `.md` files, warns on sessions inactive >30 days). [doc/collab/PROTOCOL.md](../../collab/PROTOCOL.md) updated: sessions must be directories, participants are opt-in per session from the roster.
+
+## Codebase Improvements
+
+### Harden startup failure behavior (C4)
+
+**Completed:** 2026-06-07  
+**Commit:** `06a9a7b fix(startup): show explanatory dialog on DB initialization failure`
+
+`src-tauri/src/lib.rs` now shows a native `rfd` dialog with an explanatory message ("Deep Cuts could not open its database. Check that the application data directory is writable. Error: {detail}") and calls `process::exit(1)` on main DB init failure, instead of silently panicking via Tauri's generic wrapper. Metrics DB remains optional.
+
+### Fix library store lifecycle (F3)
+
+**Completed:** 2026-06-07  
+**Commit:** `8a81f88 fix(stores): make library.init() idempotent and add dispose()`
+
+`src/lib/stores/library.svelte.ts`: added `initialized` guard to prevent duplicate listener registration, `unlisteners[]` array collecting all unlisten functions, and `dispose()` method for test/hot-reload cleanup. `initialized` resets on init failure to allow retries. Pre-existing cross-store coupling on `player.selectedTrack` noted with a TODO comment.
+
+## Skills Improvements
+
+### Strengthen `add-analysis-pass` (S1)
+
+**Completed:** 2026-06-07  
+**Commit:** `d1f3b65 docs: skills guardrails, doc sync checklist, proposal frontmatter`
+
+`skills/add-analysis-pass/SKILL.md`: added metrics/run_id common-mistake row, expanded DTO row to name `mock-data.ts` explicitly, expanded no-`track_id` row to require tests. Four of the six guardrails (filter_map, batch status, "not enough data", no-track_id reset) were already present.
+
+## Docs and Process Improvements
+
+### Add proposal lifecycle metadata (D1)
+
+**Completed:** 2026-06-07  
+**Commit:** `d1f3b65 docs: skills guardrails, doc sync checklist, proposal frontmatter`
+
+Added YAML lifecycle frontmatter (`status`, `owner`, `last_verified`, etc.) to five proposal/research docs: `sax_structure_learning.md` (active), `sax_structural_search.md` (active), `music_map_improvements.md` (proposed), `playlist_view_enhancements.md` (active), `feature_feasibility_analysis.md` (proposed).
+
+### Doc sync checklist for feature commits (D5)
+
+**Completed:** 2026-06-07  
+**Commit:** `d1f3b65 docs: skills guardrails, doc sync checklist, proposal frontmatter`
+
+Added `## Doc Sync` section to `CLAUDE.md` after "Testing & Committing" with a five-item GFM checklist: migration docs, analysis pass skill, IPC mocks, implemented-differently notes, removed-feature status.
+
+### Fix cd-based command examples (D6)
+
+**Completed:** 2026-06-07  
+**Note:** `models/` is gitignored — `models/README.md` was fixed locally but cannot be committed.
+
+Fixed four `cd tools` + bare `python` patterns in `models/README.md` to use `tools/.venv/bin/python` from repo root. Skills directory was already correct. The bad-example block in `doc/operations/codex-feedback/docs-approach-improvements.md` was intentionally left unchanged (it illustrates the anti-pattern).
