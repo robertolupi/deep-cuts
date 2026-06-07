@@ -83,6 +83,8 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 | [gemini-feedback/README.md](operations/gemini-feedback/README.md) | implemented | High | Review output from Gemini session. |
 | [gemini-feedback/project-opinion-swot.md](operations/gemini-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and product-spine recommendation from Gemini review. |
 | [gemini-feedback/technical-observations.md](operations/gemini-feedback/technical-observations.md) | implemented | High | Technical debt and recommendations from Gemini review. |
+| [meta-feedback/README.md](operations/meta-feedback/README.md) | implemented | High | Review output from Meta AI (Muse Spark) session. |
+| [meta-feedback/project-opinion-swot.md](operations/meta-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and sequence modeling recommendations from Meta AI review. |
 | [collab/PROTOCOL.md](collab/PROTOCOL.md) | protected | High | Publicly linked protocol. Do not move casually. |
 
 ## Private / Blog / Outreach Notes
