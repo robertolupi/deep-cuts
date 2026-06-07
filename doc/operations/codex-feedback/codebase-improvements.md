@@ -31,25 +31,13 @@ Make batch-pass completion first-class. `run_batch_pass()` currently ignores `ru
 - coarse pause/cancel checkpoints;
 - behavior for "not enough data" and "not applicable" tracks.
 
-### 3. Stop swallowing SQLite row errors
-
-Production code frequently uses `filter_map(|r| r.ok())` on SQLite row iterators. That hides schema drift, corrupt rows, and mapping bugs. Replace it with `collect::<Result<Vec<_>, _>>()` or explicit logging and error propagation.
-
-High-priority areas:
-
-- analysis batch loaders such as `sax`, `sax_alignment`, `structure_cluster`;
-- commands returning UI data such as `structure`, `statistics`, `metrics`, `playlists`;
-- scanner sidecar restore/export code.
-
-Tests should include at least one deliberate malformed row or incompatible query shape to prove failures are visible.
-
-### 4. Harden startup failure behavior
+### 3. Harden startup failure behavior
 
 `src-tauri/src/lib.rs` logs main DB initialization failures but continues setup. Later IPC commands expect managed DB state to exist, so a startup problem can become delayed and confusing runtime failures.
 
 Return a setup error if the main database cannot initialize. Metrics can remain optional, but it should enter an explicit degraded state that the UI and logs can distinguish from normal operation.
 
-### 5. Reduce schema and DTO coupling
+### 4. Reduce schema and DTO coupling
 
 `Track` is very wide and is mapped with large positional `SELECT` lists in `src-tauri/src/database.rs`. Recent schema work added fields such as `structure_cluster_id`, and the frontend type boundary can drift.
 
@@ -61,7 +49,7 @@ Recommended path:
 
 This reduces the risk that a new analysis column breaks unrelated queries or silently disappears at the frontend boundary.
 
-### 6. Make manifest/download errors explicit
+### 5. Make manifest/download errors explicit
 
 Manifest and model download code swallows or collapses several failure modes into generic errors. Downloads also run blocking `ureq` IO inside async flow.
 
@@ -74,7 +62,7 @@ Improve this by:
 
 ## Frontend and IPC
 
-### 7. Route all Tauri calls through `$lib/ipc`
+### 6. Route all Tauri calls through `$lib/ipc`
 
 `src/lib/ipc.ts` provides mock/local-debug support, but many components import `@tauri-apps/api/core` directly. That weakens browser-only UI debugging and tests.
 
@@ -86,7 +74,7 @@ Next step:
 - Type `invoke` as `invoke<K extends keyof CommandMap>(cmd: K, args: CommandMap[K]["args"])`.
 - Require each new IPC command to update the wrapper, mock response when applicable, and at least one frontend test or store test.
 
-### 8. Split oversized UI surfaces
+### 7. Split oversized UI surfaces
 
 The largest Svelte files mix data fetching, derivation, rendering, canvas/SVG logic, styling, and IPC:
 
@@ -99,7 +87,7 @@ The largest Svelte files mix data fetching, derivation, rendering, canvas/SVG lo
 
 Start with `FilterSidebar` and `filters.svelte.ts`. Extract pure modules for filter application, saved-search serialization, structure matching, sorting, and semantic/CLAP result reduction. Pure modules are cheaper to test and reduce Svelte rune coupling.
 
-### 9. Fix store lifecycle coupling
+### 8. Fix store lifecycle coupling
 
 `library.init()` registers listeners but does not retain unlisten functions. Repeated init calls can duplicate event handlers. The library store also mutates `player.selectedTrack` after enrichment, which creates hidden cross-store coupling.
 
@@ -109,7 +97,7 @@ Add:
 - `dispose()` that calls every unlisten function;
 - a dedicated track-refresh method that player/detail state can subscribe to or call explicitly.
 
-### 10. Bring component CSS back to tokens
+### 9. Bring component CSS back to tokens
 
 The Sonic Glitch token system is strong, but components still contain hardcoded hex/RGBA colors and inline styles. This undermines light and accessible themes.
 

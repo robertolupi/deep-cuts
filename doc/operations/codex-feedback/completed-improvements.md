@@ -52,6 +52,15 @@ Flat session files migrated to `YYYY-MM-DD-slug/session.md` directories. Two non
 
 ## Codebase Improvements
 
+### Stop swallowing SQLite row errors (C3)
+
+**Completed:** 2026-06-07
+**Commit:** `7556acf fix(rust): replace silent filter_map(ok) with visible error handling`
+
+Two `filter_map(|r| r.ok())` hits found by `tools/lint_filter_map.py`:
+- `src-tauri/src/commands/chat.rs` (test): replaced with `.collect::<Result<_>>().unwrap()` so row deserialization failures panic visibly.
+- `src-tauri/src/scanner/fs.rs`: kept best-effort walk behaviour but added `log::warn!` on unreadable entries so filesystem errors appear in logs.
+
 ### Harden startup failure behavior (C4)
 
 **Completed:** 2026-06-07  
