@@ -6,6 +6,7 @@ This directory collects observations made by Claude (claude-sonnet-4-6) while wo
 
 ## Files
 
+- [project-assessment-2026-06-07.md](project-assessment-2026-06-07.md) — Claude's own project opinion and SWOT analysis, based on direct codebase work during the 2026-06-07 session.
 - [dead-code.md](dead-code.md) — unused code found while working on other tasks.
 - [tauri-mocks.md](tauri-mocks.md) — missing frontend unit test infrastructure; adopt `@tauri-apps/api/mocks` alongside the typed CommandMap work.
 

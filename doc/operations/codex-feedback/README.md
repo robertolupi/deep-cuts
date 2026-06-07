@@ -12,6 +12,15 @@ This directory collects a codebase, skills, and docs review of Deep Cuts. The re
 - [completed-improvements.md](completed-improvements.md) — completed feedback items moved out of the active backlog.
 - [project-opinion-swot.md](project-opinion-swot.md) — overall project assessment, SWOT analysis, and recommended product spine.
 
+## Open Items (individual session files)
+
+Each remaining item has its own file for use as a session starting point:
+
+- [item-C2-batch-pass-status.md](item-C2-batch-pass-status.md) — fix batch-pass skip/done/fail semantics in `run_batch_pass()` and `structure_cluster`
+- [item-C4-schema-dto-coupling.md](item-C4-schema-dto-coupling.md) — migration invariant tests + query-specific Rust DTOs to decouple `Track`
+- [item-F1b-command-map.md](item-F1b-command-map.md) — fill in typed `CommandMap` entries for all 86 commands in `ipc.ts`
+- [item-F2-split-svelte-components.md](item-F2-split-svelte-components.md) — extract pure modules from `FilterSidebar` and other large Svelte files
+
 ## Highest-Value Improvements
 
 1. Add invariant tests around analysis pass registration, execution order, dependency order, reset behavior, and batch-pass status updates.
