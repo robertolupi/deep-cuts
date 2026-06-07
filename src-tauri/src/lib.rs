@@ -147,32 +147,28 @@ pub fn run() {
 
             app.set_menu(menu)?;
 
-            // Initialize database manager and bootstrap SQLite
+            // Initialize database manager and bootstrap SQLite.
+            // This is fatal — the app cannot function without the main DB.
             let db_manager = DbManager::new(app.handle());
-            match db_manager.connect_and_migrate() {
-                Ok(conn) => {
-                    // Crash recovery: reset any in-flight pending AcoustID lookups
-                    let _ = conn.execute(
-                        "UPDATE tracks SET acoustid_status = NULL WHERE acoustid_status = 'pending'",
-                        [],
-                    );
+            let conn = db_manager.connect_and_migrate().map_err(|e| {
+                log::error!("[startup] Main database initialization failed: {e}");
+                e
+            })?;
+            // Crash recovery: reset any in-flight pending AcoustID lookups
+            let _ = conn.execute(
+                "UPDATE tracks SET acoustid_status = NULL WHERE acoustid_status = 'pending'",
+                [],
+            );
+            app.manage(Mutex::new(conn));
 
-                    // Manage the thread-safe connection state inside Tauri
-                    app.manage(Mutex::new(conn));
-                }
-                Err(err) => {
-                    log::error!("Database initialization failed: {}", err);
-                }
-            }
-
-            // Initialize metrics database manager and bootstrap SQLite
+            // Initialize metrics database (optional — app runs in degraded mode without it).
             let metrics_manager = metrics_database::MetricsDbManager::new(app.handle());
             match metrics_manager.connect_and_migrate() {
                 Ok(conn) => {
                     app.manage(metrics_database::MetricsState(Mutex::new(conn)));
                 }
                 Err(err) => {
-                    log::error!("Metrics database initialization failed: {}", err);
+                    log::warn!("[startup] Metrics database initialization failed — metrics and pipeline history will be unavailable: {err}");
                 }
             }
 
