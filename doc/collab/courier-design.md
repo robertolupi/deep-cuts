@@ -1,19 +1,21 @@
 ---
-status: proposed
+status: implemented
 owner: Roberto
 last_verified: 2026-06-07
-implemented_by:
+implemented_by: multi-agent-ops (standalone project)
 superseded_by:
-related_code: tools/collab_agent.py, tools/collab_hub.py, tools/file_lock.py
+related_code:
 related_skills: bot-collab
 ---
 
 # The Collab Courier — a filesystem message bus for human + AI collaboration
 
-> **Status: proposed (design agreed, not yet built).** A small program that lets a human
-> (Roberto) and two or more AI agents (Claude, `agy`) hold a real, multi-party conversation —
-> with datasets and images attached — over a plain filesystem, with no server, no broker, and a
-> clean, GitHub-reviewable transcript as the only thing that ever gets committed.
+> **This is the design record.** The courier is implemented as a standalone, reusable tool in the
+> **`multi-agent-ops`** project *(public link forthcoming)*; the prototypes that lived in this repo
+> have moved there. It lets a human (Roberto) and two or more AI agents (Claude, `agy`) hold a
+> real, multi-party conversation — with datasets and images attached — over a plain filesystem,
+> with no server, no broker, and a clean, GitHub-reviewable transcript as the only thing that ever
+> gets committed.
 
 ## TL;DR
 
@@ -46,7 +48,7 @@ slow and burns tokens. A shared bus has to satisfy five hard constraints:
    `.eml`**. The committed artifact must be a clean Markdown transcript plus ordinary attachment
    files.
 5. **No standing infrastructure.** No daemon to babysit, nothing to leave running, and a hard
-   **kill-switch** for runaway agents (already built: [`tools/collab_agent.py`](../../tools/collab_agent.py)).
+   **kill-switch** for runaway agents (provided by the `multi-agent-ops` tooling).
 
 ## Design at a glance
 
@@ -155,8 +157,8 @@ Keeping agent processes running as background daemons waiting on named pipes int
 ## Reliability & safety
 
 - **Delivery:** maildir `new/ → cur/` = durable spool + ACK + crash redelivery, standardized. Because the spool uses standard Maildir structures, terminal mail clients like `mutt` can be used directly for debugging and inspecting boxes (e.g., `mutt -f ~/.deep-cuts-collab/<session>/<peer>`).
-- **No runaway loops:** an agent handles one delivered message and stops; it does not auto-invoke a peer. The existing kill-switch (`tools/collab_agent.py kill`) SIGKILLs running agent process groups; agents remain constrained (Claude: narrow-allowed `file_lock` only, no general `Bash`; Gemini: programmatic `deny("run_command")`).
-- **Shared-file edits:** the repo `session.md` is append-only here; for any concurrent mutable-file edit the advisory lock still applies (`tools/file_lock.py`, `PROTOCOL.md`).
+- **No runaway loops:** an agent handles one delivered message and stops; it does not auto-invoke a peer. The `multi-agent-ops` kill-switch SIGKILLs running agent process groups; agents remain constrained (Claude: narrow-allowed file-lock command only, no general `Bash`; Gemini: programmatic `deny("run_command")`).
+- **Shared-file edits:** the repo `session.md` is append-only here; for any concurrent mutable-file edit the advisory lock still applies (see [`PROTOCOL.md`](PROTOCOL.md)).
 - **Locality:** everything is local files; nothing leaves the machine.
 
 ## What this deliberately is *not*
@@ -170,9 +172,11 @@ The minimalism is the point — it is the smallest thing that satisfies all five
 
 ## Relationship to what exists
 
-- **Supersedes** the human-reading role of the Streamlit hub (`tools/collab_hub.py`); the hub may be retired or kept as an occasional throwaway viewer.
-- **Keeps** `tools/collab_agent.py` (kill-switch, constrained headless runs) and `tools/file_lock.py` (advisory locking).
-- **Extends** the `PROTOCOL.md` conventions (ARCHIVED tombstones, locking, ACK logging) — the courier is the transport; the protocol is the etiquette.
+The early Deep Cuts prototypes — a Streamlit hub, a kill-switch agent runner, and an advisory
+file-lock helper — have been **generalized and moved into the standalone `multi-agent-ops`
+project**, where the courier is implemented. Deep Cuts keeps only this design record and the
+[`PROTOCOL.md`](PROTOCOL.md) conventions (ARCHIVED tombstones, locking, ACK logging) that the
+logged sessions follow — the courier is the transport; the protocol is the etiquette.
 
 ## Open questions
 

@@ -1,8 +1,7 @@
 # Collaboration Tasks
 
-Shared, live task board for the multi-agent collaboration. Rendered reactively in the
-Collab Hub. Keep it short — one line per task. Edit under an advisory lock
-(`tools/file_lock.py`) when changing it from an agent.
+Shared task board for the multi-agent collaboration. Keep it short — one line per task. Take
+the advisory lock (see [`PROTOCOL.md`](PROTOCOL.md)) before editing this file from an agent.
 
 ## Active
 

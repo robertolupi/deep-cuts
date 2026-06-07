@@ -144,16 +144,10 @@ When concurrent agents (Claude, Gemini) and Roberto can all edit the same file, 
 **advisory lock** before editing a shared file — `session.md`, `chat_log.jsonl`, `tasks.md`,
 `PROTOCOL.md`, or any shared doc.
 
-Use `tools/file_lock.py` (a `<path>.lock` sidecar with `{owner, pid, ts}`; stale locks are
-reclaimed after 120 s so a crashed agent never wedges a file):
-
-```bash
-python tools/file_lock.py acquire doc/collab/sessions/<id>/session.md --owner claude
-#   ... make your edits ...
-python tools/file_lock.py release doc/collab/sessions/<id>/session.md --owner claude
-```
-
-Or natively in Python: `from file_lock import file_lock; with file_lock(path, owner="claude"): ...`
+The advisory-lock helper lives in the standalone collaboration tooling (the
+`multi-agent-ops` project): acquire a `<path>.lock` sidecar (`{owner, pid, ts}`; stale locks
+reclaimed after ~120 s so a crashed agent never wedges a file) before editing, and release it
+after.
 
 Rules:
 - It is **advisory** — it only works if every writer checks it first. Always acquire before
