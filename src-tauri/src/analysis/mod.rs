@@ -15,6 +15,7 @@ pub mod description_embed;
 pub mod essentia;
 pub mod bpm_refinement;
 pub mod sax_alignment;
+pub mod boundary_refine;
 pub mod structure_cluster;
 
 static ANALYSIS_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -432,6 +433,7 @@ pub static PASS_REGISTRY: &[PassSpec] = &[
     bpm_correction::BpmCorrectionPass::SPEC,
     sax::SaxPass::SPEC,
     sax_alignment::SaxAlignmentPass::SPEC,
+    boundary_refine::BoundaryRefinePass::SPEC,
     clap::ClapPass::SPEC,
     qwen::QwenPass::SPEC,
     description_embed::DescriptionEmbedPass::SPEC,
@@ -772,6 +774,12 @@ impl PipelineManager {
                 emit_pipeline_error(&app, "sax_alignment", e);
             }
 
+            // ── Phase 1e: Boundary refinement (augment+8peaks_5s) ────────────
+            log::info!("[pipeline] starting boundary_refine phase");
+            if let Err(e) = run_pass_pipeline(&app, &conn_arc, boundary_refine::BoundaryRefinePass, &run_id_spawn) {
+                emit_pipeline_error(&app, "boundary_refine", e);
+            }
+
             // ── Phase 2: CLAP ─────────────────────────────────────────────────
             log::info!("[pipeline] starting clap phase");
             if let Err(e) = run_pass_pipeline(&app, &conn_arc, clap::ClapPass, &run_id_spawn) {
@@ -1110,6 +1118,7 @@ mod tests {
             "bpm_correction",
             "sax",
             "sax_alignment",
+            "boundary_refine",
             "clap",
             "essentia",
             "structure_cluster",

@@ -36,6 +36,8 @@ export interface Track {
   waveform_sax: string | null;
   sax_alignment: string | null;
   sax_alignment_segments: string | null;
+  /** JSON array of refined structure-boundary times (seconds), sorted. */
+  sax_alignment_boundaries: string | null;
   key: string | null;
   scale: string | null;
   key_strength: number | null;

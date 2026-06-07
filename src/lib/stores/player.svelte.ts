@@ -214,6 +214,34 @@ class PlayerStore {
 
       i = j;
     }
+
+    this.#addBoundaryMarkers();
+  }
+
+  // Refined structure-boundary markers (augment+8peaks_5s pass) rendered as thin
+  // vertical lines over the waveform, on top of the structural label regions.
+  #addBoundaryMarkers() {
+    if (!this.#regionsPlugin || !this.selectedTrack || !this.duration) return;
+    const raw = this.selectedTrack.sax_alignment_boundaries;
+    if (!raw) return;
+    let times: unknown;
+    try { times = JSON.parse(raw); } catch { return; }
+    if (!Array.isArray(times)) return;
+
+    const color = getComputedStyle(document.documentElement)
+      .getPropertyValue('--sg-primary').trim() || '#00f0ff';
+
+    for (const t of times as number[]) {
+      if (typeof t !== 'number' || t <= 0 || t >= this.duration) continue;
+      // Zero-width region → wavesurfer renders it as a vertical marker line.
+      this.#regionsPlugin.addRegion({
+        start:  t,
+        end:    t,
+        color,
+        drag:   false,
+        resize: false,
+      });
+    }
   }
 
   updateMarkers() {

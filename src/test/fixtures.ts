@@ -36,6 +36,7 @@ export function createTrack(overrides: Partial<Track> = {}): Track {
 
     sax_alignment: null,
     sax_alignment_segments: null,
+    sax_alignment_boundaries: null,
     key: "C",
     scale: "major",
     key_strength: 0.82,

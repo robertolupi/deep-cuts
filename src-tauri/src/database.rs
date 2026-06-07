@@ -76,6 +76,7 @@ pub struct Track {
     pub waveform_sax: Option<String>,
     pub sax_alignment: Option<String>,
     pub sax_alignment_segments: Option<String>,
+    pub sax_alignment_boundaries: Option<String>,
     pub structure_cluster_id: Option<i64>,
 }
 
@@ -135,7 +136,7 @@ impl Track {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
                     is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    structure_cluster_id
+                    sax_alignment_boundaries, structure_cluster_id
              FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -192,7 +193,8 @@ impl Track {
                 waveform_sax: row.get(49)?,
                 sax_alignment: row.get(50)?,
                 sax_alignment_segments: row.get(51)?,
-                structure_cluster_id: row.get(52)?,
+                sax_alignment_boundaries: row.get(52)?,
+                structure_cluster_id: row.get(53)?,
             })
         })?;
         let mut list = Vec::new();
@@ -219,7 +221,7 @@ impl Track {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
                     is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    structure_cluster_id
+                    sax_alignment_boundaries, structure_cluster_id
              FROM tracks WHERE id = ?1",
         )?;
         let mut rows = stmt.query_map([id], |row| {
@@ -276,7 +278,8 @@ impl Track {
                 waveform_sax: row.get(49)?,
                 sax_alignment: row.get(50)?,
                 sax_alignment_segments: row.get(51)?,
-                structure_cluster_id: row.get(52)?,
+                sax_alignment_boundaries: row.get(52)?,
+                structure_cluster_id: row.get(53)?,
             })
         })?;
         if let Some(row) = rows.next() {
@@ -371,6 +374,7 @@ pub fn get_migrations() -> Migrations<'static> {
         M::up(include_str!("../migrations/28_structure_cluster.sql")),
         M::up(include_str!("../migrations/29_drop_waveform_fingerprint.sql")),
         M::up(include_str!("../migrations/30_structure_clusters.sql")),
+        M::up(include_str!("../migrations/31_sax_alignment_boundaries.sql")),
     ])
 }
 
@@ -473,7 +477,7 @@ mod tests {
                     mood_party, mood_acoustic, mood_electronic,
                     is_music, ai_genre, ai_mood, ai_instruments, description,
                     is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    structure_cluster_id
+                    sax_alignment_boundaries, structure_cluster_id
              FROM tracks WHERE title = 'My Song'",
                 [],
                 |row| {
@@ -530,7 +534,8 @@ mod tests {
                         waveform_sax: row.get(49)?,
                         sax_alignment: row.get(50)?,
                         sax_alignment_segments: row.get(51)?,
-                        structure_cluster_id: row.get(52)?,
+                        sax_alignment_boundaries: row.get(52)?,
+                        structure_cluster_id: row.get(53)?,
                     })
                 },
             )
