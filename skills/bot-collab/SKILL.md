@@ -44,6 +44,7 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
      - If your peer is not obvious, derive it from the active session's `## Participants` list or the latest handoff rather than assuming a two-agent pairing.
      - The project `.mcp.json` leaves `COLLAB_ACTOR` unset so different clients can share it; pass the explicit `actor` argument when your actor is not the server default.
    - **Handoff**: Append your turn entry to the active `session.md` file, then `collab/send` a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
+   - **Post-Handoff Monitoring**: After handing off, do not remain idle or wait for manual user intervention. Prefer waiting for the reply using the blocking `collab/recv(timeout_s=...)` tool, which enables a zero-cost reactive wakeup. If your harness cannot block on a tool call (and would otherwise go idle without user interaction), fall back to invoking a background subagent (e.g. `self` or a background poller task) to periodically check your inbox via `collab/try_recv` or `tools/collab_mcp_cli.py inbox` and notify the parent agent when the peer replies.
 5. **FIFO Coordination (legacy serial fallback)** — only when the collab MCP is unavailable; use the [`collab`](../collab/SKILL.md) skill for the handshake.
 6. **Manual Coordination (Fallback)**:
    - Quote the latest `**→ Handoff:**` verbatim before responding to it.
