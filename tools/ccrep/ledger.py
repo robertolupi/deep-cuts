@@ -17,8 +17,11 @@ write consensus state directly (invariant 5). This module owns only:
 The reduce logic itself lives in ``reducer.py`` so the storage layer stays a
 dumb, deterministic append/fold substrate.
 
-Path: env ``CCREP_DB`` or default ``scratch/ccrep/ccrep.db``. macOS/APFS only —
-no WSL2/BTRFS fallback machinery (the synthesis explicitly drops it).
+Path: env ``CCREP_DB`` or, by default, ``scratch/ccrep.db`` resolved against the
+canonical (primary-worktree) repo root — the SAME file the MCP launcher
+``tools/run_ccrep_mcp.py`` selects, so every linked worktree shares one ledger
+regardless of CWD (KNOWN_ISSUES #1). macOS/APFS only — no WSL2/BTRFS fallback
+machinery (the synthesis explicitly drops it).
 """
 
 from __future__ import annotations
@@ -27,12 +30,19 @@ import hashlib
 import json
 import os
 import sqlite3
+import subprocess
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-DEFAULT_DB = "scratch/ccrep/ccrep.db"
+# Ledger path relative to the canonical repo root. Kept in sync with
+# tools/run_ccrep_mcp.py so direct invocation and the MCP launcher resolve to the
+# same absolute file (KNOWN_ISSUES #1: the old "scratch/ccrep/ccrep.db" default
+# diverged from the launcher's "scratch/ccrep.db", splitting the ledger).
+DEFAULT_DB_RELATIVE = "scratch/ccrep.db"
+# Back-compat alias; db_path() resolves it canonically.
+DEFAULT_DB = DEFAULT_DB_RELATIVE
 
 # Event kinds the reducer understands. Storage accepts any string, but these are
 # the Phase-1 vocabulary.
@@ -44,8 +54,29 @@ EVENT_REVISION_SUBMITTED = "revision_submitted"
 EVENT_MERGE_RECORDED = "merge_recorded"
 
 
+def _canonical_repo_root() -> Path:
+    """Primary-worktree root shared by linked git worktrees (mirrors
+    ``tools/run_ccrep_mcp.py:canonical_repo_root``). Falls back to CWD when not in
+    a git repo so unit tests and ad-hoc runs still work."""
+    try:
+        common = subprocess.check_output(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return Path.cwd()
+    git_dir = Path(common)
+    return git_dir.parent if git_dir.name == ".git" else Path.cwd()
+
+
 def db_path() -> Path:
-    return Path(os.environ.get("CCREP_DB", DEFAULT_DB))
+    """Canonical ledger path. ``CCREP_DB`` wins when set; otherwise the default is
+    resolved against the shared repo root so all worktrees use one ledger."""
+    env = os.environ.get("CCREP_DB")
+    if env:
+        return Path(env)
+    return _canonical_repo_root() / DEFAULT_DB_RELATIVE
 
 
 def content_hash(*parts: str) -> str:

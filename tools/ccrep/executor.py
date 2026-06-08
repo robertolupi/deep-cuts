@@ -43,8 +43,33 @@ from .profiles import (
 )
 
 WORKTREE_ROOT = ".ccrep/worktrees"
-# A two-decimal numeric claim like 0.92 / 99.27% — the provenance regex target.
+# Provenance targets: quantitative claims that should cite a source. Three shapes
+# (KNOWN_ISSUES #2 — the old detector only caught multi-decimal figures and missed
+# unit-suffixed integers like "15ms"):
+#   (1) multi-decimal figures, e.g. 0.92 / 99.27%
 _TWO_DECIMAL = re.compile(r"\b\d+\.\d{2,}%?\b")
+#   (2) a number carrying a measurement unit, e.g. 15ms, 6.3 GB, 3x, 92%
+_UNIT_NUM = re.compile(
+    r"\b\d+(?:\.\d+)?\s*"
+    r"(?:ms|µs|us|ns|secs?|seconds?|mins?|minutes?|hrs?|hours?|s"
+    r"|[kmgt]b|[kmg]?hz|fps|x|%)"
+    r"(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+#   (3) a comparator/approximation in front of a number, e.g. <15ms, ~6.3, >= 100
+_COMPARATOR_NUM = re.compile(r"[<>~≈≤≥]=?\s*\d+(?:\.\d+)?")
+_NUMERIC_CLAIM_PATTERNS = (_TWO_DECIMAL, _UNIT_NUM, _COMPARATOR_NUM)
+
+
+def _numeric_claims(line: str) -> list[str]:
+    """Quantitative claim substrings on a line: multi-decimal, unit-suffixed, or
+    comparator-prefixed numbers. The provenance check flags these when the line
+    cites no source token. Order-preserving and de-duplicated."""
+    seen: dict[str, None] = {}
+    for pat in _NUMERIC_CLAIM_PATTERNS:
+        for m in pat.finditer(line):
+            seen.setdefault(m.group(0).strip(), None)
+    return list(seen)
 # `path:line` evidence reference, e.g. src-tauri/src/lib.rs:42
 _FILE_LINE = re.compile(r"^(?P<path>[^\s:]+):(?P<line>\d+)$")
 
@@ -287,9 +312,10 @@ class WorktreeExecutor:
                     tok in line.lower()
                     for tok in ("http", "eval", "report", "source", "ref", "[")
                 )
-                for m in _TWO_DECIMAL.finditer(line):
-                    if not referenced:
-                        flagged.append(f"{rel}:{ln_no}: {m.group(0)}")
+                if referenced:
+                    continue
+                for claim in _numeric_claims(line):
+                    flagged.append(f"{rel}:{ln_no}: {claim}")
         prov = {
             "name": "provenance_warnings",
             "passed": True,  # WARN-only: always passes, just lists findings

@@ -5,7 +5,8 @@ Thin wrapper over ``store.CcrepStore`` (same convention as
 the environment so the same code serves any checkout:
 
     CCREP_REPO_ROOT   git repo to evaluate in worktrees (default ".")
-    CCREP_DB          SQLite ledger path (default "scratch/ccrep/ccrep.db")
+    CCREP_DB          SQLite ledger path (default: "scratch/ccrep.db" resolved
+                      against the canonical primary-worktree repo root)
     CCREP_ENV         environment descriptor folded into the eval-cache key
                       (default "macos-apfs-phase1")
 

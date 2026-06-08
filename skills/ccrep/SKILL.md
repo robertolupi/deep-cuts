@@ -104,8 +104,10 @@ never auto-rejects — see [write-docs](../write-docs/SKILL.md)):
 
 Registered in `.mcp.json` as the `ccrep` server (console script `ccrep`, alongside `collab`).
 Materialize the script once with `tools/.venv/bin/pip install -e tools/`, then grant
-`mcp__ccrep__*`. Env: `CCREP_DB` (ledger path, default `scratch/ccrep/ccrep.db`),
-`CCREP_REPO_ROOT`, `CCREP_ENV`.
+`mcp__ccrep__*`. Env: `CCREP_DB` (ledger path, default `scratch/ccrep.db` resolved against the
+canonical primary-worktree root — the same file every linked worktree shares; **do not** point it
+at a per-worktree `scratch/ccrep/ccrep.db`, that splits the ledger so reviewers see "unknown
+proposal"), `CCREP_REPO_ROOT`, `CCREP_ENV`.
 
 ## Not built yet (Phases 2–4)
 

@@ -2,15 +2,43 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
+from . import ledger as ledger_mod
 from .ledger import Ledger, MaterializedSnapshot, content_hash
 
 
 def _tmp_db() -> Path:
     d = tempfile.mkdtemp(prefix="ccrep_ledger_")
     return Path(d) / "ccrep.db"
+
+
+def test_db_path_env_override_wins(monkeypatch):
+    monkeypatch.setenv("CCREP_DB", "/tmp/explicit/ccrep.db")
+    assert ledger_mod.db_path() == Path("/tmp/explicit/ccrep.db")
+
+
+def test_db_path_default_is_canonical_shared_ledger(monkeypatch):
+    # KNOWN_ISSUES #1: with no CCREP_DB, the default must resolve to the SAME
+    # absolute file the launcher uses (canonical repo root + scratch/ccrep.db),
+    # not a CWD-relative "scratch/ccrep/ccrep.db" that splits the ledger.
+    monkeypatch.delenv("CCREP_DB", raising=False)
+    root = Path("/Users/example/repo")
+    monkeypatch.setattr(ledger_mod, "_canonical_repo_root", lambda: root)
+    assert ledger_mod.db_path() == root / "scratch" / "ccrep.db"
+    # The launcher relative path and the ledger default agree on one filename.
+    assert ledger_mod.DEFAULT_DB_RELATIVE == "scratch/ccrep.db"
+
+
+def test_db_path_default_is_cwd_independent(monkeypatch, tmp_path):
+    # Resolution must not depend on CWD (two worktrees -> one ledger).
+    monkeypatch.delenv("CCREP_DB", raising=False)
+    root = Path("/Users/example/repo")
+    monkeypatch.setattr(ledger_mod, "_canonical_repo_root", lambda: root)
+    monkeypatch.chdir(tmp_path)
+    assert ledger_mod.db_path() == root / "scratch" / "ccrep.db"
 
 
 def test_append_and_read_in_order():
