@@ -80,7 +80,7 @@ class LibraryStore {
       }));
 
       // Listen for AcoustID dynamic enrichment events to refresh the library and details view
-      this.unlisteners.push(await listen<any>("track-enriched", async (event) => {
+      this.unlisteners.push(await listen<number>("track-enriched", async (event) => {
         const enrichedId = event.payload;
         try {
           const freshTrack = await invoke("get_track", { trackId: enrichedId });

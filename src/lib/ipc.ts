@@ -136,13 +136,26 @@ export interface M3UTrackInfo {
 }
 
 export interface MappedTrackPoint {
-  track_id: number;
-  filename: string;
-  title: string | null;
-  artist: string | null;
+  id: number;
   x: number;
   y: number;
-  is_music: boolean;
+  watched_directory_id: number;
+  title: string | null;
+  filename: string;
+  artist: string | null;
+  genre: string | null;
+  bpm: number | null;
+  key: string | null;
+  scale: string | null;
+  algorithm?: string | null;
+  mood_happy?: number | null;
+  mood_sad?: number | null;
+  mood_aggressive?: number | null;
+  mood_relaxed?: number | null;
+  mood_party?: number | null;
+  mood_acoustic?: number | null;
+  mood_electronic?: number | null;
+  structure_cluster_id?: number | null;
 }
 
 export interface AudioSimilarityResult {
@@ -360,7 +373,7 @@ export type CommandMap = {
   // map / projection
   get_projection_coordinates: { args: { musicOnly: boolean }; result: MappedTrackPoint[] };
   search_similar_tracks_audio: {
-    args: { trackId: number; directoryId: number | null; clapWeight: number | null };
+    args: { trackId: number; directoryId?: number | null; clapWeight?: number | null };
     result: AudioSimilarityResult[];
   };
   recompute_projection: {
