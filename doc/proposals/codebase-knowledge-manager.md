@@ -176,7 +176,26 @@ stale_status("rejected").
 
 ---
 
-## 5. Testing and Verification Plan
+## 5. Integration with CCREP & bot-collab Coordination
+ 
+Instead of building a separate consensus or mailbox system, the Codebase Knowledge Manager acts purely as a **linter and query service** that integrates directly with the existing `ccrep` and `bot-collab` coordination frameworks:
+ 
+### A. CCREP Consensus Integration (Evaluation Phase)
+When a code change or design doc proposal is submitted to CCREP:
+1. The CCREP evaluation runner (`tools/ccrep/evaluate.py`) checks out the proposal in a temporary git worktree.
+2. The runner executes the Go knowledge manager checks (`tools/dc-knowledge-mgr lint`).
+3. If Mangle detects any architectural or documentation sync violations, the CCREP evaluation fails (exit status 1).
+4. The proposal is automatically set to `revision_required` in the CCREP ledger, blocking consensus. This integrates knowledge compliance directly into the quality ratchet.
+ 
+### B. bot-collab Session Integration (Real-Time Queries)
+During collaborative sessions:
+1. The Go indexer runs as a native MCP server (`tools/dc-knowledge-mgr serve`) registered in `.mcp.json`.
+2. AI agents in the `bot-collab` network call the `knowledge_mgr/query` MCP tool to instantly discover concepts, files, and design rules without doing expensive search/grep queries.
+3. If an agent changes code that breaks another active agent's constraints in a concurrent worktree, `dc-knowledge-mgr lint` flags it, and the agent communicates the warning to its peer via the `collab_mcp` mailbox.
+
+---
+
+## 6. Testing and Verification Plan
 
 ### A. Fact Extractor Tests
 We will write unit tests in `tools/tests/test_fact_extractor.py` that run against a mock codebase fixture:
@@ -190,7 +209,7 @@ We will verify Mangle rules using test facts assertions:
 
 ---
 
-## 6. Rejected Alternatives
+## 7. Rejected Alternatives
 
 1. **VMware Differential Datalog (DDlog)**:
    * **Reason for Rejection**: Highly complex Haskell compilation toolchain. Since the project is archived, it introduces long-term maintenance liabilities. A simple interpreter run takes less than 15ms for a codebase of this size, making incremental differential compilation unnecessary.
@@ -201,7 +220,7 @@ We will verify Mangle rules using test facts assertions:
 
 ---
 
-## 7. Proposed Next Steps
+## 8. Proposed Next Steps
 
 ```
 +-----------------------------------------------------------------------------------+
