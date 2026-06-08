@@ -208,7 +208,11 @@ The `run_id_spawn` variable is already declared near the top of the background t
 
 ### 5. Update TypeScript types
 
-If your pass writes any field that the frontend reads, update the TypeScript boundary:
+If your pass writes any field that the frontend reads, update **both** the Rust and TypeScript boundaries.
+
+Rust side — for `get_tracks`/`get_track` to return the new column, it must be mapped on the `Track` struct in `database.rs`: add the field (`Option<T>`) **and** add the column name to the `db_row_mapping!(Track { ... })` list right below the struct. The compiler keeps the two in sync; `find_all`/`find` pick it up from `COLUMN_LIST` with no further edits. (Skip this if the column is read only by a narrow query-specific DTO such as `MappedTrackPoint` in `map.rs`, not by `Track`.)
+
+TypeScript side:
 
 1. Add the field to the relevant type in `src/lib/types.ts` (e.g. `Track`, `TrackDetail`).
 2. If the field is returned by an IPC command, add it to the `CommandMap` in `src/lib/ipc.ts`.

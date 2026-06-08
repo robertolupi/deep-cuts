@@ -11,6 +11,35 @@ pub struct WatchedDirectory {
     pub path: String,
 }
 
+/// Generates the canonical column mapping for a DB row struct from a single
+/// field list: a `COLUMN_LIST` constant (the `SELECT` columns, in struct order)
+/// and a `from_row` constructor that reads each column **by name**.
+///
+/// The struct itself is defined separately so it can keep its doc comments and
+/// field grouping. The compiler enforces that this list and the struct's fields
+/// match exactly: a name here that is not a struct field fails to compile, and a
+/// struct field omitted here makes `from_row`'s struct literal incomplete. That
+/// removes the positional `row.get(N)` drift this mapping used to suffer from —
+/// adding a column means editing the struct and this list, nothing index-based.
+///
+/// Field names must equal the SQLite column names (they do for `tracks`).
+macro_rules! db_row_mapping {
+    ($name:ident { $($field:ident),+ $(,)? }) => {
+        impl $name {
+            /// Canonical `SELECT` columns for this struct, in field order.
+            pub const COLUMN_LIST: &'static [&'static str] = &[$(stringify!($field)),+];
+
+            /// Builds the struct from a row that selected `COLUMN_LIST`,
+            /// mapping each column by name (order-independent).
+            fn from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+                Ok(Self {
+                    $($field: row.get(stringify!($field))?,)+
+                })
+            }
+        }
+    };
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Track {
     pub id: i64,
@@ -80,6 +109,63 @@ pub struct Track {
     pub structure_cluster_id: Option<i64>,
 }
 
+db_row_mapping!(Track {
+    id,
+    watched_directory_id,
+    path,
+    filename,
+    size_bytes,
+    last_modified,
+    duration_seconds,
+    sample_rate,
+    bitrate,
+    channels,
+    bit_depth,
+    title,
+    artist,
+    album,
+    genre,
+    year,
+    track_number,
+    track_total,
+    disc_number,
+    disc_total,
+    album_artist,
+    composer,
+    comment,
+    bpm,
+    lyrics,
+    waveform_data,
+    key,
+    scale,
+    key_strength,
+    loudness_lufs,
+    loudness_range,
+    silence_regions,
+    has_long_silence,
+    detected_genre,
+    detected_vocal,
+    detected_vocal_confidence,
+    mood_happy,
+    mood_sad,
+    mood_aggressive,
+    mood_relaxed,
+    mood_party,
+    mood_acoustic,
+    mood_electronic,
+    is_music,
+    ai_genre,
+    ai_mood,
+    ai_instruments,
+    description,
+    is_stale,
+    waveform_sax,
+    sax_alignment,
+    sax_alignment_segments,
+    sax_alignment_boundaries,
+    structure_cluster_id,
+});
+
 impl WatchedDirectory {
     pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
         let mut stmt =
@@ -124,84 +210,13 @@ impl WatchedDirectory {
 
 impl Track {
     pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = conn.prepare(
-            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
-                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
-                    title, artist, album, genre, year, track_number, track_total,
-                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
-                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
-                    silence_regions, has_long_silence,
-                    detected_genre, detected_vocal, detected_vocal_confidence,
-                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                    mood_party, mood_acoustic, mood_electronic,
-                    is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    sax_alignment_boundaries, structure_cluster_id
-             FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok(Self {
-                id: row.get(0)?,
-                watched_directory_id: row.get(1)?,
-                path: row.get(2)?,
-                filename: row.get(3)?,
-                size_bytes: row.get(4)?,
-                last_modified: row.get(5)?,
-                duration_seconds: row.get(6)?,
-                sample_rate: row.get(7)?,
-                bitrate: row.get(8)?,
-                channels: row.get(9)?,
-                bit_depth: row.get(10)?,
-                title: row.get(11)?,
-                artist: row.get(12)?,
-                album: row.get(13)?,
-                genre: row.get(14)?,
-                year: row.get(15)?,
-                track_number: row.get(16)?,
-                track_total: row.get(17)?,
-                disc_number: row.get(18)?,
-                disc_total: row.get(19)?,
-                album_artist: row.get(20)?,
-                composer: row.get(21)?,
-                comment: row.get(22)?,
-                bpm: row.get(23)?,
-                lyrics: row.get(24)?,
-                waveform_data: row.get(25)?,
-                key: row.get(26)?,
-                scale: row.get(27)?,
-                key_strength: row.get(28)?,
-                loudness_lufs: row.get(29)?,
-                loudness_range: row.get(30)?,
-                silence_regions: row.get(31)?,
-                has_long_silence: row.get(32)?,
-                detected_genre: row.get(33)?,
-                detected_vocal: row.get(34)?,
-                detected_vocal_confidence: row.get(35)?,
-                mood_happy: row.get(36)?,
-                mood_sad: row.get(37)?,
-                mood_aggressive: row.get(38)?,
-                mood_relaxed: row.get(39)?,
-                mood_party: row.get(40)?,
-                mood_acoustic: row.get(41)?,
-                mood_electronic: row.get(42)?,
-                is_music: row.get(43)?,
-                ai_genre: row.get(44)?,
-                ai_mood: row.get(45)?,
-                ai_instruments: row.get(46)?,
-                description: row.get(47)?,
-                is_stale: row.get(48)?,
-                waveform_sax: row.get(49)?,
-                sax_alignment: row.get(50)?,
-                sax_alignment_segments: row.get(51)?,
-                sax_alignment_boundaries: row.get(52)?,
-                structure_cluster_id: row.get(53)?,
-            })
-        })?;
-        let mut list = Vec::new();
-        for row in rows {
-            list.push(row?);
-        }
-        Ok(list)
+        let sql = format!(
+            "SELECT {} FROM tracks ORDER BY artist ASC, album ASC, track_number ASC",
+            Self::COLUMN_LIST.join(", ")
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map([], Self::from_row)?;
+        rows.collect()
     }
 
     pub fn count(conn: &Connection) -> Result<i64, rusqlite::Error> {
@@ -209,84 +224,13 @@ impl Track {
     }
 
     pub fn find(conn: &Connection, id: i64) -> Result<Option<Self>, rusqlite::Error> {
-        let mut stmt = conn.prepare(
-            "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
-                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
-                    title, artist, album, genre, year, track_number, track_total,
-                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
-                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
-                    silence_regions, has_long_silence,
-                    detected_genre, detected_vocal, detected_vocal_confidence,
-                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                    mood_party, mood_acoustic, mood_electronic,
-                    is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    sax_alignment_boundaries, structure_cluster_id
-             FROM tracks WHERE id = ?1",
-        )?;
-        let mut rows = stmt.query_map([id], |row| {
-            Ok(Self {
-                id: row.get(0)?,
-                watched_directory_id: row.get(1)?,
-                path: row.get(2)?,
-                filename: row.get(3)?,
-                size_bytes: row.get(4)?,
-                last_modified: row.get(5)?,
-                duration_seconds: row.get(6)?,
-                sample_rate: row.get(7)?,
-                bitrate: row.get(8)?,
-                channels: row.get(9)?,
-                bit_depth: row.get(10)?,
-                title: row.get(11)?,
-                artist: row.get(12)?,
-                album: row.get(13)?,
-                genre: row.get(14)?,
-                year: row.get(15)?,
-                track_number: row.get(16)?,
-                track_total: row.get(17)?,
-                disc_number: row.get(18)?,
-                disc_total: row.get(19)?,
-                album_artist: row.get(20)?,
-                composer: row.get(21)?,
-                comment: row.get(22)?,
-                bpm: row.get(23)?,
-                lyrics: row.get(24)?,
-                waveform_data: row.get(25)?,
-                key: row.get(26)?,
-                scale: row.get(27)?,
-                key_strength: row.get(28)?,
-                loudness_lufs: row.get(29)?,
-                loudness_range: row.get(30)?,
-                silence_regions: row.get(31)?,
-                has_long_silence: row.get(32)?,
-                detected_genre: row.get(33)?,
-                detected_vocal: row.get(34)?,
-                detected_vocal_confidence: row.get(35)?,
-                mood_happy: row.get(36)?,
-                mood_sad: row.get(37)?,
-                mood_aggressive: row.get(38)?,
-                mood_relaxed: row.get(39)?,
-                mood_party: row.get(40)?,
-                mood_acoustic: row.get(41)?,
-                mood_electronic: row.get(42)?,
-                is_music: row.get(43)?,
-                ai_genre: row.get(44)?,
-                ai_mood: row.get(45)?,
-                ai_instruments: row.get(46)?,
-                description: row.get(47)?,
-                is_stale: row.get(48)?,
-                waveform_sax: row.get(49)?,
-                sax_alignment: row.get(50)?,
-                sax_alignment_segments: row.get(51)?,
-                sax_alignment_boundaries: row.get(52)?,
-                structure_cluster_id: row.get(53)?,
-            })
-        })?;
-        if let Some(row) = rows.next() {
-            Ok(Some(row?))
-        } else {
-            Ok(None)
-        }
+        let sql = format!(
+            "SELECT {} FROM tracks WHERE id = ?1",
+            Self::COLUMN_LIST.join(", ")
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let mut rows = stmt.query_map([id], Self::from_row)?;
+        rows.next().transpose()
     }
 }
 
@@ -466,82 +410,11 @@ mod tests {
         )
         .unwrap();
 
-        let track: Track = conn
-            .query_row(
-                "SELECT id, watched_directory_id, path, filename, size_bytes, last_modified,
-                    duration_seconds, sample_rate, bitrate, channels, bit_depth,
-                    title, artist, album, genre, year, track_number, track_total,
-                    disc_number, disc_total, album_artist, composer, comment, bpm, lyrics,
-                    waveform_data, key, scale, key_strength, loudness_lufs, loudness_range,
-                    silence_regions, has_long_silence,
-                    detected_genre, detected_vocal, detected_vocal_confidence,
-                    mood_happy, mood_sad, mood_aggressive, mood_relaxed,
-                    mood_party, mood_acoustic, mood_electronic,
-                    is_music, ai_genre, ai_mood, ai_instruments, description,
-                    is_stale, waveform_sax, sax_alignment, sax_alignment_segments,
-                    sax_alignment_boundaries, structure_cluster_id
-             FROM tracks WHERE title = 'My Song'",
-                [],
-                |row| {
-                    Ok(Track {
-                        id: row.get(0)?,
-                        watched_directory_id: row.get(1)?,
-                        path: row.get(2)?,
-                        filename: row.get(3)?,
-                        size_bytes: row.get(4)?,
-                        last_modified: row.get(5)?,
-                        duration_seconds: row.get(6)?,
-                        sample_rate: row.get(7)?,
-                        bitrate: row.get(8)?,
-                        channels: row.get(9)?,
-                        bit_depth: row.get(10)?,
-                        title: row.get(11)?,
-                        artist: row.get(12)?,
-                        album: row.get(13)?,
-                        genre: row.get(14)?,
-                        year: row.get(15)?,
-                        track_number: row.get(16)?,
-                        track_total: row.get(17)?,
-                        disc_number: row.get(18)?,
-                        disc_total: row.get(19)?,
-                        album_artist: row.get(20)?,
-                        composer: row.get(21)?,
-                        comment: row.get(22)?,
-                        bpm: row.get(23)?,
-                        lyrics: row.get(24)?,
-                        waveform_data: row.get(25)?,
-                        key: row.get(26)?,
-                        scale: row.get(27)?,
-                        key_strength: row.get(28)?,
-                        loudness_lufs: row.get(29)?,
-                        loudness_range: row.get(30)?,
-                        silence_regions: row.get(31)?,
-                        has_long_silence: row.get(32)?,
-                        detected_genre: row.get(33)?,
-                        detected_vocal: row.get(34)?,
-                        detected_vocal_confidence: row.get(35)?,
-                        mood_happy: row.get(36)?,
-                        mood_sad: row.get(37)?,
-                        mood_aggressive: row.get(38)?,
-                        mood_relaxed: row.get(39)?,
-                        mood_party: row.get(40)?,
-                        mood_acoustic: row.get(41)?,
-                        mood_electronic: row.get(42)?,
-                        is_music: row.get(43)?,
-                        ai_genre: row.get(44)?,
-                        ai_mood: row.get(45)?,
-                        ai_instruments: row.get(46)?,
-                        description: row.get(47)?,
-                        is_stale: row.get(48)?,
-                        waveform_sax: row.get(49)?,
-                        sax_alignment: row.get(50)?,
-                        sax_alignment_segments: row.get(51)?,
-                        sax_alignment_boundaries: row.get(52)?,
-                        structure_cluster_id: row.get(53)?,
-                    })
-                },
-            )
-            .unwrap();
+        let sql = format!(
+            "SELECT {} FROM tracks WHERE title = 'My Song'",
+            Track::COLUMN_LIST.join(", ")
+        );
+        let track: Track = conn.query_row(&sql, [], Track::from_row).unwrap();
 
         assert_eq!(track.watched_directory_id, dir.id);
         assert_eq!(track.path, "/Users/user/Music/song.mp3");
@@ -569,5 +442,114 @@ mod tests {
         assert_eq!(track.loudness_range, None);
         assert_eq!(track.silence_regions, None);
         assert_eq!(track.has_long_silence, 0);
+    }
+
+    use std::collections::HashSet;
+
+    /// Returns the set of `name`s of a given `sqlite_master` type after all
+    /// migrations have run.
+    fn schema_objects(conn: &Connection, kind: &str) -> HashSet<String> {
+        conn.prepare("SELECT name FROM sqlite_master WHERE type = ?1")
+            .unwrap()
+            .query_map([kind], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    }
+
+    /// Migration invariant: every regular and virtual table the app depends on
+    /// must exist after all migrations run. Guards against a dropped/renamed
+    /// table slipping through (the cheap, standalone half of item C4).
+    #[test]
+    fn test_expected_tables_exist_after_migrations() {
+        let conn = setup_test_db();
+        let tables = schema_objects(&conn, "table");
+
+        // Regular tables.
+        for t in [
+            "app_settings",
+            "watched_directories",
+            "tracks",
+            "track_passes",
+            "track_coords",
+            "playlists",
+            "playlist_tracks",
+            "saved_searches",
+            "chat_sessions",
+            "chat_messages",
+            "tags",
+            "track_tags",
+            "tag_diagnostic_logs",
+            "tag_synonym_cache",
+            "user_suppressed_tags",
+            "structure_clusters",
+        ] {
+            assert!(tables.contains(t), "missing expected table `{t}`");
+        }
+
+        // Virtual tables (vec0 / fts5). `sqlite_master.type` is still 'table'
+        // for these, so assert their backing SQL declares them VIRTUAL.
+        for vt in ["audio_embeddings", "description_embeddings", "chat_messages_fts"] {
+            assert!(tables.contains(vt), "missing expected virtual table `{vt}`");
+            let sql: String = conn
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE name = ?1",
+                    [vt],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(
+                sql.to_uppercase().contains("CREATE VIRTUAL TABLE"),
+                "`{vt}` should be a virtual table, got: {sql}"
+            );
+        }
+    }
+
+    /// Migration invariant: indexes the query plans rely on must exist.
+    #[test]
+    fn test_expected_indexes_exist_after_migrations() {
+        let conn = setup_test_db();
+        let indexes = schema_objects(&conn, "index");
+
+        for idx in [
+            "idx_tracks_path",
+            "idx_tracks_directory",
+            "idx_track_passes_status",
+            "idx_track_passes_track",
+            "idx_track_coords_track",
+            "idx_playlist_tracks_playlist_id",
+            "idx_playlist_tracks_track_id",
+            "idx_chat_sessions_track",
+            "idx_chat_messages_session",
+            "idx_track_tags_tag",
+            "idx_user_suppressed_tags_path",
+        ] {
+            assert!(indexes.contains(idx), "missing expected index `{idx}`");
+        }
+    }
+
+    /// Migration invariant tying the schema to the Rust mapping: every column the
+    /// `Track` struct maps (via `db_row_mapping!`) must exist on the `tracks`
+    /// table. A migration that drops or renames a mapped column fails here
+    /// instead of at runtime. (The table may have extra columns the struct does
+    /// not map, e.g. `bpm_raw`, `onsets`, `cover_art` — so this is a subset
+    /// check, not equality.)
+    #[test]
+    fn test_track_mapped_columns_exist_in_schema() {
+        let conn = setup_test_db();
+        let columns: HashSet<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('tracks')")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        for col in Track::COLUMN_LIST {
+            assert!(
+                columns.contains(*col),
+                "`tracks` table is missing column `{col}` mapped by the Track struct"
+            );
+        }
     }
 }

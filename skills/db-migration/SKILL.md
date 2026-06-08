@@ -62,11 +62,23 @@ Tauri commands should remain extremely thin and decoupled from raw SQL queries.
 ```rust
 impl Track {
     pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
-        let mut stmt = conn.prepare("SELECT ... FROM tracks")?;
-        // ... map rows and return ...
+        // Build the SELECT from the canonical column list; map rows by name.
+        let sql = format!(
+            "SELECT {} FROM tracks ORDER BY artist ASC",
+            Self::COLUMN_LIST.join(", "),
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map([], Self::from_row)?.collect()
     }
 }
 ```
+
+`Track::COLUMN_LIST` and `Track::from_row` are **generated** by the
+`db_row_mapping!(Track { ... })` macro in `database.rs` from a single field
+list. Rows are mapped by column **name** (`row.get("title")`), so the `SELECT`
+order is irrelevant and there is no positional `row.get(N)` to keep aligned.
+New `SELECT * FROM tracks`-style queries should reuse `Track::COLUMN_LIST`
+rather than hand-writing the column list again.
 
 *   Call them from your Tauri command:
 
@@ -82,7 +94,7 @@ fn get_tracks(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<Vec<Tra
 
 ## After adding the migration
 
-1. **Update Rust structs** — if the new column is read anywhere (e.g. the `Track` struct in `database.rs`), add the field with `Option<T>` to handle pre-migration rows.
+1. **Update Rust structs** — if the new column is read anywhere (e.g. the `Track` struct in `database.rs`), add the field with `Option<T>` to handle pre-migration rows. For `Track`, also add the column name to the `db_row_mapping!(Track { ... })` list directly below the struct — the field name must equal the column name. The compiler enforces that the struct and the macro list stay in sync: a name in only one place fails to build, so there is no silent drift. (You do **not** need to touch `find_all`/`find` — they read from `COLUMN_LIST` automatically.)
 
 2. **Update sidecar structs** — if the new column holds ML-derived data that should survive a library rescan, wire it into `src-tauri/src/scanner/sidecar.rs` in three places:
    - Add the field to `SidecarMlMetadata` (with `Option<T>`)
@@ -93,7 +105,7 @@ fn get_tracks(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<Vec<Tra
    ```bash
    cargo test --manifest-path src-tauri/Cargo.toml
    ```
-   A failing migration test means your SQL is malformed or conflicts with an earlier migration.
+   A failing migration test means your SQL is malformed or conflicts with an earlier migration. The `database::tests` migration-invariant tests also assert that expected tables, indexes, virtual tables, and every `Track`-mapped column exist after all migrations — so a dropped or renamed mapped column fails here rather than at runtime.
 
 3. **Verify from scratch** — wipe the dev DB to confirm all migrations apply cleanly:
    ```bash
