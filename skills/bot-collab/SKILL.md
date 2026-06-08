@@ -16,6 +16,20 @@ The canonical protocol is `doc/collab/PROTOCOL.md`. If this skill and the protoc
 > passes — use **[CCREP](../ccrep/SKILL.md)** (the `ccrep` MCP server). They compose: coordinate
 > here, ratchet there.
 
+## Worktree Topology
+
+If agents run from separate git worktrees, read
+[doc/collab/worktree-coordination.md](../../doc/collab/worktree-coordination.md) before appending or
+sending handoffs. The short version:
+
+- Worktree branches are for deliverables.
+- The shared coordination plane is the canonical repo's `scratch/coordination`, `scratch/ccrep.db`,
+  and live `doc/collab/sessions/<dir>/session.<actor>.md` files.
+- `.mcp.json` launches `tools/run_collab_mcp.py` and `tools/run_ccrep_mcp.py`; those wrappers
+  discover the canonical repo through Git's common directory and set shared defaults.
+- Do not commit and merge peer branches for every routine handoff. Use collab MCP for live
+  messages, and use CCREP/git commits only when reviewing or integrating a concrete deliverable.
+
 ## Startup Checklist
 
 When the user mentions a multi-agent or 2-way collaboration session, or invokes a `/collab` command:
@@ -43,7 +57,10 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
      - If your system prompt identifies you as **Claude** $\to$ use `actor="claude"` (peer is `"agy"`).
      - If your peer is not obvious, derive it from the active session's `## Participants` list or the latest handoff rather than assuming a two-agent pairing.
      - The project `.mcp.json` leaves `COLLAB_ACTOR` unset so different clients can share it; pass the explicit `actor` argument when your actor is not the server default.
-   - **Handoff**: Append your turn entry to the active `session.md` file, then `collab/send` a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
+   - **Handoff**: Append your turn entry to the active log. In normal single-tree sessions this is
+     `session.md`; in worktree mode this is the canonical repo's `session.<actor>.md`. Then
+     `collab/send` a message of type `handoff` or `ack` to the peer actor using your resolved
+     `actor` name.
    - **Post-Handoff Monitoring**: After handing off, do not remain idle or wait for manual user intervention. Prefer waiting for the reply using the blocking `collab/recv(timeout_s=...)` tool, which enables a zero-cost reactive wakeup. If your harness cannot block on a tool call (and would otherwise go idle without user interaction), fall back to invoking a background subagent (e.g. `self` or a background poller task) to periodically check your inbox via `collab/try_recv` or `tools/collab_mcp_cli.py inbox` and notify the parent agent when the peer replies.
 5. **FIFO Coordination (legacy serial fallback)** — only when the collab MCP is unavailable; use the [`collab`](../collab/SKILL.md) skill for the handshake.
 6. **Manual Coordination (Fallback)**:

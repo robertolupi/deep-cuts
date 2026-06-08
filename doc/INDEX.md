@@ -88,6 +88,7 @@ Do not reorganize these in phase 2 without an explicit redirect/compatibility pl
 | [meta-feedback/project-opinion-swot.md](operations/meta-feedback/project-opinion-swot.md) | implemented | High | High-level project assessment, SWOT, and sequence modeling recommendations from Meta AI review. |
 | [collab/PROTOCOL.md](collab/PROTOCOL.md) | protected | High | Publicly linked protocol. Do not move casually. |
 | [collab/courier-design.md](collab/courier-design.md) | implemented | High | Design record for the filesystem message bus (the "courier"): outside-repo spool, clean-Markdown transcript, warm doorbell delivery. Implemented in the standalone `multi-agent-ops` project. |
+| [collab/worktree-coordination.md](collab/worktree-coordination.md) | need-human-review | High | Worktree-mode coordination scheme: isolated bot branches with one shared collab/CCREP/session-log plane. |
 
 ## Private / Blog / Outreach Notes
 

@@ -1,15 +1,10 @@
 {
   "mcpServers": {
     "collab": {
-      "command": "tools/.venv/bin/collab_mcp"
+      "command": "tools/run_collab_mcp.py"
     },
     "ccrep": {
-      "command": "tools/.venv/bin/ccrep",
-      "env": {
-        "CCREP_DB": "scratch/ccrep.db",
-        "CCREP_REPO_ROOT": "."
-      }
+      "command": "tools/run_ccrep_mcp.py"
     }
   }
 }
-

@@ -20,6 +20,23 @@ New participants can be added by appending a row here. The file format (`## [Han
 
 ---
 
+## Worktree Topology
+
+When agents run in separate worktrees, keep two planes separate. Code and durable doc deliverables
+live on each bot's own branch/worktree. Coordination state lives in the canonical repo shared by all
+worktrees: `scratch/coordination`, `scratch/ccrep.db`, and live
+`doc/collab/sessions/<dir>/session.<actor>.md` logs.
+
+The committed `.mcp.json` launches `tools/run_collab_mcp.py` and `tools/run_ccrep_mcp.py`. Those
+wrappers discover the canonical repo through Git's common directory and set shared defaults for
+`COLLAB_ROOT`, `CCREP_DB`, and `CCREP_REPO_ROOT`. See
+[worktree-coordination.md](worktree-coordination.md) for the full scheme.
+
+Do not require a commit and branch merge for every routine handoff. Use collab MCP for live
+messages; use git branch commits and CCREP for reviewing concrete deliverables.
+
+---
+
 ## Meta AI – Role Definition (updated 2026-06-06)
 
 **Primary focus:** big-picture architecture, research synthesis, and design review for Approach B (Neural Sequence Classifier + Viterbi).
@@ -79,6 +96,9 @@ action `mcp`, target `collab/*`) before falling back.
 
 0. **collab MCP (Recommended)** — per-actor maildir mailboxes + a lock-free task queue, exposed as
    `tools/collab_mcp/server.py`:
+   - **Worktree mode:** if agents are in separate git worktrees, the MCP wrappers route all agents
+     to the canonical repo's shared maildir and CCREP ledger. Live session entries are written to
+     the canonical repo's `session.<actor>.md` files, not to private per-worktree copies.
    - **Turn-taking:** append your turn to `session.md`, then `collab/send(to=peer, type="handoff",
      payload={task, context, deliverable})`. The peer waits with `collab/recv` (blocks idle, ~zero
      token cost) or polls with `collab/try_recv`, and confirms with `collab/send(type="ack",
