@@ -5,7 +5,7 @@ last_verified: 2026-06-08
 implemented_by:
 superseded_by:
 related_code:
-related_skills: bot-collab, how-to-experiment, collab
+related_skills: bot-collab, how-to-experiment, collab, write-docs
 ---
 
 # CCREP Synthesis: A Quality-Ratchet Coordination Protocol
@@ -18,11 +18,10 @@ are over-engineered for our scale.
 
 ## Status
 
-`need-human-review`. Roberto asked for an `accepted` doc, but also said he would decide
-tomorrow after reading the source designs with a clear head — so marking it `accepted`
-now would invent a decision that hasn't been made. **If Roberto approves as-is, flip
-`status: accepted` and set the four session designs as superseded-by this doc.** Until
-then this supersedes nothing.
+`accepted` (2026-06-08). Roberto read the four source designs and approved this synthesis as
+the live CCREP proposal; the [implementation-split amendment](../collab/sessions/2026-06-08-ccrep-implementation-split/session.md)
+(Claude + Antigravity) is folded in. This doc now supersedes the four source designs below —
+they remain under the session folder as unchanged research records, consolidated here.
 
 Source designs this consolidates (all under the session folder, unchanged):
 
@@ -95,6 +94,16 @@ OPEN → CLAIMED → PROPOSED → EVALUATING → REVIEWING → (AMENDING ⤴ rev
 4. **No self-approval** — the author may explain or amend but cannot satisfy peer quorum.
 5. **Derived consensus state** — agents never write `ConsensusState`; the server reduces it
    from an append-only event log.
+6. **Artifact-profile consistency** — every proposal declares an `artifact_profile`
+   (`code_change` | `code_review` | `design_doc`); the gate components, revision gates, and
+   eval suite that apply are exactly those the profile selects (see "Artifact Profiles &
+   Usage Modes"). A check that does not belong to the declared profile never fires.
+7. **Frontmatter-status sync (design docs), one-directional** — a doc may not sit at
+   `status: accepted` unless its latest content reached `APPROVED` (green automated gate + ≥1
+   independent approval + no open blocking critiques). The human flipping `status: accepted`
+   and committing *is* the merge gesture — the server observes that commit and records the
+   `MERGED` event against its `commit_sha`. The linter fails on `accepted`-without-approval
+   (the real drift); it never blocks the human's merge gesture itself.
 
 ### 3. Anti-divergence: physical gates, not prompt temperature
 
@@ -104,7 +113,9 @@ prompt" scheme in the Codex/Google/Meta drafts is therefore unenforceable and is
 
 Replace it with **hard gates the server enforces on the diff**, parameterized by revision
 round `n` and configurable per task — not the hardcoded "15 lines / 2 files" constants from
-Unified 2.1:
+Unified 2.1. **These AST/line-budget gates apply only to the `code_change` artifact profile** —
+they are meaningless on prose and are disabled for `design_doc` (forbidding "new function
+defs" in a Markdown file is nonsense). See "Artifact Profiles & Usage Modes."
 
 ```yaml
 revision_gate_policy:           # defaults; overridable per task
@@ -131,6 +142,12 @@ schedule:
   consecutive revisions (e.g. `boundary_f1_at_3s: 0.002`).
 - **Edit-war stop**: if normalized Levenshtein(diff_n, diff_{n-2}) < 0.05 and authors
   alternate, freeze the two and hand a minimal-compromise diff to a third agent.
+
+The **detection → escalation transition is code**: when a plateau or edit-war condition trips,
+the server moves the proposal to `ESCALATED`, locks further commits on the branch, and posts a
+task to a third agent (or flags Roberto). What stays a **skill** is only what the third agent
+*does* with the frozen pair — produce the minimal-compromise diff. The reducer owns the state
+transition; the skill owns the resolution.
 
 ### 4. Consensus gate (simplified for v1)
 
@@ -166,6 +183,75 @@ Agents write turns to a spool (`spool/<agent>/new/`); the server is the only wri
 `session.md` and appends a linearized entry when a proposal merges. No locks on the log, no
 write-write races, clean linear git history.
 
+## Implementation Split: Code vs. Skill/Rule
+
+CCREP's **code surface is small, and it is exactly the set of invariants agents cannot be
+trusted to self-police.** Everything that is judgment lives in the existing skills
+(`bot-collab`, `how-to-experiment`, `write-docs`) and in rules — not in new services. State
+this explicitly so nobody builds, e.g., an "admissibility classifier" microservice.
+
+| Concern | Where it lives | Why |
+|---|---|---|
+| Append-only `event_log` + materialized views (proposals, critiques, votes, merge_records) | **Code** (MCP server) | Storage must be deterministic; this is the blackboard. |
+| Reduce `ConsensusState`; *no self-approval*; *votes expire on new commit*; *N independent approvals* | **Code** (reducer) | The ratchet invariants. If an agent can satisfy them by asserting them, the ratchet is fake. |
+| Resolve branch → immutable `commit_sha`; content-addressed eval cache `(commit_sha, eval_suite_hash, dataset_hash, env_hash)` | **Code** | Reproducibility primitive; pure mechanism. |
+| Worktree lifecycle + run the eval suite → `EvaluationReport` | **Code** (executor) | *Which* suite runs is task/profile config, not server logic. |
+| Physical revision gates (tree-sitter AST checks, `max_files` / `max_changed_lines`) | **Code** (`code_change` profile only) | "Physical gates on the diff" only mean anything if the server enforces them. |
+| Critique **structure** (severity class, evidence link, `file:line` present) | **Code** (schema validation) | Presence of fields is mechanically checkable. |
+| Critique **evidence-link validity** (the `file:line` resolves at the proposed `commit_sha`) | **Code** (executor) | A dead link is *malformed*; reject pre-review. Not judgment. |
+| Critique **quality** / admissibility ("specific + actionable"; is the point substantive) | **Skill/Rule** (`bot-collab`) | Reviewer judgment. The schema demands a field; only a reviewer judges substance. |
+| Plateau / edit-war **detection → `ESCALATED` transition** (lock commits, post to a third agent) | **Code** (reducer) | The state transition is mechanical and must be unbypassable. |
+| Edit-war **resolution** (the minimal-compromise diff the third agent produces) | **Skill** | This is the judgment the escalation hands off. |
+| Provenance: **detect** unreferenced numeric claims (warn, don't fail) | **Code** (linter, warning only) | A regex can flag `0.92` but cannot tell a real eval number from a confabulated `99.27%`. |
+| Provenance: **adjudicate** flagged claims (sourced vs. speculative) | **Rule + admissible critique** | Judgment; a hard fail would train us to fake a source or disable the check. |
+| Reviewer independence beyond `author != reviewer` (e.g. *different model family*) | **Code** enforces the checkable part; **Rule** for assignment | Model-family is a field; who-reviews-what is social. |
+| Frontmatter `status` ↔ ledger state, one-directional | **Code** (linter) | Prevents `accepted`-without-approval drift; the human's merge gesture is never blocked. |
+| Human-gate categories (public API, destructive migration, model/dataset, large arch) | **Code** enforces the block; **Rule** defines what counts | The block must be unbypassable; classification is judgment. |
+
+Net buildable Phase 1: ~7 MCP tools + a reducer + a worktree executor. Everything softer is
+*taught*, not coded.
+
+**Two false-positive guardrails (load-bearing).** Both the provenance linter and the
+frontmatter check are one regex away from a machine that annoys us into turning it off, so each
+is split detect-vs-adjudicate:
+
+- **Provenance linter WARNS, it does not FAIL.** It lists each unreferenced numeric claim and
+  points a reviewer at it; the provenance *rule* + an admissible critique are what block. The
+  fabricated numbers still get caught — by a reviewer the linter pointed at, not by auto-reject.
+- **Frontmatter invariant is one-directional.** It fails only on `status: accepted` without a
+  reached `APPROVED` state; it never blocks the human committing the flip that *is* the merge.
+
+## Artifact Profiles & Usage Modes
+
+The original draft's worked example (a boundary-threshold tweak with `cargo test` + golden
+metrics) silently assumes **every proposal has a runnable eval suite.** A design doc has no
+`cargo test`; you cannot run a golden-metric regression on Markdown. So CCREP is made
+**artifact-type-aware**: the *server and ledger stay generic*, and each task declares an
+`artifact_profile` that selects which gate components apply. This is the abstraction that lets
+one protocol serve all three of Roberto's usage modes without three separate flows.
+
+| Profile | Usage mode | Automated gate ("eval suite") | Peer gate | Human gate |
+|---|---|---|---|---|
+| `code_change` | **Independent development** | build + test + lint + fmt; no golden-metric regression; AST/line revision gates active | 1 implementation approval + 1 independent (different-family) approval; no open blocking critiques | public-API / destructive migration / model-or-dataset change / large arch |
+| `code_review` | **Code reviews** (an existing/external diff) | build + test on the PR head (no metric gate unless the diff touches the pipeline) | ≥1 admissible structured critique + 1 independent approval | merge stays human — the value is a *verdict*, not auto-merge |
+| `design_doc` | **Design docs** | `lint_collab.py` + link-check + skill-index consistency + provenance **warnings**; **no metric gate; AST/line gates disabled** | 1 independent approval + admissible critiques + the **provenance rule** | **always human** (`status: accepted` is the merge) |
+
+Concretely, per mode:
+
+- **Independent development** — CCREP is the eval+review harness, unchanged from Phase 1: propose
+  on a branch → server evals in a worktree → a different-family agent critiques → gate = green
+  checks + 1 independent approval.
+- **Code reviews** — same machinery; the "eval suite" is build/test on the head and the
+  deliverable is the admissible, evidence-linked `Critique` set plus an approve/block verdict.
+  The ratchet value is the *structured critique*, not an automatic merge.
+- **Design docs** — same machinery; the "eval suite" is the doc linters, and the gate rests on
+  admissible critiques + provenance + human sign-off, with no metric math. `write-docs` already
+  owns doc quality; CCREP adds the evidence ledger and the lifecycle reducer around it. The doc
+  `status:` frontmatter *is* the consensus state: `need-human-review` ≈ `APPROVED`-pending-human,
+  `accepted` ≈ `MERGED`, `superseded` ≈ a merge that retired prior values. (This very doc has
+  drifted — `accepted` in frontmatter, `need-human-review` in the body — which is exactly the
+  mismatch the one-directional invariant above is designed to fail on.)
+
 ## Data Model / Schema Impact
 
 Adopt Codex's JSON Schema (Draft 2020-12) for `Proposal`, `EvaluationReport`, `Critique`,
@@ -182,7 +268,9 @@ needed** and should not be built.
 
 Tools: `claim_task`, `submit_proposal`, `run_evaluation`, `submit_critique`,
 `submit_revision`, `compute_consensus`, `merge_proposal` (human-gated for the categories
-above). Resources: `ccrep://tasks/{id}`, `ccrep://proposals/{id}/{diff,evaluation,critiques}`,
+above). `submit_proposal` carries an `artifact_profile` field (`code_change` | `code_review` |
+`design_doc`) that selects the gate components, eval suite, and which revision gates apply.
+Resources: `ccrep://tasks/{id}`, `ccrep://proposals/{id}/{diff,evaluation,critiques}`,
 `ccrep://tasks/{id}/consensus`. Worktree lifecycle: `git worktree add --detach
 .ccrep/worktrees/{proposal_id} {commit_sha}` → run suite → `git worktree remove --force`.
 
@@ -193,7 +281,10 @@ above). Resources: `ccrep://tasks/{id}`, `ccrep://proposals/{id}/{diff,evaluatio
    *green automated checks + one independent approval*. No voting math, no annealing, no
    weighting. Dogfood it on one real Deep Cuts task (e.g. a boundary-threshold tweak) and
    measure: did it catch a regression a solo agent missed, and what did it cost in tokens
-   and wall-clock vs. just doing the change?
+   and wall-clock vs. just doing the change? Phase 1 also validates the **`design_doc`
+   profile** — the doc-linter eval suite (incl. provenance warnings) and profile-switching —
+   by dogfooding it on a real doc change (this amendment is a candidate), since the design-doc
+   path needs no metric infrastructure and exercises the generic ledger end-to-end.
 2. **Phase 2 — Physical revision gates + plateau/edit-war stops.** Add only if Phase 1's
    loop actually churns.
 3. **Phase 3 — Weighted quorum (fixed table).** Add only when single-approval proves too
@@ -223,6 +314,14 @@ not by the design's elegance.
 - **2026-06-08** — Synthesis authored (Claude). Codex chosen as spine; Unified 2.1 physical
   gates adopted over prompt-temperature; Kendall's W / Schulze / log-odds weighting deferred
   to Phase 4; left at `need-human-review` pending Roberto's read-through.
+- **2026-06-08** — Implementation-split amendment (Claude + Antigravity collab,
+  [session](../collab/sessions/2026-06-08-ccrep-implementation-split/session.md)). Added the
+  *Implementation Split: Code vs. Skill/Rule* and *Artifact Profiles & Usage Modes* sections;
+  added invariants 6 (artifact-profile consistency) and 7 (one-directional frontmatter-status
+  sync); scoped AST/line revision gates to `code_change`; made plateau/edit-war escalation a
+  code-owned state transition; made the provenance check a warning, not a hard fail. Consensus:
+  code owns invariants, skills own judgment; one generic ledger serves all three usage modes
+  via `artifact_profile`.
 
 ## Deferred Ideas (kept for when scale justifies them)
 
