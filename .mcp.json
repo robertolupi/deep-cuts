@@ -4,7 +4,11 @@
       "command": "tools/.venv/bin/collab_mcp"
     },
     "ccrep": {
-      "command": "tools/.venv/bin/ccrep"
+      "command": "tools/.venv/bin/ccrep",
+      "env": {
+        "CCREP_DB": "scratch/ccrep.db",
+        "CCREP_REPO_ROOT": "."
+      }
     }
   }
 }

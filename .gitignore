@@ -23,6 +23,9 @@ scratch/
 scratch
 *.egg-info/
 
+# CCREP transient eval worktrees (executor adds/removes these per evaluation)
+.ccrep/
+
 # Claude Code git worktrees (isolated working copies)
 .claude/worktrees/
 
