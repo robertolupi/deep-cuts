@@ -24,6 +24,7 @@ essentia = [
 [project.scripts]
 collab_mcp_cli = "collab_mcp_cli:main"
 collab_mcp = "collab_mcp.server:main"
+ccrep = "ccrep.server:main"
 
 
 [tool.setuptools]
@@ -31,7 +32,7 @@ py-modules = ["collab_mcp_cli"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["collab_mcp*"]
+include = ["collab_mcp*", "ccrep*"]
 
 [tool.uv]
 dev-dependencies = []

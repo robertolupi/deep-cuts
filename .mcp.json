@@ -2,6 +2,9 @@
   "mcpServers": {
     "collab": {
       "command": "tools/.venv/bin/collab_mcp"
+    },
+    "ccrep": {
+      "command": "tools/.venv/bin/ccrep"
     }
   }
 }
