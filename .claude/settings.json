@@ -17,7 +17,9 @@
             "Bash(git check-ignore:*)",
             "Bash(tools/.venv/bin/python tools/merge_sessions.py:*)",
             "Bash(tools/.venv/bin/python tools/generate_skill_index.py)",
-            "Bash(tools/.venv/bin/python tools/lint_collab.py)"
+            "Bash(tools/.venv/bin/python tools/lint_collab.py)",
+            "Bash(tools/ccrep_ledger.sh:*)",
+            "Bash(tools/ccrep_test.sh:*)"
         ]
     }
 }

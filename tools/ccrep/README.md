@@ -80,10 +80,23 @@ A `tools/run_ccrep_mcp.py` wrapper mirrors `tools/run_collab_mcp.py`.
 
 Environment:
 - `CCREP_REPO_ROOT` — git repo evaluated in worktrees (default `.`)
-- `CCREP_DB` — ledger path (default `scratch/ccrep/ccrep.db`, gitignored)
+- `CCREP_DB` — ledger path (default `scratch/ccrep.db` resolved against the canonical
+  primary-worktree root, gitignored; one shared ledger across all linked worktrees)
 - `CCREP_ENV` — environment descriptor folded into the eval-cache key
 
 ## Tools (Phase-1 subset)
 `claim_task` · `submit_proposal` (carries `artifact_profile`) · `run_evaluation`
 · `submit_critique` · `submit_revision` · `compute_consensus` · `merge_proposal`
 (human-gated) — see `server.py` docstrings.
+
+## Stable helper commands
+Fixed command surfaces (allow-list once, like `collab_mcp.sh`) so routine ledger
+peeks and test runs don't prompt per-session. Both resolve the canonical venv and
+the worktree-local `ccrep` package; allow-listed as `Bash(tools/ccrep_ledger.sh:*)`
+and `Bash(tools/ccrep_test.sh:*)`.
+
+- `tools/ccrep_ledger.sh` — **read-only** inspector (folds the event log, never writes):
+  `db` · `tasks` · `proposals [TASK]` · `consensus TASK` · `critiques TASK` ·
+  `events TASK`. Add `--json` after the subcommand for machine output.
+- `tools/ccrep_test.sh` — run the ccrep suite with the canonical venv. No args = whole
+  suite; extra args pass through to pytest (`-k provenance`, a file path, `-v`, …).
