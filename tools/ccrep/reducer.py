@@ -433,7 +433,7 @@ def _compute_consensus(
     if frontmatter_warn:
         cs["decision"].setdefault("next_actions", []).append(frontmatter_warn)
     if human_cats:
-        cs["human_gate_categories"] = human_cats  # informational; not in schema
+        cs["human_gate_categories"] = human_cats  # consumed by merge_proposal's human gate
     return cs
 
 

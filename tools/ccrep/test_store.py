@@ -232,3 +232,50 @@ def test_revision_invalidates_prior_approval_e2e():
         # head is the revision; old approval does not carry => not mergeable
         assert rev["consensus"]["decision"]["mergeable"] is False
         assert "independent approval" in rev["consensus"]["decision"]["reason"]
+
+
+def test_human_gate_consensus_state_is_schema_valid():
+    # Regression: compute_consensus validates ConsensusState; the reducer emits
+    # human_gate_categories, which was missing from the schema -> SchemaError on
+    # any human-gated proposal that reached approval. (merge_proposal/_refresh
+    # don't validate, so the existing human-gate test never caught it.)
+    repo, branch = _init_repo()
+    with _store(repo) as s:
+        prop = s.submit_proposal(
+            task_id="t", author="claude", branch=branch,
+            artifact_profile="code_review", description="d", change_summary=["s"],
+            human_gate=["public_api_change"],
+        )["proposal"]
+        s.run_evaluation(prop["proposal_id"], suite_override=[{"name": "noop", "argv": ["true"]}])
+        s.submit_critique({
+            "proposal_id": prop["proposal_id"], "reviewer": "codex",
+            "stance": "approve", "summary": "ok", "findings": [],
+        })
+        cons = s.compute_consensus("t")  # validated path — raised SchemaError pre-fix
+        assert cons["state"] == "human_review_required"
+        assert cons["human_gate_categories"] == ["public_api_change"]
+
+
+def test_two_proposals_same_commit_eval_rebinds_report():
+    # Regression: a content-addressed cache hit returned a report stamped with
+    # the first proposal's id; appending it under a second proposal made
+    # reduce_task raise "evaluation for unknown proposal". The result is reused
+    # but identity must rebind to the requesting proposal.
+    repo, branch = _init_repo()
+    override = [{"name": "noop", "argv": ["true"]}]
+    with _store(repo) as s:
+        a = s.submit_proposal(
+            task_id="ta", author="claude", branch=branch,
+            artifact_profile="code_review", description="d", change_summary=["s"],
+        )["proposal"]
+        first = s.run_evaluation(a["proposal_id"], suite_override=override)
+        # second proposal, different task, SAME commit -> cache hit
+        b = s.submit_proposal(
+            task_id="tb", author="gemini", branch=branch,
+            artifact_profile="code_review", description="d", change_summary=["s"],
+        )["proposal"]
+        second = s.run_evaluation(b["proposal_id"], suite_override=override)  # raised pre-fix
+        assert second["report"]["_cached"] is True, "served from the cache"
+        assert second["report"]["proposal_id"] == b["proposal_id"], "report rebound to requester"
+        assert second["report"]["report_id"] != first["report"]["report_id"]
+        assert s.compute_consensus("tb")["state"] != "evaluating"

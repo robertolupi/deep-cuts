@@ -194,6 +194,14 @@ class CcrepStore:
             use_cache=use_cache,
             timeout_s=timeout_s,
         )
+        # A content-addressed cache hit returns a report stamped with whichever
+        # proposal first ran this (commit, suite, dataset, env). The cached
+        # *result* is reusable, but the reducer requires report.proposal_id to
+        # belong to this task, so rebind identity to the requesting proposal.
+        if report.get("proposal_id") != proposal_id:
+            report = dict(report)
+            report["proposal_id"] = proposal_id
+            report["report_id"] = uuid.uuid4().hex
         # Append the report (strip internal annotations are kept on payload so the
         # reducer can enforce invariant 6).
         self.ledger.append(

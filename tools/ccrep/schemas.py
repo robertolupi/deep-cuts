@@ -337,6 +337,10 @@ CCREP_SCHEMA: dict[str, Any] = {
                     "type": "array",
                     "items": {"type": "string"},
                 },
+                "human_gate_categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "votes": {
                     "type": "array",
                     "items": {
