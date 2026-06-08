@@ -55,10 +55,11 @@ When a bot is instantiated, it lacks the history of decisions. To perform safely
 Bots are reactive—they follow instructions in their system prompts, entry points (`AGENTS.md`), and active skills. We make concepts discoverable using a three-tiered approach:
 
 ### A. The Entry-Point Hook
-We modify the repository's bootstrap files ([AGENTS.md](file:///Users/rlupi/src/deep-cuts-agy/AGENTS.md) and [GEMINI.md](file:///Users/rlupi/src/deep-cuts-agy/GEMINI.md)) to mandate an index check:
+We modify the repository's bootstrap files ([AGENTS.md](file:///Users/rlupi/src/deep-cuts-agy/AGENTS.md) and [GEMINI.md](file:///Users/rlupi/src/deep-cuts-agy/GEMINI.md)) to mandate a knowledge check:
 
-> **IMPORTANT**: Before editing any code or documentation, run:
-> `tools/query_knowledge.py "<brief summary of your current task>"`
+> **IMPORTANT**: Before editing any code or documentation, run the Go query tool or use the native MCP server:
+> `tools/dc-knowledge-mgr query "<brief summary of your current task>"`
+> Or call the MCP tool: `knowledge_mgr/query(text="<brief summary>")`.
 > Load the returned files, database schemas, and skills into your context before proposing changes.
 
 This forces the bot to query the indexer as its very first action.
@@ -93,28 +94,33 @@ Instead of maintaining a complex, standalone graph visualization, we combine the
 
 ---
 
-## 4. Design: The Go + Ollama + SQLite-Vec Stack
+## 4. Design: The Go + Ollama + SQLite-Vec Stack (Go-Native MCP)
 
-We design the tool `tools/dc-knowledge-mgr` as a single Go binary compiled locally.
+We design the tool `tools/dc-knowledge-mgr` as a single Go binary compiled locally. It serves two modes: a standalone **CLI** for developers/hooks, and a **native MCP Server** (JSON-RPC 2.0 over stdin/stdout) for AI agents.
 
 ```
-       Go CLI Tool
-            |
-            v
-   [ 1. Extract Phase ]  ---> Scans AST for JSDoc/Rustdoc tags (@concept, @skill)
-            |                 Scans YAML frontmatter in doc/*.md
-            v
-   [ 2. Embed Phase ]    ---> Queries local Ollama `/api/embeddings` (nomic-embed-text)
-            |                 Saves embeddings in SQLite (sqlite-vec)
-            v
-   [ 3. Compile Phase ]  ---> Generates Datalog facts database (`facts.mang`)
-            |
-            v
-   [ 4. Query Phase ]    ---> Evaluates Datalog logic rules (Google Mangle)
+                  +--------------------------+
+                  |  tools/dc-knowledge-mgr  |
+                  +--------------------------+
+                               |
+            +------------------+------------------+
+            | (CLI Mode)                          | (serve Mode)
+            v                                     v
+   - `dc-knowledge-mgr lint`             - Speaks Model Context Protocol (JSON-RPC)
+   - Runs on git pre-commit              - Registered in `.mcp.json`
+   - Scans AST & frontmatter             - Exposes native MCP Tools:
+   - Validates Datalog rules                * `knowledge_mgr/query(text)`
+                                            * `knowledge_mgr/check_rules()`
 ```
 
-### Verification in Pre-Commit
-The Go tool is registered in the repository's pre-commit hook:
+### A. Go MCP Server Libraries
+We implement the server directly in Go using a standard library-friendly wrapper like `github.com/mark3labs/mcp-go`. This allows us to start the server via:
+```bash
+tools/dc-knowledge-mgr serve
+```
+
+### B. Verification in Pre-Commit
+The Go tool's CLI mode is registered in the repository's pre-commit hook:
 1. It scans the modified files.
 2. It runs Mangle queries to assert that all modified code concepts are documented.
 3. If an agent changes code annotated with `@concept SAX` but the linter detects that `doc/research/sax_structure.md` is marked as `superseded`, it prompts the agent to update the code concept tag.
@@ -123,11 +129,13 @@ The Go tool is registered in the repository's pre-commit hook:
 
 ## 5. Proposed Next Steps
 
-1. **Phase 1: Bootstrap the Go CLI**:
+1. **Phase 1: Bootstrap the Go CLI & MCP Server**:
    * Create `tools/knowledge_mgr/` in Go.
+   * Pull `github.com/mark3labs/mcp-go` and set up the `serve` JSON-RPC transport over stdin/stdout.
    * Implement basic Rust/TypeScript comment parsers for `@concept` and `@skill` tags.
 2. **Phase 2: Integrate Ollama**:
-   * Implement the HTTP client in Go to call Ollama on `localhost:11434`.
+   * Implement the HTTP client in Go to call Ollama on `localhost:11434/api/embeddings`.
    * Initialize a local SQLite db `scratch/codebase_index.db` to cache embeddings.
 3. **Phase 3: Hook into Bot Entry Points**:
+   * Register the Go server command `tools/dc-knowledge-mgr serve` in `.mcp.json`.
    * Update `AGENTS.md` and `GEMINI.md` to document the index checking workflow.
