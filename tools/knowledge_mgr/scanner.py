@@ -28,9 +28,13 @@ def get_git_worktrees(root_path: Path) -> List[Path]:
         return [root_path.resolve()]
 
 def should_index_file(path: Path) -> bool:
-    """Filter out test files, node_modules, target, etc."""
+    """Filter out test files, node_modules, target, and hidden/build directories."""
     parts = path.parts
-    if "node_modules" in parts or "target" in parts or ".git" in parts or ".venv" in parts:
+    # Skip any hidden directory (starts with .) except the filename itself
+    if any(part.startswith(".") for part in parts[:-1]):
+        return False
+    # Skip standard dependency/build folders
+    if "node_modules" in parts or "target" in parts or "dist" in parts or "build" in parts:
         return False
     if path.name.endswith((".test.ts", ".test.js", ".spec.ts", ".spec.js", ".d.ts")):
         return False
