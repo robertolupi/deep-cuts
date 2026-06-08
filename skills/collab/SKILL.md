@@ -11,6 +11,11 @@ the conduct rules — session-log format, handoff structure, ACKs, documenting R
 archiving — live in [bot-collab](../bot-collab/SKILL.md) and
 [doc/collab/PROTOCOL.md](../../doc/collab/PROTOCOL.md). **This skill is only the handshake.**
 
+> **Prefer the collab MCP.** The `collab` MCP tools (`send`/`recv`/`try_recv`/`inbox`, plus the
+> `post`/`claim`/`complete` task queue) are the first-choice coordination mechanism — see
+> [bot-collab](../bot-collab/SKILL.md) §4. This FIFO baton is the **legacy serial fallback** for when
+> the MCP server is unavailable. Reach for it only then.
+
 Fixed by convention (so the commands are whitelist-able and never need configuring per session):
 
 - **Pipe:** `scratch/fifo-handoff` (gitignored)
@@ -52,8 +57,10 @@ section (see [bot-collab](../bot-collab/SKILL.md) / `PROTOCOL.md`). Run
 
 ## Close
 
-At consensus: write a closeout summary in `session.md` → `rm scratch/fifo-handoff` → add an
-`ARCHIVED` file to the session directory.
+At consensus: write a closeout summary in `session.md` (a `## [Closed, YYYY-MM-DD]` entry) →
+`rm scratch/fifo-handoff` → **hand back to Roberto and stop**. Do **not** add the `ARCHIVED`
+file — archiving is Roberto's call so he can ask for more work first (see `PROTOCOL.md` §"Session
+archiving").
 
 ## Recovery
 

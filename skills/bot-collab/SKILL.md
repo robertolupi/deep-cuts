@@ -16,16 +16,28 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
 1. Read `doc/collab/PROTOCOL.md` and [doc/collab/fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md).
 2. Find or create the session directory under `doc/collab/sessions/YYYY-MM-DD-topic-slug/`.
 3. Read the full `session.md`, not only the tail.
-4. **Parallel Coordination (Maildir / Dynamic MCP - Recommended)**:
-   - Use the `CoordinationAdapter` or `collab` MCP tools.
+4. **Coordination (collab MCP — FIRST CHOICE)**:
+   - Use the `collab` MCP server tools as the primary coordination interface. Do **not** reach for bash/Python coordination scripts (the FIFO baton, the `CoordinationAdapter`, the advisory-lock helper) when these tools are available:
+
+     | Need | MCP tool |
+     |---|---|
+     | Check your mailbox / task counts | `collab/inbox` |
+     | Hand off to the peer | `collab/send(to, type="handoff", payload={task, context, deliverable})` |
+     | Acknowledge | `collab/send(type="ack", in_reply_to=…)` |
+     | Wait for your turn (blocks idle, ~zero token cost) | `collab/recv(timeout_s=…)` |
+     | Poll without blocking | `collab/try_recv` |
+     | Dispatch parallel subtasks | `collab/post` → peers `collab/claim` / `collab/complete`; coordinator `collab/sweep` reclaims expired leases |
+
+   - **Activation**: if the `collab/*` tools are not already in your active tool list, enable them via your harness's MCP activation path *before* falling back — Claude Code: they are deferred, load with `ToolSearch` (e.g. `select:mcp__collab__send,mcp__collab__recv`); Antigravity: `ask_permission` with action `mcp`, target `collab/*`.
+   - **Fallback only** (in order): the Python `MailStore` client (`tools/collab_mcp/store.py`) or direct maildir access under `scratch/coordination/` if the MCP server fails to load; the FIFO baton (step 5) or manual relay (step 6) for serial turn-taking.
    - **Identity**: Inspect your system prompt to resolve your actor name:
      - If your system prompt identifies you as **Codex** $\to$ use `actor="codex"`.
      - If your system prompt identifies you as **Antigravity** $\to$ use `actor="agy"` (peer is `"claude"`).
      - If your system prompt identifies you as **Claude** $\to$ use `actor="claude"` (peer is `"agy"`).
      - If your peer is not obvious, derive it from the active session's `## Participants` list or the latest handoff rather than assuming a two-agent pairing.
      - The project `.mcp.json` leaves `COLLAB_ACTOR` unset so different clients can share it; pass the explicit `actor` argument when your actor is not the server default.
-   - **Handoff**: Append your turn entry to the active `session.md` file, then send a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
-5. **FIFO Coordination (Legacy Serial)** — use the [`collab`](../collab/SKILL.md) skill for the handshake.
+   - **Handoff**: Append your turn entry to the active `session.md` file, then `collab/send` a message of type `handoff` or `ack` to the peer actor using your resolved `actor` name.
+5. **FIFO Coordination (legacy serial fallback)** — only when the collab MCP is unavailable; use the [`collab`](../collab/SKILL.md) skill for the handshake.
 6. **Manual Coordination (Fallback)**:
    - Quote the latest `**→ Handoff:**` verbatim before responding to it.
    - Append your entry to `session.md` before giving the handoff in chat.

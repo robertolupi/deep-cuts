@@ -70,7 +70,26 @@ The handoff line is optional if the session is just a log, not a turn-taking exc
 
 ## Turn-taking rules
 
-1. **Sequential FIFO Handoff (Recommended for 2-participant sessions)** — automated by the [`/collab`](file:///Users/rlupi/src/deep-cuts/skills/collab/SKILL.md) skill; see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) for the full design:
+**Coordinate through the `collab` MCP tools first.** They are the first-choice mechanism for
+both turn-taking and parallel work; the FIFO baton, the `CoordinationAdapter`, the advisory-lock
+helper, and manual relay are explicit fallbacks below. Do not write bash/Python coordination
+scripts when the MCP tools are available. If `collab/*` is not in your active tool list, enable it
+via your harness (Claude Code: deferred — load with `ToolSearch`; Antigravity: `ask_permission`,
+action `mcp`, target `collab/*`) before falling back.
+
+0. **collab MCP (Recommended)** — per-actor maildir mailboxes + a lock-free task queue, exposed as
+   `tools/collab_mcp/server.py`:
+   - **Turn-taking:** append your turn to `session.md`, then `collab/send(to=peer, type="handoff",
+     payload={task, context, deliverable})`. The peer waits with `collab/recv` (blocks idle, ~zero
+     token cost) or polls with `collab/try_recv`, and confirms with `collab/send(type="ack",
+     in_reply_to=…)`. Because handoffs flow as messages, exactly one participant holds the turn and
+     writes `session.md` — no concurrent-writer race (see the resolved KNOWN ISSUE below).
+   - **Parallel work:** `collab/post` disjoint subtasks; peers `collab/claim` (lease-backed) and
+     `collab/complete`; a coordinator `collab/sweep`s expired leases. Combine with per-agent git
+     worktrees and one coordinator owning merge (see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) §"Beyond FIFO").
+   - **Fallback to the Python `MailStore` client (`tools/collab_mcp/store.py`) or direct maildir
+     access under `scratch/coordination/`** only if the MCP server fails to load.
+1. **Sequential FIFO Handoff (legacy serial fallback)** — automated by the [`/collab`](file:///Users/rlupi/src/deep-cuts/skills/collab/SKILL.md) skill; use only when the collab MCP is unavailable; see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) for the full design:
    - Participants coordinate turns via a single fixed named pipe at `scratch/fifo-handoff`.
    - **Handshake (who goes first):** run `mkfifo scratch/fifo-handoff` and branch on the result. If it **succeeds**, you are first — *wait* (`cat scratch/fifo-handoff`). If it **fails** because the pipe already exists, the peer is already waiting — *you go first*: edit, log your turn, then hand off. The atomic create-or-fail removes any cold-start ambiguity.
    - To wait for a turn: Run `cat scratch/fifo-handoff` (as a background command). This blocks at the OS level until the other participant writes, triggering a reactive wakeup when the command completes.
@@ -136,13 +155,24 @@ Roberto controls which sessions are *active*. A session directory containing a f
 `ARCHIVED` is **archived**: agents must not actively work on it, and tools (the Collab Hub)
 exclude it from the active list and never auto-select it.
 
-- **Archive:** create an `ARCHIVED` file in the session dir (any contents — a date is nice).
+> **Only Roberto archives a session.** Agents must **not** create the `ARCHIVED` tombstone, even
+> after reaching consensus or writing a closeout. Archiving is the human's call so Roberto can
+> review the result first and ask for more work if it isn't satisfactory. When agents believe a
+> session is done, they write a closeout entry (see "Closing a Session") and **hand back to
+> Roberto** — then stop and wait. Roberto creates the tombstone when he is satisfied.
+
+- **Archive (Roberto only):** create an `ARCHIVED` file in the session dir (any contents — a date
+  is nice).
 - **Unarchive:** delete the `ARCHIVED` file.
 - The marker is **committed to git**, so archive state is shared across all participants.
 - Picking "the active session" means: among non-archived session dirs, the most recently
   modified. Never resume or append to an archived session unless Roberto unarchives it first.
 
 ## File locking ("I temporarily own this file")
+
+> **Fallback only.** Under MCP coordination (rule 0) the turn-holder is the sole writer of shared
+> files, so advisory locking is unnecessary. Use it only in the legacy non-MCP regimes — manual
+> relay, or when Roberto and an agent edit the same file out of band.
 
 When concurrent agents (Claude, Gemini) and Roberto can all edit the same file, take an
 **advisory lock** before editing a shared file — `session.md`, `chat_log.jsonl`, `tasks.md`,
@@ -160,31 +190,25 @@ Rules:
 - Append-only logs (`chat_log.jsonl`) may instead use atomic `O_APPEND` single-line writes.
 - Never commit `.lock` files — they are transient (add to `.gitignore` if needed).
 
-### KNOWN ISSUE — `session.md` write-races (TODO, 2026-06-07)
+### RESOLVED — `session.md` write-races (resolved 2026-06-08)
 
-Observed in `sessions/2026-06-07-salami-eval-followup/`: with three agents (Codex, Gemini/agy,
-Claude) editing one `session.md` concurrently, the advisory lock above was **not actually enforced**
-by the live tooling, so edits repeatedly collided. Symptom: a writer's edit fails with "file has been
-modified since read" / silently loses the race; one agent (Claude) lost its turn entirely and a
-Roberto steering turn had to be back-filled out of order. The append-log survived (no data loss) but
-turn ordering and authorship got muddled.
+**Original problem** (observed in `sessions/2026-06-07-salami-eval-followup/`): with three agents
+(Codex, Gemini/agy, Claude) editing one `session.md` concurrently, the advisory lock below was **not
+actually enforced** by the live tooling, so edits collided — a writer's edit failed with "file has
+been modified since read", one agent (Claude) lost its turn, and a Roberto steering turn had to be
+back-filled out of order. The append-log survived but ordering and authorship got muddled.
 
-We need to re-establish a working mechanism before the next multi-agent session. Candidates, roughly
-in order of effort:
+**Resolution:** coordinate through the **collab MCP** (Turn-taking rule 0). Handoffs flow as
+per-actor maildir messages (`collab/send`/`collab/recv`), so the baton is held by exactly one
+participant at a time — the turn-holder is the only writer of `session.md`, which removes the
+concurrent-writer scenario entirely. This is the single-writer-coordinator idea (former candidate 3)
+realized through messaging rather than a separate drainer process, and it reuses the same per-actor
+maildir pattern the MCP already uses for messages.
 
-1. **Re-establish the advisory lockfile** described above, but *actually wired into every agent's
-   edit path* (the `multi-agent-ops` helper exists but wasn't loaded). Cheapest if the helper just
-   needs registering/whitelisting.
-2. **Spool-and-reassemble (preferred if locking stays unreliable):** each agent appends its turns to
-   its **own** per-actor file (e.g. `turns/<actor>.md`, append-only — no cross-agent contention), and
-   a small script reassembles them into the canonical `session.md` ordered by the per-turn timestamp.
-   This removes the shared-write hot spot entirely; the reassembler is the only writer of `session.md`.
-   Mirrors the maildir pattern the collab MCP already uses for messages (per-actor dirs, no shared
-   mutable file).
-3. **Single-writer coordinator:** agents emit turns only as MCP messages; one coordinator drains the
-   queue and is the sole writer of `session.md`.
-
-Action: pick (1) or (2), implement, and update this section + the `collab`/`bot-collab` skills.
+For genuinely parallel work, agents do **not** share `session.md` mid-flight at all: they take
+disjoint subtasks via the task queue (`collab/post`/`claim`/`complete`) in separate git worktrees,
+and one coordinator reconciles results. The advisory lockfile (former candidate 1) is retained only
+as a fallback for the legacy non-MCP regimes described below.
 
 ---
 
@@ -203,4 +227,9 @@ When a collaboration session reaches a stable conclusion:
 3. Link any implementation commits, PRs, or follow-up docs.
 4. Promote durable instructions into a normal `doc/` file, a `skills/` file, or code comments.
 5. Mark the final handoff as complete or explicitly hand back remaining work to Roberto.
-6. Mark the session archived by appending a `## [Closed, YYYY-MM-DD]` entry. This signals to any future reader that the session reached a conclusion and requires no further action.
+6. Append a `## [Closed, YYYY-MM-DD]` entry signaling the agents believe the session reached a
+   conclusion. This is a **proposed** closeout, not a final archive.
+7. **Hand back to Roberto and stop.** Do **not** create the `ARCHIVED` tombstone — that is Roberto's
+   call (see "Session archiving"). He reviews the result and either archives it himself or asks for
+   more work. A `## [Closed, …]` entry without an `ARCHIVED` file means "awaiting Roberto's sign-off,"
+   so the session stays active and resumable until he archives it.
