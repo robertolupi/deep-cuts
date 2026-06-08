@@ -1,0 +1,273 @@
+9a63e4b fix(ipc): resolve compiler type errors on CommandMap (F1b)
+96ebf1c fix(ipc): tighten tauri command signatures and resolve typecheck errors
+03d5db1 Three-way handshake
+aba1dab tooling(collab): share coordination across worktrees
+c0e08cd approve codex try_recv
+6549c30 tooling(collab): add split session log compaction
+1577fe7 docs(ccrep): document session retrospective and notes
+5660295 docs(skills): add harness-conditional post-handoff monitoring to bot-collab
+0bf9d58 Remove done refactoring doc/operations/codex-feedback/item-C2-batch-pass-status.md
+6af1d59 chore(ccrep): pin shared ledger path and ignore eval worktrees
+6f31374 fix(ccrep): rebind cached eval reports and add human_gate_categories to schema
+a1205d8 docs(ccrep): add operational skill and provenance/status rules
+069bc0d feat(ccrep): implement Phase 1 evidence ledger
+181cfa5 fix(analysis): standardize batch pass status, metrics, and checkpoints (C2)
+cddf478 tooling(collab): install console scripts and update .mcp.json
+2ce4591 docs(ccrep): define code/rule split and artifact profiles in proposal
+b11abfe tooling(collab): add MailStore CLI wrapper for agent coordination
+717a194 docs(collab): make collab MCP the first-choice coordination mechanism
+5e58e37 tooling(collab): launch collab MCP via run_collab_mcp.py wrapper
+655e997 Accept ccrep-synthesis proposal
+f3408f4 docs(collab): synthesize CCREP designs into one proposal and log review
+eb8ecf2 docs(collab): add CCREP designs and unified CCREP 2.1 specification
+0d6a410 docs(collab): reformulate DeepThink prompt for Cognitive Consensus Protocol
+df051ba docs(collab): append DeepThink Courier protocol research and FastMCP schema
+f394b24 docs(collab): initialize 2026-06-08 collaboration research session
+4679641 tooling(collab): approve heartbeat MCP tool
+0090de3 docs(collab): flag session.md write-race, propose lockfile or spool-reassemble
+b460fbb docs(collab): log optimizer brainstorm and back-fill Roberto's directive
+836c0de tooling(collab): implement Phase 0 SALAMI eval harness
+665a34b docs(collab): refine Gemini brainstorm synthesis with SciPy optimization choice
+39f0ffe docs(collab): synthesize untrained-CNN brainstorm and close session
+ee8a54f docs(collab): add Phase 0 script skeleton and Gemini ACK
+7c0d314 docs(collab): add Meta design skeleton and Gemini windowed decision
+de4bb7d docs(collab): log Meta AI review for SALAMI follow-up
+f38af63 tooling(collab): approve core MCP tools
+c15178c docs(collab): add salami eval follow-up roadmap
+df9f16a Codex MCP config
+3c07d8c fix(collab): support Codex on shared MCP adapter
+b5a2587 docs(collab): log Meta AI review and close SALAMI session
+124539f Meta AI updates to its own bootstrap file.
+5781453 docs(collab): add archived session log for multibot coordination exercise
+21c7bce docs(collab): pin canonical task dirs and record MCP convergence outcome
+6b86584 feat(collab): add lease/heartbeat/abandon/sweep and glob-by-id task lifecycle
+4a05e60 chore(collab): register collab MCP server in .mcp.json
+7dc0dd9 feat(collab): implement v0 maildir MCP adapter (tools/collab_mcp)
+121d4dd docs(collab): design Claude's MCP-server adapter over maildir
+5a55d42 docs(collab): finalize parallel coordination spec and log consensus
+fe67721 chore: gitignore .claude/worktrees/
+fefb49f docs(collab): add actor-model coordination protocol for parallel work
+44ed812 feat(collab): add FIFO-handoff protocol and /collab skill
+4c95aa2 Clean up claude launch.json
+2a13772 docs(collab): clean stale references to removed collab tooling
+ec822b7 chore(collab): remove ad-hoc multi-agent collaboration scripts
+9c49427 merge: feature B — DSP onset/chroma caching
+28acb47 feat(analysis): cache onset peaks and chroma series in audio_analysis
+39e6597 docs(collab): resolve courier-design.md open questions and comments
+e42eb09 docs(collab): update courier design with SDK warm-restart architecture
+ff6f323 docs(collab): log Gemini's Courier design feedback turn
+3422c2a tooling(collab): add process-grouped agent runner and fish config
+df40e3b docs(collab): add courier design doc and update index
+e222b54 refactor(collab): make agent runner and manual machine-independent
+945053c docs(collab): add human manual for the collaboration setup
+2c8db09 fix(collab): use agy (current Gemini CLI), not deprecated gemini
+6313f3a docs(collab): log kill-switch runner and cold-start test
+bd3e0f2 feat(collab): headless agent runner with kill-switch
+c66a756 docs(collab): close collab-hub session after live test
+a153203 docs(collab): log collab-hub design session
+9fa3f8f feat(tools): add Collab Hub Streamlit dashboard
+5087f66 feat(collab): advisory file-lock helper and session conventions
+24c73ad docs(collab): record acknowledgements between participants
+91f98c9 refactor(analysis): remove unused clustering code and PipeOk helper
+96f4187 fix(frontend): clear remaining svelte-check type errors
+38f6063 merge: frontend mock/fixture structure_cluster_id fix
+333dd32 fix(frontend): add structure_cluster_id to mocks and fixtures
+ab46f0a docs(collab): freeze dense-embedding SSM blueprint
+ab156e8 merge: feature A boundary_refine pass into main
+3487d9d feat(analysis): add boundary_refine pass with novelty-augmented boundaries
+aff25ab docs(collab): revise SSM scoping note (Claude review)
+ec420e5 docs(collab): add dense-embedding SSM scoping note
+b32bc91 tooling(eval): upgrade SALAMI evaluation to use mir_eval canonically
+d954244 docs(skills): note mir_eval in using-python installed packages
+3f72bb3 tooling(eval): add mir_eval scoring, difficulty and normalized evals
+90913af tooling(eval): add SALAMI boundary alignment evaluation
+3360626 docs(collab): require logging Roberto's direct contributions
+ffc0d84 fix(frontend): add sax model to check list and downloader
+9658b81 fix(frontend): add active filter chip for structure cluster archetype
+15cdab3 docs(feedback): add Meta AI sequence modeling and SWOT review
+846ec04 docs(feedback): add Gemini project opinion, SWOT, and observations
+2caf78b docs(skills): add git-commits skill with commit message conventions
+bf45743 docs(feedback): add per-item session files and Claude project assessment
+46a680d docs(feedback): archive C1, F1a, F1b completed items (manual resolve)
+66b6617 docs(feedback): archive C1, F1a, F1b completed items
+5577200 feat(ipc): add typed CommandMap with 86 commands (F1b)
+4a2f1de feat(ipc): add typed CommandMap with 86 commands (F1b)
+10d1f34 test(analysis): add pass invariant tests (C1)
+c762e82 tooling(skills): auto-inject skill table into agent instruction files
+98643c2 docs(feedback): archive F1a, note F1b CommandMap as remaining sub-task
+8e25954 fix(ipc): route all Tauri imports through \$lib/ipc (F1a)
+9f92687 docs(feedback): archive F4a, F4b completed items
+ae91d25 fix(d3): replace hardcoded canvas colors with getCssToken() lookups (F4b)
+43ae7bf fix(design): add --sg-data-b token and wire StatisticsPanel (F4a)
+9e1375c docs(feedback): archive F4 CSS pass, split remaining into F4a/F4b
+a2d1c03 fix(css): replace hardcoded colors with --sg-* tokens in remaining 10 components (F4)
+e4e0413 docs(feedback): archive C6, mark F4 partial progress
+feae60d fix(css): replace hardcoded colors with --sg-* tokens in 18 components (F4 partial)
+89c1083 fix(download): structured error events, spawn_blocking, group key validation
+6ed3458 docs(feedback): archive D2, D5 completed items
+00f580e docs: restructure proposal/research docs with Current State sections (D2)
+24e5e69 docs: add architecture map (D5)
+0473838 docs(feedback): archive C3 completed item
+7556acf fix(rust): replace silent filter_map(ok) with visible error handling
+3048bc0 docs: add lifecycle frontmatter to remaining 11 proposal/research docs
+c1b8e33 docs(feedback): archive S2, S3a/b/c, D3, D4 completed items
+790be0d docs: acceptance criteria, session closings, protocol archive step
+85d87aa docs(skills): make ui-debug portable across agent environments
+a03517e tools: add S3a/b/c lint scripts for proposals, Tauri imports, filter_map
+ecda0fb docs(feedback): archive F3, C4, S1, D1, D5, D6 completed items
+d1f3b65 docs: skills guardrails, doc sync checklist, proposal frontmatter
+06a9a7b fix(startup): show explanatory dialog on DB initialization failure
+8a81f88 fix(stores): make library.init() idempotent and add dispose()
+e79d9b7 docs(feedback): archive completed Codex feedback items
+f09e5b1 docs(skills): add CSS token and cross-skill checklist items to svelte-component and ui-design
+c64973d chore(collab): normalize session layout, add linter, update protocol
+a5256c3 docs(feedback): note missing Tauri mocks / frontend unit test infrastructure
+0b6e325 docs(skills): strengthen add-ipc-command with mock system guidance
+bb46e80 fix: halt startup on main DB failure; degrade gracefully on metrics DB failure
+af338e7 docs: strengthen add-analysis-pass skill with guardrails from Codex review
+5264fd8 fix: propagate SQLite row errors instead of silently dropping them
+b61cbdb Add experimentation protocol skill
+ad9c35c docs: add project SWOT assessment
+101ac81 docs: add Codex to collaboration protocol
+0327be9 docs: separate completed feedback items
+90a50d3 docs: simplify collaboration skill
+70021a9 docs: annotate partial implementation status
+12b4b6c docs: move track comparison mockup
+0fc7e08 docs: add documentation writing skill
+7aacf75 docs: reorganize documentation taxonomy
+c5f8285 docs: add documentation status index
+aa1b60a docs: add dynamic skill discovery
+ec3d057 chore: sync cargo lock version
+5073089 docs: add codex feedback review
+1da3b6d docs: update showcase video link to new YouTube video
+13fdd95 chore: bump dev version to v0.1.8
+5aceb97 chore: release v0.1.7
+54768bc feat: add sax_sequence_tagger.onnx to model manifest
+47f82cb feat: structure clustering — dynamic archetypes via unique skeleton grouping
+bceae68 Claude handoff
+4702f77 feat(structure): HDBSCAN cluster coloring, drop waveform_fingerprint
+5564997 feat(structure): Levenshtein structural similarity filter
+39cb908 feat(structure): SAX structural alignment pass + alphabet filter
+db0e274 docs(collab): append explorer creation and compaction rules to session log
+6d06822 docs(collab): update Meta AI role definition in protocol and session log
+f625796 docs(collab): append Meta feedback to session log
+d6f3497 feat(collab): verify Rust Viterbi decoder and update gitignore for build artifacts
+c0db15f chore: globally ignore pycache and remove existing python cache files from index
+a92d745 feat(sax-transformer): add training and prediction generation scripts, predictions dataset, and gitignored models folder
+6a7ae05 docs: use per-session directories, organize sax-transformer session, and add Meta models
+31b100d feat(sax): integrate speed-sensitive tokenization, negative structural filters, and evaluation tools
+822102a docs: initialize sax-transformer collab session with sample data and tabled Approach A state
+d9f327e feat: implement SQL-like structure filtering and add analysis tools for fingerprint and DTW-based classification
+09079a0 feat: optimize song structure filter using compressed LIKE patterns and update DevDrawer to dynamically display new filter fields
+8d3bfbb feat: waveform visualization, fingerprint filter, and song structure UI
+d58e98b doc: add finalized test harness with Clip B details and Prompt 3
+9786794 doc: log Meta patches and Gemini updates in session file
+0e86b44 doc: apply Meta's pre-flight verification and handoff structure patches
+037f975 doc: update gemma 4 evaluation session with Meta and Gemini entries
+0db549f tools: add python test script for Gemma 4 audio evaluation
+8f9af4d doc: add Gemma 4 evaluation session log
+f9360ab doc: add Gemma 4 evaluation document
+699df91 tools: add Genius lyrics fetcher
+f245fc6 docs: add icon to GitHub Pages site (favicon + nav logo)
+9f41f30 Update meta.md
+19787fc doc: add Meta AI bootstrap documentation
+9fa28d9 docs: add Meta AI as third collab participant
+ec19399 chore: add .claude/launch.json and blog post collab session log
+251935c doc: add blog post collab session log
+e0495ea feat: multi-agent collaboration protocol (Gemini + Claude + Roberto)
+5b43403 feat: dev-only AcoustID bulk enrichment + dev inspector UI
+e67b1bf doc: SAX distance experiments, arc search design, per-section CLAP, block timeline mockup
+ed54e93 doc: add experiment results (GMM/LR/MLP) and Genius lyrics expansion plan
+189918e doc: add Option D (weak-supervision MLP + Viterbi) and GMM results
+c69014d doc: add SAX structure learning options (GMM, contrastive, semi-supervised)
+22d1522 doc: add sequence matcher prototype results and open problems
+10256f6 doc: reframe block composer as sequence matcher with edit distance
+aecfc37 doc: add pipeline consolidation plan and block composer implementation phases
+ad41fdd doc: add SSM/DTW experiment results for structural section detection
+7592e48 doc: add SAX structural search design and experiment plan
+b59e743 feat(ui): register SAX pass in MetricsInspector
+9ae31f2 feat(ui): register SAX pass in AnalysisPanel pipeline display
+46a8be1 feat(ui): colour waveform bars by SAX energy letter
+3431257 feat(sax): add SAX structural encoding pass and blend into similarity search
+009659b feat(clap): adaptive window selection with tail trimming and CV-based strategy
+cea8de5 docs: add CLAP window selection and SAX structure research notes
+0dfb00d refactor(map): extract projection layout helpers and add unit tests
+3dbfcc2 feat(statistics): add acoustic scatter map and persist set selections
+91e4891 feat(settings): add "Open Application Data" button to Analysis Settings
+7591808 chore: update Cargo.lock for v0.1.7 version bump
+5e71008 fix(player): use canvas-safe colors for all three themes in WaveSurfer
+27afa72 docs(website): fix description embedding dimension (384-d, not 512-d)
+dabf724 docs(website): remove Python references from public-facing pages
+c114dc6 docs(skills): update release-build skill with automation and gh release
+4f0d3a9 chore: bump dev version to v0.1.7
+bf1c6a2 chore: release v0.1.6
+bb97d51 feat(docs): update showcase video link and add YouTube player to website
+43032f0 fix(ui): mood filter tolerance and cleanup
+b050ef4 feat(ui): mood filter band with configurable tolerance slider
+8bb641b feat(ui): make classifier genre/vocal values clickable filters
+093bc86 refactor(css): tokenize font-family and font-size across all components
+490af76 feat(dev): add local_debug mock mode and ui-debug skill for Chrome MCP inspection
+0de1d1b refactor(ui): extract CollapsiblePane component; add hover preview to both panes
+653e5ea fix(ui): full-height filter sidebar; shorten player bar button labels
+c6da11f refactor(analysis): remove key:minor/major and bpm:tempo tags
+c74d8b4 docs(skills): add release-build, bump-dev-version, add-tauri-sidecar, svelte-component skills
+c22e6d2 docs(skills): fix IPC state pattern and add pause/resume guidance
+bd78532 test(autocomplete): add Vitest tests; fix scrollIntoView guard and stale dev-guidelines
+da0bf87 fix(ui): replace hardcoded dark rgba values with theme-aware CSS variables in Autocomplete and FilterSidebar
+2e2ecc9 feat(navbar): glow pulse on Analyze button when analysis is active
+aa96309 feat(frontend): add playlist source selection to statistics panel
+2f532f2 feat: add manual and auto pause/resume for analysis pipeline
+7ac5935 analysis: instruct Qwen not to repeat BPM or key in track description
+72464e8 Refactor: eliminate PlaylistSelector in favor of inline Autocomplete, unify sidebar filter layout and placeholders
+f113447 Use metrics fallbacks and concurrency for Analysis Pipeline ETA, and relocate Inspect Metrics to Analysis Panel
+5dc7fcb feat(tags): add custom user tags, tag suppression, and extract reusable TagsAutocomplete component
+a687f3e docs: add user-guided tag restoration detail to overrides proposal
+70f7077 docs: add brainstorming document for user song overrides and tag management
+88a87f1 feat: add native zoom controls to view menu
+455932c fix(macos): fix bundled llama-server dylib crash & bump dev version to 0.1.6
+4a6f77c chore: remove system fallbacks and rely only on bundled llama-server sidecar
+f480706 fix: restore download progress UI state when returning to model downloader page
+94bcd32 chore: bump min_app_version to 0.1.4 and dev version to 0.1.5
+9e11cd1 style: simplify DJ copy in homepage to remove developer jargon
+34c7704 style: reorder homepage sections to prioritize DJ/Curator, Minimalist, then Archivist
+5227ab4 feat: restructure public website into user-focused landing page and tech sub-page
+2d8fef3 fix: enable markdown rendering inside HTML container using markdown=1 attribute
+4a41641 fix: update footer copyright holder name to Roberto Lupi
+4eaf0dc fix: add permalink configuration for pretty URLs on changelog page
+c2865b7 fix: remove theme parameter from _config.yml to resolve Pages build error
+0fd7e9e feat: add public Jekyll website in docs folder
+dd2388b docs: update CHANGELOG.md for v0.1.4
+b4ee5fe feat: double-click mood radar to clear all mood filters
+fafd9c4 fix: keep active view when filtering by artist, album, or tag from detail pane
+691740b feat: replace mood sliders with interactive radar filter
+f4d410e fix: add scoped section-label style to MoodSection
+c77892d feat: add floating logo to AboutCard
+7708852 fix: show one decimal place for sub-minute durations in MetricsInspector
+507a5b0 docs: mark BPM Detection Improvements as implemented in roadmap
+0d14d2f docs: update roadmap with implemented feature status
+cfee551 refactor: split LibrarySettings into SettingsCard + 6 sub-components
+e15c9b5 refactor: split FilterSidebar into sub-components + add similarBlend tests
+a9c8893 docs: update feature feasibility doc with implementation status
+89946da Remove CLAP concept tagging; CLAP pass now produces embeddings only
+9567192 docs: replace autotagging design doc with implementation reference
+900f49e Port CLAP concept tagging to Rust; restore description in detail pane
+2e3ce51 Remove qwen label boost from CLAP search; add CLAP tag validation in qwen pass
+a99531a Add tag filtering, Gemini tag validation tools, and refine qwen prompts
+33601cb feat: add vibe/vocal/context qwen tag steps and unified tag UI
+4877cb2 fix: show milliseconds for sub-second durations in metrics inspector
+251ca8e feat: add autotagging — tags table, per-pass tag emission, detail pane display
+be08b1d refactor: rename telemetry → metrics throughout
+365ef1f fix: format durations as h/m/s instead of raw seconds
+a7a8b1b feat: aggregate pipeline traces by pass for scalable Gantt chart
+034cbdb feat: add pipeline telemetry database with in-app trace inspector
+630b313 docs: simplify diagnostics modal to preset views in metrics monitoring proposal
+4f3d4bc docs: add metrics monitoring proposal and update autotagging with concurrency and cleanup strategies
+f6d1a4b docs: add choir option and non-repetition prompts to autotagging design doc
+e77fa68 docs: add autotagging brainstorming design document with synonym caching and WordNet integration
+0770c6c docs: remove implemented auto-naming feature from feasibility analysis
+e4dfc96 feat: implement Saved Search Smart Auto-Naming with Vitest unit tests
+ab2a9eb docs: remove long silence detector proposal from roadmap and feasibility docs
+19e50c2 docs: add UI design guidelines skill and register in AGENTS.md
+5076c21 docs: Add feasibility reports and refactored envelope/playlist specs
+9a9663b docs: Audit, consolidate roadmap ideas, and clean up implemented specifications
+8e09836 Refactor Qwen description validation to helper function and add unit tests
