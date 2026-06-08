@@ -1,0 +1,23 @@
+{
+    "enabledMcpjsonServers": [
+        "collab",
+        "ccrep"
+    ],
+    "permissions": {
+        "allow": [
+            "mcp__collab__*",
+            "mcp__ccrep__*",
+            "Bash(git status:*)",
+            "Bash(git log:*)",
+            "Bash(git show:*)",
+            "Bash(git diff:*)",
+            "Bash(git branch:*)",
+            "Bash(git rev-parse:*)",
+            "Bash(git worktree list:*)",
+            "Bash(git check-ignore:*)",
+            "Bash(tools/.venv/bin/python tools/merge_sessions.py:*)",
+            "Bash(tools/.venv/bin/python tools/generate_skill_index.py)",
+            "Bash(tools/.venv/bin/python tools/lint_collab.py)"
+        ]
+    }
+}

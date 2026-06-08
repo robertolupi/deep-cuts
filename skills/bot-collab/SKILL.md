@@ -50,7 +50,7 @@ When the user mentions a multi-agent or 2-way collaboration session, or invokes 
      | Dispatch parallel subtasks | `collab/post` → peers `collab/claim` / `collab/complete`; coordinator `collab/sweep` reclaims expired leases |
 
    - **Activation**: if the `collab/*` tools are not already in your active tool list, enable them via your harness's MCP activation path *before* falling back — Claude Code: they are deferred, load with `ToolSearch` (e.g. `select:mcp__collab__send,mcp__collab__recv`); Antigravity: `ask_permission` with action `mcp`, target `collab/*`.
-   - **Fallback only** (in order): the Python `MailStore` client (`tools/collab_mcp/store.py`) or direct maildir access under `scratch/coordination/` if the MCP server fails to load; the FIFO baton (step 5) or manual relay (step 6) for serial turn-taking.
+   - **Fallback only** (in order): the pre-approved shell wrapper (`tools/collab_mcp.sh`) or direct maildir access under `scratch/coordination/` if the MCP server fails to load; the FIFO baton (step 5) or manual relay (step 6) for serial turn-taking.
    - **Identity**: Inspect your system prompt to resolve your actor name:
      - If your system prompt identifies you as **Codex** $\to$ use `actor="codex"`.
      - If your system prompt identifies you as **Antigravity** $\to$ use `actor="agy"` (peer is `"claude"`).
