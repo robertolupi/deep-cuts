@@ -18,6 +18,7 @@ pub struct PassStats {
     pub in_progress: i64,
     pub done: i64,
     pub failed: i64,
+    pub skipped: i64,
     pub total: i64,
     pub avg_duration_ms: Option<f64>,
     pub concurrency: f64,
@@ -51,6 +52,7 @@ pub fn get_pass_stats(
                     SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END),
                     SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END),
                     SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 4 THEN 1 ELSE 0 END),
                     COUNT(*),
                     AVG(CASE WHEN status = 2 THEN duration_ms ELSE NULL END)
              FROM track_passes
@@ -59,7 +61,7 @@ pub fn get_pass_stats(
         )
         .map_err(|e| e.to_string())?;
 
-    let count_rows: Vec<(String, i64, i64, i64, i64, i64, Option<f64>)> = counts_stmt
+    let count_rows: Vec<(String, i64, i64, i64, i64, i64, i64, Option<f64>)> = counts_stmt
         .query_map([], |row| {
             Ok((
                 row.get(0)?,
@@ -69,6 +71,7 @@ pub fn get_pass_stats(
                 row.get(4)?,
                 row.get(5)?,
                 row.get(6)?,
+                row.get(7)?,
             ))
         })
         .map_err(|e| e.to_string())?
@@ -135,7 +138,7 @@ pub fn get_pass_stats(
     let stats = count_rows
         .into_iter()
         .map(
-            |(pass_name, pending, in_progress, done, failed, total, avg_duration_ms)| {
+            |(pass_name, pending, in_progress, done, failed, skipped, total, avg_duration_ms)| {
                 let errors = error_rows
                     .iter()
                     .filter(|(p, _, _, _, _)| p == &pass_name)
@@ -174,6 +177,7 @@ pub fn get_pass_stats(
                     in_progress,
                     done,
                     failed,
+                    skipped,
                     total,
                     avg_duration_ms: final_avg,
                     concurrency,

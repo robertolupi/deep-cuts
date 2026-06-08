@@ -295,6 +295,7 @@ pub mod pass_status {
     pub const IN_PROGRESS: i64 = 1;
     pub const DONE: i64 = 2;
     pub const FAILED: i64 = 3;
+    pub const SKIPPED: i64 = 4;
 }
 
 pub struct DbManager {

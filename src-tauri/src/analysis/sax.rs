@@ -96,12 +96,12 @@ impl super::BatchAnalysisPass for SaxPass {
         Ok(count > 0)
     }
 
-    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<String, String> {
+    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
         // ── 1. Load all pending jobs in one query ─────────────────────────────
-        struct PendingJob { pass_id: i64, track_id: i64, waveform_data: Option<String> }
+        struct PendingJob { track_id: i64, waveform_data: Option<String> }
 
         let mut stmt = conn.prepare(
-            "SELECT tp.id, tp.track_id, t.waveform_data
+            "SELECT tp.track_id, t.waveform_data
              FROM track_passes tp
              JOIN tracks t ON t.id = tp.track_id
              WHERE tp.pass_name = 'sax' AND tp.status = ?1
@@ -110,59 +110,46 @@ impl super::BatchAnalysisPass for SaxPass {
 
         let jobs: Vec<PendingJob> = stmt.query_map(rusqlite::params![pass_status::PENDING], |row| {
             Ok(PendingJob {
-                pass_id: row.get(0)?,
-                track_id: row.get(1)?,
-                waveform_data: row.get(2)?,
+                track_id: row.get(0)?,
+                waveform_data: row.get(1)?,
             })
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-        let total = jobs.len();
-
-        // ── 2. Compute SAX for all jobs in memory (no DB) ─────────────────────
-        struct ComputeResult { pass_id: i64, track_id: i64, sax: Option<String> }
-
-        let results: Vec<ComputeResult> = jobs.into_iter().map(|job| {
-            let sax = job.waveform_data.as_deref().and_then(waveform_to_sax);
-            ComputeResult { pass_id: job.pass_id, track_id: job.track_id, sax }
-        }).collect();
-
-        // ── 3. Write everything in one transaction ────────────────────────────
-        let now = chrono::Utc::now().timestamp();
-        let mut processed = 0usize;
-        let mut skipped = 0usize;
+        let mut succeeded_track_ids = Vec::new();
+        let mut skipped_tracks = Vec::new();
+        let mut failed_tracks = Vec::new();
 
         conn.execute("BEGIN", []).map_err(|e| e.to_string())?;
 
-        for r in &results {
-            let write_result = match &r.sax {
+        for (i, job) in jobs.into_iter().enumerate() {
+            if i % 50 == 0 {
+                if let Err(e) = crate::analysis::check_analysis_status() {
+                    let _ = conn.execute("ROLLBACK", []);
+                    return Err(e);
+                }
+            }
+
+            let sax = job.waveform_data.as_deref().and_then(waveform_to_sax);
+            match sax {
                 Some(sax) => {
-                    conn.execute(
+                    let write_res = conn.execute(
                         "UPDATE tracks SET waveform_sax = ?1 WHERE id = ?2",
-                        rusqlite::params![sax, r.track_id],
-                    ).and_then(|_| conn.execute(
-                        "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = ?3
-                         WHERE id = ?4",
-                        rusqlite::params![pass_status::DONE, pass_version::SAX, now, r.pass_id],
-                    )).map(|_| true)
+                        rusqlite::params![sax, job.track_id],
+                    );
+                    match write_res {
+                        Ok(_) => {
+                            succeeded_track_ids.push(job.track_id);
+                        }
+                        Err(e) => {
+                            failed_tracks.push((job.track_id, e.to_string()));
+                        }
+                    }
                 }
                 None => {
-                    conn.execute(
-                        "UPDATE track_passes SET status = ?1, log = 'waveform too short or flat',
-                         last_run_at = ?2 WHERE id = ?3",
-                        rusqlite::params![pass_status::FAILED, now, r.pass_id],
-                    ).map(|_| false)
-                }
-            };
-
-            match write_result {
-                Ok(true)  => processed += 1,
-                Ok(false) => skipped += 1,
-                Err(e) => {
-                    let _ = conn.execute("ROLLBACK", []);
-                    return Err(format!("sax batch write failed for track {}: {}", r.track_id, e));
+                    skipped_tracks.push((job.track_id, "waveform too short or flat".to_string()));
                 }
             }
         }
@@ -170,15 +157,26 @@ impl super::BatchAnalysisPass for SaxPass {
         conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
 
         // ── 4. Sidecar saves (outside transaction, best-effort) ───────────────
-        for r in &results {
-            if r.sax.is_some() {
-                if let Err(e) = crate::scanner::sidecar::save(conn, r.track_id) {
-                    log::warn!("[sax] sidecar save failed for track {}: {}", r.track_id, e);
-                }
+        for &track_id in &succeeded_track_ids {
+            if let Err(e) = crate::scanner::sidecar::save(conn, track_id) {
+                log::warn!("[sax] sidecar save failed for track {}: {}", track_id, e);
             }
         }
 
-        Ok(format!("{} processed, {} skipped (flat/short), {} total", processed, skipped, total))
+        let summary = format!(
+            "{} processed, {} skipped (flat/short), {} failed, {} total",
+            succeeded_track_ids.len(),
+            skipped_tracks.len(),
+            failed_tracks.len(),
+            succeeded_track_ids.len() + skipped_tracks.len() + failed_tracks.len()
+        );
+
+        Ok(crate::analysis::BatchPassResult {
+            succeeded_track_ids,
+            failed_tracks,
+            skipped_tracks,
+            summary,
+        })
     }
 }
 

@@ -22,6 +22,7 @@
     in_progress: number;
     done: number;
     failed: number;
+    skipped: number;
     total: number;
     avg_duration_ms: number | null;
     concurrency: number;
@@ -519,6 +520,7 @@
           <!-- Progress bar -->
           <div class="progress-track">
             <div class="progress-done" style="width:{pct}%; background:{color};"></div>
+            <div class="progress-skipped" style="width:{pass.total > 0 ? (pass.skipped/pass.total)*100 : 0}%;"></div>
             <div class="progress-running" style="width:{pass.total > 0 ? (pass.in_progress/pass.total)*100 : 0}%; background:{color}44;"></div>
             <div class="progress-failed"  style="width:{pass.total > 0 ? (pass.failed/pass.total)*100  : 0}%;"></div>
           </div>
@@ -528,6 +530,7 @@
             <span class="cnt cnt-done" style="color:{color}">{pass.done} done</span>
             {#if pass.in_progress > 0}<span class="cnt cnt-progress">{pass.in_progress} running</span>{/if}
             {#if pass.failed > 0}<span class="cnt cnt-failed">{pass.failed} failed</span>{/if}
+            {#if pass.skipped > 0}<span class="cnt cnt-skipped">{pass.skipped} skipped</span>{/if}
             {#if pass.pending > 0}<span class="cnt cnt-pending">{pass.pending} pending</span>{/if}
             <span class="cnt cnt-total">/ {pass.total}</span>
           </div>
@@ -972,6 +975,7 @@
   }
 
   .progress-done    { height: 100%; transition: width 0.3s ease; }
+  .progress-skipped { height: 100%; background: var(--sg-outline, #849495); opacity: 0.5; transition: width 0.3s ease; }
   .progress-running { height: 100%; transition: width 0.3s ease; }
   .progress-failed  { height: 100%; background: var(--sg-error); transition: width 0.3s ease; }
 
@@ -989,6 +993,7 @@
 
   .cnt-progress { color: var(--sg-outline, #849495); }
   .cnt-failed   { color: var(--sg-error); }
+  .cnt-skipped  { color: var(--sg-outline, #849495); opacity: 0.8; }
   .cnt-pending  { color: var(--sg-outline, #849495); opacity: 0.6; }
   .cnt-total    { color: var(--sg-outline, #849495); opacity: 0.4; }
 

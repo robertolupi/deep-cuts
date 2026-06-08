@@ -300,6 +300,31 @@ pub fn run_pass_pipeline<R: tauri::Runtime, P: AnalysisPass<R>>(
 
 // ── Batch Analysis Pass ────────────────────────────────────────────────────
 
+#[derive(Debug, Default)]
+pub struct BatchPassResult {
+    /// Tracks that completed successfully
+    pub succeeded_track_ids: Vec<i64>,
+    /// Tracks that failed with track ID and error message
+    pub failed_tracks: Vec<(i64, String)>,
+    /// Tracks that were skipped with track ID and skip reason
+    pub skipped_tracks: Vec<(i64, String)>,
+    /// Summary string for log output
+    pub summary: String,
+}
+
+pub fn check_analysis_status() -> Result<(), String> {
+    if !ANALYSIS_ACTIVE.load(Ordering::SeqCst) {
+        return Err("Analysis cancelled".to_string());
+    }
+    while ANALYSIS_MANUALLY_PAUSED.load(Ordering::SeqCst) || ANALYSIS_AUTO_PAUSED.load(Ordering::SeqCst) {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if !ANALYSIS_ACTIVE.load(Ordering::SeqCst) {
+            return Err("Analysis cancelled".to_string());
+        }
+    }
+    Ok(())
+}
+
 /// A pass that operates on all tracks at once rather than one at a time.
 /// Use for: (a) algorithms that require global data (clustering, indexing), or
 /// (b) I/O-bound passes where per-track SQLite round-trips dominate (e.g. sax).
@@ -316,8 +341,8 @@ pub trait BatchAnalysisPass: Send + Sync {
     fn needs_run(&self, conn: &Connection) -> Result<bool, String>;
 
     /// Read from DB, compute, write back — all in one call.
-    /// Returns a human-readable summary string for logging.
-    fn execute(&self, app: &tauri::AppHandle, conn: &Connection) -> Result<String, String>;
+    /// Returns a BatchPassResult mapping success/failure/skip track rows.
+    fn execute(&self, app: &tauri::AppHandle, conn: &Connection) -> Result<BatchPassResult, String>;
 }
 
 /// Calls a `BatchAnalysisPass` once, skipping if `needs_run` returns false.
@@ -325,7 +350,7 @@ pub fn run_batch_pass<P: BatchAnalysisPass>(
     app: &tauri::AppHandle,
     conn_arc: &Arc<Mutex<Connection>>,
     pass: P,
-    _run_id: &str,
+    run_id: &str,
 ) -> Result<(), String> {
     let conn = lock_analysis_conn(conn_arc, pass.name())?;
     if !pass.needs_run(&conn)? {
@@ -337,12 +362,188 @@ pub fn run_batch_pass<P: BatchAnalysisPass>(
         "analysis-phase-start",
         serde_json::json!({ "pass": pass.name() }),
     );
-    let summary = pass.execute(app, &conn)?;
-    log::info!("[{}] done — {}", pass.name(), summary);
-    let _ = app.emit(
-        "analysis-phase-complete",
-        serde_json::json!({ "pass": pass.name(), "summary": summary }),
-    );
+
+    let mut stmt = conn.prepare(
+        "SELECT track_id FROM track_passes WHERE pass_name = ?1 AND status = ?2"
+    ).map_err(|e| e.to_string())?;
+    let pending_track_ids: Vec<i64> = stmt.query_map([pass.name(), &pass_status::PENDING.to_string()], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<i64>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    if !pending_track_ids.is_empty() {
+        conn.execute(
+            "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP WHERE pass_name = ?2 AND status = ?3",
+            rusqlite::params![pass_status::IN_PROGRESS, pass.name(), pass_status::PENDING],
+        ).map_err(|e| e.to_string())?;
+    }
+    drop(conn);
+
+    let start_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+
+    let conn = lock_analysis_conn(conn_arc, pass.name())?;
+    let result = pass.execute(app, &conn);
+    drop(conn);
+
+    let ended_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let duration_ms = ended_time_ms - start_time_ms;
+
+    match result {
+        Ok(batch_res) => {
+            let mut conn_writer = lock_analysis_conn(conn_arc, pass.name())?;
+            let tx = conn_writer.transaction().map_err(|e| e.to_string())?;
+            let spec = PASS_REGISTRY.iter().find(|s| s.name == pass.name());
+
+            for track_id in &batch_res.succeeded_track_ids {
+                tx.execute(
+                    "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP, log = NULL, duration_ms = ?3
+                     WHERE pass_name = ?4 AND track_id = ?5",
+                    rusqlite::params![pass_status::DONE, pass.version(), duration_ms, pass.name(), track_id],
+                ).map_err(|e| e.to_string())?;
+
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": track_id,
+                    "pass_name": pass.name(),
+                    "status": pass_status::DONE,
+                }));
+
+                crate::metrics_database::log_pipeline_metric(
+                    app,
+                    run_id,
+                    *track_id,
+                    pass.name(),
+                    "success",
+                    duration_ms,
+                    start_time_ms,
+                    ended_time_ms,
+                    None,
+                    None
+                );
+            }
+
+            for (track_id, reason) in &batch_res.skipped_tracks {
+                tx.execute(
+                    "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP, log = ?3, duration_ms = ?4
+                     WHERE pass_name = ?5 AND track_id = ?6",
+                    rusqlite::params![pass_status::SKIPPED, pass.version(), reason, duration_ms, pass.name(), track_id],
+                ).map_err(|e| e.to_string())?;
+
+                if let Some(s) = spec {
+                    if !s.owned_columns.is_empty() {
+                        let mut set_clauses = Vec::new();
+                        for col in s.owned_columns {
+                            if *col == "has_long_silence" {
+                                set_clauses.push(format!("{} = 0", col));
+                            } else {
+                                set_clauses.push(format!("{} = NULL", col));
+                            }
+                        }
+                        let query = format!("UPDATE tracks SET {} WHERE id = ?1", set_clauses.join(", "));
+                        tx.execute(&query, rusqlite::params![track_id]).map_err(|e| e.to_string())?;
+                    }
+                    s.reset_for_tracks(&tx, &[*track_id])?;
+                }
+
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": track_id,
+                    "pass_name": pass.name(),
+                    "status": pass_status::SKIPPED,
+                }));
+
+                crate::metrics_database::log_pipeline_metric(
+                    app,
+                    run_id,
+                    *track_id,
+                    pass.name(),
+                    "skipped",
+                    duration_ms,
+                    start_time_ms,
+                    ended_time_ms,
+                    None,
+                    Some(reason)
+                );
+            }
+
+            for (track_id, err_msg) in &batch_res.failed_tracks {
+                tx.execute(
+                    "UPDATE track_passes SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP, log = ?3, duration_ms = ?4
+                     WHERE pass_name = ?5 AND track_id = ?6",
+                    rusqlite::params![pass_status::FAILED, pass.version(), err_msg, duration_ms, pass.name(), track_id],
+                ).map_err(|e| e.to_string())?;
+
+                if let Some(s) = spec {
+                    if !s.owned_columns.is_empty() {
+                        let mut set_clauses = Vec::new();
+                        for col in s.owned_columns {
+                            if *col == "has_long_silence" {
+                                set_clauses.push(format!("{} = 0", col));
+                            } else {
+                                set_clauses.push(format!("{} = NULL", col));
+                            }
+                        }
+                        let query = format!("UPDATE tracks SET {} WHERE id = ?1", set_clauses.join(", "));
+                        tx.execute(&query, rusqlite::params![track_id]).map_err(|e| e.to_string())?;
+                    }
+                    s.reset_for_tracks(&tx, &[*track_id])?;
+                }
+
+                let _ = app.emit("analysis-progress", serde_json::json!({
+                    "track_id": track_id,
+                    "pass_name": pass.name(),
+                    "status": pass_status::FAILED,
+                }));
+
+                crate::metrics_database::log_pipeline_metric(
+                    app,
+                    run_id,
+                    *track_id,
+                    pass.name(),
+                    "failed",
+                    duration_ms,
+                    start_time_ms,
+                    ended_time_ms,
+                    None,
+                    Some(err_msg)
+                );
+            }
+
+            tx.commit().map_err(|e| e.to_string())?;
+
+            log::info!("[{}] done — {}", pass.name(), batch_res.summary);
+            let _ = app.emit(
+                "analysis-phase-complete",
+                serde_json::json!({ "pass": pass.name(), "summary": batch_res.summary }),
+            );
+        }
+        Err(err_msg) => {
+            let mut conn_writer = lock_analysis_conn(conn_arc, pass.name())?;
+            let tx = conn_writer.transaction().map_err(|e| e.to_string())?;
+
+            tx.execute(
+                "UPDATE track_passes SET status = ?1, last_run_at = CURRENT_TIMESTAMP, log = ?2, duration_ms = ?3
+                 WHERE pass_name = ?4 AND status = ?5",
+                rusqlite::params![pass_status::FAILED, err_msg, duration_ms, pass.name(), pass_status::IN_PROGRESS],
+            ).map_err(|e| e.to_string())?;
+
+            tx.commit().map_err(|e| e.to_string())?;
+
+            crate::metrics_database::log_system_event(
+                app,
+                &format!("{}_failed", pass.name()),
+                Some(&err_msg),
+                Some(duration_ms),
+            );
+
+            return Err(err_msg);
+        }
+    }
     Ok(())
 }
 

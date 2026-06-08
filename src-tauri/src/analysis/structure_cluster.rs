@@ -190,7 +190,19 @@ impl super::BatchAnalysisPass for StructureClusterPass {
         Ok(unclassified > 0)
     }
 
-    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<String, String> {
+    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
+        // Load all pending track passes for structure_cluster that are in progress
+        let mut pending_stmt = conn.prepare(
+            "SELECT track_id FROM track_passes WHERE pass_name = 'structure_cluster' AND status = ?1"
+        ).map_err(|e| e.to_string())?;
+        let pending_ids: Vec<i64> = pending_stmt.query_map([crate::database::pass_status::IN_PROGRESS], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<i64>, _>>()
+            .map_err(|e| e.to_string())?;
+        drop(pending_stmt);
+
+        let pending_set: std::collections::HashSet<i64> = pending_ids.into_iter().collect();
+
         // ── 1. Load all music tracks with sax_alignment ───────────────────────
         struct TrackRow { id: i64, alignment: String }
 
@@ -209,22 +221,38 @@ impl super::BatchAnalysisPass for StructureClusterPass {
 
         drop(stmt);
 
+        let mut succeeded_track_ids = Vec::new();
+        let mut skipped_tracks = Vec::new();
+        let failed_tracks = Vec::new();
+
         let n = tracks.len();
         if n < MIN_CLUSTER_SIZE {
-            return Ok(format!("only {} music tracks with alignment — skipping clustering", n));
+            conn.execute("BEGIN", []).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM structure_clusters", [])
+                .map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+            conn.execute("UPDATE tracks SET structure_cluster_id = NULL WHERE is_music = 1", [])
+                .map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
+            conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+
+            for track_id in pending_set {
+                skipped_tracks.push((track_id, format!("Not enough data: only {} music tracks with alignment available", n)));
+            }
+            return Ok(crate::analysis::BatchPassResult {
+                succeeded_track_ids,
+                failed_tracks,
+                skipped_tracks,
+                summary: format!("only {} music tracks with alignment — skipping clustering", n),
+            });
         }
 
         // ── 2. Compute skeletons in parallel ──────────────────────────────────
+        crate::analysis::check_analysis_status()?;
         log::info!("[structure_cluster] computing {} skeletons (parallel)", n);
         let skeleton_strs: Vec<String> = tracks.par_iter()
             .map(|t| skeleton(&t.alignment))
             .collect();
 
         // ── 3. Count tracks per unique skeleton ───────────────────────────────
-        // Each unique skeleton IS a structural archetype — no distance metric or
-        // DBSCAN needed.  Patterns with fewer than MIN_CLUSTER_SIZE tracks are
-        // labelled noise (-1); the rest get sequential cluster IDs sorted by
-        // popularity (most common pattern = cluster 0).
         let mut sk_counts: HashMap<&str, usize> = HashMap::new();
         for sk in &skeleton_strs {
             *sk_counts.entry(sk.as_str()).or_insert(0) += 1;
@@ -238,10 +266,6 @@ impl super::BatchAnalysisPass for StructureClusterPass {
             .collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
 
-        // Each unique skeleton is its own cluster — no merging needed.
-        // DBSCAN merging was tried but Levenshtein transitivity collapsed
-        // structurally distinct archetypes (e.g. IVCO→IVPCO→IVBCO all distance 1)
-        // into a single giant cluster even at eps=1.
         let sk_to_cluster: HashMap<&str, i32> = ranked
             .iter()
             .enumerate()
@@ -266,6 +290,7 @@ impl super::BatchAnalysisPass for StructureClusterPass {
         }
 
         // ── 6. Write back in one transaction ──────────────────────────────────
+        crate::analysis::check_analysis_status()?;
         conn.execute("BEGIN", []).map_err(|e| e.to_string())?;
 
         // Clear old cluster data
@@ -291,21 +316,29 @@ impl super::BatchAnalysisPass for StructureClusterPass {
             ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
         }
 
-        // Mark all track_passes rows for this pass as done so the AnalysisPanel shows correct progress.
-        // This is a single batch pass — there's no per-track progress to track, so we stamp them all.
-        conn.execute(
-            "UPDATE track_passes
-             SET status = ?1, pass_version = ?2, last_run_at = CURRENT_TIMESTAMP
-             WHERE pass_name = 'structure_cluster'",
-            rusqlite::params![crate::database::pass_status::DONE, pass_version::STRUCTURE_CLUSTER],
-        ).map_err(|e| { let _ = conn.execute("ROLLBACK", []); e.to_string() })?;
-
         conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
 
-        Ok(format!(
+        // Determine which pending track passes succeeded and which were skipped (non-applicable)
+        let applicable_set: std::collections::HashSet<i64> = tracks.iter().map(|t| t.id).collect();
+        for track_id in pending_set {
+            if applicable_set.contains(&track_id) {
+                succeeded_track_ids.push(track_id);
+            } else {
+                skipped_tracks.push((track_id, "Not applicable: non-music or missing sax_alignment".to_string()));
+            }
+        }
+
+        let summary = format!(
             "{} clusters, {} noise, {} music tracks classified",
-            n_clusters, n_noise, n - n_noise
-        ))
+            n_clusters, n_noise, tracks.len() - n_noise
+        );
+
+        Ok(crate::analysis::BatchPassResult {
+            succeeded_track_ids,
+            failed_tracks,
+            skipped_tracks,
+            summary,
+        })
     }
 }
 
