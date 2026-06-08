@@ -10,6 +10,9 @@ pub struct StructureClusterInfo {
     pub track_count: i64,
 }
 
+/// @concept SAX
+/// @skill add-ipc-command
+/// Tauri IPC commands for retrieving SAX structural clusters and track-count distribution.
 #[tauri::command]
 pub fn get_structure_clusters(
     conn_state: tauri::State<'_, Mutex<Connection>>,

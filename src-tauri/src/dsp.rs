@@ -274,6 +274,8 @@ pub fn decode_audio_to_mono(path: &str) -> Result<(Vec<f32>, u32), String> {
     Ok((mono_samples, sample_rate))
 }
 
+/// @concept AudioAnalysis
+/// @skill add-analysis-pass
 /// Single-pass decode: computes duration, waveform, BPM, key, loudness from one file read.
 pub fn run_audio_analysis(path: &str) -> Result<AudioAnalysisResult, String> {
     let file = File::open(Path::new(path)).map_err(|e| e.to_string())?;

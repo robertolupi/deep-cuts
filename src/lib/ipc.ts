@@ -285,6 +285,12 @@ export interface DebugTrackRawResult {
 // Maps every IPC command name to its (args, result) types.
 // Add an entry here for every new command added to generate_handler![] in lib.rs.
 
+/**
+ * @concept CommandMap
+ * @concept IPC
+ * @skill add-ipc-command
+ * Type definition mapping IPC command names to their argument and return value signatures.
+ */
 export type CommandMap = {
   // config
   get_theme: { args: Record<string, never>; result: string };

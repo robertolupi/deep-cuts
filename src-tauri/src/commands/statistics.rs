@@ -488,6 +488,9 @@ mod tests {
     }
 }
 
+/// @concept StatisticsPage
+/// @skill add-ipc-command
+/// Tauri IPC commands for computing and retrieving statistical metrics across the audio collection.
 #[tauri::command]
 pub fn get_track_stats(
     track_ids: Option<Vec<i64>>,

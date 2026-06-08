@@ -43,6 +43,9 @@ fn now_ms() -> i64 {
 
 // ── Session commands ──────────────────────────────────────────────────────────
 
+/// @concept ChatSystem
+/// @skill add-ipc-command
+/// Tauri IPC commands for managing chat sessions, messages, searching history, and querying the local audio LLM.
 #[tauri::command]
 pub fn create_chat_session(
     track_id: i64,

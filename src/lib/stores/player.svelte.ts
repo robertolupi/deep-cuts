@@ -18,6 +18,10 @@ import { filters } from "./filters.svelte";
 // Re-export so consumers don't need a separate import
 export { formatDuration, formatSize };
 
+/**
+ * @concept AudioPlayback
+ * WaveSurfer playback store managing audio regions, markers, and state.
+ */
 class PlayerStore {
   // ── Reactive state ──────────────────────────────────────────────────────────
   selectedTrack = $state<Track | null>(null);

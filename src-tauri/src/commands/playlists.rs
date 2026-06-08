@@ -3,6 +3,9 @@ use rusqlite::Connection;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+/// @concept Playlists
+/// @skill add-ipc-command
+/// Playlist represents a user-created collection of audio tracks.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Playlist {
     pub id: i64,

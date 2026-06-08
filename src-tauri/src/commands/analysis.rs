@@ -25,6 +25,10 @@ pub struct PassStats {
     pub errors: Vec<PassError>,
 }
 
+/// @concept AnalysisPipeline
+/// @skill add-analysis-pass
+/// @skill add-ipc-command
+/// Tauri IPC commands for running, pausing, querying, and managing the multi-pass audio analysis pipeline.
 #[tauri::command]
 pub fn run_analysis_pipeline(
     app: tauri::AppHandle,

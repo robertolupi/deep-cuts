@@ -4,6 +4,9 @@ use faer::Mat;
 
 const DESCRIPTION_EMBEDDING_DIM: usize = 384;
 
+/// @concept SpectralMap
+/// @skill add-ipc-command
+/// MappedTrackPoint represents a 2D-projected audio track with metadata and classifier features.
 #[derive(serde::Serialize)]
 pub struct MappedTrackPoint {
     pub id: i64,

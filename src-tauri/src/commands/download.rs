@@ -128,6 +128,9 @@ async fn verify_sha256(path: &Path, expected_hex: &str) -> bool {
     matches
 }
 
+/// @concept ModelDownload
+/// @skill add-ipc-command
+/// Tauri IPC commands for checking, starting, cancelling, and querying model file downloads.
 #[tauri::command]
 pub fn check_pending_resume<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Vec<ResumableFile>, AppError> {
     let dest_dir = get_model_destination_dir(&app);

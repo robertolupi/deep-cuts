@@ -2,6 +2,10 @@ import { invoke, listen } from "$lib/ipc";
 import type { WatchedDirectory, Track } from "$lib/types";
 import { player } from "./player.svelte";
 
+/**
+ * @concept LibraryStore
+ * Client-side library store managing directory scans, tracks, tags, and IPC events.
+ */
 class LibraryStore {
   // Reactive Svelte 5 state runes
   directories = $state<WatchedDirectory[]>([]);

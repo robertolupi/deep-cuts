@@ -2,6 +2,9 @@ use crate::error::AppError;
 use rusqlite::Connection;
 use std::sync::Mutex;
 
+/// @concept AppSettings
+/// @skill add-ipc-command
+/// Tauri IPC commands for reading and writing application settings in the database.
 #[tauri::command]
 pub fn get_theme(conn_state: tauri::State<'_, Mutex<Connection>>) -> Result<String, AppError> {
     let conn = conn_state

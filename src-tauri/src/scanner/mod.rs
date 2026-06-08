@@ -26,6 +26,9 @@ impl ScannerReporter for AppHandle {
     }
 }
 
+/// @concept LibraryDb
+/// @skill dev-guidelines
+/// The main scanner coordinator that recursively indexes library folders on disk.
 pub struct LibraryScanner;
 
 impl LibraryScanner {

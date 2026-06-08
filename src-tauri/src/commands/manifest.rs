@@ -31,6 +31,9 @@ pub fn set_update_settings_impl(conn: &Connection, enabled: bool) -> Result<(), 
     Ok(())
 }
 
+/// @concept ModelManifest
+/// @skill add-ipc-command
+/// Tauri IPC commands for getting/setting update check behavior and fetching the model manifest.
 #[tauri::command]
 pub fn get_update_settings(
     conn_state: tauri::State<'_, Mutex<Connection>>,

@@ -1,5 +1,9 @@
 export type ActiveView = 'table' | 'map' | 'duplicates' | 'analysis' | 'settings' | 'chat' | 'statistics';
 
+/**
+ * @concept PanelLayout
+ * Manages UI layout, active view navigation, toast messages, and sidebar tabs.
+ */
 function createUiStore() {
   let activeView = $state<ActiveView>('table');
   let mapFocusTrackId = $state<number | null>(null);

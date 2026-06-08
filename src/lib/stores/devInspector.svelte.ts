@@ -2,6 +2,10 @@
 // that is mounted in +layout.svelte.
 // Only used in dev builds; tree-shaken by Vite in production.
 
+/**
+ * @concept DevInspector
+ * Controls the developer inspector drawer open state and tracks pending background operations.
+ */
 class DevInspectorStore {
   open = $state(false);
   totalPending = $state(0);

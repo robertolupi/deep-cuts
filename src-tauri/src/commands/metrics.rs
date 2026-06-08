@@ -57,6 +57,9 @@ pub struct AggregatedPassSpan {
     pub failed: i64,
 }
 
+/// @concept DevInspector
+/// @skill add-ipc-command
+/// Tauri IPC commands for retrieving pipeline metrics, run traces, and system latency stats.
 #[tauri::command]
 pub fn get_metrics_summary(
     state: tauri::State<'_, MetricsState>,

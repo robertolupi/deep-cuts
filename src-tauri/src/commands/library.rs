@@ -5,6 +5,8 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+/// @concept LibraryDb
+/// @skill add-ipc-command
 /// Spawns a native directory picker dialog using rfd and returns selected path.
 #[tauri::command]
 pub fn select_directory() -> Result<Option<String>, AppError> {

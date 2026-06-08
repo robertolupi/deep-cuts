@@ -2,6 +2,10 @@ import { invoke } from "$lib/ipc";
 
 const STORAGE_KEY = "deep-cuts-theme";
 
+/**
+ * @concept ThemeManager
+ * Manages active application themes and syncs preferences with the local storage and Tauri backend database.
+ */
 function createThemeStore() {
   let currentTheme = $state("system");
   let resolvedTheme = $state("dark");

@@ -529,6 +529,7 @@ pub fn run_clap_inference_pooled(mels: [Vec<f32>; 3]) -> Result<Vec<f32>, String
     }
 }
 
+/// @concept CLAP
 /// Convenience wrapper: full pipeline for a single track. Only used in tests.
 #[cfg(test)]
 pub fn run_clap_audio_embed(
@@ -630,6 +631,7 @@ fn tokenize(tokenizer: &Tokenizer, text: &str) -> Result<(Vec<i64>, Vec<i64>, Ve
     Ok((ids, mask, type_ids))
 }
 
+/// @concept SentenceEmbeddings
 /// Generates a 384-d L2-normalised sentence embedding using all-MiniLM-L6-v2.
 pub fn run_sentence_embed(text: &str, app: Option<&tauri::AppHandle>) -> Result<Vec<f32>, String> {
     let tokenizer = get_sentence_tokenizer(app)?;
@@ -715,6 +717,7 @@ fn get_clap_text_tokenizer(app: Option<&tauri::AppHandle>) -> Result<&'static To
     }
 }
 
+/// @concept CLAP
 /// Generates a 512-d L2-normalised CLAP text embedding using clap_text_encoder.onnx.
 pub fn run_clap_text_embed(text: &str, app: Option<&tauri::AppHandle>) -> Result<Vec<f32>, String> {
     let tokenizer = get_clap_text_tokenizer(app)?;

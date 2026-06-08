@@ -7,6 +7,10 @@ export interface StructureCluster {
   track_count: number;
 }
 
+/**
+ * @concept SAX
+ * Manages symbolic audio structure clusters based on Symbolic Aggregate Approximation regex patterns.
+ */
 function createStructureClustersStore() {
   let clusters = $state<StructureCluster[]>([]);
   let loaded = $state(false);

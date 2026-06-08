@@ -242,6 +242,9 @@ pub mod pass_status {
     pub const SKIPPED: i64 = 4;
 }
 
+/// @concept LibraryDb
+/// @skill db-migration
+/// Connection manager and migration runner for the SQLite database.
 pub struct DbManager {
     db_path: PathBuf,
 }

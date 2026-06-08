@@ -17,6 +17,10 @@ function sqlLike(str: string, pattern: string): boolean {
   return new RegExp(`^${re}$`).test(str);
 }
 
+/**
+ * @concept FilterSidebar
+ * Reactive store managing search queries, metadata filters, and audio similarity bounds.
+ */
 function createFiltersStore() {
   let searchQuery  = $state("");
   let semanticQuery = $state("");

@@ -2,6 +2,10 @@ import { invoke } from '$lib/ipc';
 import { ui } from '$lib/stores/ui.svelte';
 import type { Playlist, SavedSearch, PlaylistTrack } from '$lib/types';
 
+/**
+ * @concept TagCuration
+ * Manages playlists, playlist track organization, and saved search queries.
+ */
 function createCurationStore() {
   let playlists = $state<Playlist[]>([]);
   let savedSearches = $state<SavedSearch[]>([]);

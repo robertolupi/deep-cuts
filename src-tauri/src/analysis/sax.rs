@@ -2,6 +2,9 @@ use crate::database::pass_status;
 use crate::scanner::sidecar::pass_version;
 use rusqlite::Connection;
 
+/// @concept SAX
+/// @skill add-analysis-pass
+/// An analysis pass that converts a track's waveform envelope into a Symbolic Aggregate approximation (SAX) representation.
 pub struct SaxPass;
 
 /// SAX breakpoints for a 5-letter alphabet over a standard normal distribution.
