@@ -159,7 +159,7 @@ fn format_regex(prefix: Option<char>, unit: &str, reps: usize, suffix: Option<ch
 
 pub struct StructureClusterPass;
 
-impl super::BatchAnalysisPass for StructureClusterPass {
+impl<R: tauri::Runtime> super::BatchAnalysisPass<R> for StructureClusterPass {
     fn name(&self) -> &'static str { "structure_cluster" }
     fn priority(&self) -> i32 { 55 }
     fn version(&self) -> u32 { pass_version::STRUCTURE_CLUSTER }
@@ -190,7 +190,7 @@ impl super::BatchAnalysisPass for StructureClusterPass {
         Ok(unclassified > 0)
     }
 
-    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
+    fn execute(&self, _app: &tauri::AppHandle<R>, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
         // Load all pending track passes for structure_cluster that are in progress
         let mut pending_stmt = conn.prepare(
             "SELECT track_id FROM track_passes WHERE pass_name = 'structure_cluster' AND status = ?1"

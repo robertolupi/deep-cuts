@@ -329,7 +329,7 @@ pub fn check_analysis_status() -> Result<(), String> {
 /// Use for: (a) algorithms that require global data (clustering, indexing), or
 /// (b) I/O-bound passes where per-track SQLite round-trips dominate (e.g. sax).
 #[allow(dead_code)] // priority/version/dependencies/owned_tables reserved for future reset/version tooling
-pub trait BatchAnalysisPass: Send + Sync {
+pub trait BatchAnalysisPass<R: tauri::Runtime = tauri::Wry>: Send + Sync {
     fn name(&self) -> &'static str;
     fn priority(&self) -> i32;
     fn version(&self) -> u32;
@@ -342,12 +342,12 @@ pub trait BatchAnalysisPass: Send + Sync {
 
     /// Read from DB, compute, write back — all in one call.
     /// Returns a BatchPassResult mapping success/failure/skip track rows.
-    fn execute(&self, app: &tauri::AppHandle, conn: &Connection) -> Result<BatchPassResult, String>;
+    fn execute(&self, app: &tauri::AppHandle<R>, conn: &Connection) -> Result<BatchPassResult, String>;
 }
 
 /// Calls a `BatchAnalysisPass` once, skipping if `needs_run` returns false.
-pub fn run_batch_pass<P: BatchAnalysisPass>(
-    app: &tauri::AppHandle,
+pub fn run_batch_pass<R: tauri::Runtime, P: BatchAnalysisPass<R>>(
+    app: &tauri::AppHandle<R>,
     conn_arc: &Arc<Mutex<Connection>>,
     pass: P,
     run_id: &str,
@@ -1456,7 +1456,7 @@ mod tests {
 
         let pass = sax::SaxPass;
         // needs_run must be true when rows are PENDING
-        assert!(pass.needs_run(&conn).unwrap(), "SAX needs_run should be true when rows are PENDING");
+        assert!(BatchAnalysisPass::<tauri::Wry>::needs_run(&pass, &conn).unwrap(), "SAX needs_run should be true when rows are PENDING");
 
         // Simulate a completed run by updating the status directly — execute() requires a real
         // AppHandle<Wry> (ONNX models, audio IO) which is not available in unit tests. The
@@ -1468,7 +1468,54 @@ mod tests {
         ).unwrap();
 
         // After the pass marks rows completed, needs_run must return false
-        assert!(!pass.needs_run(&conn).unwrap(), "SAX needs_run should be false when all rows are COMPLETED");
+        assert!(!BatchAnalysisPass::<tauri::Wry>::needs_run(&pass, &conn).unwrap(), "SAX needs_run should be false when all rows are COMPLETED");
+     }
+
+    #[test]
+    fn test_sax_batch_pass_execution() {
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO watched_directories (id, name, path) VALUES (1, 'T', '/tracks')",
+            [],
+        ).unwrap();
+        let waveform: Vec<f32> = vec![0.5_f32; 64];
+        let waveform_json = serde_json::to_string(&waveform).unwrap();
+        conn.execute(
+            "INSERT INTO tracks (id, watched_directory_id, path, filename, size_bytes, last_modified, duration_seconds, waveform_data)
+             VALUES (1, 1, '/tracks/1.mp3', '1.mp3', 100, 0, 120, ?1)",
+            rusqlite::params![waveform_json],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO track_passes (track_id, pass_name, priority, status) VALUES (1, 'sax', 12, ?1)",
+            rusqlite::params![pass_status::PENDING],
+        ).unwrap();
+
+        let app = tauri::test::mock_app();
+        let conn_arc = Arc::new(Mutex::new(conn));
+
+        // We must activate the active flag so check_analysis_status() doesn't fail
+        ANALYSIS_ACTIVE.store(true, Ordering::SeqCst);
+
+        let result = run_batch_pass(app.handle(), &conn_arc, sax::SaxPass, "test_run_id");
+        assert!(result.is_ok(), "run_batch_pass failed: {:?}", result.err());
+
+        // Deactivate
+        ANALYSIS_ACTIVE.store(false, Ordering::SeqCst);
+
+        let conn = conn_arc.lock().unwrap();
+        let status: i64 = conn.query_row(
+            "SELECT status FROM track_passes WHERE track_id = 1 AND pass_name = 'sax'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(status, pass_status::DONE as i64);
+
+        let sax_string: String = conn.query_row(
+            "SELECT waveform_sax FROM tracks WHERE id = 1",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(sax_string, "c".repeat(32));
     }
 
     #[test]

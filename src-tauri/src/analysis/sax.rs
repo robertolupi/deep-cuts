@@ -83,7 +83,7 @@ pub fn sax_mindist(a: &str, b: &str) -> Option<f64> {
     Some((sum_sq / n).sqrt())
 }
 
-impl super::BatchAnalysisPass for SaxPass {
+impl<R: tauri::Runtime> super::BatchAnalysisPass<R> for SaxPass {
     fn name(&self) -> &'static str { "sax" }
     fn priority(&self) -> i32 { 12 }
     fn version(&self) -> u32 { pass_version::SAX }
@@ -99,7 +99,7 @@ impl super::BatchAnalysisPass for SaxPass {
         Ok(count > 0)
     }
 
-    fn execute(&self, _app: &tauri::AppHandle, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
+    fn execute(&self, _app: &tauri::AppHandle<R>, conn: &Connection) -> Result<crate::analysis::BatchPassResult, String> {
         // ── 1. Load all pending jobs in one query ─────────────────────────────
         struct PendingJob { track_id: i64, waveform_data: Option<String> }
 
@@ -111,7 +111,7 @@ impl super::BatchAnalysisPass for SaxPass {
              ORDER BY tp.id ASC",
         ).map_err(|e| e.to_string())?;
 
-        let jobs: Vec<PendingJob> = stmt.query_map(rusqlite::params![pass_status::PENDING], |row| {
+        let jobs: Vec<PendingJob> = stmt.query_map(rusqlite::params![pass_status::IN_PROGRESS], |row| {
             Ok(PendingJob {
                 track_id: row.get(0)?,
                 waveform_data: row.get(1)?,
