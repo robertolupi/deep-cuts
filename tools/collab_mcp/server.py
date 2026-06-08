@@ -24,6 +24,7 @@ Then grant `mcp__collab__*` once — no further permission prompts.
 from __future__ import annotations
 
 import os
+import click
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -107,8 +108,10 @@ def inbox(actor: Optional[str] = None) -> dict:
     return _get_store(actor).inbox(actor)
 
 
+@click.command()
 def main() -> None:
-    mcp.run()  # stdio transport
+    """Launch the collab coordination MCP server (stdio transport)."""
+    mcp.run()
 
 
 if __name__ == "__main__":

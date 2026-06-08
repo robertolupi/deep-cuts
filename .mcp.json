@@ -1,11 +1,7 @@
 {
   "mcpServers": {
     "collab": {
-      "command": "tools/.venv/bin/python",
-      "args": ["-m", "collab_mcp"],
-      "env": {
-        "PYTHONPATH": "tools"
-      }
+      "command": "tools/run_collab_mcp.py"
     }
   }
 }
