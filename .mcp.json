@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "collab": {
-      "command": "tools/run_collab_mcp.py"
+      "command": "tools/.venv/bin/collab_mcp"
     }
   }
 }
+
