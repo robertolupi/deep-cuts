@@ -175,24 +175,24 @@ stale_status("rejected").
 ```
 
 ---
-
-## 5. Integration with CCREP & bot-collab Coordination
  
-Instead of building a separate consensus or mailbox system, the Codebase Knowledge Manager acts purely as a **linter and query service** that integrates directly with the existing `ccrep` and `bot-collab` coordination frameworks:
+## 5. Operational Modes: Solo vs. Parallel
  
-### A. CCREP Consensus Integration (Evaluation Phase)
-When a code change or design doc proposal is submitted to CCREP:
-1. The CCREP evaluation runner (`tools/ccrep/evaluate.py`) checks out the proposal in a temporary git worktree.
-2. The runner executes the Go knowledge manager checks (`tools/dc-knowledge-mgr lint`).
-3. If Mangle detects any architectural or documentation sync violations, the CCREP evaluation fails (exit status 1).
-4. The proposal is automatically set to `revision_required` in the CCREP ledger, blocking consensus. This integrates knowledge compliance directly into the quality ratchet.
+To remain lean, the codebase knowledge manager runs independently of other coordination tools by default, only activating multi-agent integration when parallel work is active.
  
-### B. bot-collab Session Integration (Real-Time Queries)
-During collaborative sessions:
-1. The Go indexer runs as a native MCP server (`tools/dc-knowledge-mgr serve`) registered in `.mcp.json`.
-2. AI agents in the `bot-collab` network call the `knowledge_mgr/query` MCP tool to instantly discover concepts, files, and design rules without doing expensive search/grep queries.
-3. If an agent changes code that breaks another active agent's constraints in a concurrent worktree, `dc-knowledge-mgr lint` flags it, and the agent communicates the warning to its peer via the `collab_mcp` mailbox.
-
+### A. Solo Mode (Default)
+By default, the system operates in **Solo Mode**. It has zero dependencies on `bot-collab` or `ccrep`.
+*   **Scanner**: Scans *only* the local branch/directory of the current checkout.
+*   **Database**: Writes to the local `scratch/codebase_index.db` file in the current directory.
+*   **Linter**: The pre-commit hook runs `dc-knowledge-mgr lint` locally, validating that the author's local commits do not violate style constraints (like direct IPC imports) or drift from local documentation files.
+*   **Query**: Developers and individual bots use `dc-knowledge-mgr query` locally to explore the codebase.
+ 
+### B. Parallel Mode (Conditional Multi-Worktree Integration)
+Parallel mode is activated only when the Go CLI is run with the `--parallel` flag, or automatically when `git worktree list` detects multiple active directories. 
+*   **Shared Plane**: It shifts the database to the canonical root (`$(git-common)/../scratch/codebase_index.db`) and scans *all* active branches listed in `git worktree list`.
+*   **CCREP Integration**: When a proposal is submitted to CCREP, CCREP's evaluation runner (`tools/ccrep/evaluate.py`) calls the Go linter in parallel mode. If Mangle derives a knowledge drift or a cross-worktree duplicate symbol conflict, the CCREP evaluation fails (exit status 1), setting the proposal to `revision_required` in the CCREP ledger.
+*   **bot-collab Integration**: During active sessions, the Go indexer runs as a native MCP server (`tools/dc-knowledge-mgr serve`) in `.mcp.json`. Active agents call `knowledge_mgr/query` for real-time context and use the existing `collab_mcp` mailboxes to resolve any cross-worktree warnings flagged by the linter.
+ 
 ---
 
 ## 6. Testing and Verification Plan
