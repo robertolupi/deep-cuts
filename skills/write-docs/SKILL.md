@@ -47,6 +47,24 @@ Use these statuses from `doc/README.md`:
 
 For unimplemented or ambiguous ideas, use `need-human-review`. Do not invent product priority.
 
+## Provenance Rule
+
+Every numeric or empirical claim in a doc must be **sourced or explicitly marked speculative** —
+cite a file, an eval/metrics run, or a link, or label it a guess. Unsourced two-decimal figures
+(`99.27%`, reward tables, benchmark rates) are the confabulation smell from the CCREP research
+session. Under the CCREP `design_doc` profile the linter only **warns** on unreferenced numbers (a
+regex cannot tell a real `0.92` from an invented one); this rule is what actually blocks one — flag
+it in review and require a source or a `(speculative)` marker. See [ccrep](../ccrep/SKILL.md).
+
+## Status ↔ Consensus (design docs under CCREP)
+
+When a doc is shepherded through the CCREP `design_doc` profile, its frontmatter `status` *is* the
+consensus state: `need-human-review` ≈ `APPROVED`-pending-human, `accepted` ≈ `MERGED`, `superseded`
+≈ a merge that retired prior values. The invariant is **one-directional**: a doc may not sit at
+`status: accepted` without a reached `APPROVED` state (green checks + an independent approval + no
+open blocking critiques), but the human flipping the status *is* the merge gesture and is never
+blocked. Don't set `accepted` ahead of that approval.
+
 ## Protected Paths
 
 Do not move or rewrite these without explicit approval:

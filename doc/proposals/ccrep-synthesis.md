@@ -4,8 +4,8 @@ owner: Roberto
 last_verified: 2026-06-08
 implemented_by:
 superseded_by:
-related_code:
-related_skills: bot-collab, how-to-experiment, collab, write-docs
+related_code: tools/ccrep/
+related_skills: ccrep, bot-collab, how-to-experiment, collab, write-docs
 ---
 
 # CCREP Synthesis: A Quality-Ratchet Coordination Protocol
@@ -309,6 +309,44 @@ not by the design's elegance.
 - Recommend stripping or flagging the fabricated numbers and the irrelevant WSL2/BTRFS
   sections from the Courier doc before it's cited anywhere.
 
+## Implemented Outcome
+
+**Phase 1 (Evidence Ledger) is implemented** in [`tools/ccrep/`](../../tools/ccrep/) — a Python
+package mirroring `tools/collab_mcp/`: a pure-stdlib, MCP-independent core + a thin `FastMCP`
+wrapper. It maps to this design as written, with one deviation noted below.
+
+- **Storage** (`ledger.py`): append-only `event_log` as the source of truth (SQLite + WAL,
+  stdlib `sqlite3` — no WSL2/BTRFS machinery); content-addressed `eval_cache` keyed
+  `(commit_sha, eval_suite_hash, dataset_hash, env_hash)`; derived tables written only by a
+  `materialize()` step.
+- **Reducer** (`reducer.py`): `reduce_task()` folds one task's log into a derived
+  `ConsensusState`, enforcing invariants 1–7 in code (self-approval skipped from quorum,
+  approvals bound to the pinned `commit_sha`, any attempt to inject `ConsensusState` rejected,
+  out-of-profile checks dropped, one-directional frontmatter flag).
+- **Executor** (`executor.py`): `git worktree add --detach` → run the profile suite →
+  `git worktree remove --force` (cleanup in `finally`); design-doc linter incl. provenance
+  **warnings**; critique evidence-link resolution (`file:line` must resolve at the proposed
+  commit, via `git cat-file`).
+- **Profiles** (`profiles.py`): `code_change` | `code_review` | `design_doc` select gate
+  components + a default (overridable) eval suite.
+- **MCP surface** (`server.py`): the seven Phase-1 tools; `submit_proposal` carries
+  `artifact_profile`; `merge_proposal` is human-gated for the four sensitive categories.
+- **Gate**: green automated checks + one independent approval (`reviewer != author`) + no open
+  blocking critiques.
+- **Deviation from spec**: a content-addressed cache *hit* re-records an identical `report_id`;
+  the snapshot builder dedupes reports/critiques by id so a full re-fold doesn't violate the
+  `UNIQUE` constraint. This dedup rule is the one decision not spelled out in the design.
+- **Out of scope (Phases 2–4), not built**: AST/line revision gates, plateau/edit-war detection
+  + `ESCALATED` transition, all voting math (Kendall's W, Friedman, Schulze/Condorcet, log-odds),
+  weighted quorum, CIG routing, Pareto gating. `profiles.py` keeps an empty `revision_gates`
+  slot as a forward-compatible placeholder only.
+- **Launch**: console script `ccrep = "ccrep.server:main"` in `tools/pyproject.toml`, registered
+  in `.mcp.json` alongside `collab`; run `tools/.venv/bin/pip install -e tools/` to materialize
+  the script. Tests: `PYTHONPATH=tools tools/.venv/bin/python -m pytest tools/ccrep/` (37 passing).
+- **The judgment half lives in skills**: [`skills/ccrep/SKILL.md`](../../skills/ccrep/SKILL.md)
+  (the operational loop + critique admissibility + reviewer independence), with pointers from
+  `bot-collab` and the provenance/status-lifecycle rules in `write-docs`.
+
 ## Decision Log
 
 - **2026-06-08** — Synthesis authored (Claude). Codex chosen as spine; Unified 2.1 physical
@@ -322,6 +360,9 @@ not by the design's elegance.
   code-owned state transition; made the provenance check a warning, not a hard fail. Consensus:
   code owns invariants, skills own judgment; one generic ledger serves all three usage modes
   via `artifact_profile`.
+- **2026-06-08** — Phase 1 implemented in `tools/ccrep/` (worktree agent + Claude verify).
+  Reducer enforces invariants 1–7; 37 tests passing. Operational `ccrep` skill added and
+  `bot-collab` / `write-docs` updated to carry the judgment half. See "Implemented Outcome".
 
 ## Deferred Ideas (kept for when scale justifies them)
 

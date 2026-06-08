@@ -9,6 +9,13 @@ Use this skill as the launcher for structured collaborative coding sessions betw
 
 The canonical protocol is `doc/collab/PROTOCOL.md`. If this skill and the protocol disagree, follow the protocol and update this skill later.
 
+> **Coordination vs. quality ratchet — two layers.** This skill + the `collab` MCP are the
+> *coordination transport* (mailboxes, handoffs, the task queue). When the goal is not just to
+> coordinate but to make a specific artifact *provably better* — evaluate a code change, code
+> review, or design doc, gather admissible peer critiques, and merge only when a consensus gate
+> passes — use **[CCREP](../ccrep/SKILL.md)** (the `ccrep` MCP server). They compose: coordinate
+> here, ratchet there.
+
 ## Startup Checklist
 
 When the user mentions a multi-agent or 2-way collaboration session, or invokes a `/collab` command:
