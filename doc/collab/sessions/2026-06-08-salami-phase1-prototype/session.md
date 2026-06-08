@@ -1,5 +1,9 @@
 # SALAMI Phase 1: High-Resolution SSM Prototype
 
+> **Companion logs (worktree-split session).** This file is agy's full implementation log.
+> Claude's independent review/verify log is [`session.claude.md`](session.claude.md); the
+> next-steps proposals are in [`next-steps.md`](next-steps.md).
+
 ## Participants
 
 | Handle | Identity |
@@ -316,3 +320,18 @@ Given a sequence of chroma vectors $X(t)$ and candidates $t_0, t_1, \dots, t_k$:
 
 
 
+## Outcome (consensus, 2026-06-08)
+
+Phase 1 tested whether dense chroma/onset features escape the 16-bin grid's resolution ceiling.
+
+- **Signal exists:** an oracle subset-selection diagnostic over the chroma-SSM candidate pool reaches
+  ~22% F1@0.5s / ~66% F1@3.0s — well above refined (~5% / ~32%) and the 16-bin grid oracle.
+- **Current selector does not realize it generalizably:** the 1e Hybrid RF+DP first showed a
+  significant @0.5s win (p=0.0194), but that was a cross-phase select-on-test artifact. Independent
+  5-fold cross-validation — run **separately by both Claude and agy** — collapses the effect to ~0
+  (p≈0.7). Retraction co-signed.
+- **Holdout preserved:** the one-shot 57-track holdout was deliberately *not* spent on a config that
+  failed cross-validation.
+
+Two honest negatives (1a naive high-res, 1b greedy SSM) plus the ceiling finding. Park-vs-iterate
+deferred to Roberto. Full detail and proposals in the per-actor logs and `next-steps.md`.
