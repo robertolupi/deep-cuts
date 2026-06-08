@@ -55,10 +55,10 @@ When a bot is instantiated, it lacks the history of decisions. To perform safely
 Bots are reactive—they follow instructions in their system prompts, entry points (`AGENTS.md`), and active skills. We make concepts discoverable using a three-tiered approach:
 
 ### A. The Entry-Point Hook
-We modify the repository's bootstrap files ([AGENTS.md](file:///Users/rlupi/src/deep-cuts-agy/AGENTS.md) and [GEMINI.md](file:///Users/rlupi/src/deep-cuts-agy/GEMINI.md)) to mandate a knowledge check:
+We modify the repository's bootstrap files (`AGENTS.md` and `GEMINI.md`) to mandate a knowledge check:
 
-> **IMPORTANT**: Before editing any code or documentation, run the Go query tool or use the native MCP server:
-> `tools/dc-knowledge-mgr query "<brief summary of your current task>"`
+> **IMPORTANT**: Before editing any code or documentation, run the local knowledge query tool or use the native MCP server:
+> `tools/knowledge_mgr.py query "<brief summary of your current task>"`
 > Or call the MCP tool: `knowledge_mgr/query(text="<brief summary>")`.
 > Load the returned files, database schemas, and skills into your context before proposing changes.
 
@@ -86,56 +86,61 @@ class PlayerStore { ... }
 ```
 
 ### C. The Hybrid "Semantic Index + Wiki" Approach
-Instead of maintaining a complex, standalone graph visualization, we combine the **Wiki** (our existing flat Markdown documentation under `doc/` and `skills/`) with the **Go/Ollama indexer**:
+Instead of maintaining a complex, standalone graph visualization, we combine the **Wiki** (our existing flat Markdown documentation under `doc/` and `skills/`) with a local Python indexer:
 
 1. **The Wiki is the Source of Truth**: Humans and bots write clear, simple Markdown documents detailing concepts, skills, and decisions.
-2. **The Indexer is the Search Engine**: The Go/Ollama tool indexes the Wiki and codebase, building the semantic connections.
+2. **The Indexer is the Search Engine**: The Python tool indexes the Wiki and codebase, building the semantic connections.
 3. **The Bot is the Reader**: The bot queries the index, receives a curated subset of 2–3 Wiki pages and 2–3 code files, and reads *only* those files, keeping token usage minimal.
 
 ---
 
-## 4. Design: The Go + Ollama + SQLite-Vec Stack (Go-Native MCP)
+## 4. Design: Python + ONNX MiniLM + SQLite-Vec Stack
 
-We design the tool `tools/dc-knowledge-mgr` as a single Go binary compiled locally. It serves two modes: a standalone **CLI** for developers/hooks, and a **native MCP Server** (JSON-RPC 2.0 over stdin/stdout) for AI agents.
+We design the tool as `tools/knowledge_mgr.py`, backed by a small package under `tools/knowledge_mgr/`. It serves two modes: a standalone **CLI** for developers/hooks, and an **MCP Server** (JSON-RPC 2.0 over stdin/stdout) for AI agents. This matches the existing Python MCP pattern used by `tools/collab_mcp/` and `tools/ccrep/`.
 
 ```
                   +--------------------------+
-                  |  tools/dc-knowledge-mgr  |
+                  |  tools/knowledge_mgr.py  |
                   +--------------------------+
                                |
             +------------------+------------------+
             | (CLI Mode)                          | (serve Mode)
             v                                     v
-   - `dc-knowledge-mgr lint`             - Speaks Model Context Protocol (JSON-RPC)
-   - Runs on git pre-commit              - Registered in `.mcp.json`
+   - `knowledge_mgr.py lint`             - Speaks Model Context Protocol (JSON-RPC)
+   - Optional git pre-commit hook        - Registered in `.mcp.json`
    - Scans AST & frontmatter             - Exposes native MCP Tools:
-   - Validates Datalog rules                * `knowledge_mgr/query(text)`
+   - Validates structural rules             * `knowledge_mgr/query(text)`
                                             * `knowledge_mgr/check_rules()`
 ```
 
-### A. Go MCP Server Libraries
-We implement the server directly in Go using a standard library-friendly wrapper like `github.com/mark3labs/mcp-go`. This allows us to start the server via:
+### A. Python MCP Server Pattern
+We implement the server using the same lightweight Python MCP wrapper pattern already present in `tools/collab_mcp/server.py` and `tools/ccrep/server.py`. This allows us to start the server via:
 ```bash
-tools/dc-knowledge-mgr serve
+tools/knowledge_mgr.py serve
 ```
 
-### B. Verification in Pre-Commit
-The Go tool's CLI mode is registered in the repository's pre-commit hook:
+### B. Embedding Backend
+Semantic embeddings use the repo's existing local `all-MiniLM-L6-v2` ONNX path rather than Ollama. The implementation should reuse the model/export conventions already present around `src-tauri/src/embeddings.rs` and `tools/export_sentence_onnx.py`, storing vectors in `scratch/codebase_index.db` with `sqlite-vec`.
+
+### C. Verification in Pre-Commit
+The Python tool's CLI mode can be installed into an optional repository pre-commit hook:
 1. It scans the modified files.
-2. It runs Mangle queries to assert that all modified code concepts are documented.
+2. It runs structural rule checks to assert that all modified code concepts are documented.
 3. If an agent changes code annotated with `@concept SAX` but the linter detects that `doc/research/sax_structure.md` is marked as `superseded`, it prompts the agent to update the code concept tag.
+
+Because Git hooks are shared across worktrees, the hook must pass the current checkout path to `tools/knowledge_mgr.py lint --root "$PWD"` and must not scan sibling worktrees unless invoked with `--parallel`.
 
 ---
 
 ## 5. Proposed Next Steps
 
-1. **Phase 1: Bootstrap the Go CLI & MCP Server**:
-   * Create `tools/knowledge_mgr/` in Go.
-   * Pull `github.com/mark3labs/mcp-go` and set up the `serve` JSON-RPC transport over stdin/stdout.
+1. **Phase 1: Bootstrap the Python CLI & MCP Server**:
+   * Create `tools/knowledge_mgr/` plus a `tools/knowledge_mgr.py` entry point.
+   * Follow the `tools/collab_mcp/` and `tools/ccrep/` stdio MCP server pattern.
    * Implement basic Rust/TypeScript comment parsers for `@concept` and `@skill` tags.
-2. **Phase 2: Integrate Ollama**:
-   * Implement the HTTP client in Go to call Ollama on `localhost:11434/api/embeddings`.
-   * Initialize a local SQLite db `scratch/codebase_index.db` to cache embeddings.
+2. **Phase 2: Integrate ONNX MiniLM Embeddings**:
+   * Reuse the local `all-MiniLM-L6-v2` ONNX embedding path.
+   * Initialize a local SQLite db `scratch/codebase_index.db` with `sqlite-vec` virtual tables to cache embeddings.
 3. **Phase 3: Hook into Bot Entry Points**:
-   * Register the Go server command `tools/dc-knowledge-mgr serve` in `.mcp.json`.
+   * Register the Python server command `tools/knowledge_mgr.py serve` in `.mcp.json`.
    * Update `AGENTS.md` and `GEMINI.md` to document the index checking workflow.
