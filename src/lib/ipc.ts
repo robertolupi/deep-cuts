@@ -35,21 +35,35 @@ export interface SemanticSearchResult {
   score: number;
 }
 
-export interface PassStat {
+export interface PassError {
+  path: string;
+  log: string | null;
+  duration_ms: number | null;
+  last_run_at: string | null;
+}
+
+export interface PassStats {
   pass_name: string;
   pending: number;
   in_progress: number;
   done: number;
-  error: number;
+  failed: number;
+  skipped: number;
   total: number;
   avg_duration_ms: number | null;
-  errors: Array<{
-    path: string;
-    log: string | null;
-    last_run_at: string | null;
-    duration_ms: number | null;
-  }>;
-  historical_avg_ms: number | null;
+  concurrency: number;
+  errors: PassError[];
+}
+
+export interface ModelExistence {
+  qwen_exists: boolean;
+  sentence_exists: boolean;
+  clap_exists: boolean;
+  essentia_exists: boolean;
+  sax_exists: boolean;
+  all_exist: boolean;
+  missing_files: string[];
+  [key: string]: boolean | string[];
 }
 
 export interface ChatSession {
@@ -80,8 +94,38 @@ export interface ChatSearchResult {
 
 export interface ResumableFile {
   filename: string;
-  dest_path: string;
-  bytes_written: number;
+  offset: number;
+}
+
+export interface ModelFile {
+  filename: string;
+  url: string;
+  sha256: string;
+  size_bytes: number;
+}
+
+export interface ModelGroup {
+  label: string;
+  files: ModelFile[];
+}
+
+export interface ModelManifest {
+  manifest_version: number;
+  min_app_version: string;
+  update_notice: string | null;
+  models: Record<string, ModelGroup>;
+}
+
+export interface AppManifestResponse {
+  manifest: ModelManifest;
+  update_available: boolean;
+}
+
+export interface DownloadProgressEvent {
+  model: string;
+  file: string;
+  bytes_done: number;
+  bytes_total: number;
 }
 
 export interface M3UTrackInfo {
@@ -89,6 +133,139 @@ export interface M3UTrackInfo {
   title: string | null;
   artist: string | null;
   duration_seconds: number | null;
+}
+
+export interface MappedTrackPoint {
+  track_id: number;
+  filename: string;
+  title: string | null;
+  artist: string | null;
+  x: number;
+  y: number;
+  is_music: boolean;
+}
+
+export interface AudioSimilarityResult {
+  id: number;
+  title: string | null;
+  filename: string;
+  artist: string | null;
+  genre: string | null;
+  bpm: number | null;
+  key: string | null;
+  scale: string | null;
+  score: number;
+}
+
+export interface DuplicatePair {
+  id_a: number;
+  id_b: number;
+  title_a: string | null;
+  title_b: string | null;
+  artist_a: string | null;
+  artist_b: string | null;
+  filename_a: string;
+  filename_b: string;
+  path_a: string;
+  path_b: string;
+  distance: number;
+}
+
+export interface LabelCount {
+  label: string;
+  count: number;
+}
+
+export interface TrackSetStats {
+  track_count: number;
+  total_duration_seconds: number;
+  avg_bpm: number | null;
+  bpm_stddev: number | null;
+  most_common_key: string | null;
+  key_variety: number;
+  pct_vocals: number;
+  pct_analysed: number;
+  avg_loudness_lufs: number | null;
+  avg_mood_happy: number | null;
+  avg_mood_sad: number | null;
+  avg_mood_aggressive: number | null;
+  avg_mood_relaxed: number | null;
+  avg_mood_party: number | null;
+  avg_mood_acoustic: number | null;
+  avg_mood_electronic: number | null;
+  major_count: number;
+  minor_count: number;
+  vocal_count: number;
+  instrumental_count: number;
+  unknown_vocal_count: number;
+  coverage_essentia: number;
+  coverage_mood: number;
+  coverage_qwen: number;
+  coverage_qwen_description: number;
+  coverage_qwen_instruments: number;
+  coverage_qwen_mood: number;
+  coverage_qwen_genre: number;
+  coverage_clap: number;
+  coverage_umap: number;
+  coverage_acoustid: number;
+  bpm_values: number[];
+  duration_values: number[];
+  loudness_values: number[];
+  key_distribution: LabelCount[];
+  genre_distribution: LabelCount[];
+  instrument_distribution: LabelCount[];
+}
+
+export interface LatencyStat {
+  pass_name: string;
+  avg_duration_ms: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  count: number;
+}
+
+export interface PipelineMetricRow {
+  id: number;
+  run_id: string;
+  track_id: number;
+  pass_name: string;
+  status: string;
+  duration_ms: number;
+  started_at: number;
+  ended_at: number;
+  audio_duration_sec: number | null;
+  error_message: string | null;
+}
+
+export interface MetricsSummary {
+  latencies: LatencyStat[];
+  recent_failures: PipelineMetricRow[];
+}
+
+export interface AggregatedPassSpan {
+  run_id: string;
+  pass_name: string;
+  started_at: number;
+  ended_at: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+export interface StructureClusterInfo {
+  id: number;
+  label: string;
+  regex: string;
+  track_count: number;
+}
+
+export interface DebugTrackRawResult {
+  track: any;
+  passes: any[];
+  coords: any;
+  tags: any[];
+  suppressions: string[];
+  chat_sessions: any[];
 }
 
 // ── CommandMap ────────────────────────────────────────────────────────────────
@@ -162,17 +339,17 @@ export type CommandMap = {
   };
 
   // scanner
-  scan_all_libraries: { args: Record<string, never>; result: void };
+  scan_all_libraries: { args: Record<string, never>; result: string };
 
   // analysis
   run_analysis_pipeline: { args: Record<string, never>; result: void };
   is_analysis_running: { args: Record<string, never>; result: boolean };
-  get_pass_stats: { args: Record<string, never>; result: PassStat[] };
+  get_pass_stats: { args: Record<string, never>; result: PassStats[] };
   recover_stuck_passes: { args: Record<string, never>; result: number };
   reset_pass: { args: { passName: string }; result: void };
   reset_pass_for_track: { args: { passName: string; trackId: number }; result: void };
   reset_all_passes: { args: Record<string, never>; result: void };
-  check_models_exist: { args: Record<string, never>; result: Record<string, unknown> };
+  check_models_exist: { args: Record<string, never>; result: ModelExistence };
   set_analysis_manually_paused: { args: { paused: boolean }; result: void };
   set_analysis_auto_paused: { args: { paused: boolean }; result: void };
   get_analysis_paused_status: {
@@ -181,35 +358,56 @@ export type CommandMap = {
   };
 
   // map / projection
-  get_projection_coordinates: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
-  search_similar_tracks_audio: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
-  recompute_projection: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
-  find_duplicate_pairs: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
+  get_projection_coordinates: { args: { musicOnly: boolean }; result: MappedTrackPoint[] };
+  search_similar_tracks_audio: {
+    args: { trackId: number; directoryId: number | null; clapWeight: number | null };
+    result: AudioSimilarityResult[];
+  };
+  recompute_projection: {
+    args: {
+      musicOnly: boolean;
+      clapWeight: number | null;
+      algorithm: string;
+      nNeighbors: number;
+      minDist: number;
+      perplexity: number;
+      projectionMode: string | null;
+    };
+    result: number;
+  };
+  find_duplicate_pairs: { args: { threshold: number }; result: DuplicatePair[] };
 
   // manifest / updates
-  fetch_app_manifest: { args: Record<string, never>; result: unknown }; // TODO: tighten
+  fetch_app_manifest: { args: Record<string, never>; result: AppManifestResponse };
   get_update_settings: { args: Record<string, never>; result: boolean };
   set_update_settings: { args: { enabled: boolean }; result: void };
 
   // downloads
   check_pending_resume: { args: Record<string, never>; result: ResumableFile[] };
   cancel_model_download: { args: Record<string, never>; result: void };
-  download_models: { args: Record<string, unknown>; result: void }; // TODO: tighten
-  get_download_status: { args: Record<string, never>; result: Record<string, unknown> | null }; // TODO: tighten
+  download_models: {
+    args: {
+      models: string[];
+      customUrlBase?: string | null;
+      customManifest?: string | null;
+    };
+    result: void;
+  };
+  get_download_status: { args: Record<string, never>; result: DownloadProgressEvent | null };
 
   // chat / Qwen
   ask_qwen: {
     args: {
       trackId: number;
       question: string;
-      windowStartSecs?: number;
-      windowDurationSecs?: number;
+      windowStartSecs?: number | null;
+      windowDurationSecs?: number | null;
       history: [string, string][];
     };
     result: string;
   };
   create_chat_session: {
-    args: { trackId: number; windowStartSecs?: number; windowDurationSecs?: number };
+    args: { trackId: number; windowStartSecs?: number | null; windowDurationSecs?: number | null };
     result: ChatSession;
   };
   list_chat_sessions: { args: { trackId: number }; result: ChatSession[] };
@@ -230,7 +428,10 @@ export type CommandMap = {
   get_playlist_tracks: { args: { playlistId: number }; result: PlaylistTrack[] };
   add_tracks_to_playlist: { args: { playlistId: number; trackIds: number[] }; result: void };
   remove_track_from_playlist: { args: { playlistId: number; position: number }; result: void };
-  reorder_playlist_track: { args: Record<string, unknown>; result: void }; // TODO: tighten
+  reorder_playlist_track: {
+    args: { playlistId: number; fromPos: number; toPos: number };
+    result: void;
+  };
   get_playlists_for_track: { args: { trackId: number }; result: Playlist[] };
   remove_track_from_playlist_by_id: {
     args: { playlistId: number; trackId: number };
@@ -245,15 +446,15 @@ export type CommandMap = {
   update_saved_search: { args: { id: number; queryJson: string }; result: void };
 
   // statistics / metrics / structure
-  get_track_stats: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
-  get_metrics_summary: { args: Record<string, never>; result: unknown }; // TODO: tighten
-  get_pipeline_run_traces: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
-  get_structure_clusters: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
+  get_track_stats: { args: { trackIds: number[] | null }; result: TrackSetStats };
+  get_metrics_summary: { args: Record<string, never>; result: MetricsSummary };
+  get_pipeline_run_traces: { args: Record<string, never>; result: AggregatedPassSpan[] };
+  get_structure_clusters: { args: Record<string, never>; result: StructureClusterInfo[] };
 
   // debug-only commands (compiled with #[cfg(debug_assertions)] in Rust)
   enrich_track_metadata: { args: { trackId: number; force?: boolean }; result: void };
   enrich_all_pending_acoustid: { args: Record<string, never>; result: number };
-  debug_track_raw: { args: Record<string, unknown>; result: unknown }; // TODO: tighten
+  debug_track_raw: { args: { trackId: number }; result: DebugTrackRawResult };
 };
 
 export const LOCAL_DEBUG = typeof window !== "undefined" &&

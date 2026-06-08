@@ -11,7 +11,7 @@
 
   export async function loadSidecarSetting() {
     try {
-      sidecarEnabled = await invoke<boolean>("get_sidecar_setting");
+      sidecarEnabled = await invoke("get_sidecar_setting");
     } catch (e) {
       console.error("Failed to load sidecar setting:", e);
     }

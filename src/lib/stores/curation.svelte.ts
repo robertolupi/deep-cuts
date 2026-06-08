@@ -11,8 +11,8 @@ function createCurationStore() {
 
   async function loadAll() {
     try {
-      playlists = await invoke<Playlist[]>('get_playlists');
-      savedSearches = await invoke<SavedSearch[]>('get_saved_searches');
+      playlists = await invoke('get_playlists');
+      savedSearches = await invoke('get_saved_searches');
     } catch (e: any) {
       console.error('Failed to load curations:', e);
       ui.showToast('Failed to load playlists or saved searches: ' + e, 'error');
@@ -21,7 +21,7 @@ function createCurationStore() {
 
   async function createPlaylist(name: string) {
     try {
-      const id = await invoke<number>('create_playlist', { name });
+      const id = await invoke('create_playlist', { name });
       await loadAll();
       ui.showToast('Created playlist "' + name + '"', 'success');
       return id;
@@ -64,7 +64,7 @@ function createCurationStore() {
 
   async function loadPlaylistTracks(playlistId: number) {
     try {
-      activePlaylistTracks = await invoke<PlaylistTrack[]>('get_playlist_tracks', { playlistId });
+      activePlaylistTracks = await invoke('get_playlist_tracks', { playlistId });
     } catch (e: any) {
       console.error('Failed to load playlist tracks:', e);
       ui.showToast('Failed to load playlist tracks: ' + e, 'error');
@@ -101,7 +101,7 @@ function createCurationStore() {
 
   async function getPlaylistsForTrack(trackId: number) {
     try {
-      return await invoke<Playlist[]>('get_playlists_for_track', { trackId });
+      return await invoke('get_playlists_for_track', { trackId });
     } catch (e: any) {
       console.error('Failed to get playlists for track:', e);
       return [];
@@ -135,7 +135,7 @@ function createCurationStore() {
 
   async function createSavedSearch(name: string, queryJson: string) {
     try {
-      const id = await invoke<number>('create_saved_search', { name, queryJson });
+      const id = await invoke('create_saved_search', { name, queryJson });
       await loadAll();
       ui.showToast('Saved search "' + name + '" created successfully', 'success');
       ui.sidebarTab = 'curations';

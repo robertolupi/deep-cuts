@@ -25,7 +25,7 @@
 
   async function handleFocus() {
     try {
-      allTagsLive = await invoke<string[]>("get_all_tags");
+      allTagsLive = await invoke("get_all_tags");
     } catch (e) {
       // Fallback to library store if offline
     }

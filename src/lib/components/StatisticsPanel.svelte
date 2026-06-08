@@ -157,10 +157,10 @@
     if (s.kind === 'library') return null;
     if (s.kind === 'filter')  return filters.filteredTracks.map(t => t.id);
     if (s.kind === 'playlist') {
-      const pTracks = await invoke<{ track_id: number | null }[]>('get_playlist_tracks', { playlistId: s.playlist.id });
+      const pTracks = await invoke('get_playlist_tracks', { playlistId: s.playlist.id });
       return pTracks.map(pt => pt.track_id).filter((id): id is number => id !== null);
     }
-    const all = await invoke<{ id: number; watched_directory_id: number }[]>('get_tracks');
+    const all = await invoke('get_tracks');
     return all.filter(t => t.watched_directory_id === s.dir.id).map(t => t.id);
   }
 
@@ -172,7 +172,7 @@
     else               { loadingB = true; }
     try {
       const ids = await idsForSource(source);
-      const stats = await invoke<TrackSetStats>('get_track_stats', { trackIds: ids });
+      const stats = await invoke('get_track_stats', { trackIds: ids });
       if (which === 'A') statsA = stats;
       else               statsB = stats;
     } catch (e: any) { error = String(e); }
@@ -431,7 +431,7 @@
 
   async function loadCoords() {
     try {
-      allCoords = await invoke<MappedTrackPoint[]>('get_projection_coordinates', { musicOnly: false });
+      allCoords = await invoke('get_projection_coordinates', { musicOnly: false });
     } catch { /* no coords yet */ }
   }
 
@@ -546,8 +546,8 @@
 
   onMount(async () => {
     const [dirs, lists] = await Promise.all([
-      invoke<WatchedDirectory[]>('get_watched_directories'),
-      invoke<Playlist[]>('get_playlists'),
+      invoke('get_watched_directories'),
+      invoke('get_playlists'),
     ]);
     watchedDirs = dirs;
     playlists = lists;

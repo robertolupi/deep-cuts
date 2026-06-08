@@ -65,8 +65,8 @@
       duration_seconds: t.duration_seconds ?? null
     }));
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const exported = await invoke<boolean>('export_m3u_playlist', { tracks: tracksPayload });
+      const { invoke } = await import("$lib/ipc");
+      const exported = await invoke('export_m3u_playlist', { tracks: tracksPayload });
       if (exported) {
         ui.showToast(`Exported ${list.length} tracks to M3U successfully!`, "success");
       }

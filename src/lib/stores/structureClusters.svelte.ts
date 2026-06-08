@@ -14,7 +14,7 @@ function createStructureClustersStore() {
   async function load() {
     if (loaded) return;
     try {
-      clusters = await invoke<StructureCluster[]>('get_structure_clusters');
+      clusters = await invoke('get_structure_clusters');
       loaded = true;
     } catch (e) {
       console.error('[structureClusters] failed to load:', e);

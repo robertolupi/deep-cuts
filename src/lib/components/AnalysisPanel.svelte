@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invoke } from "$lib/ipc";
-  import { listen } from "$lib/ipc";
+  import { invoke, listen } from "$lib/ipc";
+  import type { ModelExistence, PassStats, PassError } from "$lib/ipc";
   import { onMount, onDestroy } from "svelte";
   import { theme } from "$lib/stores/theme.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
@@ -8,37 +8,6 @@
   import { library } from "$lib/stores/library.svelte";
   import ModelDownloader from "./ModelDownloader.svelte";
   import MetricsInspector from "./MetricsInspector.svelte";
-
-  interface PassError {
-    path: string;
-    log: string | null;
-    duration_ms: number | null;
-    last_run_at: string | null;
-  }
-
-  interface PassStats {
-    pass_name: string;
-    pending: number;
-    in_progress: number;
-    done: number;
-    failed: number;
-    skipped: number;
-    total: number;
-    avg_duration_ms: number | null;
-    concurrency: number;
-    errors: PassError[];
-  }
-
-  interface ModelExistence {
-    qwen_exists: boolean;
-    sentence_exists: boolean;
-    clap_exists: boolean;
-    essentia_exists: boolean;
-    sax_exists: boolean;
-    all_exist: boolean;
-    missing_files: string[];
-    [key: string]: boolean | string[];
-  }
 
   // Ordered by pipeline execution priority (sequential — no two passes run concurrently)
   // Order matches the explicit call sequence in analysis/mod.rs — NOT pass priorities.
@@ -142,7 +111,7 @@
 
   async function checkAppUpdates() {
     try {
-      const response = await invoke<{ manifest: any, update_available: boolean }>("fetch_app_manifest");
+      const response = await invoke("fetch_app_manifest");
       if (response && response.update_available) {
         latestAppVersion = response.manifest.min_app_version;
         showUpdateBanner = true;
@@ -177,7 +146,7 @@
   async function checkModels() {
     isCheckingModels = true;
     try {
-      const status = await invoke<ModelExistence>("check_models_exist");
+      const status = await invoke("check_models_exist");
       modelStatus = status;
       if (!status.all_exist && !warningDismissed) showModelWarning = true;
       else if (status.all_exist) showModelWarning = false;
@@ -254,7 +223,7 @@
 
   async function loadStats() {
     try {
-      const newStats = await invoke<PassStats[]>("get_pass_stats");
+      const newStats = await invoke("get_pass_stats");
       updateThroughput(newStats);
       stats = newStats;
     } catch (e) { console.error("Failed to load pass stats:", e); }
@@ -282,7 +251,7 @@
   async function recoverStuckPasses() {
     errorMessage = "";
     try {
-      await invoke<number>("recover_stuck_passes");
+      await invoke("recover_stuck_passes");
       await loadStats();
     } catch (e: any) { errorMessage = e?.toString() ?? "Unknown error"; }
   }
@@ -310,7 +279,7 @@
 
   onMount(() => {
     checkAppUpdates();
-    invoke<boolean>("is_analysis_running").then(v => { isRunning = v; });
+    invoke("is_analysis_running").then(v => { isRunning = v; });
     loadStats();
     checkModels();
     checkInterval = setInterval(() => {

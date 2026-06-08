@@ -237,7 +237,7 @@ function createFiltersStore() {
     }
     isSemanticLoading = true;
     try {
-      const results = await invoke<{ id: number; score: number }[]>(
+      const results = await invoke(
         "search_semantic_tracks", { query: queryText }
       );
       semanticTrackIds = new Set(results.map(r => r.id));
@@ -260,7 +260,7 @@ function createFiltersStore() {
     }
     isClapLoading = true;
     try {
-      const results = await invoke<{ id: number; score: number }[]>(
+      const results = await invoke(
         "search_clap_tracks", { query: queryText }
       );
       clapTrackIds = new Set(results.map(r => r.id));
@@ -380,7 +380,7 @@ function createFiltersStore() {
     async setSimilarTo(track: { id: number; title: string; }) {
       isSimilarLoading = true;
       try {
-        const results = await invoke<{ id: number; distance: number }[]>(
+        const results = await invoke(
           'search_similar_tracks_audio', { trackId: track.id, clapWeight: similarBlend }
         );
         similarTrackIds = new Set(results.map(r => r.id));
@@ -397,7 +397,7 @@ function createFiltersStore() {
       if (!similarToTrack) return;
       isSimilarLoading = true;
       try {
-        const results = await invoke<{ id: number; distance: number }[]>(
+        const results = await invoke(
           'search_similar_tracks_audio', { trackId: similarToTrack.id, clapWeight: blend }
         );
         similarTrackIds = new Set(results.map(r => r.id));

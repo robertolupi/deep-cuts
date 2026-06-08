@@ -86,8 +86,8 @@
     errorMessage = "";
     try {
       [summary, traceSpans] = await Promise.all([
-        invoke<MetricsSummary>("get_metrics_summary"),
-        invoke<AggregatedPassSpan[]>("get_pipeline_run_traces"),
+        invoke("get_metrics_summary"),
+        invoke("get_pipeline_run_traces"),
       ]);
       if (runs.length > 0 && !selectedRunId) {
         selectedRunId = runs[0].id;

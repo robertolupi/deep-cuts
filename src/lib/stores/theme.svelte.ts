@@ -51,7 +51,7 @@ function createThemeStore() {
     // Stage 2: reconcile with Tauri DB value if available
     if (tauriConnected) {
       try {
-        const dbTheme = await invoke<string>("get_theme");
+        const dbTheme = await invoke("get_theme");
         if (dbTheme && dbTheme !== saved) {
           await setTheme(dbTheme, false);
         }

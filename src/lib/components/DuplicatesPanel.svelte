@@ -1,24 +1,11 @@
 <script lang="ts">
   import { invoke } from '$lib/ipc';
   import { listen } from '$lib/ipc';
+  import type { DuplicatePair } from '$lib/ipc';
   import { onDestroy } from 'svelte';
   import { library } from '$lib/stores/library.svelte';
   import { player } from '$lib/stores/player.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-
-  interface DuplicatePair {
-    id_a: number;
-    id_b: number;
-    title_a: string | null;
-    title_b: string | null;
-    artist_a: string | null;
-    artist_b: string | null;
-    filename_a: string;
-    filename_b: string;
-    path_a: string;
-    path_b: string;
-    distance: number;
-  }
 
   interface ProgressPayload {
     stage: string;
@@ -82,7 +69,7 @@
     });
 
     try {
-      pairs = await invoke<DuplicatePair[]>('find_duplicate_pairs', { threshold });
+      pairs = await invoke('find_duplicate_pairs', { threshold });
       // done event may arrive before invoke resolves; ensure we mark finished
       isScanning = false;
       hasScanned = true;

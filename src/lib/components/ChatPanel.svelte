@@ -125,7 +125,7 @@
   }
 
   async function loadTrackSessions(trackId: number) {
-    trackSessions = await invoke<ChatSession[]>('list_chat_sessions', { trackId });
+    trackSessions = await invoke('list_chat_sessions', { trackId });
   }
 
   async function openSession(session: ChatSession) {
@@ -133,7 +133,7 @@
     sessionQuery = '';
     searchResults = [];
     sessionDropdown = false;
-    const msgs = await invoke<{ role: string; content: string }[]>('get_chat_messages', { sessionId: session.id });
+    const msgs = await invoke('get_chat_messages', { sessionId: session.id });
     messages = msgs.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
     // Restore region if stored on the session
     if (session.window_start_secs != null && session.window_duration_secs != null) {
@@ -166,7 +166,7 @@
       return;
     }
     try {
-      searchResults = await invoke<ChatSearchResult[]>('search_chats', { query: q + '*' });
+      searchResults = await invoke('search_chats', { query: q + '*' });
     } catch { searchResults = []; }
   }
 
@@ -175,7 +175,7 @@
       const t = library.tracks.find(t => t.id === result.track_id);
       if (t) player.selectedTrack = t;
     }
-    const sessions = await invoke<ChatSession[]>('list_chat_sessions', { trackId: result.track_id });
+    const sessions = await invoke('list_chat_sessions', { trackId: result.track_id });
     await loadTrackSessions(result.track_id);
     const session = sessions.find(s => s.id === result.session_id);
     if (session) openSession(session);
@@ -229,17 +229,19 @@
     const question = inputText.trim();
     inputText = '';
 
+    let session = currentSession;
     // Lazily create a session on the first message
-    if (!currentSession) {
+    if (!session) {
       const windowDur = regionEnd - regionStart;
-      currentSession = await invoke<ChatSession>('create_chat_session', {
+      session = await invoke('create_chat_session', {
         trackId: track.id,
         windowStartSecs:    regionStart,
         windowDurationSecs: windowDur > 0 ? windowDur : null,
       });
-      trackSessions = [currentSession, ...trackSessions];
+      currentSession = session;
+      trackSessions = [session, ...trackSessions];
     }
-    const sessionId = currentSession.id;
+    const sessionId = session.id;
 
     messages = [...messages, { role: 'user', content: question }];
     messages = [...messages, { role: 'assistant', content: '' }];
@@ -271,7 +273,7 @@
     const windowDuration = regionEnd - regionStart;
 
     try {
-      const response = await invoke<string>('ask_qwen', {
+      const response = await invoke('ask_qwen', {
         trackId: track.id,
         question,
         windowStartSecs:    regionStart,

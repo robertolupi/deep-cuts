@@ -8,12 +8,12 @@
 
   export async function loadSettings() {
     try {
-      checkUpdatesEnabled = await invoke<boolean>("get_update_settings");
+      checkUpdatesEnabled = await invoke("get_update_settings");
     } catch (e) {
       console.error("Failed to load update settings:", e);
     }
     try {
-      const mode = await invoke<string>("get_acoustid_setting");
+      const mode = await invoke("get_acoustid_setting");
       acoustidEnabled = mode === "silent";
     } catch (e) {
       console.error("Failed to load AcoustID settings:", e);

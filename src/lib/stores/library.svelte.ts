@@ -37,9 +37,8 @@ class LibraryStore {
       await this.fetchTracks();
       this.tauriConnected = true;
 
-      // Sync analysisRunning with the backend on startup
-      invoke<boolean>("is_analysis_running").then(v => { this.analysisRunning = v; }).catch(() => {});
-      invoke<{ manually_paused: boolean; auto_paused: boolean }>("get_analysis_paused_status")
+      invoke("is_analysis_running").then(v => { this.analysisRunning = v; }).catch(() => {});
+      invoke("get_analysis_paused_status")
         .then(v => {
           this.analysisManuallyPaused = v.manually_paused;
           this.analysisAutoPaused = v.auto_paused;
@@ -84,7 +83,7 @@ class LibraryStore {
       this.unlisteners.push(await listen<any>("track-enriched", async (event) => {
         const enrichedId = event.payload;
         try {
-          const freshTrack = await invoke<Track | null>("get_track", { trackId: enrichedId });
+          const freshTrack = await invoke("get_track", { trackId: enrichedId });
           if (freshTrack) {
             const idx = this.tracks.findIndex(t => t.id === enrichedId);
             if (idx !== -1) {
@@ -132,22 +131,22 @@ class LibraryStore {
   }
 
   async fetchDirectories() {
-    this.directories = await invoke<WatchedDirectory[]>("get_watched_directories");
+    this.directories = await invoke("get_watched_directories");
   }
 
   async fetchTrackCount() {
-    this.trackCount = await invoke<number>("get_track_count");
+    this.trackCount = await invoke("get_track_count");
   }
 
   async fetchTracks() {
-    this.tracks = await invoke<Track[]>("get_tracks");
+    this.tracks = await invoke("get_tracks");
     this.fetchTags();
   }
 
   async fetchTags() {
     const [rawMap, allTags] = await Promise.all([
-      invoke<Record<number, string[]>>("get_all_track_tags"),
-      invoke<string[]>("get_all_tags"),
+      invoke("get_all_track_tags"),
+      invoke("get_all_tags"),
     ]);
     this.trackTagMap = new Map(Object.entries(rawMap).map(([k, v]) => [Number(k), v]));
     this.allTags = allTags;
@@ -174,7 +173,7 @@ class LibraryStore {
   }
 
   async exportSidecars(): Promise<number> {
-    return await invoke<number>("export_sidecars");
+    return await invoke("export_sidecars");
   }
 }
 

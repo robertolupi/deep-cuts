@@ -196,7 +196,7 @@
     isSearchingSimilarity = true;
     try {
       const weight = mapMode === 'sonic' ? 1.0 : mapMode === 'description' ? 0.0 : blendWeight;
-      const results = await invoke<{ id: number; score: number }[]>("search_hybrid_vibe", {
+      const results = await invoke("search_hybrid_vibe", {
         query: q,
         clapWeight: weight,
         limit: library.tracks.length || 5000,
@@ -222,7 +222,7 @@
   async function loadCoordinates() {
     isLoading = true;
     try {
-      projectedTracks = await invoke<MappedTrackPoint[]>('get_projection_coordinates', {
+      projectedTracks = await invoke('get_projection_coordinates', {
         musicOnly: filters.musicOnly,
       });
       if (projectedTracks.length > 0) {
@@ -259,7 +259,7 @@
         ui.showToast('Running PCA projection…', 'success');
       }
       const weight = mapMode === 'sonic' ? 1.0 : mapMode === 'description' ? 0.0 : blendWeight;
-      const count = await invoke<number>('recompute_projection', {
+      const count = await invoke('recompute_projection', {
         musicOnly: filters.musicOnly,
         clapWeight: weight,
         algorithm,

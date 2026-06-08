@@ -20,7 +20,7 @@
 
   async function checkAppUpdates() {
     try {
-      const response = await invoke<{ manifest: any, update_available: boolean }>("fetch_app_manifest");
+      const response = await invoke("fetch_app_manifest");
       if (response && response.update_available) {
         latestAppVersion = response.manifest.min_app_version;
         showUpdateBanner = true;

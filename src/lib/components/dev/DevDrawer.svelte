@@ -56,11 +56,11 @@
     if (!open && !library.analysisRunning) return;
     const id = setInterval(async () => {
       try {
-        passStats = await invoke<PassStats[]>('get_pass_stats');
+        passStats = await invoke('get_pass_stats');
       } catch {}
     }, 3000);
     // Initial fetch
-    invoke<PassStats[]>('get_pass_stats').then(s => passStats = s).catch(() => {});
+    invoke('get_pass_stats').then(s => passStats = s).catch(() => {});
     return () => clearInterval(id);
   });
 
@@ -85,7 +85,7 @@
     rawLoading = true;
     rawError = '';
     try {
-      rawData = await invoke<Record<string, any>>('debug_track_raw', { trackId });
+      rawData = await invoke('debug_track_raw', { trackId });
       lastTrackId = trackId;
     } catch (e) {
       rawError = String(e);
@@ -111,7 +111,7 @@
 
   async function dumpToConsole() {
     let freshStats: PassStats[] = [];
-    try { freshStats = await invoke<PassStats[]>('get_pass_stats'); } catch {}
+    try { freshStats = await invoke('get_pass_stats'); } catch {}
 
     console.group('%c🎛 Deep Cuts state snapshot', 'color:#00f0ff;font-weight:bold');
     console.log('filters', {

@@ -56,7 +56,7 @@
     const id = track?.id;
     trackTags = [];
     if (!id) return;
-    invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [id] })
+    invoke('get_tags_with_meta_for_tracks', { trackIds: [id] })
       .then(raw => { trackTags = raw[id] ?? []; })
       .catch(() => {});
   });
@@ -65,7 +65,7 @@
     const path = track?.path;
     coverArt = null;
     if (!path) return;
-    invoke<string | null>('get_cover_art', { path }).then(result => {
+    invoke('get_cover_art', { path }).then(result => {
       if (track?.path === path) coverArt = result;
     }).catch(() => {});
   });
@@ -160,7 +160,7 @@
     try {
       await invoke('add_user_tag', { trackPath: track.path, tagName: newTagInput.trim() });
       newTagInput = "";
-      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      const raw = await invoke('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
       trackTags = raw[track.id] ?? [];
       await library.fetchTags();
     } catch (e) {
@@ -172,7 +172,7 @@
     if (!track) return;
     try {
       await invoke('remove_user_tag', { trackPath: track.path, tagName });
-      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      const raw = await invoke('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
       trackTags = raw[track.id] ?? [];
       await library.fetchTags();
     } catch (e) {
@@ -184,7 +184,7 @@
     if (!track) return;
     try {
       await invoke('suppress_tag', { trackPath: track.path, tagName });
-      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      const raw = await invoke('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
       trackTags = raw[track.id] ?? [];
       await library.fetchTags();
     } catch (e) {
@@ -196,7 +196,7 @@
     if (!track) return;
     try {
       await invoke('unsuppress_tag', { trackPath: track.path, tagName });
-      const raw = await invoke<Record<number, TagMeta[]>>('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
+      const raw = await invoke('get_tags_with_meta_for_tracks', { trackIds: [track.id] });
       trackTags = raw[track.id] ?? [];
       await library.fetchTags();
     } catch (e) {

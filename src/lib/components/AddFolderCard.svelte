@@ -10,7 +10,7 @@
 
   async function choosePath() {
     try {
-      const selected = await invoke<string | null>("select_directory");
+      const selected = await invoke("select_directory");
       if (selected) {
         path = selected;
         if (!name) {

@@ -12,7 +12,7 @@
 
   export async function loadModelPathSetting() {
     try {
-      configuredModelPath = await invoke<string | null>("get_model_path_setting");
+      configuredModelPath = await invoke("get_model_path_setting");
     } catch (e) {
       console.error("Failed to load model path setting:", e);
     }
@@ -21,7 +21,7 @@
   async function chooseModelPath() {
     modelPathMessage = "";
     try {
-      const selected = await invoke<string | null>("select_directory");
+      const selected = await invoke("select_directory");
       if (!selected) return;
       await invoke("save_model_path_setting", { path: selected });
       configuredModelPath = selected;

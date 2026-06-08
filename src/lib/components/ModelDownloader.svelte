@@ -30,7 +30,7 @@
 
   async function checkResumable() {
     try {
-      resumableFiles = await invoke<any[]>("check_pending_resume");
+      resumableFiles = await invoke("check_pending_resume");
     } catch (e) {
       console.error("Failed to check resumable files:", e);
     }
@@ -48,7 +48,7 @@
     let targets = [...models];
     if (targets.length === 0) {
       try {
-        const exist = await invoke<any>("check_models_exist");
+        const exist = await invoke("check_models_exist");
         if (!exist.essentia_exists) targets.push("essentia");
         if (!exist.clap_exists) targets.push("clap");
         if (!exist.qwen_exists) targets.push("qwen");
@@ -89,7 +89,7 @@
 
   async function checkActiveDownload() {
     try {
-      const active = await invoke<any>("get_download_status");
+      const active = await invoke("get_download_status");
       if (active) {
         isDownloading = true;
         currentModelGroup = active.model;
