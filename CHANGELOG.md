@@ -2,6 +2,37 @@
 
 All notable changes to Deep Cuts will be documented here.
 
+## [0.1.8] — 2026-06-08
+
+### Features & Refactors
+
+- **Audio Boundary Refinement Pass**: Integrated a new `boundary_refine` pass utilizing a novelty-augmented boundary detection algorithm to refine structural segmentations.
+- **DSP Onset and Chroma Caching**: Added caching of onset peaks and chroma series to the audio analysis pipeline, speeding up subsequent passes.
+- **Typed IPC Command Map**: Added a strongly-typed `CommandMap` with support for all 86 Tauri commands, routing all Tauri imports through `$lib/ipc` for improved type safety and compile-time verification.
+- **Sonic Glitch Design System Tokenization**: Replaced hardcoded CSS/D3 colors with theme-aware `--sg-*` design tokens across 28+ frontend components and statistics panels.
+- **Robust Startup Error Handling**:
+  - Halts application startup on main database failure instead of failing silently.
+  - Degrades gracefully on metrics database failure, presenting explanatory dialogs.
+  - Propagates SQLite row errors instead of silently dropping them.
+- **Pass Invariant Testing**: Added pass invariant unit tests to the Rust analysis suite to verify pipeline step outputs.
+- **SQLite Mapping Robustness**: Replaced positional SQLite column mapping in Rust with a by-name query mapping macro to prevent out-of-order column retrieval.
+- **Idempotent Library Initialization**: Made `library.init()` idempotent and added proper `dispose()` logic to clean up on unmount.
+- **SAX Model Downloader Integration**: Added the SAX model to the front-end downloader checklist.
+- **Structural Family Filter UI**: Added an active filter chip for structure cluster archetypes in the library view.
+
+### Fixes
+
+- **TypeScript Type Safety**: Tightened Tauri command signatures on the frontend and resolved compiler-level type check errors.
+
+### Tooling & Infrastructure (Internal)
+
+- **Codebase Knowledge Manager**: Added a Go-native tool to scan, review, and manage repository concepts.
+- **CCREP Gated Review Tooling**: Added a Cognitive Consensus Protocol (CCREP) ledger inspector and verification harness to enable multi-agent quality gates.
+- **rlupi.com Blog Tooling**: Added a cross-post link linter and skill to automate checks for deep-cuts articles.
+- **SALAMI Boundaries Evaluation Harness**: Automated SALAMI boundary alignment evaluation against mir_eval annotations.
+
+---
+
 ## [0.1.7] — 2026-06-06
 
 ### Features
