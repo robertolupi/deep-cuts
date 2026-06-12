@@ -1,0 +1,4 @@
+name = "deep-cuts"
+slug = "dc"
+roster = ["agy", "claude", "codex", "rlupi"]
+channels = ["#deep-cuts", "#deep-cuts-ccrep"]
