@@ -11,7 +11,8 @@ from pathlib import Path
 warnings.filterwarnings("ignore", category=UserWarning)
 
 DB_PATH = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
-VAL_TRACKS_PATH = Path("/Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-07-salami-eval-design/validation_tracks.json")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+VAL_TRACKS_PATH = REPO_ROOT / "doc/collab/sessions/2026-06-07-salami-eval-design/validation_tracks.json"
 CSV_PATH = "/Users/rlupi/src/gh/Salami-dataset-used-in-music-structure-classification/New_salami_dataframe.csv"
 JAMS_DIR = Path("/Volumes/Extreme Pro/Salami/annotations")
 
