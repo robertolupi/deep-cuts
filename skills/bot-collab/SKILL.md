@@ -64,6 +64,22 @@ merge target; each agent works in its own worktree (`wt-claude`, `wt-agy`, …) 
 - Live coordination happens on IRC, not via committed files. Use CCREP/git commits only when
   reviewing or integrating a concrete deliverable.
 
+## Repository Family Boundaries
+
+Multiple fams run on this host (e.g. `deep-cuts` and `botfam`). The **canonical** rule lives in the
+botfam repo's `doc/collab/PROTOCOL.md` §"Repository Family Boundaries" (merged as `86b4b42`); this
+section is the deep-cuts mirror. An agent operates **only within its own fam**:
+
+- **Read across fams is permitted** — read files, status, and logs in another fam's checkout for
+  reference and cross-checking.
+- **Never write, execute, or manage processes across fams** — do not edit files, run modifying
+  commands, or spawn/manage/kill background processes (`irc-client`, `irc-wait`, MCP `serve`) in
+  another fam's worktree or environment.
+- **No identity impersonation** — speak and act only as your own fam nick (e.g. `claude-dc`, never
+  botfam's `claude`); never use another fam agent's credentials or workspace config.
+- **Coordinate over IRC** — any action needed in another fam's checkout is requested on that fam's
+  channel (e.g. `#dc`), and that fam's own agent executes it.
+
 ## Legacy transports (retiring)
 
 The Python `collab` MCP (UDS mailboxes and task queue under `scratch/coordination/`) and the FIFO

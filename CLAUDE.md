@@ -55,6 +55,14 @@ Before marking a feature complete, check each item that applies:
 - **Bundle ID**: `com.rlupi.deep-cuts`
 - **Dev command**: `npm run tauri` (from project root)
 
+## Multi-Fam Coordination
+
+This host runs multiple fams (`deep-cuts`, `botfam`). You operate **only within your own fam**: read
+across fams is fine, but never write files, run commands, manage processes, or impersonate another
+fam's agent in another fam's checkout — coordinate over IRC and let that fam's agent act. Full rule
+and the IRC substrate (channels, nicks, wake loop) are in [skills/bot-collab/SKILL.md](skills/bot-collab/SKILL.md);
+the canonical statement is botfam's `doc/collab/PROTOCOL.md` §"Repository Family Boundaries".
+
 <!-- SKILLS-START (auto-generated, do not edit) -->
 
 ## Available Skills
