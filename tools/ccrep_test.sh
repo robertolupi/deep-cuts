@@ -7,4 +7,4 @@
 #   tools/ccrep_test.sh -k provenance -v
 TOOLS="$(cd "$(dirname "$0")" && pwd)"
 if [ "$#" -eq 0 ]; then set -- "$TOOLS/ccrep"; fi
-exec env PYTHONPATH="$TOOLS" /Users/rlupi/src/deep-cuts/tools/.venv/bin/python -m pytest -q "$@"
+exec env PYTHONPATH="$TOOLS" /Users/rlupi/src/fams/deep-cuts/main/tools/.venv/bin/python -m pytest -q "$@"
