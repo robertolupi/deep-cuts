@@ -106,10 +106,10 @@ action `mcp`, target `collab/*`) before falling back.
      writes `session.md` — no concurrent-writer race (see the resolved KNOWN ISSUE below).
    - **Parallel work:** `collab/post` disjoint subtasks; peers `collab/claim` (lease-backed) and
      `collab/complete`; a coordinator `collab/sweep`s expired leases. Combine with per-agent git
-     worktrees and one coordinator owning merge (see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) §"Beyond FIFO").
+     worktrees and one coordinator owning merge (see [fifo-handoff-design.md](file:///Users/rlupi/src/fams/deep-cuts/main/doc/collab/fifo-handoff-design.md) §"Beyond FIFO").
    - **Fallback to the Python `MailStore` client (`tools/collab_mcp/store.py`) or direct maildir
      access under `scratch/coordination/`** only if the MCP server fails to load.
-1. **Sequential FIFO Handoff (legacy serial fallback)** — automated by the [`/collab`](file:///Users/rlupi/src/deep-cuts/skills/collab/SKILL.md) skill; use only when the collab MCP is unavailable; see [fifo-handoff-design.md](file:///Users/rlupi/src/deep-cuts/doc/collab/fifo-handoff-design.md) for the full design:
+1. **Sequential FIFO Handoff (legacy serial fallback)** — automated by the [`/collab`](file:///Users/rlupi/src/fams/deep-cuts/main/skills/collab/SKILL.md) skill; use only when the collab MCP is unavailable; see [fifo-handoff-design.md](file:///Users/rlupi/src/fams/deep-cuts/main/doc/collab/fifo-handoff-design.md) for the full design:
    - Participants coordinate turns via a single fixed named pipe at `scratch/fifo-handoff`.
    - **Handshake (who goes first):** run `mkfifo scratch/fifo-handoff` and branch on the result. If it **succeeds**, you are first — *wait* (`cat scratch/fifo-handoff`). If it **fails** because the pipe already exists, the peer is already waiting — *you go first*: edit, log your turn, then hand off. The atomic create-or-fail removes any cold-start ambiguity.
    - To wait for a turn: Run `cat scratch/fifo-handoff` (as a background command). This blocks at the OS level until the other participant writes, triggering a reactive wakeup when the command completes.

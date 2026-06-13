@@ -10,7 +10,7 @@ This document contains a detailed technical review of the Deep Cuts codebase, fo
 ## 1. Database & DTO Coupling (Critical Risk)
 
 ### The Issue: Positional Mapping (`row.get(index)`)
-Throughout the Tauri backend (e.g., [database.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/database.rs#L125-L203) and [library.rs](file:///Users/rlupi/src/deep-cuts/src-tauri/src/commands/library.rs#L163-L167)), tracks are fetched via raw SQL and mapped to the `Track` struct using hardcoded column indices:
+Throughout the Tauri backend (e.g., [database.rs](file:///Users/rlupi/src/fams/deep-cuts/main/src-tauri/src/database.rs#L125-L203) and [library.rs](file:///Users/rlupi/src/fams/deep-cuts/main/src-tauri/src/commands/library.rs#L163-L167)), tracks are fetched via raw SQL and mapped to the `Track` struct using hardcoded column indices:
 
 ```rust
 pub fn find_all(conn: &Connection) -> Result<Vec<Self>, rusqlite::Error> {
