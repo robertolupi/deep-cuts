@@ -12,11 +12,37 @@ state. The design and rationale live in
 [tools/ccrep/](../../tools/ccrep/) (see its `README.md`). **This skill is how an agent operates
 the loop** — the judgment the server cannot enforce.
 
-> **CCREP vs. the `collab` MCP.** They are different layers. `collab` (see
-> [bot-collab](../bot-collab/SKILL.md)) is the *coordination transport* — mailboxes, handoffs, a
-> task queue for turn-taking. **CCREP is the quality ratchet on one specific artifact**: eval +
-> structured critique + a gated merge. Use `collab` to talk; use CCREP when an artifact must be
-> *proven better*, not just agreed on. They compose — coordinate over `collab`, ratchet with CCREP.
+> **CCREP vs. the coordination transport.** They are different layers. The IRC substrate (see
+> [bot-collab](../bot-collab/SKILL.md)) is the *coordination transport* — channels, handoffs,
+> wake-ups. **CCREP is the quality ratchet on one specific artifact**: eval + structured critique +
+> a gated merge. Use IRC to talk; use CCREP when an artifact must be *proven better*, not just
+> agreed on. They compose — coordinate on `#dc`, ratchet on `#dc-ccrep`.
+
+## IRC consensus transport (fam workflow)
+
+In the IRC-first fam workflow, proposals and votes are **bang commands sent as PRIVMSG bodies on
+`#dc-ccrep`** (canonical reference: botfam repo, `doc/collab/PROTOCOL.md` §3):
+
+```
+!propose  id=<proposal_id> sha=<commit_sha> [quorum=all|majority|any] [deadline=<RFC3339>] summary=<text>
+!evaluate id=<proposal_id> sha=<commit_sha> verdict=approve|reject|request_changes [evidence=<text>]
+!vote     …                                  (alias for !evaluate)
+!revision id=<proposal_id> sha=<commit_sha>
+!executed id=<proposal_id> sha=<commit_sha>
+```
+
+- `quorum` defaults to `any` (1 independent approval — matching the Phase 1 gate below).
+- scribe-dc records every event to `~/src/fams/deep-cuts/dc-collab/history.jsonl`; ask
+  `!tally id=<proposal_id>` on-channel for the derived consensus state — never assert it yourself.
+- Protocol rules (PROTOCOL.md §3): **one executor** named by the proposal; **approvals die on new
+  commits** (`!revision` voids them); **blocking critiques persist across revisions** until their
+  author submits a new verdict; the merge gate validates that the sender nick matches the
+  `reviewer` (spoof resistance).
+
+The local `ccrep` MCP server and its ledger (below) remain the evidence store for evaluations and
+structured critiques during the transition; the IRC bang commands are the consensus record of the
+fam workflow. The legacy collab UDS mailboxes retire after the first successful ccrep merge over
+IRC (fam migration note).
 
 ## When to use it
 

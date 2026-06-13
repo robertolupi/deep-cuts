@@ -19,10 +19,10 @@ Read the matching `SKILL.md` before starting any task that touches the area desc
 | `add-analysis-pass` | Checklist and guide for adding a new analysis pass to the trait-based modular pipeline |
 | `add-ipc-command` | Pattern for adding a new Tauri IPC command (request/response or push event) in the deep-cuts monorepo |
 | `add-tauri-sidecar` | How to bundle an external binary and its dylib dependencies with the Tauri app, patch rpaths, sign everything, and resolve the path at runtime |
-| `bot-collab` | Pattern for multi-agent collaboration sessions in the deep-cuts repository |
+| `bot-collab` | Pattern for multi-agent collaboration sessions in the deep-cuts fam — IRC-first coordination over the botfam substrate (channels, nicks, FIFO line protocol, wake loop), plus session-log conventions |
 | `bump-dev-version` | Bump the app version in Cargo.toml after a release to start the next dev cycle |
 | `ccrep` | Run the CCREP quality-ratchet loop — submit a code change, code review, or design doc as a proposal, evaluate it in a worktree, gather admissible peer critiques, and merge only when the consensus gate passes. Use when an artifact should be peer-evaluated and improved until provably better (not merely coordinated), or when the user says "CCREP", "quality ratchet", "submit a proposal", "run the evaluation", or asks for a gated multi-agent review/merge. |
-| `collab` | Launch or join a two-party FIFO collaboration session (the /collab handshake). Use when the user says "collab", "/collab", or asks you to collaborate turn-by-turn with another agent on shared files via the scratch/fifo-handoff named pipe. |
+| `collab` | LEGACY — two-party FIFO baton handshake (the /collab handshake), superseded by the IRC substrate (see bot-collab). Use only when the IRC server and the collab MCP are both unavailable and turn-by-turn collaboration cannot wait. |
 | `db-migration` | Safe pattern for adding SQLite schema migrations in the deep-cuts Rust/rusqlite_migration stack |
 | `dev-guidelines` | Guidelines to prevent development false starts, environment mismatches, and incorrect commands in the deep-cuts monorepo |
 | `git-commits` | Rules for writing commit messages in the deep-cuts repository — subject line format, body content, scope naming, and what to omit |

@@ -5,6 +5,10 @@
     },
     "ccrep": {
       "command": "tools/run_ccrep_mcp.py"
+    },
+    "botfam": {
+      "command": "botfam",
+      "args": ["serve"]
     }
   }
 }
