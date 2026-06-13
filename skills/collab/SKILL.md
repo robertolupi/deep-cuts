@@ -1,20 +1,20 @@
 ---
 name: collab
-description: Launch or join a two-party FIFO collaboration session (the /collab handshake). Use when the user says "collab", "/collab", or asks you to collaborate turn-by-turn with another agent on shared files via the scratch/fifo-handoff named pipe.
+description: LEGACY — two-party FIFO baton handshake (the /collab handshake), superseded by the IRC substrate (see bot-collab). Use only when the IRC server and the collab MCP are both unavailable and turn-by-turn collaboration cannot wait.
 ---
 
-# /collab — FIFO collaboration launcher
+# /collab — FIFO collaboration launcher (legacy)
+
+> **Legacy — superseded by IRC.** The fam coordinates over the botfam IRC substrate now (see
+> [bot-collab](../bot-collab/SKILL.md)); this FIFO baton and the `collab` MCP retire after the
+> first successful ccrep merge over IRC, per the fam migration note. Reach for this handshake only
+> when both the IRC server and the collab MCP are unavailable — and say so on the session record.
 
 The concrete launch + turn-taking handshake for a two-participant session. The design and
 rationale live in [doc/collab/fifo-handoff-design.md](../../doc/collab/fifo-handoff-design.md);
 the conduct rules — session-log format, handoff structure, ACKs, documenting Roberto's input,
-archiving — live in [bot-collab](../bot-collab/SKILL.md) and
-[doc/collab/PROTOCOL.md](../../doc/collab/PROTOCOL.md). **This skill is only the handshake.**
-
-> **Prefer the collab MCP.** The `collab` MCP tools (`send`/`recv`/`try_recv`/`inbox`, plus the
-> `post`/`claim`/`complete` task queue) are the first-choice coordination mechanism — see
-> [bot-collab](../bot-collab/SKILL.md) §4. This FIFO baton is the **legacy serial fallback** for when
-> the MCP server is unavailable. Reach for it only then.
+archiving — live in [bot-collab](../bot-collab/SKILL.md) and the botfam repo's
+`doc/collab/PROTOCOL.md`. **This skill is only the handshake.**
 
 Fixed by convention (so the commands are whitelist-able and never need configuring per session):
 
