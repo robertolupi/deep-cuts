@@ -36,18 +36,18 @@ Use isolated worktrees for deliverables and one shared local coordination plane 
 quality-ratchet state, and live session logs.
 
 ```text
-/Users/rlupi/src/deep-cuts          canonical repo and shared coordination plane
-/Users/rlupi/src/deep-cuts-codex    Codex worktree, branch bot/codex
-/Users/rlupi/src/deep-cuts-claude   Claude worktree, branch bot/claude
-/Users/rlupi/src/deep-cuts-agy      agy worktree, branch bot/agy
+/Users/rlupi/src/fams/deep-cuts/main        canonical repo and shared merge target
+/Users/rlupi/src/fams/deep-cuts/wt-codex    Codex worktree, branch agent/codex
+/Users/rlupi/src/fams/deep-cuts/wt-claude   Claude worktree, branch agent/claude
+/Users/rlupi/src/fams/deep-cuts/wt-agy      agy worktree, branch agent/agy
 ```
 
 The coordination plane lives under the canonical repo:
 
 ```text
-/Users/rlupi/src/deep-cuts/scratch/coordination      collab mailboxes and task queue
-/Users/rlupi/src/deep-cuts/scratch/ccrep.db          CCREP evidence ledger
-/Users/rlupi/src/deep-cuts/doc/collab/sessions/...   live session.<actor>.md logs
+/Users/rlupi/src/fams/deep-cuts/main/scratch/coordination    collab mailboxes and task queue
+/Users/rlupi/src/fams/deep-cuts/main/scratch/ccrep.db        CCREP evidence ledger
+/Users/rlupi/src/fams/deep-cuts/main/doc/collab/sessions/... live session.<actor>.md logs
 ```
 
 Each bot still edits deliverables in its own worktree and branch. The shared plane is only for
