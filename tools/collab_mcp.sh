@@ -1,2 +1,3 @@
 #!/bin/bash
-exec /Users/rlupi/src/deep-cuts/tools/.venv/bin/python /Users/rlupi/src/deep-cuts/tools/collab_mcp_cli.py "$@"
+TOOLS="$(cd "$(dirname "$0")" && pwd)"
+exec /Users/rlupi/src/fams/deep-cuts/main/tools/.venv/bin/python "$TOOLS/collab_mcp_cli.py" "$@"

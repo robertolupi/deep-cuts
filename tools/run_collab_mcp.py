@@ -1,4 +1,4 @@
-#!/Users/rlupi/src/deep-cuts/tools/.venv/bin/python
+#!/Users/rlupi/src/fams/deep-cuts/main/tools/.venv/bin/python
 # The absolute venv shebang is intentional: linked worktrees do not carry tools/.venv.
 import os
 import subprocess
