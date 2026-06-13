@@ -6,7 +6,8 @@ import random
 from pathlib import Path
 
 DB_PATH = os.path.expanduser("~/Library/Application Support/com.rlupi.deep-cuts/deep_cuts.db")
-SESSION_DIR = Path("/Users/rlupi/src/deep-cuts/doc/collab/sessions/2026-06-07-salami-eval-design")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SESSION_DIR = REPO_ROOT / "doc/collab/sessions/2026-06-07-salami-eval-design"
 
 def main():
     if not os.path.exists(DB_PATH):

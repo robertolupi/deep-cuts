@@ -18,7 +18,8 @@ from pathlib import Path
 import numpy as np
 from scipy.stats import wilcoxon
 
-AGY_TOOLS = "/Users/rlupi/src/deep-cuts-agy/tools"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+AGY_TOOLS = str(REPO_ROOT.parent / "wt-agy" / "tools")
 sys.path.insert(0, AGY_TOOLS)
 from sklearn.ensemble import RandomForestClassifier
 from evaluate_salami_phase0 import (
